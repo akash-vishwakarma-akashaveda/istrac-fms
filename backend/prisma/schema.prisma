@@ -1,56 +1,19 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
-  
+  provider = "prisma-client-js"
+  output   = "./generated/prisma"
 }
 
 datasource db {
   provider = "mysql"
 }
 
-model User {
-  id           String     @id @default(uuid())
-  name         String
-  email        String     @unique
-  employeeId   String?    @unique
-  passwordHash String? // nullable — LDAP users store no local password (Ch. 10.6)
-  role         BaseRole   @default(MEMBER)
-  status       UserStatus @default(PENDING)
-  tempPass     Boolean    @default(true)
+// ============================================================
+// ENUMS
+// ============================================================
 
-  mfaSecret  String?
-  mfaEnabled Boolean @default(false)
-
-  lastLogin DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  departmentAccess     UserDepartmentAccess[]
-  files                File[]
-  auditLogs            AuditLog[]
-  notifications        Notification[]
-  passwordHistory      PasswordHistory[]
-  refreshTokens        RefreshToken[]
-  customRoles          UserCustomRole[]
-  permissionOverrides  UserPermissionOverride[] @relation("OverrideTarget")
-  grantedOverrides     UserPermissionOverride[] @relation("OverrideGrantedBy")
-  dashboardLayout      UserDashboardLayout?
-  favoritedFiles       FileFavorite[]
-
-  @@index([email])
-  @@index([status])
-}
-
-enum BaseRole {
-  SUPER_ADMIN
-  DEPT_ADMIN
+enum UserRole {
+  ADMIN
   MEMBER
-  GUEST
 }
 
 enum UserStatus {
@@ -60,133 +23,22 @@ enum UserStatus {
   REJECTED
 }
 
-model RefreshToken {
-  id        String   @id @default(uuid())
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
-  tokenHash String   @unique
-  revoked   Boolean  @default(false)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-}
-
-model PasswordHistory {
-  id        String   @id @default(uuid())
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
-  password  String // bcrypt hash — retain last 5 per user, enforced in app layer
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-}
-
-model PasswordResetToken {
-  id        String    @id @default(uuid())
-  userId    String
-  tokenHash String    @unique
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([userId])
-}
-
-// ============================================================
-// DEPARTMENTS  (SRS Ch. 4.3, 8.2)
-// ============================================================
-
-model Department {
-  id       String  @id @default(uuid())
-  name     String  @unique
-  hddPath  String // e.g. /mnt/istrac-data/<dept>
-  archived Boolean @default(false)
-
-  allowUserFolderCreation Boolean @default(false) // Ch. 4.5
-  maxFolderDepth          Int     @default(5) // Ch. 4.5
-
-  createdAt DateTime @default(now())
-
-  userAccess  UserDepartmentAccess[]
-  files       File[]
-  customRoles CustomRole[]
-
-  @@index([archived])
-}
-
-model UserDepartmentAccess {
-  id           String       @id @default(uuid())
-  user         User         @relation(fields: [userId], references: [id])
-  userId       String
-  department   Department   @relation(fields: [departmentId], references: [id])
-  departmentId String
-  accessLevel  AccessLevel  @default(READ_ONLY)
-  expiresAt    DateTime? // guest access expiry, Ch. 5.3
-
-  @@unique([userId, departmentId])
-  @@index([departmentId])
-}
-
 enum AccessLevel {
   READ_ONLY
   READ_WRITE
-  READ_WRITE_DELETE
 }
 
-// ============================================================
-// FILES  (SRS Ch. 6, 8.2) — "reports" per SPOA pptx, fields folded in
-// ============================================================
-
-model File {
-  id           String     @id @default(uuid())
-  department   Department @relation(fields: [departmentId], references: [id])
-  departmentId String
-  parent       File?      @relation("FolderTree", fields: [parentId], references: [id])
-  parentId     String?
-  children     File[]     @relation("FolderTree")
-
-  nodeType    NodeType
-  name        String
-  hddPath     String   @unique
-  sizeBytes   BigInt?
-  mimeType    String?
-  extension   String?
-  sha256      String? // Ch. 3.5 integrity checksum
-  status      FileStatus @default(ACTIVE)
-  description String?
-  versionCount Int      @default(1)
-
-  uploader   User     @relation(fields: [uploaderId], references: [id])
-  uploaderId String
-
-  lastSynced DateTime?
-  deletedAt  DateTime? // soft delete, Ch. 6.1.4
-
-  // --- SPOA report-specific metadata (optional — confirm scope with client) ---
-  spacecraft         String? // e.g. "EOS-08", "XPoSat", "Cartosat-3"
-  mission            String?
-  reportCategory     ReportCategory?
-  classificationLevel String?
-  reportVersionLabel String? // e.g. "V1.0", "V2.0" per naming convention
-
-  createdAt DateTime @default(now())
-
-  versions    FileVersion[]
-  permissions FilePermission[]
-  tags        FileTag[]
-  favorites   FileFavorite[]
-  shareLinks  FileShareLink[]
-
-  @@index([departmentId, status])
-  @@index([parentId])
-  @@index([spacecraft])
-
+enum AccessRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
-enum NodeType {
-  FOLDER
-  FILE
+enum ReportStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
 }
 
 enum FileStatus {
@@ -196,211 +48,576 @@ enum FileStatus {
   UNREGISTERED
 }
 
+enum NodeType {
+  FOLDER
+  FILE
+}
+
 enum ReportCategory {
   SPECIAL_OPERATIONS
   ANOMALY
   STUDY
-  DAILY
+  DAILY_REPORT
+  OTHER
 }
+
+// ============================================================
+// USER
+// ============================================================
+
+model User {
+  id           String  @id @default(uuid())
+  name         String
+  email        String  @unique
+  employeeId   String? @unique
+  passwordHash String?
+
+  role   UserRole   @default(MEMBER)
+  status UserStatus @default(PENDING)
+
+  lastLogin DateTime?
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Department access granted by admin
+  departmentAccess UserDepartmentAccess[]
+
+  // Requests made by this member
+  accessRequests ReportAccessRequest[] @relation("RequestedBy")
+
+  // Requests processed by admin
+  processedRequests ReportAccessRequest[] @relation("ProcessedBy")
+
+  // Files uploaded by user
+  uploadedFiles File[] @relation("FileUploader")
+
+  // File versions uploaded by user
+  uploadedVersions FileVersion[] @relation("VersionUploader")
+
+  // Favorites
+  favorites FileFavorite[]
+
+  // File permissions
+  filePermissions FilePermission[]
+
+  // Notifications
+  notifications Notification[]
+
+  // Audit logs generated by user
+  auditLogs AuditLog[]
+
+  // Reports created by user
+  createdReports Report[] @relation("ReportCreator")
+
+  // Soft-deleted records
+  deletedByAuditLogs AuditLog[] @relation("AuditDeletedBy")
+
+  // Refresh tokens / sessions
+  refreshTokens RefreshToken[]
+}
+
+// ============================================================
+// SATELLITE
+// ============================================================
+
+model Satellite {
+  id          String  @id @default(uuid())
+  name        String
+  code        String? @unique
+  description String?
+
+  isActive Boolean @default(true)
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  departments Department[]
+
+  @@index([name])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// DEPARTMENT
+// ============================================================
+
+model Department {
+  id String @id @default(uuid())
+
+  satelliteId String
+  satellite   Satellite @relation(fields: [satelliteId], references: [id], onDelete: Restrict)
+
+  name        String
+  code        String?
+  description String?
+
+  // Physical root directory for this department
+  hddPath String
+
+  isActive Boolean @default(true)
+
+  // Configuration
+  allowUserFolderCreation Boolean @default(false)
+  maxFolderDepth          Int     @default(5)
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Files/folders belonging to department
+  files File[]
+
+  // Members who have access
+  userAccess UserDepartmentAccess[]
+
+  // Access requests
+  accessRequests ReportAccessRequest[]
+
+  // Reports
+  reports Report[]
+
+  @@unique([satelliteId, name])
+  @@index([satelliteId])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// USER ↔ DEPARTMENT ACCESS
+// ============================================================
+
+model UserDepartmentAccess {
+  id String @id @default(uuid())
+
+  userId       String
+  departmentId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  accessLevel AccessLevel @default(READ_ONLY)
+
+  grantedAt DateTime  @default(now())
+  expiresAt DateTime?
+
+  deletedAt DateTime?
+
+  @@unique([userId, departmentId])
+  @@index([userId])
+  @@index([departmentId])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// REPORT
+// ============================================================
+//
+// A REPORT is a logical entity/record, NOT merely a folder.
+//
+// Its actual document(s) are represented by File/FileVersion.
+// This allows one report to have metadata + one or more files.
+//
+
+model Report {
+  id String @id @default(uuid())
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  createdById String
+  createdBy   User   @relation("ReportCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  title       String
+  description String?
+
+  category ReportCategory?
+  status   ReportStatus    @default(ACTIVE)
+
+  reportNumber String?
+  versionLabel String?
+
+  // Report-specific metadata
+  spacecraft          String?
+  mission             String?
+  classificationLevel String?
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  files          File[]
+  accessRequests ReportAccessRequest[]
+
+  @@index([departmentId])
+  @@index([status])
+  @@index([category])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// REPORT ACCESS REQUEST
+// ============================================================
+
+model ReportAccessRequest {
+  id String @id @default(uuid())
+
+  requestedById String
+  requestedBy   User   @relation("RequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  // Optional: member may request access to a particular report
+  reportId String?
+  report   Report? @relation(fields: [reportId], references: [id], onDelete: Restrict)
+
+  requestedLevel AccessLevel @default(READ_ONLY)
+
+  status AccessRequestStatus @default(PENDING)
+
+  processedById String?
+  processedBy   User?   @relation("ProcessedBy", fields: [processedById], references: [id], onDelete: SetNull)
+
+  reason       String?
+  adminComment String?
+
+  requestedAt DateTime  @default(now())
+  processedAt DateTime?
+
+  deletedAt DateTime?
+
+  @@index([requestedById])
+  @@index([departmentId])
+  @@index([reportId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// FILE / FOLDER TREE
+// ============================================================
+
+model File {
+  id String @id @default(uuid())
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  // Optional report this file belongs to
+  reportId String?
+  report   Report? @relation(fields: [reportId], references: [id], onDelete: Restrict)
+
+  // Parent folder
+  parentId String?
+  parent   File?   @relation("FileTree", fields: [parentId], references: [id], onDelete: SetNull)
+
+  children File[] @relation("FileTree")
+
+  nodeType NodeType
+
+  name    String
+  hddPath String
+
+  sizeBytes BigInt?
+  mimeType  String?
+  extension String?
+  sha256    String?
+
+  status FileStatus @default(ACTIVE)
+
+  description String?
+
+  versionCount Int @default(1)
+
+  uploaderId String
+  uploader   User   @relation("FileUploader", fields: [uploaderId], references: [id], onDelete: Restrict)
+
+  lastSynced DateTime?
+  deletedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  versions    FileVersion[]
+  favorites   FileFavorite[]
+  permissions FilePermission[]
+  shareLinks  FileShareLink[]
+  tags        FileTag[]
+
+  @@unique([hddPath])
+  @@index([departmentId, status])
+  @@index([reportId])
+  @@index([parentId])
+  @@index([uploaderId])
+  @@index([deletedAt])
+}
+
+// ============================================================
+// FILE VERSION
+// ============================================================
 
 model FileVersion {
-  id         String   @id @default(uuid())
-  file       File     @relation(fields: [fileId], references: [id])
-  fileId     String
+  id String @id @default(uuid())
+
+  fileId String
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
   versionNum Int
-  hddPath    String
-  sizeBytes  BigInt?
-  sha256     String?
+
+  hddPath   String
+  sizeBytes BigInt?
+  sha256    String?
+
   uploadedBy String
-  createdAt  DateTime @default(now())
+  uploader   User   @relation("VersionUploader", fields: [uploadedBy], references: [id], onDelete: Restrict)
 
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  @@unique([fileId, versionNum])
   @@index([fileId])
+  @@index([deletedAt])
 }
 
-model FilePermission {
-  id       String      @id @default(uuid())
-  file     File        @relation(fields: [fileId], references: [id])
-  fileId   String
-  userId   String
-  access   AccessLevel
-
-  @@unique([fileId, userId])
-}
+// ============================================================
+// FILE FAVORITE
+// ============================================================
 
 model FileFavorite {
-  id     String @id @default(uuid())
-  user   User   @relation(fields: [userId], references: [id])
+  id String @id @default(uuid())
+
   userId String
-  file   File   @relation(fields: [fileId], references: [id])
   fileId String
 
-  @@unique([userId, fileId])
-}
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
 
-model FileShareLink {
-  id        String    @id @default(uuid())
-  file      File      @relation(fields: [fileId], references: [id])
-  fileId    String
-  token     String    @unique // 32-char random, Ch. 6.7
-  expiresAt DateTime
-  singleUse Boolean   @default(false)
-  usedAt    DateTime?
-  createdBy String
+  file File @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
   createdAt DateTime  @default(now())
+  deletedAt DateTime?
 
+  @@unique([userId, fileId])
   @@index([fileId])
 }
 
 // ============================================================
-// TAGS  (SRS Ch. 8.3 — normalized, replaces CSV column)
+// FILE PERMISSION
 // ============================================================
 
-model Tag {
-  id        String   @id @default(uuid())
-  name      String   @unique
+model FilePermission {
+  id String @id @default(uuid())
+
+  fileId String
+  userId String
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  access AccessLevel @default(READ_ONLY)
+
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  @@unique([fileId, userId])
+  @@index([userId])
+}
+
+// ============================================================
+// FILE SHARE LINK
+// ============================================================
+
+model FileShareLink {
+  id String @id @default(uuid())
+
+  fileId String
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  token     String   @unique
+  expiresAt DateTime
+
+  singleUse Boolean   @default(false)
+  usedAt    DateTime?
+
   createdBy String
   createdAt DateTime @default(now())
 
-  files FileTag[]
+  deletedAt DateTime?
+
+  @@index([fileId])
 }
 
+// ============================================================
+// TAG
+// ============================================================
+
+model Tag {
+  id   String @id @default(uuid())
+  name String @unique
+
+  createdBy String
+  createdAt DateTime @default(now())
+
+  deletedAt DateTime?
+
+  files FileTag[]
+
+  @@index([deletedAt])
+}
+
+// ============================================================
+// FILE ↔ TAG
+// ============================================================
+
 model FileTag {
-  file   File   @relation(fields: [fileId], references: [id])
   fileId String
-  tag    Tag    @relation(fields: [tagId], references: [id])
   tagId  String
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  tag Tag @relation(fields: [tagId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
 
   @@id([fileId, tagId])
 }
 
 // ============================================================
-// AUDIT LOG  (SRS Ch. 8.2 — append-only, no update/delete in prod)
-// ============================================================
-
-model AuditLog {
-  id           BigInt   @id @default(autoincrement())
-  user         User?    @relation(fields: [userId], references: [id])
-  userId       String?
-  action       String
-  resourceType String?
-  resourceId   String?
-  oldValue     Json?
-  newValue     Json?
-  ipAddress    String?
-  userAgent    String?
-  createdAt    DateTime @default(now())
-
-  @@index([userId, createdAt])
-  @@index([action, createdAt])
-}
-
-// ============================================================
-// CMS  (SRS Ch. 6.4)
-// ============================================================
-
-model CmsBlock {
-  blockKey  String   @id
-  content   Json
-  updatedAt DateTime @updatedAt
-  updatedBy String?
-}
-
-// ============================================================
-// SYSTEM CONFIG  (SRS Ch. 4.6 — runtime, DB overrides .env)
-// ============================================================
-
-model SystemConfig {
-  configKey   String   @id
-  configValue String
-  updatedBy   String?
-  updatedAt   DateTime @default(now())
-}
-
-// ============================================================
-// NOTIFICATIONS  (SRS Ch. 17)
+// NOTIFICATION
 // ============================================================
 
 model Notification {
-  id           BigInt              @id @default(autoincrement())
-  user         User                @relation(fields: [userId], references: [id])
-  userId       String
-  type         String // NotificationEventType, see Ch. 17.2
-  actorId      String?
+  id BigInt @id @default(autoincrement())
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  type    String
+  actorId String?
+
   resourceType String?
   resourceId   String?
-  message      String
-  metadata     Json?
-  category     NotificationCategory
-  readAt       DateTime?
-  dismissedAt  DateTime?
-  createdAt    DateTime            @default(now())
+
+  message String
+
+  metadata Json?
+
+  category String
+
+  readAt      DateTime?
+  dismissedAt DateTime?
+
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
 
   @@index([userId, readAt, createdAt])
   @@index([userId, type, createdAt])
 }
 
-enum NotificationCategory {
-  Files
-  Approvals
-  System
+// ============================================================
+// AUDIT LOG
+// ============================================================
+
+model AuditLog {
+  id BigInt @id @default(autoincrement())
+
+  userId          String?
+  deletedByUserId String?
+
+  user      User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  deletedBy User? @relation("AuditDeletedBy", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+
+  action       String
+  resourceType String?
+  resourceId   String?
+
+  oldValue Json?
+  newValue Json?
+
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([deletedByUserId])
+  @@index([action, createdAt])
 }
 
 // ============================================================
-// CUSTOM ROLES & PERMISSIONS  (SRS Ch. 16)
+// PASSWORD RESET
 // ============================================================
 
-model CustomRole {
-  id           String      @id @default(uuid())
-  department   Department? @relation(fields: [departmentId], references: [id])
-  departmentId String? // NULL = system-wide (Super Admin only)
-  name         String
-  description  String?
-  permissions  Json // array of PermissionKey strings — see Ch. 16.2.1
-  createdBy    String
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+model PasswordResetToken {
+  id String @id @default(uuid())
 
-  assignments UserCustomRole[]
+  userId String
 
-  @@unique([departmentId, name])
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  createdAt DateTime @default(now())
 }
 
-model UserCustomRole {
-  id           String     @id @default(uuid())
-  user         User       @relation(fields: [userId], references: [id])
-  userId       String
-  role         CustomRole @relation(fields: [roleId], references: [id])
-  roleId       String
-  departmentId String
-  assignedBy   String
-  assignedAt   DateTime   @default(now())
+// ============================================================
+// REFRESH TOKEN / SESSION
+// ============================================================
+//
+// Do NOT store the raw refresh token.
+// Store only its hash.
+//
 
-  @@unique([userId, roleId, departmentId])
+model RefreshToken {
+  id String @id @default(uuid())
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  tokenHash String @unique
+
+  revoked Boolean @default(false)
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  revokedAt DateTime?
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
-model UserPermissionOverride {
-  id           String   @id @default(uuid())
-  user         User     @relation("OverrideTarget", fields: [userId], references: [id])
-  userId       String
-  departmentId String
-  permission   String // one of the 20 PermissionKey values, Ch. 16.2.1
-  effect       OverrideEffect
-  grantedBy    User     @relation("OverrideGrantedBy", fields: [grantedById], references: [id])
-  grantedById  String
-  grantedAt    DateTime @default(now())
+// ============================================================
+// CMS
+// ============================================================
 
-  @@unique([userId, departmentId, permission])
+model CmsBlock {
+  blockKey String @id
+  content  Json
+
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+
+  deletedAt DateTime?
 }
 
-enum OverrideEffect {
-  GRANT
-  DENY
-}
+// ============================================================
+// SYSTEM CONFIG
+// ============================================================
 
-model UserDashboardLayout {
-  userId     String   @id
-  user       User     @relation(fields: [userId], references: [id])
-  layoutJson Json
-  updatedAt  DateTime @updatedAt
-}
+model SystemConfig {
+  configKey   String @id
+  configValue String
 
+  updatedBy String?
+  updatedAt DateTime @default(now()) @updatedAt
+
+  deletedAt DateTime?
+}

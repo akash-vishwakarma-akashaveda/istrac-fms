@@ -1,6 +1,6 @@
 import { Activity } from 'lucide-react'
 import { useRecentAuditLog } from '../hooks/useRecentAuditLog'
-import { Panel } from './panel'
+import { Panel } from './Panel'
 
 const actionLabels: Record<string, string> = {
   FILE_UPLOAD: 'uploaded a file',

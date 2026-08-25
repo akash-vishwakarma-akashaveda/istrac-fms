@@ -12,7 +12,7 @@ import { UploadModal } from './UploadModal'
 import { VersionHistoryPanel } from './VersionHistoryPanel'
 import { FilePreviewModal } from './FilePreviewModal'
 import { Button } from '.'
-import { Panel } from './panel'
+import { Panel } from './Panel'
 import type { FileNode, SortField, SortDirection } from '../types/file'
 
 interface FileBrowserProps {
