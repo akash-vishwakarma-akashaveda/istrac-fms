@@ -2,9 +2,8 @@ import {
   Navbar,
   AnnouncementBar,
   Hero,
-  FeatureStrip,
-  Gallery,
-  Banner,
+  FeaturedReports,
+  MissionCalendar,
   AboutSection,
   ContactSection,
   Footer,
@@ -13,7 +12,7 @@ import {
 export function Landing() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-page text-text-primary antialiased">
-      {/* The rail of section links is long; give keyboard users a way past it. */}
+      {/* Keyboard accessibility skip link */}
       <a
         href="#main"
         className="eyebrow sr-only rounded-md border border-accent bg-card px-3 py-2 text-accent-light focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-[60]"
@@ -25,9 +24,8 @@ export function Landing() {
       <AnnouncementBar />
       <main id="main">
         <Hero />
-        <FeatureStrip />
-        <Gallery />
-        <Banner />
+        <FeaturedReports />
+        <MissionCalendar />
         <AboutSection />
         <ContactSection />
       </main>

@@ -20,10 +20,10 @@ export function Topbar() {
   const unreadCount = useNotificationStore((state) => state.unreadCount)
 
   const [menuOpen, setMenuOpen] = useState(false)
-  const [utcTime, setUtcTime] = useState('')
   const [bellMenuOpen, setBellMenuOpen] = useState(false)
+  const [utcTime, setUtcTime] = useState('')
   const { data } = useNotifications()
-  const recentFive = data?.pages[0]?.data.slice(0, 5) ?? []
+  const recentFive: any[] = data?.pages && data.pages.length > 0 ? (data.pages[0].data?.slice(0, 5) ?? []) : []
 
   useEffect(() => {
     function updateTime() {

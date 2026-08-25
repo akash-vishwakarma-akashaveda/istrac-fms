@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate } from "react-router-dom";
 import { AxiosError } from "axios";
+import { UserPlus, ArrowRight } from "lucide-react";
 
 import { api } from "../lib/axios";
+import { departmentsApi, type Department } from "../api/departments.api";
 import {
   Alert,
   AuthCard,
@@ -19,14 +21,20 @@ import {
   type RegisterFormData,
 } from "../../schemas/authSchemas";
 
-// Hardcoded for now — replace with GET /departments once that endpoint is live
-const DEPARTMENTS = ["Engineering", "HR", "Finance", "Operations"];
+const FALLBACK_DEPARTMENTS = [
+  "Telemetry, Tracking & Command (TTC)",
+  "Flight Dynamics Division (FDD)",
+  "Mission Operations Complex (MOX)",
+  "IS4OM / NETRA Space Situational Awareness",
+  "Ground Station Operations (GSO)",
+];
 
 export function Register() {
   const navigate = useNavigate();
 
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [departments, setDepartments] = useState<string[]>(FALLBACK_DEPARTMENTS);
 
   const {
     register,
@@ -36,12 +44,22 @@ export function Register() {
     resolver: zodResolver(registerSchema),
   });
 
+  useEffect(() => {
+    departmentsApi
+      .getPublicDepartments()
+      .then((data: Department[]) => {
+        if (data && data.length > 0) {
+          setDepartments(data.map((d) => d.name));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   async function onSubmit(data: RegisterFormData) {
     setServerError(null);
 
     try {
       await api.post("/auth/register", data);
-
       setSubmitted(true);
     } catch (err) {
       const error = err as AxiosError<{
@@ -52,7 +70,7 @@ export function Register() {
 
       setServerError(
         error.response?.data?.error?.message ??
-          "Registration failed. Please try again.",
+          "Registration request failed. Please check your details and try again.",
       );
     }
   }
@@ -66,39 +84,40 @@ export function Register() {
       <AuthFrame
         actions={
           <Button variant="outline" size="sm" onClick={() => navigate("/login")}>
-            Log in
+            Log In
           </Button>
         }
       >
         <AuthCard
-          eyebrow="Submitted"
+          eyebrow="Access Request Submitted"
           status="PENDING REVIEW"
           tone="nominal"
-          title="Your request has been submitted"
-          description="An administrator will review it. You'll get an email once a decision is made."
+          title="Your registration request is in review"
+          description="Your application has been queued for Super Admin approval in accordance with ISTRAC Data Security Policy."
         >
-          {/* What happens next, so the wait is not a mystery. */}
-          <ol className="space-y-3 border-y border-border-subtle py-5">
+          {/* Steps */}
+          <ol className="space-y-3.5 border-y border-border-subtle py-5">
             {[
-              "An administrator reviews your details",
-              "Your department access is assigned",
-              "You receive an email with sign-in instructions",
+              "Station Administrator validates Employee ID & Department",
+              "Role-Based Access Control (RBAC) permissions are assigned",
+              "Account activation email sent with login instructions",
             ].map((stage, index) => (
               <li
                 key={stage}
-                className="flex items-start gap-3 text-[13px] leading-6 text-text-secondary"
+                className="flex items-start gap-3 text-xs leading-relaxed text-text-secondary"
               >
-                <span className="num mt-px shrink-0 text-[10px] text-text-dim">
-                  {String(index + 1).padStart(2, "0")}
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent-light text-[10px] font-bold">
+                  0{index + 1}
                 </span>
-                {stage}
+                <span>{stage}</span>
               </li>
             ))}
           </ol>
 
           <Link to="/login" className="mt-6 block">
-            <Button variant="primary" size="lg" className="w-full">
-              Back to log in
+            <Button variant="primary" size="lg" className="w-full shadow-lg shadow-accent/25">
+              <span>Return to Log In</span>
+              <ArrowRight size={15} />
             </Button>
           </Link>
         </AuthCard>
@@ -114,66 +133,72 @@ export function Register() {
     <AuthFrame
       width="md"
       actions={
-        <>
+        <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
-            Home
+            Mission Home
           </Button>
 
           <Link to="/login">
             <Button variant="outline" size="sm">
-              Log in
+              Log In
             </Button>
           </Link>
-        </>
+        </div>
       }
     >
       <AuthCard
-        eyebrow="Access request"
-        status="NEW ACCOUNT"
+        eyebrow="Security Provisioning"
+        status="NEW OPERATOR"
         tone="accent"
-        title="Request access to ISTRAC-FMS"
-        description="Submit your details to request access to satellite operations reports, mission files and department resources."
+        title="Request ISTRAC Portal Access"
+        description="Submit your verified ISRO credentials to request telemetry repository and mission workspace access."
       >
         {serverError && (
-          <Alert variant="critical" title="Request failed" className="mb-5">
+          <Alert variant="critical" title="Request submission failed" className="mb-5">
             {serverError}
           </Alert>
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-          <Input
-            id="name"
-            label="Full name"
-            autoComplete="name"
-            error={errors.name?.message}
-            {...register("name")}
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <Input
+              id="name"
+              label="Full Name & Designation"
+              placeholder="e.g. Dr. Vikram Sharma"
+              autoComplete="name"
+              error={errors.name?.message}
+              {...register("name")}
+            />
+
+            <Input
+              id="employeeId"
+              label="ISRO Employee ID"
+              placeholder="e.g. ISRO-OPS-108"
+              className="num"
+              error={errors.employeeId?.message}
+              {...register("employeeId")}
+            />
+          </div>
 
           <Input
             id="email"
-            label="Email address"
+            label="Official ISRO Email"
             type="email"
+            placeholder="name@istrac.isro.gov.in"
             autoComplete="username"
             error={errors.email?.message}
             {...register("email")}
           />
 
-          <Input
-            id="employeeId"
-            label="Employee ID"
-            error={errors.employeeId?.message}
-            {...register("employeeId")}
-          />
-
           <Select
             id="departmentPreference"
-            label="Department"
+            label="Target Division / Department"
             error={errors.departmentPreference?.message}
             {...register("departmentPreference")}
           >
-            <option value="">Select a department</option>
+            <option value="">Select an operational department</option>
 
-            {DEPARTMENTS.map((department) => (
+            {departments.map((department) => (
               <option key={department} value={department}>
                 {department}
               </option>
@@ -182,9 +207,9 @@ export function Register() {
 
           <Textarea
             id="reasonForAccess"
-            label="Reason for access"
+            label="Operational Justification / Reason for Access"
             rows={3}
-            placeholder="Briefly explain why you need access…"
+            placeholder="Specify your project or flight operations role (e.g. Aditya-L1 orbit monitoring)…"
             error={errors.reasonForAccess?.message}
             {...register("reasonForAccess")}
           />
@@ -193,7 +218,7 @@ export function Register() {
             type="submit"
             variant="primary"
             size="lg"
-            className="w-full"
+            className="w-full shadow-lg shadow-accent/25"
             disabled={isSubmitting}
           >
             {isSubmitting ? (
@@ -202,23 +227,26 @@ export function Register() {
                   aria-hidden="true"
                   className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
                 />
-                Submitting…
+                Submitting Access Request…
               </>
             ) : (
-              "Submit request"
+              <span className="flex items-center gap-2">
+                <UserPlus size={15} />
+                <span>Submit Access Application</span>
+              </span>
             )}
           </Button>
         </form>
 
-        <p className="mt-6 border-t border-border-subtle pt-5 text-center text-xs text-text-muted">
-          Already have an account?{" "}
+        <div className="mt-6 border-t border-border-subtle pt-5 flex items-center justify-between text-xs text-text-muted">
+          <span>Already registered?</span>
           <Link
             to="/login"
-            className="text-accent-light underline decoration-accent/30 underline-offset-2 transition-colors duration-150 hover:text-text-primary hover:decoration-accent"
+            className="font-semibold text-accent-light hover:text-white hover:underline transition-colors"
           >
-            Log in
+            Sign In →
           </Link>
-        </p>
+        </div>
       </AuthCard>
     </AuthFrame>
   );

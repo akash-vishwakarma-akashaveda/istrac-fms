@@ -1,98 +1,125 @@
-import { ArrowUpRight, Check } from 'lucide-react'
-import { useCms } from '../context/cmsContext'
-
-interface OrganizationOverview { text?: string }
+import { ArrowUpRight, Check, Compass, Radio } from 'lucide-react'
+import { useCms, DEFAULT_CMS_BLOCKS } from '../context/cmsContext'
+import { ImageWithFallback } from './ImageWithFallback'
 
 const ASSURANCES = [
-  'Permission-aware access',
-  'Traceable file activity',
-  'Department-scoped resources',
+  'Permission-aware departmental access controls (RBAC)',
+  'Tamper-evident append-only audit activity logging',
+  'Multi-ground station satellite scoping (BLR / SHAR / PBL / MAU)',
+  'Real-time WebSocket telemetry pass notifications',
 ]
 
 export function AboutSection() {
   const { cmsBlocks } = useCms()
-  const overview = cmsBlocks['org_overview'] as OrganizationOverview | undefined
-  if (!overview?.text) return null
+  const info = cmsBlocks['info'] as
+    | {
+        aboutTitle?: string
+        aboutText?: string
+        aboutImageUrl?: string
+        aboutImageAlt?: string
+      }
+    | undefined
+
+  const aboutText =
+    (cmsBlocks['org_overview']?.text as string) ||
+    info?.aboutText ||
+    (DEFAULT_CMS_BLOCKS['info'].aboutText as string)
+
+  const aboutTitle =
+    info?.aboutTitle ||
+    'Information Infrastructure for Deep Space & Earth Observation Missions.'
+
+  const aboutImageUrl =
+    info?.aboutImageUrl ||
+    (DEFAULT_CMS_BLOCKS['info'].aboutImageUrl as string) ||
+    'https://images.unsplash.com/photo-1581822261290-991b38693d1b?auto=format&fit=crop&w=1000&q=80'
+
+  const aboutImageAlt =
+    info?.aboutImageAlt ||
+    (DEFAULT_CMS_BLOCKS['info'].aboutImageAlt as string) ||
+    'Mission Operations Complex (MOX-2 Bengaluru)'
 
   return (
     <section
       id="about"
-      className="border-b border-border-subtle bg-page-soft py-20 sm:py-24"
+      className="relative border-b border-border-subtle bg-page-soft py-18 sm:py-24"
       aria-labelledby="about-title"
     >
-      <div className="shell grid items-center gap-14 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
-        {/* Station plate. Everything here is drawn with rules — a graticule,
-            a crosshair and the fix, the way it appears on a tracking chart. */}
-        <div
-          className="relative aspect-square w-full max-w-[420px] overflow-hidden rounded-xl border border-border-subtle bg-card shadow-card"
-          aria-hidden="true"
-        >
-          <div className="graticule-fine absolute inset-0 opacity-50" />
+      <div className="shell grid items-center gap-10 lg:grid-cols-12 lg:gap-14">
+        {/* Left Column: CMS-Managed Ground Complex Image (5 Cols) */}
+        <div className="relative aspect-[4/3] w-full max-w-[460px] mx-auto overflow-hidden rounded-2xl border border-border-default bg-[#070c17] shadow-2xl transition-all duration-300 hover:border-accent/40 lg:col-span-5 group">
+          {/* Top Tag Header */}
+          <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between border-b border-border-subtle/80 bg-[#0b1220]/80 px-4 py-2.5 backdrop-blur-md text-[11px]">
+            <span className="eyebrow flex items-center gap-1.5 text-accent-light">
+              <Compass size={13} />
+              ISTRAC HEADQUARTERS
+            </span>
+            <span className="num text-nominal font-bold flex items-center gap-1">
+              <Radio size={12} />
+              AOS 2.2 GHz
+            </span>
+          </div>
 
-          <div className="absolute inset-y-0 left-1/2 w-px bg-border-default" />
-          <div className="absolute inset-x-0 top-1/2 h-px bg-border-default" />
+          {/* Image Component with Fallback */}
+          <ImageWithFallback
+            src={aboutImageUrl}
+            alt={aboutImageAlt}
+            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+            aspectRatio="4/3"
+            fallbackIcon="mox"
+            fallbackTitle={aboutImageAlt}
+            fallbackSubtitle="Mission Operations Complex (MOX-2)"
+          />
 
-          <div className="absolute inset-[16%] rounded-full border border-dashed border-accent/20" />
-          <div className="absolute inset-[30%] rounded-full border border-border-default" />
-
-          {/* The fix itself, at the intersection. */}
-          <div className="absolute top-1/2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent" />
-          <div className="animate-pulse-slow absolute top-1/2 left-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border border-accent/30" />
-
-          <span className="num absolute top-4 left-4 text-[10px] text-text-dim">
-            13.03°N
-          </span>
-          <span className="num absolute right-4 bottom-4 text-[10px] text-text-dim">
-            77.51°E
-          </span>
-
-          <div className="absolute bottom-4 left-4">
-            <p className="eyebrow text-text-secondary">ISTRAC</p>
-            <p className="num mt-1 text-[10px] text-text-dim">BENGALURU</p>
+          {/* Bottom Coordinates Strip */}
+          <div className="absolute bottom-0 inset-x-0 z-20 flex items-center justify-between border-t border-border-subtle/80 bg-[#0b1220]/85 px-4 py-2.5 backdrop-blur-md">
+            <div>
+              <p className="eyebrow text-[9px] text-text-dim">PRIMARY CONTROL NODE</p>
+              <p className="num text-xs font-bold text-text-primary">13.034°N · 77.512°E (BLR)</p>
+            </div>
+            <span className="num text-[10px] text-nominal font-semibold">● SYNCHRONIZED</span>
           </div>
         </div>
 
-        <div className="max-w-2xl">
+        {/* Right Column: Text Content & Assurances (7 Cols) */}
+        <div className="lg:col-span-7">
           <p className="eyebrow flex items-center gap-2.5 text-accent-light">
             <span aria-hidden="true" className="h-2.5 w-px bg-accent-light" />
-            About the platform
+            About ISTRAC Telemetry Infrastructure
           </p>
 
           <h2
             id="about-title"
-            className="display mt-5 text-3xl text-text-primary sm:text-[2.5rem]"
+            className="display mt-4 text-3xl font-bold tracking-tight text-text-primary sm:text-4xl"
           >
-            Information infrastructure for mission support.
+            {aboutTitle}
           </h2>
 
-          <p className="mt-7 text-[15px] leading-8 text-text-secondary">
-            {overview.text}
+          <p className="mt-5 text-sm leading-relaxed text-text-secondary sm:text-base">
+            {aboutText}
           </p>
 
-          <ul className="mt-8 grid gap-3 border-t border-border-subtle pt-7">
+          <div className="mt-8 grid gap-3 border-t border-border-subtle pt-6 sm:grid-cols-2">
             {ASSURANCES.map((assurance) => (
-              <li
+              <div
                 key={assurance}
-                className="flex items-center gap-2.5 text-[13px] text-text-secondary"
+                className="flex items-start gap-2.5 rounded-lg border border-border-subtle bg-card/60 p-3 text-xs text-text-secondary"
               >
-                <Check
-                  size={14}
-                  strokeWidth={2.2}
-                  className="shrink-0 text-nominal"
-                  aria-hidden="true"
-                />
-                {assurance}
-              </li>
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-nominal/15 text-nominal">
+                  <Check size={12} strokeWidth={2.5} />
+                </div>
+                <span>{assurance}</span>
+              </div>
             ))}
-          </ul>
+          </div>
 
           <a
-            className="group mt-8 inline-flex items-center gap-2 text-[13px] text-accent-light transition-colors duration-150 hover:text-text-primary"
+            className="group mt-8 inline-flex items-center gap-2 text-sm font-semibold text-accent-light transition-colors hover:text-text-primary"
             href="#contact"
           >
-            Contact support
+            <span>Contact Mission Support</span>
             <ArrowUpRight
-              size={14}
+              size={15}
               className="transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
             />
           </a>

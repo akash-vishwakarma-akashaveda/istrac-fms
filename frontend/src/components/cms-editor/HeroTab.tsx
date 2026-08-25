@@ -10,6 +10,9 @@ interface HeroContent {
   title?: string
   subtitle?: string
   ctaText?: string
+  badgeText?: string
+  imageUrl?: string
+  imageAlt?: string
 }
 
 export function HeroTab() {
@@ -23,11 +26,17 @@ export function HeroTab() {
   const [title, setTitle] = useState('')
   const [subtitle, setSubtitle] = useState('')
   const [ctaText, setCtaText] = useState('')
+  const [badgeText, setBadgeText] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
+  const [imageAlt, setImageAlt] = useState('')
 
   useEffect(() => {
     setTitle(existing?.title ?? '')
     setSubtitle(existing?.subtitle ?? '')
     setCtaText(existing?.ctaText ?? '')
+    setBadgeText(existing?.badgeText ?? '')
+    setImageUrl(existing?.imageUrl ?? '')
+    setImageAlt(existing?.imageAlt ?? '')
   }, [existing])
 
   function handleSave() {
@@ -38,6 +47,9 @@ export function HeroTab() {
           title,
           subtitle,
           ctaText,
+          badgeText,
+          imageUrl,
+          imageAlt,
         },
       },
       {
@@ -55,6 +67,15 @@ export function HeroTab() {
   return (
     <Panel title="Hero" meta="block:hero">
       <div className="space-y-5">
+        {/* Badge Text */}
+        <Input
+          id="hero-badge"
+          label="Telemetry Status Badge"
+          value={badgeText}
+          onChange={(e) => setBadgeText(e.target.value)}
+          placeholder="e.g. Telemetry & Tracking Network Active"
+        />
+
         {/* Hero title */}
         <Input
           id="hero-title"
@@ -80,6 +101,26 @@ export function HeroTab() {
           value={ctaText}
           onChange={(e) => setCtaText(e.target.value)}
           placeholder="e.g. Get started"
+        />
+
+        {/* Image URL */}
+        <Input
+          id="hero-image-url"
+          label="Hero Image URL"
+          value={imageUrl}
+          onChange={(e) => setImageUrl(e.target.value)}
+          placeholder="https://example.com/ground-station.jpg"
+          className="num"
+          hint="If empty or broken, an automatic mission control placeholder will be rendered."
+        />
+
+        {/* Image Alt */}
+        <Input
+          id="hero-image-alt"
+          label="Hero Image Alt Text"
+          value={imageAlt}
+          onChange={(e) => setImageAlt(e.target.value)}
+          placeholder="e.g. ISTRAC Bengaluru Ground Station Antenna"
         />
 
         {/* Save */}

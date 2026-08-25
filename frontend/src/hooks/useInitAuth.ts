@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api } from '../lib/axios'
+import { apiClient } from '../api/client'
 import { useAuthStore } from '../store/authStore'
 
 export function useInitAuth() {
@@ -9,19 +9,24 @@ export function useInitAuth() {
   const clearAuth = useAuthStore((s) => s.clearAuth)
 
   useEffect(() => {
-    // If there's no leftover `user` from storage, don't even bother —
-    // definitely not logged in, skip straight to showing the login page.
     if (!user) {
       setIsChecking(false)
       return
     }
 
-    api
+    apiClient
       .post('/auth/refresh')
-      .then(({ data }) => setAuth(user, data.accessToken))
+      .then((res) => {
+        const token = res.data?.data?.accessToken || res.data?.accessToken
+        if (token) {
+          setAuth(user, token)
+        } else {
+          clearAuth()
+        }
+      })
       .catch(() => clearAuth())
       .finally(() => setIsChecking(false))
-  }, [])
+  }, [user, setAuth, clearAuth])
 
   return { isChecking }
 }

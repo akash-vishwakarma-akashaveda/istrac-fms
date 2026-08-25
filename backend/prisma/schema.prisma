@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "./generated/prisma"
 }
 
 datasource db {
@@ -244,6 +243,8 @@ model Report {
   spacecraft          String?
   mission             String?
   classificationLevel String?
+  customCategory      String?
+  namingConvention    String?
 
   deletedAt DateTime?
   createdAt DateTime  @default(now())
@@ -614,10 +615,35 @@ model CmsBlock {
 
 model SystemConfig {
   configKey   String @id
-  configValue String
+  configValue String @db.LongText
 
   updatedBy String?
   updatedAt DateTime @default(now()) @updatedAt
 
   deletedAt DateTime?
 }
+
+// ============================================================
+// REPORT PRESETS & NAMING CONVENTIONS
+// ============================================================
+
+model ReportCategoryPreset {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  code        String   @unique
+  description String?  @db.Text
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model NamingPreset {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  template    String   @db.Text
+  description String?  @db.Text
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+

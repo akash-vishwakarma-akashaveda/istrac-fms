@@ -1,329 +1,277 @@
 @import "tailwindcss";
 
 /* ============================================================================
-   TYPEFACES — do not change. Lato ships in three weights only (300/400/700)
-   and DejaVu Sans Mono is the data face. The weight map in @theme below makes
-   sure no utility ever asks the browser to synthesize a weight we don't have.
-   ========================================================================== */
-
-@font-face {
-  font-family: 'Lato';
-  src: url('/fonts/Lato-Light.woff2') format('woff2');
-  font-weight: 300;
-  font-display: optional;
-}
-
-@font-face {
-  font-family: 'Lato';
-  src: url('/fonts/Lato-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-display: optional;
-}
-
-@font-face {
-  font-family: 'Lato';
-  src: url('/fonts/Lato-Bold.woff2') format('woff2');
-  font-weight: 700;
-  font-display: optional;
-}
-
-@font-face {
-  font-family: 'DejaVu Sans Mono';
-  src: url('/fonts/DejaVuSansMono.woff2') format('woff2');
-  font-display: optional;
-}
-
-/* ============================================================================
-   THEME
-   ---------------------------------------------------------------------------
-   Direction: a ground-station console. Near-black planes separated by
-   hairlines rather than floating cards with drop shadows. One chromatic
-   voice (the ISTRAC blue) plus four status colours. Depth comes from surface
-   value and border brightness, never from blur.
+   ISTRAC-FMS DESIGN SYSTEM & THEME TOKENS
+   Target: Aerospace Mission Control & Intranet File Management Portal
    ========================================================================== */
 
 @theme {
-  /* -- Type ---------------------------------------------------------------- */
-  --font-sans: "Lato", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "DejaVu Sans Mono", ui-monospace, monospace;
+  /* -- Typography ---------------------------------------------------------- */
+  --font-sans: "Inter", "Plus Jakarta Sans", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "DejaVu Sans Mono", ui-monospace, monospace;
 
-  /* Only 300/400/700 exist as files. Anything that asks for 500 resolves
-     down to 400 and anything that asks for 600+ resolves up to a real 700,
-     so no glyph is ever faux-bolded by the browser. */
-  --font-weight-thin: 300;
-  --font-weight-extralight: 300;
   --font-weight-light: 300;
   --font-weight-normal: 400;
-  --font-weight-medium: 400;
-  --font-weight-semibold: 700;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
   --font-weight-bold: 700;
-  --font-weight-extrabold: 700;
-  --font-weight-black: 700;
+  --font-weight-extrabold: 800;
 
-  /* -- Planes -------------------------------------------------------------- */
-  --color-page: #04070c;
-  --color-page-soft: #070b12;
-  --color-surface: #090e16;
-  --color-card: #0b111a;
-  --color-card-hover: #111a26;
+  /* -- Color Palette: Deep Space Canvas ------------------------------------- */
+  --color-page: #04070e;
+  --color-page-soft: #080d17;
+  --color-surface: #0c121e;
+  --color-card: #101726;
+  --color-card-hover: #172033;
 
-  /* -- Hairlines ----------------------------------------------------------- */
-  --color-border-subtle: #172030;
-  --color-border-default: #212d3e;
-  --color-border-bright: #33455c;
-  /* `border-border` is referenced by existing markup — keep it resolvable. */
-  --color-border: #212d3e;
+  /* -- Hairline Borders ---------------------------------------------------- */
+  --color-border-subtle: #192336;
+  --color-border-default: #223049;
+  --color-border-bright: #364b6e;
+  --color-border: #223049;
 
-  /* -- Ink ----------------------------------------------------------------- */
-  --color-text-primary: #eaf0f7;
-  --color-text-secondary: #a6b4c6;
-  --color-text-muted: #6c7c91;
-  --color-text-dim: #4a5768;
+  /* -- Ink & Typography ---------------------------------------------------- */
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+  --color-text-dim: #475569;
 
-  /* -- Accent -------------------------------------------------------------- */
-  --color-accent: #1683ff;
-  --color-accent-hover: #3d9aff;
-  --color-accent-light: #6bb2ff;
-  --color-accent-dark: #0a5fc0;
+  /* -- Brand Voice: ISRO / ISTRAC Mission Blue ----------------------------- */
+  --color-accent: #1d72fe;
+  --color-accent-hover: #3b82f6;
+  --color-accent-light: #60a5fa;
+  --color-accent-dark: #1e40af;
 
-  /* -- Status -------------------------------------------------------------- */
-  --color-nominal: #35c77f;
-  --color-nominal-bg: #0a2418;
-  --color-warning: #e5a33c;
-  --color-warning-bg: #241906;
-  --color-critical: #f2606a;
-  --color-critical-bg: #260e12;
-  --color-special: #9c82f7;
-  --color-special-bg: #17123a;
+  /* -- Telemetry Status Colors --------------------------------------------- */
+  --color-nominal: #10b981;
+  --color-nominal-bg: #064e3b;
+  --color-warning: #f59e0b;
+  --color-warning-bg: #451a03;
+  --color-critical: #ef4444;
+  --color-critical-bg: #450a0a;
+  --color-special: #a855f7;
+  --color-special-bg: #3b0764;
 
-  /* -- Radii --------------------------------------------------------------- */
-  /* Mechanical, not consumer-app. Tightening the scale here re-cuts every
-     rounded-* already in the codebase without touching the markup. */
-  --radius-xs: 2px;
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 6px;
-  --radius-xl: 8px;
-  --radius-2xl: 10px;
-  --radius-3xl: 14px;
+  /* -- Corner Radii -------------------------------------------------------- */
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
 
-  /* -- Elevation ----------------------------------------------------------- */
-  /* Kept deliberately near-invisible: a hairline reads as an edge, a blur
-     reads as a marketing card. The inset top highlight is what makes a panel
-     feel like a machined plate. */
+  /* -- High-Precision Elevation Shadows ------------------------------------ */
   --shadow-card:
-    inset 0 1px 0 rgba(255, 255, 255, 0.025),
-    0 1px 2px rgba(0, 0, 0, 0.5);
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 2px 4px rgba(0, 0, 0, 0.5);
   --shadow-card-hover:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 2px 8px -2px rgba(0, 0, 0, 0.6);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 24px -4px rgba(0, 0, 0, 0.65);
   --shadow-card-lg:
-    inset 0 1px 0 rgba(255, 255, 255, 0.035),
-    0 24px 60px -28px rgba(0, 0, 0, 0.9);
-  --shadow-button: 0 1px 2px rgba(0, 0, 0, 0.45);
-  --shadow-glow: 0 0 0 1px rgba(22, 131, 255, 0.22);
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 24px 48px -12px rgba(0, 0, 0, 0.85);
+  --shadow-button: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 20px rgba(29, 114, 254, 0.25);
+  --shadow-glow-nominal: 0 0 20px rgba(16, 185, 129, 0.2);
 
-  /* Tailwind's own soft shadows are too diffuse for this language —
-     overlays get a defined edge and a deep, tight drop instead. */
-  --shadow-xl:
-    inset 0 1px 0 rgba(255, 255, 255, 0.035),
-    0 18px 44px -20px rgba(0, 0, 0, 0.9);
-  --shadow-2xl:
-    inset 0 1px 0 rgba(255, 255, 255, 0.035),
-    0 32px 70px -30px rgba(0, 0, 0, 0.95);
-
-  /* -- Motion -------------------------------------------------------------- */
+  /* -- Motion Transitions & Keyframes --------------------------------------- */
   --animate-pulse-slow: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  --animate-rise: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-tick: tick 2.4s steps(1, end) infinite;
-
-  /* -- Breakpoints --------------------------------------------------------- */
-  --breakpoint-xs: 480px;
+  --animate-rise: rise 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-tick: tick 2s steps(1, end) infinite;
+  --animate-float: float 4s ease-in-out infinite;
+  --animate-fadeIn: fadeIn 0.3s ease-out both;
+  --animate-spin-slow: spin 20s linear infinite;
+  --animate-radar: radar-pulse 3s cubic-bezier(0, 0, 0.2, 1) infinite;
+  --animate-glow: glow-pulse 3s ease-in-out infinite;
 }
 
 @keyframes pulse-slow {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  50% { opacity: 0.45; }
 }
 
 @keyframes rise {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes tick {
   0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0.25; }
+  50%, 100% { opacity: 0.2; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes radar-pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 0.2; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 15px rgba(29, 114, 254, 0.15); }
+  50% { box-shadow: 0 0 25px rgba(29, 114, 254, 0.35); }
 }
 
 /* ============================================================================
-   BASE
+   BASE ELEMENT STYLES
    ========================================================================== */
 
-@layer base {
-  *, *::before, *::after { box-sizing: border-box; }
+*, *::before, *::after {
+  box-sizing: border-box;
+}
 
-  html {
-    background: var(--color-page);
-    scroll-behavior: smooth;
-    /* Keeps anchored landing sections clear of the sticky navbar. */
-    scroll-padding-top: 5rem;
-  }
+html {
+  color-scheme: dark;
+  background-color: var(--color-page);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-  body {
-    margin: 0;
-    min-height: 100vh;
-    background: var(--color-page);
-    color: var(--color-text-primary);
-    font-family: var(--font-sans);
-    font-weight: 400;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-  }
-
-  /* Headings carry their weight per-use, not globally: display sizes are set
-     in Lato 300 and small functional labels in 700. A blanket bold here would
-     fight that, so base only handles optical tracking. */
-  h1, h2, h3, h4, h5, h6 {
-    font-weight: 400;
-    letter-spacing: -0.02em;
-    text-wrap: balance;
-  }
-
-  p { text-wrap: pretty; }
-
-  button, input, textarea, select { font: inherit; color: inherit; }
-  button { background: none; border: 0; }
-  img, svg { max-width: 100%; }
-
-  /* Machine-readable values are always tabular so columns of figures line up
-     digit-for-digit down a table. */
-  code, kbd, samp, pre {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Native controls sit on the same dark planes as everything else. */
-  select option {
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-  }
-
-  ::placeholder { color: var(--color-text-dim); }
-
-  ::selection {
-    background: rgba(22, 131, 255, 0.28);
-    color: #fff;
-  }
-
-  /* One consistent, always-visible keyboard affordance. */
-  :focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
-    border-radius: var(--radius-md);
-  }
-
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: var(--color-page); }
-  ::-webkit-scrollbar-thumb {
-    background: var(--color-border-default);
-    border: 2px solid var(--color-page);
-    border-radius: 999px;
-  }
-  ::-webkit-scrollbar-thumb:hover { background: var(--color-border-bright); }
-  ::-webkit-scrollbar-corner { background: var(--color-page); }
-
-  * { scrollbar-color: var(--color-border-default) var(--color-page); }
-
-  @media (prefers-reduced-motion: reduce) {
-    html { scroll-behavior: auto; }
-    *, *::before, *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-    }
-  }
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--color-page);
+  overflow-x: hidden;
 }
 
 /* ============================================================================
-   UTILITIES
-   ---------------------------------------------------------------------------
-   A small vocabulary for the console language, so the same measurements and
-   the same hairlines get reused instead of re-typed per page.
+   TYPOGRAPHIC SCALES & ACCENTS
    ========================================================================== */
 
-/* Page measure. Matches the width the landing sections already used. */
-@utility shell {
-  width: min(1280px, calc(100% - 2rem));
-  margin-inline: auto;
-}
-
-@utility shell-wide {
-  width: min(1600px, calc(100% - 2rem));
-  margin-inline: auto;
-}
-
-/* Section marker: small, wide-tracked, always uppercase. */
-@utility eyebrow {
-  font-size: 10px;
+.display {
+  font-family: var(--font-sans);
   font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.16em;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: var(--color-text-dim);
 }
 
-/* Display type is set light and tight — the inverse of the usual
-   big-and-bold, and much closer to how instrument panels are labelled. */
-@utility display {
-  font-weight: 300;
-  letter-spacing: -0.035em;
-  line-height: 1.04;
-}
-
-/* THE RULE OF THE SYSTEM: anything the machine produced — identifiers,
-   timestamps, byte counts, versions, addresses, tallies — is set in mono.
-   Anything a person wrote stays in Lato. */
-@utility num {
+.num {
   font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
+  font-feature-settings: "tnum" 1, "zero" 1, "cv01" 1;
 }
 
-/* Station graticule. Replaces the gradient blobs: a latitude/longitude mesh
-   is the real furniture of a tracking station, and it costs no images. */
-@utility graticule {
-  background-image:
-    linear-gradient(to right, rgba(140, 170, 210, 0.055) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(140, 170, 210, 0.055) 1px, transparent 1px);
-  background-size: 72px 72px;
-}
-
-@utility graticule-fine {
-  background-image:
-    linear-gradient(to right, rgba(140, 170, 210, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(140, 170, 210, 0.04) 1px, transparent 1px);
-  background-size: 18px 18px;
-}
-
-/* Readout field: one cell of the console strip. */
-@utility readout {
+.readout {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.375rem;
   font-family: var(--font-mono);
   font-size: 11px;
-  font-variant-numeric: tabular-nums;
+  font-weight: 500;
   letter-spacing: 0.04em;
-  white-space: nowrap;
 }
 
-/* Column header treatment shared by every table in the app. */
-@utility col-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+.col-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  white-space: nowrap;
-  color: var(--color-text-muted);
+  color: var(--color-text-dim);
+}
+
+/* ============================================================================
+   AEROSPACE GRATICULES & HUD OVERLAYS
+   ========================================================================== */
+
+.graticule {
+  background-image:
+    linear-gradient(to right, rgba(34, 48, 73, 0.4) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(34, 48, 73, 0.4) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.graticule-fine {
+  background-image:
+    linear-gradient(to right, rgba(34, 48, 73, 0.25) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(34, 48, 73, 0.25) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/* ============================================================================
+   CONTAINER SHELLS
+   ========================================================================== */
+
+.shell {
+  width: 100%;
+  max-width: 82rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .shell {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+.shell-wide {
+  width: 100%;
+  max-width: 96rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  .shell-wide {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+/* ============================================================================
+   SCROLLBAR STYLES
+   ========================================================================== */
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #060a13;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e2c44;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2e4468;
 }

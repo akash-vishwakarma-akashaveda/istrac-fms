@@ -1,14 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
-import { api } from '../lib/axios'
+import { departmentsApi, browseApi } from '../api'
 
-interface UserDeptCard {
+export interface UserDeptCard {
   id: string
   name: string
   fileCount: number
   lastUpdated: string
 }
 
-interface RecentFile {
+export interface RecentFile {
   id: string
   name: string
   departmentName: string
@@ -21,8 +21,13 @@ export function useUserDepartments() {
   return useQuery({
     queryKey: ['user-departments'],
     queryFn: async () => {
-      const { data } = await api.get<UserDeptCard[]>('/departments', { params: { scope: 'assigned', withCounts: true } })
-      return data
+      const depts = await departmentsApi.getUserDepartments()
+      return depts.map((d) => ({
+        id: d.id,
+        name: d.name,
+        fileCount: d.fileCount || 0,
+        lastUpdated: d.updatedAt || d.createdAt,
+      }))
     },
   })
 }
@@ -31,8 +36,19 @@ export function useRecentFiles() {
   return useQuery({
     queryKey: ['recent-files'],
     queryFn: async () => {
-      const { data } = await api.get<RecentFile[]>('/files/recent', { params: { limit: 5 } })
-      return data
+      try {
+        const res = await browseApi.search('', undefined, 1, 5)
+        return (res.data || []).map((f) => ({
+          id: f.id,
+          name: f.name,
+          departmentName: f.departmentName,
+          uploadedAt: f.createdAt,
+          mimeType: f.mimeType || null,
+          size: f.sizeBytes ? Number(f.sizeBytes) : 0,
+        }))
+      } catch {
+        return []
+      }
     },
   })
 }

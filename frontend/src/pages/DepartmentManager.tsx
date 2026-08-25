@@ -242,7 +242,7 @@ export function DepartmentManager() {
                       handleArchiveToggle(
                         dept.id,
                         dept.name,
-                        dept.archived
+                        Boolean(dept.archived)
                       )
                     }
                     disabled={archiveDept.isPending}

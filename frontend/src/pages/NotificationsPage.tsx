@@ -27,7 +27,7 @@ export function NotificationsPage() {
   const markAllRead = useMarkAllRead()
   const markRead = useMarkRead()
 
-  let items = data?.pages.flatMap((p) => p.data) ?? []
+  let items = data?.pages.flatMap((p: any) => p.data || []) ?? []
   if (tab === 'Unread') items = items.filter((i) => !i.readAt)
 
   const grouped = groupByDate(items)

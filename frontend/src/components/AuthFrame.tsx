@@ -7,16 +7,11 @@ import { Link } from 'react-router-dom'
  */
 function StationMark() {
   return (
-    <span
-      className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-accent/30 bg-accent/10 text-accent-light"
-      aria-hidden="true"
-    >
-      <span className="relative block h-3.5 w-3.5">
-        <span className="absolute top-[6px] left-0 h-px w-3.5 rotate-45 bg-current" />
-        <span className="absolute top-[6px] left-0 h-px w-3.5 -rotate-45 bg-current" />
-        <span className="absolute top-[3px] left-[3px] h-2 w-2 rounded-full border border-current" />
-      </span>
-    </span>
+    <img
+      src="/logo/isro_logo.svg"
+      alt="ISRO Logo"
+      className="h-8 w-auto object-contain shrink-0"
+    />
   )
 }
 

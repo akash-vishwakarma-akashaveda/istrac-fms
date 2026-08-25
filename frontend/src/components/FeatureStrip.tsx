@@ -1,19 +1,34 @@
-import { CheckCircle2, Shield, Search, Clock, type LucideIcon } from 'lucide-react'
-import { useCms } from '../context/cmsContext'
+import { CheckCircle2, Shield, Search, Clock, Database, Lock, Cpu, Radio, Satellite, Globe, type LucideIcon } from 'lucide-react'
+import { useCms, DEFAULT_CMS_BLOCKS } from '../context/cmsContext'
 
-interface FeatureItem { icon: string; title: string; description: string; visible: boolean }
-const ICONS: Record<string, LucideIcon> = { Shield, Search, Clock }
+interface FeatureItem {
+  icon: string
+  title: string
+  description: string
+  visible: boolean
+}
+
+const ICONS: Record<string, LucideIcon> = {
+  Radio,
+  Satellite,
+  Cpu,
+  Shield,
+  Globe,
+  Clock,
+  Search,
+  Database,
+  Lock,
+}
 
 export function FeatureStrip() {
   const { cmsBlocks } = useCms()
-  const items = (cmsBlocks['feature_strip']?.items as FeatureItem[]) ?? []
-  const visibleItems = items.filter((item) => item.visible)
-  if (visibleItems.length === 0) return null
+  const rawItems = (cmsBlocks['feature_strip']?.items as FeatureItem[]) ?? (DEFAULT_CMS_BLOCKS['feature_strip'].items as FeatureItem[])
+  const visibleItems = rawItems.filter((item) => item.visible !== false)
 
   return (
     <section
       id="features"
-      className="border-b border-border-subtle bg-page-soft py-20 sm:py-24"
+      className="relative border-b border-border-subtle bg-page-soft py-20 sm:py-24"
       aria-labelledby="features-title"
     >
       <div className="shell">
@@ -21,46 +36,53 @@ export function FeatureStrip() {
           <div>
             <p className="eyebrow flex items-center gap-2.5 text-accent-light">
               <span aria-hidden="true" className="h-2.5 w-px bg-accent-light" />
-              Core capabilities
+              Core Capabilities & Operations
             </p>
 
             <h2
               id="features-title"
-              className="display mt-5 max-w-xl text-3xl text-text-primary sm:text-[2.5rem]"
+              className="display mt-4 max-w-xl text-3xl font-bold text-text-primary sm:text-4xl"
             >
-              Built for secure file management.
+              Nerve Centre for Indian Space Missions.
             </h2>
           </div>
 
-          <p className="max-w-sm text-[13px] leading-6 text-text-muted">
-            Everything your teams need to manage institutional files with
-            confidence.
+          <p className="max-w-md text-sm leading-relaxed text-text-muted">
+            End-to-end ground telemetry reception, deep space communication, orbit determination, and space situational awareness.
           </p>
         </div>
 
-        {/* A spec sheet rather than a row of cards: the columns are divided by
-            hairlines, so the set reads as one specification. */}
-        <div className="mt-10 grid divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle bg-card shadow-card md:grid-cols-3 md:divide-x md:divide-y-0">
+        {/* 3D Modern Feature Grid */}
+        <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {visibleItems.map((item, index) => {
             const Icon = ICONS[item.icon] ?? CheckCircle2
 
             return (
               <article
                 key={`${item.title}-${index}`}
-                className="group p-6 transition-colors duration-150 hover:bg-card-hover sm:p-7"
+                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border-subtle bg-card p-8 shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:border-accent/40 hover:shadow-2xl hover:shadow-accent/10"
               >
-                <Icon
-                  size={20}
-                  strokeWidth={1.6}
-                  className="text-accent-light"
-                  aria-hidden="true"
-                />
+                {/* Subtle Radial Flare on Hover */}
+                <div className="pointer-events-none absolute -top-24 -right-24 h-48 w-48 rounded-full bg-accent/10 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
 
-                <h3 className="mt-7 text-[15px] text-text-primary">{item.title}</h3>
+                <div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border-subtle bg-surface text-accent-light shadow-inner transition-colors duration-300 group-hover:border-accent/50 group-hover:bg-accent/10">
+                    <Icon size={24} strokeWidth={1.8} />
+                  </div>
 
-                <p className="mt-2.5 text-[13px] leading-6 text-text-muted">
-                  {item.description}
-                </p>
+                  <h3 className="mt-6 text-lg font-semibold text-text-primary">
+                    {item.title}
+                  </h3>
+
+                  <p className="mt-3 text-sm leading-relaxed text-text-muted">
+                    {item.description}
+                  </p>
+                </div>
+
+                <div className="mt-6 flex items-center justify-between border-t border-border-subtle/50 pt-4 text-[11px] text-text-dim">
+                  <span className="num">OPERATION 0{index + 1}</span>
+                  <span className="num text-nominal font-medium">● ACTIVE</span>
+                </div>
               </article>
             )
           })}

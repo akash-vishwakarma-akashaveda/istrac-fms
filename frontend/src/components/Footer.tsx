@@ -1,61 +1,90 @@
-import { ArrowUp } from 'lucide-react'
+import { ArrowUp, Radio, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export function Footer() {
   return (
-    <footer className="border-t border-border-subtle bg-page-soft">
-      <div className="shell py-12">
-        <div className="flex flex-col justify-between gap-8 border-b border-border-subtle pb-8 sm:flex-row sm:items-start">
+    <footer className="border-t border-border-subtle bg-[#050811]">
+      <div className="shell py-10 sm:py-12">
+        <div className="flex flex-col justify-between gap-8 pb-8 border-b border-border-subtle sm:flex-row sm:items-center">
+          {/* Brand & Mandate */}
           <div>
             <Link
               to="/"
-              className="group inline-flex items-center gap-2.5 text-text-primary"
-              aria-label="ISTRAC-FMS home"
+              className="inline-flex items-center gap-3 text-text-primary"
+              aria-label="ISTRAC home"
             >
-              <span
-                className="grid h-7 w-7 place-items-center rounded-md border border-accent/30 bg-accent/10 text-accent-light transition-colors duration-150 group-hover:border-accent/60"
-                aria-hidden="true"
-              >
-                <span className="relative block h-3.5 w-3.5">
-                  <span className="absolute top-[6px] left-0 h-px w-3.5 rotate-45 bg-current" />
-                  <span className="absolute top-[6px] left-0 h-px w-3.5 -rotate-45 bg-current" />
-                  <span className="absolute top-[3px] left-[3px] h-2 w-2 rounded-full border border-current" />
-                </span>
-              </span>
+              <img
+                src="/logo/isro_logo.svg"
+                alt="ISRO Logo"
+                className="h-9 sm:h-10 w-auto object-contain shrink-0"
+              />
 
-              <span className="text-[13px] tracking-[0.06em]">
-                ISTRAC<span className="text-accent-light">-FMS</span>
+              <span className="text-xs font-bold tracking-wider uppercase">
+                ISRO · <span className="text-accent-light">ISTRAC</span>
               </span>
             </Link>
 
-            <p className="mt-4 max-w-xs text-xs leading-6 text-text-muted">
-              Secure and centralized file management for ISTRAC departments.
+            <p className="mt-2 text-xs text-text-muted max-w-md">
+              ISRO Telemetry, Tracking and Command Network · Department of Space, Government of India.
             </p>
+
+            <div className="mt-3 flex items-center gap-4 text-[11px] text-text-dim">
+              <span className="flex items-center gap-1.5 text-nominal">
+                <Radio size={12} /> 24/7 Operations Live
+              </span>
+              <span className="flex items-center gap-1.5 text-accent-light">
+                <ShieldCheck size={12} /> Official Intranet Portal
+              </span>
+            </div>
           </div>
 
-          <a
-            href="#hero"
-            className="group inline-flex items-center gap-2 text-xs text-text-muted transition-colors duration-150 hover:text-text-primary"
-          >
-            Back to top
-            <ArrowUp
-              size={13}
-              className="transition-transform duration-200 group-hover:-translate-y-0.5"
-            />
-          </a>
+          {/* Clean Functional Links */}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-text-muted">
+            <a href="#hero" className="hover:text-text-primary transition-colors">
+              Home
+            </a>
+            <a href="#featured-files" className="hover:text-text-primary transition-colors">
+              Reports
+            </a>
+            <a href="#calendar" className="hover:text-text-primary transition-colors">
+              Calendar
+            </a>
+            <Link to="/departments" className="hover:text-text-primary transition-colors">
+              Departments
+            </Link>
+            <a href="#about" className="hover:text-text-primary transition-colors">
+              About
+            </a>
+            <a href="#contact" className="hover:text-text-primary transition-colors">
+              Support
+            </a>
+            <span className="text-border-default">|</span>
+            <Link to="/login" className="font-semibold text-accent-light hover:text-white transition-colors">
+              Log In →
+            </Link>
+          </div>
         </div>
 
-        {/* Colophon. Station and reference frame, as they'd appear in a log. */}
-        <div className="flex flex-col justify-between gap-3 pt-6 sm:flex-row sm:items-center">
-          <p className="text-[11px] text-text-dim">
-            © 2026 ISTRAC-FMS. All rights reserved.
+        {/* Bottom Colophon & Station Network */}
+        <div className="flex flex-col justify-between gap-4 pt-6 sm:flex-row sm:items-center text-[11px] text-text-dim">
+          <p>
+            © 2026 ISTRAC · Indian Space Research Organisation (ISRO).
           </p>
 
-          <p className="num flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-text-dim">
-            <span>BLR · 13.03°N 77.51°E</span>
-            <span aria-hidden="true" className="hidden h-2.5 w-px bg-border-default sm:block" />
-            <span>REF UTC</span>
-          </p>
+          <div className="flex items-center gap-4">
+            <span className="num text-[10px]">
+              BLR · SHAR · PBL · MAU · BIK · BYALALU
+            </span>
+
+            <a
+              href="#hero"
+              aria-label="Back to top"
+              className="group inline-flex items-center gap-1 rounded-md border border-border-subtle bg-surface px-2.5 py-1 text-[11px] text-text-secondary hover:text-text-primary hover:border-border-default transition-colors"
+            >
+              <span>Top</span>
+              <ArrowUp size={11} className="transition-transform group-hover:-translate-y-0.5" />
+            </a>
+          </div>
         </div>
       </div>
     </footer>

@@ -1,21 +1,22 @@
 import { useQuery } from '@tanstack/react-query'
-import { api } from '../lib/axios'
+import { filesApi, type FileVersion } from '../api'
 
-interface FileVersion {
-  id: string
-  versionNum: number
-  sizeBytes: number | null
-  uploadedBy: string
-  uploaderName?: string
-  createdAt: string
-}
+export type { FileVersion }
 
 export function useFileVersions(fileId: string | null) {
   return useQuery({
     queryKey: ['file-versions', fileId],
     queryFn: async () => {
-      const { data } = await api.get<FileVersion[]>(`/files/${fileId}/versions`)
-      return data
+      if (!fileId) return []
+      const res = await filesApi.getFileVersions(fileId)
+      return res.map((v) => ({
+        id: v.id,
+        versionNum: v.versionNum,
+        sizeBytes: v.sizeBytes ? Number(v.sizeBytes) : null,
+        uploadedBy: v.uploadedBy,
+        uploaderName: v.uploadedBy,
+        createdAt: v.createdAt,
+      }))
     },
     enabled: !!fileId,
   })

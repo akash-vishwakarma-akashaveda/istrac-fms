@@ -16,6 +16,8 @@ import { ToastContainer } from './components/ToastContainer'
 import { ApprovalQueue } from './pages/ApprovalQueue'
 import { UserManagement } from './pages/UserManagement'
 import { DepartmentManager } from './pages/DepartmentManager'
+import { SatelliteManager } from './pages/SatelliteManager'
+import { UploadReport } from './pages/UploadReport'
 import { Files } from './pages/Files'
 import { AuditLogViewer } from './pages/AuditLogViewer'
 import { BroadcastNotification } from './pages/BroadcastNotification'
@@ -27,13 +29,11 @@ import { DevIndex } from './pages/DevIndex'
 import { SearchPage } from './pages/SearchPage'
 import { Landing } from './pages/Landing'
 import { NotificationsPage } from './pages/NotificationsPage'
-
-
-
+import { DepartmentsList } from './pages/DepartmentsList'
+import { DepartmentDetail } from './pages/DepartmentDetail'
 
 export default function App() {
-
-   const { isChecking } = useInitAuth()
+  const { isChecking } = useInitAuth()
 
   if (isChecking) {
     return (
@@ -49,51 +49,57 @@ export default function App() {
       </div>
     )
   }
+
   return (
     <CmsProvider>
       <BrowserRouter>
-      <ToastContainer />
+        <ToastContainer />
         <Routes>
-            <Route path="/dev" element={<DevIndex />} />
+          <Route path="/dev" element={<DevIndex />} />
+
           {/* Public routes */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/demo" element={<ComponentDemo />} />
-        </Route>
+            <Route path="/departments" element={<DepartmentsList />} />
+            <Route path="/departments/:deptId" element={<DepartmentDetail />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/demo" element={<ComponentDemo />} />
+          </Route>
 
-        {/* Protected — any authenticated user, nested inside AppShell */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/force-password-change" element={<ForcePasswordChange />} />
-  <Route element={<ForcePasswordGuard />}></Route>
-          <Route element={<AppShell />}>
-          <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/dashboard" element={<UserHome />} />
-            <Route path="/dashboard/files" element={<Files />} />
-            <Route path="/dashboard/files/:deptId" element={<DeptFileBrowser />} />
-            <Route path="/dashboard/search" element={<SearchPage />} />
+          {/* Protected — any authenticated user, nested inside AppShell */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/force-password-change" element={<ForcePasswordChange />} />
+            <Route element={<ForcePasswordGuard />}></Route>
+            <Route element={<AppShell />}>
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/dashboard" element={<UserHome />} />
+              <Route path="/dashboard/upload" element={<UploadReport />} />
+              <Route path="/dashboard/files" element={<Files />} />
+              <Route path="/dashboard/files/:deptId" element={<DeptFileBrowser />} />
+              <Route path="/dashboard/search" element={<SearchPage />} />
 
-            {/* Admin-only — nested one level deeper, requires SUPER_ADMIN/DEPT_ADMIN */}
-            <Route element={<AdminRoute />}>
-              <Route path="/admin" element={<AdminHome />} />
-              <Route path="/admin/approvals" element={<ApprovalQueue />} />
-              <Route path="/admin/users" element={<UserManagement />} />
-              <Route path="/admin/departments" element={<DepartmentManager />} />
-              <Route path="/admin/audit-logs" element={<AuditLogViewer />} />
-              <Route path="/admin/broadcast" element={<BroadcastNotification />} />
-              <Route path="/admin/cms" element={<CmsEditor />} />
-              <Route path="/admin/settings" element={<SystemConfigPanel />} />
-              
+              {/* Admin-only — nested one level deeper */}
+              <Route element={<AdminRoute />}>
+                <Route path="/admin" element={<AdminHome />} />
+                <Route path="/admin/upload" element={<UploadReport />} />
+                <Route path="/admin/approvals" element={<ApprovalQueue />} />
+                <Route path="/admin/satellites" element={<SatelliteManager />} />
+                <Route path="/admin/departments" element={<DepartmentManager />} />
+                <Route path="/admin/users" element={<UserManagement />} />
+                <Route path="/admin/audit-logs" element={<AuditLogViewer />} />
+                <Route path="/admin/broadcast" element={<BroadcastNotification />} />
+                <Route path="/admin/cms" element={<CmsEditor />} />
+                <Route path="/admin/settings" element={<SystemConfigPanel />} />
+              </Route>
             </Route>
           </Route>
-        </Route>
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
     </CmsProvider>
   )
 }

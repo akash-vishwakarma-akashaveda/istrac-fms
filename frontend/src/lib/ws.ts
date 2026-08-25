@@ -1,6 +1,6 @@
 import { useAuthStore } from '../store/authStore'
 
-type MessageHandler = (channel: string, payload: unknown) => void
+type MessageHandler = (event: string, payload: unknown) => void
 
 class WSClient {
   private socket: WebSocket | null = null
@@ -11,36 +11,53 @@ class WSClient {
 
   connect() {
     const token = useAuthStore.getState().accessToken
-    const wsUrl = `${import.meta.env.VITE_WS_URL}?token=${token ?? ''}`
+    if (!token) return
 
-    this.socket = new WebSocket(wsUrl)
+    const baseWsUrl = import.meta.env.VITE_WS_URL || `ws://${window.location.host}/ws`
+    const wsUrl = `${baseWsUrl}?token=${encodeURIComponent(token)}`
 
-    this.socket.onopen = () => {
-      this.reconnectAttempt = 0
-      this.startHeartbeat()
-    }
+    try {
+      this.socket = new WebSocket(wsUrl)
 
-    this.socket.onmessage = (event) => {
-      try {
-        const { channel, payload } = JSON.parse(event.data)
-        const channelHandlers = this.handlers.get(channel) || []
-        channelHandlers.forEach((h) => h(channel, payload))
-      } catch {
-        // ignore malformed messages
+      this.socket.onopen = () => {
+        this.reconnectAttempt = 0
+        this.startHeartbeat()
       }
-    }
 
-    this.socket.onclose = (event) => {
-      this.stopHeartbeat()
-      // Per Ch.12.4: code 4401 = server rejected an invalid/expired token — don't spam-retry
-      if (event.code !== 4401) {
-        this.scheduleReconnect()
+      this.socket.onmessage = (event) => {
+        try {
+          const parsed = JSON.parse(event.data)
+          const eventType = parsed.type || parsed.channel || 'message'
+          const payload = parsed.payload !== undefined ? parsed.payload : parsed
+
+          const eventHandlers = this.handlers.get(eventType) || []
+          eventHandlers.forEach((h) => h(eventType, payload))
+
+          // Also notify wildcard handlers
+          const wildcardHandlers = this.handlers.get('*') || []
+          wildcardHandlers.forEach((h) => h(eventType, payload))
+        } catch {
+          // ignore malformed frame
+        }
       }
+
+      this.socket.onclose = (event) => {
+        this.stopHeartbeat()
+        // Code 4401 = server rejected an invalid/expired token — do not spam retry
+        if (event.code !== 4401) {
+          this.scheduleReconnect()
+        }
+      }
+
+      this.socket.onerror = () => {
+        this.socket?.close()
+      }
+    } catch {
+      this.scheduleReconnect()
     }
   }
 
   private scheduleReconnect() {
-    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, then once per minute — matches Ch.12.4
     const delays = [1000, 2000, 4000, 8000, 16000]
     const delay = delays[this.reconnectAttempt] ?? 60000
     this.reconnectAttempt++
@@ -50,7 +67,9 @@ class WSClient {
 
   private startHeartbeat() {
     this.heartbeatTimer = setInterval(() => {
-      this.socket?.send(JSON.stringify({ type: 'ping' }))
+      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+        this.socket.send(JSON.stringify({ type: 'ping' }))
+      }
     }, 30000)
   }
 
@@ -58,13 +77,13 @@ class WSClient {
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer)
   }
 
-  subscribe(channel: string, handler: MessageHandler) {
-    if (!this.handlers.has(channel)) this.handlers.set(channel, [])
-    this.handlers.get(channel)!.push(handler)
+  subscribe(eventOrChannel: string, handler: MessageHandler) {
+    if (!this.handlers.has(eventOrChannel)) this.handlers.set(eventOrChannel, [])
+    this.handlers.get(eventOrChannel)!.push(handler)
 
     return () => {
-      const list = this.handlers.get(channel) || []
-      this.handlers.set(channel, list.filter((h) => h !== handler))
+      const list = this.handlers.get(eventOrChannel) || []
+      this.handlers.set(eventOrChannel, list.filter((h) => h !== handler))
     }
   }
 
@@ -72,6 +91,7 @@ class WSClient {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     this.stopHeartbeat()
     this.socket?.close()
+    this.socket = null
   }
 }
 

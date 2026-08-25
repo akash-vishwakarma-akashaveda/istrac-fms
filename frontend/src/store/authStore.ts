@@ -1,11 +1,12 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
-interface User {
+export interface User {
   id: string
   name: string
   email: string
-  role: 'SUPER_ADMIN' | 'DEPT_ADMIN' | 'MEMBER' | 'GUEST'
+  employeeId?: string | null
+  role: 'ADMIN' | 'MEMBER' | 'SUPER_ADMIN' | 'DEPT_ADMIN' | 'GUEST'
   tempPass?: boolean
 }
 
