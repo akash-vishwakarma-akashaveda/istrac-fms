@@ -1,15 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { apiClient } from '../api/client'
 import { useAuthStore } from '../store/authStore'
 
 export function useInitAuth() {
   const [isChecking, setIsChecking] = useState(true)
-  const user = useAuthStore((s) => s.user)
-  const setAuth = useAuthStore((s) => s.setAuth)
-  const clearAuth = useAuthStore((s) => s.clearAuth)
+  const hasRun = useRef(false)
 
   useEffect(() => {
-    if (!user) {
+    if (hasRun.current) return
+    hasRun.current = true
+
+    const currentUser = useAuthStore.getState().user
+    if (!currentUser) {
       setIsChecking(false)
       return
     }
@@ -19,14 +21,18 @@ export function useInitAuth() {
       .then((res) => {
         const token = res.data?.data?.accessToken || res.data?.accessToken
         if (token) {
-          setAuth(user, token)
+          useAuthStore.getState().setAuth(currentUser, token)
         } else {
-          clearAuth()
+          useAuthStore.getState().clearAuth()
         }
       })
-      .catch(() => clearAuth())
-      .finally(() => setIsChecking(false))
-  }, [user, setAuth, clearAuth])
+      .catch(() => {
+        useAuthStore.getState().clearAuth()
+      })
+      .finally(() => {
+        setIsChecking(false)
+      })
+  }, [])
 
   return { isChecking }
 }

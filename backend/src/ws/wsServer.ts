@@ -3,6 +3,7 @@ import type { Server } from 'node:http'
 import { verifyAccessToken } from '../lib/jwt.js'
 import { redisSub } from '../config/redis.js'
 import { prisma } from '../config/db.js'
+import { logger } from '../lib/logger.js'
 
 interface ConnectedClient {
   ws: WebSocket
@@ -167,7 +168,7 @@ export function createWsServer(server: Server): WebSocketServer {
         sendToAll('NOTIFICATION', payload)
       }
     } catch (err) {
-      console.error('[WS] Redis message parse error:', err)
+      logger.error('WEBSOCKET', 'Redis message parse error:', err)
     }
   })
 
@@ -188,7 +189,7 @@ export function createWsServer(server: Server): WebSocketServer {
         sendToDeptUsers(deptId, 'FILE_DELETED', payload)
       }
     } catch (err) {
-      console.error('[WS] Redis pmessage parse error:', err)
+      logger.error('WEBSOCKET', 'Redis pmessage parse error:', err)
     }
   })
 

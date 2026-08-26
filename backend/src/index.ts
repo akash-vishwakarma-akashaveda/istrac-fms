@@ -9,8 +9,10 @@ import { redis, redisPub, redisSub } from './config/redis.js'
 
 // Middlewares
 import { requestIdMiddleware } from './lib/requestId.js'
+import { httpLoggerMiddleware } from './middleware/logger.middleware.js'
 import { auditMiddleware } from './middleware/audit.middleware.js'
 import { globalErrorHandler } from './lib/errors.js'
+import { logger } from './lib/logger.js'
 
 // Routes
 import { authRouter } from './routes/auth.routes.js'
@@ -47,6 +49,7 @@ app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 app.use(cookieParser())
 app.use(requestIdMiddleware)
+app.use(httpLoggerMiddleware)
 app.use(auditMiddleware)
 
 // ============================================================
@@ -81,23 +84,23 @@ startHddSyncService(15) // Reconcile HDD every 15 mins
 // SERVER START & SHUTDOWN
 // ============================================================
 server.listen(env.PORT, () => {
-  console.log(`[ISTRAC-FMS] Backend active on port ${env.PORT}`)
-  console.log(`[ISTRAC-FMS] Environment: ${env.NODE_ENV}`)
-  console.log(`[ISTRAC-FMS] Storage Mount: ${env.HDD_MOUNT_PATH}`)
+  logger.info('BOOT', `🛰️  ISTRAC-SIMS Backend active on port \x1b[32m\x1b[1m${env.PORT}\x1b[0m`)
+  logger.info('BOOT', `🌐 Environment: \x1b[36m\x1b[1m${env.NODE_ENV}\x1b[0m`)
+  logger.info('BOOT', `💾 Storage Mount: \x1b[33m\x1b[1m${env.HDD_MOUNT_PATH}\x1b[0m`)
 })
 
 async function shutdown() {
-  console.log('[ISTRAC-FMS] Initiating graceful shutdown...')
+  logger.info('SHUTDOWN', 'Initiating graceful server shutdown...')
   server.close(async () => {
     try {
       await prisma.$disconnect()
       redis.disconnect()
       redisPub.disconnect()
       redisSub.disconnect()
-      console.log('[ISTRAC-FMS] All connections closed successfully.')
+      logger.info('SHUTDOWN', 'All database & Redis connections closed successfully.')
       process.exit(0)
     } catch (err) {
-      console.error('[ISTRAC-FMS] Error during shutdown:', err)
+      logger.error('SHUTDOWN', 'Error during shutdown:', err)
       process.exit(1)
     }
   })

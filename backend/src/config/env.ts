@@ -25,7 +25,9 @@ export const env: EnvConfig = {
   HDD_MOUNT_PATH: required('HDD_MOUNT_PATH'),
   PORT: process.env.PORT ? Number(process.env.PORT) : 3000,
   NODE_ENV: (process.env.NODE_ENV as EnvConfig['NODE_ENV']) || 'development',
-  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173'],
+  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim().replace(/\/+$/, '')).filter(Boolean)
+    : ['http://localhost:5173', 'http://localhost:3000'],
   MYSQL_ROOT_PASSWORD: required('MYSQL_ROOT_PASSWORD'),
   MYSQL_DATABASE: required('MYSQL_DATABASE'),
   MYSQL_USER: required('MYSQL_USER'),

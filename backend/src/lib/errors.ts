@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import { env } from '../config/env.js'
+import { logger } from './logger.js'
 
 // ============================================================
 // APP ERROR CLASS
@@ -72,7 +73,9 @@ export function globalErrorHandler(
   // ----------------------------------------------------------
   if (err instanceof AppError) {
     if (err.statusCode >= 500) {
-      console.error(`[ERROR] ${err.code}:`, err.message, err.stack)
+      logger.error('APP_ERROR', `[Req: ${requestId}] ${err.code}: ${err.message}`, err.stack)
+    } else {
+      logger.warn('APP_WARN', `[Req: ${requestId}] ${err.code}: ${err.message}`)
     }
 
     res.status(err.statusCode).json({
@@ -90,7 +93,7 @@ export function globalErrorHandler(
   // 2. Prisma known request errors
   // ----------------------------------------------------------
   if (isPrismaKnownError(err)) {
-    console.error('[DB ERROR] Prisma code:', err.code, err)
+    logger.error('DATABASE_ERROR', `[Req: ${requestId}] Prisma Code: ${err.code}`, err)
 
     if (err.code === 'P2002') {
       res.status(409).json({
@@ -118,7 +121,7 @@ export function globalErrorHandler(
   // ----------------------------------------------------------
   // 3. Unknown / programmer errors
   // ----------------------------------------------------------
-  console.error('[UNHANDLED ERROR]', err)
+  logger.error('UNHANDLED_EXCEPTION', `[Req: ${requestId}]`, err)
 
   if (isDev) {
     const message = err instanceof Error ? err.message : String(err)

@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import { prisma } from '../config/db.js'
 import { pubsub } from '../lib/pubsub.js'
 import { env } from '../config/env.js'
+import { logger } from '../lib/logger.js'
 
 let syncTimer: NodeJS.Timeout | null = null
 
@@ -102,6 +103,11 @@ export async function runHddSync(): Promise<{ registered: number; orphaned: numb
       }
     }
 
+    logger.info(
+      'HDD-SYNC',
+      `Storage Reconciliation Complete · Scanned: \x1b[36m${diskFiles.length} files\x1b[0m (Registered: \x1b[32m${registered}\x1b[0m, Updated: \x1b[33m${updated}\x1b[0m, Orphaned: \x1b[31m${orphaned}\x1b[0m)`
+    )
+
     pubsub
       .publish('hdd.sync', {
         completedAt: new Date().toISOString(),
@@ -109,7 +115,7 @@ export async function runHddSync(): Promise<{ registered: number; orphaned: numb
       })
       .catch(() => {})
   } catch (err) {
-    console.error('[HddSyncService] Sync failed:', err)
+    logger.error('HDD-SYNC', 'Storage reconciliation sync failed:', err)
   }
 
   return { registered, orphaned, updated }
@@ -119,6 +125,6 @@ export function startHddSyncService(intervalMinutes = 15): void {
   if (syncTimer) return
   runHddSync().catch(() => {})
   syncTimer = setInterval(() => {
-    runHddSync().catch((err) => console.error('[HddSyncService] Periodic sync error:', err))
+    runHddSync().catch((err) => logger.error('HDD-SYNC', 'Periodic sync error:', err))
   }, intervalMinutes * 60 * 1000)
 }

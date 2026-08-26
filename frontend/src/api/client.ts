@@ -76,7 +76,14 @@ apiClient.interceptors.response.use(
         }
       } catch (refreshErr) {
         useAuthStore.getState().clearAuth()
-        window.location.href = '/login'
+        refreshQueue = []
+        if (
+          typeof window !== 'undefined' &&
+          (window.location.pathname.startsWith('/dashboard') ||
+            window.location.pathname.startsWith('/admin'))
+        ) {
+          window.location.href = '/login'
+        }
         return Promise.reject(refreshErr)
       } finally {
         isRefreshing = false
