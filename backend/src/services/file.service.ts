@@ -58,9 +58,10 @@ export const fileService = {
       parentPath = parent.name
     }
 
-    // 3. Build physical destination path
+    // 3. Build physical destination path in hierarchy: Department / Spacecraft / Folder / File
     const sanitizedFilename = params.originalName.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const destDir = path.join(dept.hddPath, parentPath)
+    const satFolder = (params.spacecraft || 'GENERAL').replace(/[^a-zA-Z0-9_-]/g, '_')
+    const destDir = path.join(dept.hddPath, satFolder, parentPath)
     const destPath = path.join(destDir, sanitizedFilename)
 
     // Check if an active file already exists at this path

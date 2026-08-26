@@ -15,13 +15,40 @@ const router = Router()
 // ============================================================
 router.get('/admin/stats', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
-    const [usersCount, filesCount, deptsCount, storageAgg] = await Promise.all([
+    const [
+      usersCount,
+      filesCount,
+      deptsCount,
+      satellitesCount,
+      pendingUsersCount,
+      storageAgg,
+      recentFiles,
+      recentLogs,
+    ] = await Promise.all([
       prisma.user.count({ where: { deletedAt: null } }),
       prisma.file.count({ where: { nodeType: 'FILE', deletedAt: null } }),
       prisma.department.count({ where: { deletedAt: null } }),
+      prisma.satellite.count({ where: { deletedAt: null } }),
+      prisma.user.count({ where: { status: 'PENDING', deletedAt: null } }),
       prisma.file.aggregate({
         _sum: { sizeBytes: true },
         where: { nodeType: 'FILE', deletedAt: null },
+      }),
+      prisma.file.findMany({
+        where: { nodeType: 'FILE', deletedAt: null },
+        take: 5,
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          department: { select: { id: true, name: true, code: true } },
+          report: { select: { id: true, title: true, spacecraft: true, category: true } },
+        },
+      }),
+      prisma.auditLog.findMany({
+        take: 6,
+        orderBy: { id: 'desc' },
+        include: {
+          user: { select: { id: true, name: true, email: true, role: true } },
+        },
       }),
     ])
 
@@ -32,7 +59,27 @@ router.get('/admin/stats', authMiddleware, adminMiddleware, async (req, res, nex
         users: usersCount,
         files: filesCount,
         departments: deptsCount,
+        satellites: satellitesCount,
+        pendingUsers: pendingUsersCount,
         storageUsedBytes,
+        recentFiles: recentFiles.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          extension: (f.extension || 'DAT').toUpperCase(),
+          sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
+          sha256: f.sha256,
+          department: f.department,
+          report: f.report,
+          updatedAt: f.updatedAt,
+        })),
+        recentLogs: recentLogs.map((l: any) => ({
+          id: Number(l.id),
+          userName: l.user?.name || 'System Authority',
+          action: l.action,
+          resourceType: l.resourceType,
+          resourceId: l.resourceId,
+          createdAt: l.createdAt,
+        })),
       },
       requestId: req.requestId,
     })

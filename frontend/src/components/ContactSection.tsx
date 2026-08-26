@@ -35,7 +35,7 @@ export function ContactSection() {
               id="contact-title"
               className="display mt-4 text-3xl font-bold tracking-tight text-text-primary sm:text-4xl"
             >
-              Need Help with ISTRAC-FMS?
+              Need Help with ISTRAC-SIMS?
             </h2>
 
             <p className="mt-4 text-base leading-relaxed text-text-secondary">

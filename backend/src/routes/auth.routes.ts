@@ -18,7 +18,7 @@ const router = Router()
 // ============================================================
 router.post('/register', loginRateLimiter, async (req, res, next) => {
   try {
-    const { name, email, employeeId, password } = req.body
+    const { name, designation, email, employeeId, password, phone, departmentPreference, reasonForAccess } = req.body
 
     if (!name || !email || !password) {
       throw new AppError('missing_fields', 'Name, email, and password are required', 400)
@@ -38,9 +38,13 @@ router.post('/register', loginRateLimiter, async (req, res, next) => {
 
     const user = await prisma.user.create({
       data: {
-        name,
-        email,
-        employeeId: employeeId || null,
+        name: name.trim(),
+        designation: designation?.trim() || null,
+        email: email.trim().toLowerCase(),
+        employeeId: employeeId?.trim() || null,
+        phone: phone?.trim() || null,
+        departmentPreference: departmentPreference?.trim() || null,
+        reasonForAccess: reasonForAccess?.trim() || null,
         passwordHash,
         role: 'MEMBER',
         status: 'PENDING',
@@ -48,8 +52,10 @@ router.post('/register', loginRateLimiter, async (req, res, next) => {
       select: {
         id: true,
         name: true,
+        designation: true,
         email: true,
         employeeId: true,
+        phone: true,
         role: true,
         status: true,
         createdAt: true,

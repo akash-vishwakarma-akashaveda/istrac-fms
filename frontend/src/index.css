@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ============================================================================
-   ISTRAC-FMS DESIGN SYSTEM & THEME TOKENS
+   ISTRAC-SIMS DESIGN SYSTEM & THEME TOKENS
    Target: Aerospace Mission Control & Intranet File Management Portal
    ========================================================================== */
 
@@ -184,7 +184,6 @@ body {
 }
 
 .col-label {
-  display: block;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;

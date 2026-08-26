@@ -33,7 +33,9 @@ export function Table<T extends { id: string | number }>({
               <th
                 key={String(column.key)}
                 scope="col"
-                className={`col-label px-4 py-2.5 ${column.numeric ? 'text-right' : ''}`}
+                className={`px-4 py-2.5 text-[11px] font-bold tracking-[0.06em] uppercase text-text-dim ${
+                  column.numeric ? 'text-right' : 'text-left'
+                }`}
               >
                 {column.header}
               </th>

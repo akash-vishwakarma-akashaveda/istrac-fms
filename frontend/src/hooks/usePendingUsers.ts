@@ -11,7 +11,17 @@ export function usePendingUsers() {
 export function useApproveUser() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (userId: string) => usersApi.approveUser(userId),
+    mutationFn: ({
+      userId,
+      role,
+      employeeId,
+      departments,
+    }: {
+      userId: string
+      role?: string
+      employeeId?: string
+      departments?: Array<{ departmentId: string; accessLevel?: 'READ_ONLY' | 'READ_WRITE' }>
+    }) => usersApi.approveUser(userId, { role, employeeId, departments }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pending-users'] })
       queryClient.invalidateQueries({ queryKey: ['users'] })

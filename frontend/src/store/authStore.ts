@@ -6,8 +6,12 @@ export interface User {
   name: string
   email: string
   employeeId?: string | null
-  role: 'ADMIN' | 'MEMBER' | 'SUPER_ADMIN' | 'DEPT_ADMIN' | 'GUEST'
+  role: 'ADMIN' | 'MEMBER'
   tempPass?: boolean
+  departmentAccess?: Array<{
+    department?: { id: string; name: string; code?: string }
+    accessLevel?: string
+  }>
 }
 
 interface AuthState {

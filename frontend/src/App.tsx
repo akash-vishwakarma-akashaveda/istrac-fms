@@ -23,7 +23,11 @@ import { AuditLogViewer } from './pages/AuditLogViewer'
 import { BroadcastNotification } from './pages/BroadcastNotification'
 import { CmsEditor } from './pages/CmsEditor'
 import { SystemConfigPanel } from './pages/SystemConfigPanel'
+import { EventManager } from './pages/EventManager'
+import { DepartmentHub } from './pages/DepartmentHub'
+import { AdminFileManager } from './pages/AdminFileManager'
 import { UserHome } from './pages/UserHome'
+import { UserEvents } from './pages/UserEvents'
 import { DeptFileBrowser } from './pages/DeptFileBrowser'
 import { DevIndex } from './pages/DevIndex'
 import { SearchPage } from './pages/SearchPage'
@@ -75,17 +79,20 @@ export default function App() {
             <Route element={<AppShell />}>
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/dashboard" element={<UserHome />} />
-              <Route path="/dashboard/upload" element={<UploadReport />} />
+              <Route path="/dashboard/events" element={<UserEvents />} />
               <Route path="/dashboard/files" element={<Files />} />
               <Route path="/dashboard/files/:deptId" element={<DeptFileBrowser />} />
+              <Route path="/departments/:deptId" element={<DepartmentHub />} />
               <Route path="/dashboard/search" element={<SearchPage />} />
 
               {/* Admin-only — nested one level deeper */}
               <Route element={<AdminRoute />}>
                 <Route path="/admin" element={<AdminHome />} />
+                <Route path="/admin/files" element={<AdminFileManager />} />
                 <Route path="/admin/upload" element={<UploadReport />} />
                 <Route path="/admin/approvals" element={<ApprovalQueue />} />
                 <Route path="/admin/satellites" element={<SatelliteManager />} />
+                <Route path="/admin/events" element={<EventManager />} />
                 <Route path="/admin/departments" element={<DepartmentManager />} />
                 <Route path="/admin/users" element={<UserManagement />} />
                 <Route path="/admin/audit-logs" element={<AuditLogViewer />} />

@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate, Link } from "react-router-dom";
 import { AxiosError } from "axios";
-import { Sparkles, KeyRound } from "lucide-react";
+import { Sparkles, KeyRound, Eye, EyeOff } from "lucide-react";
 
 import { api } from "../lib/axios";
 import { useAuthStore } from "../store/authStore";
@@ -18,7 +18,7 @@ const DEMO_ACCOUNTS = [
     badge: "bg-accent/15 text-accent-light border-accent/30",
   },
   {
-    role: "Flight Operator",
+    role: "Flight User",
     email: "operator@istrac.local",
     pass: "ChangeMe123!",
     badge: "bg-nominal/15 text-nominal border-nominal/30",
@@ -35,6 +35,7 @@ export function Login() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
 
+  const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [lockoutRemaining, setLockoutRemaining] = useState<number | null>(null);
 
@@ -57,7 +58,7 @@ export function Login() {
       const token = response.data.data?.accessToken || response.data?.accessToken;
       setAuth(user, token);
 
-      if (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'DEPT_ADMIN') {
+      if (user?.role === 'ADMIN') {
         navigate("/admin");
       } else {
         navigate("/dashboard");
@@ -108,7 +109,7 @@ export function Login() {
       <AuthCard
         eyebrow="Air-Gapped Intranet"
         status="SEC LEVEL 4"
-        title="Sign in to ISTRAC-FMS"
+        title="Sign in to ISTRAC-SIMS"
         description="Access ground station telemetry, orbit determination ephemeris, and flight repository files."
       >
         {/* Lockout notification */}
@@ -159,16 +160,27 @@ export function Login() {
           />
 
           <div>
-            <Input
-              id="password"
-              label="Password"
-              type="password"
-              placeholder="••••••••••••"
-              autoComplete="current-password"
-              disabled={lockedOut}
-              error={errors.password?.message}
-              {...register("password")}
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                label="Password"
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••••••"
+                autoComplete="current-password"
+                disabled={lockedOut}
+                error={errors.password?.message}
+                {...register("password")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((p) => !p)}
+                className="absolute right-3 top-[34px] text-text-dim hover:text-white transition-colors"
+                tabIndex={-1}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
 
             <div className="mt-2 flex justify-end">
               <Link

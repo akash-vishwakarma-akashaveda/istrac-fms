@@ -12,6 +12,13 @@ export interface Department {
   archived?: boolean
   allowUserFolderCreation: boolean
   maxFolderDepth: number
+  pageTitle?: string | null
+  pageAbout?: string | null
+  pageLeadOfficer?: string | null
+  pageLeadRole?: string | null
+  pageContact?: string | null
+  pageBannerUrl?: string | null
+  isPageEnabled?: boolean
   satellite?: Satellite
   fileCount?: number
   userCount?: number
@@ -28,6 +35,13 @@ export interface CreateDepartmentPayload {
   hddPath?: string
   allowUserFolderCreation?: boolean
   maxFolderDepth?: number
+  pageTitle?: string
+  pageAbout?: string
+  pageLeadOfficer?: string
+  pageLeadRole?: string
+  pageContact?: string
+  pageBannerUrl?: string
+  isPageEnabled?: boolean
 }
 
 export interface UpdateDepartmentPayload {
@@ -37,6 +51,13 @@ export interface UpdateDepartmentPayload {
   hddPath?: string
   allowUserFolderCreation?: boolean
   maxFolderDepth?: number
+  pageTitle?: string
+  pageAbout?: string
+  pageLeadOfficer?: string
+  pageLeadRole?: string
+  pageContact?: string
+  pageBannerUrl?: string
+  isPageEnabled?: boolean
   isActive?: boolean
   archived?: boolean
 }
@@ -106,6 +127,14 @@ export const departmentsApi = {
   ): Promise<any> {
     const res = await apiClient.post(`/admin/departments/${deptId}/users`, payload)
     return extractData(res)
+  },
+
+  async getDepartmentFiles(
+    deptId: string,
+    params?: { search?: string; extension?: string; spacecraft?: string }
+  ): Promise<any[]> {
+    const res = await apiClient.get(`/departments/${deptId}/files`, { params })
+    return extractData<any[]>(res) || []
   },
 
   async revokeUserAccess(deptId: string, userId: string): Promise<{ message: string }> {

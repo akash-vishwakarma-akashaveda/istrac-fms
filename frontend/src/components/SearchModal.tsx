@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { Search, X, Lock, FileText, Folder, ArrowRight, ShieldCheck, LogIn } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Search, X, FileText, Folder, ArrowRight, Sparkles } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { browseApi, type SearchResultItem } from '../api/browse.api'
-import { Button } from '.'
+import { formatFileSize } from '../lib/formatFileSize'
 
 interface SearchModalProps {
   isOpen: boolean
@@ -32,9 +32,6 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault()
         if (isOpen) onClose()
-        else {
-          // Trigger handled elsewhere
-        }
       }
       if (e.key === 'Escape' && isOpen) {
         onClose()
@@ -44,8 +41,9 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
+  // Live real-time search for all users & visitors
   useEffect(() => {
-    if (!user || !query.trim()) {
+    if (!query.trim()) {
       setResults([])
       return
     }
@@ -60,15 +58,24 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
       } finally {
         setIsSearching(false)
       }
-    }, 250)
+    }, 200)
 
     return () => clearTimeout(timer)
-  }, [query, user])
+  }, [query])
+
+  const handleResultClick = (item: SearchResultItem) => {
+    onClose()
+    if (user) {
+      navigate(`/departments/${item.departmentId}`)
+    } else {
+      navigate(`/departments/${item.departmentId}`)
+    }
+  }
 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20 sm:pt-24">
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-16 sm:pt-24 animate-fadeIn">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-page/85 backdrop-blur-md transition-opacity"
@@ -91,11 +98,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={
-              user
-                ? 'Search telemetry dumps, mission passes, PDF reports...'
-                : 'Search telemetry repository (Authentication required)...'
-            }
+            placeholder="Search telemetry archives, PDF reports, spacecraft passes, mission ephemeris..."
             className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-dim focus:outline-none"
           />
 
@@ -120,95 +123,83 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
         {/* Content Body */}
         <div className="max-h-[60vh] overflow-y-auto p-4">
-          {!user ? (
-            /* Restricted State for Signed-Out Visitors */
-            <div className="py-8 text-center space-y-4">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-warning/30 bg-warning/10 text-warning shadow-inner">
-                <Lock size={22} strokeWidth={2} />
+          {query.trim() === '' ? (
+            /* Empty State */
+            <div className="py-10 text-center text-text-dim space-y-2">
+              <Search size={28} className="mx-auto mb-2 opacity-40 text-accent-light" />
+              <p className="text-xs text-text-secondary">Type any filename, spacecraft code, or format to search live repository index.</p>
+              <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2">
+                {['Cartosat', 'Aditya-L1', 'PSLV', 'Gaganyaan', '.pdf', '.bin', '.dat'].map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setQuery(tag)}
+                    className="num rounded-full border border-border-subtle bg-surface px-2.5 py-1 text-[10px] font-semibold text-text-muted hover:border-accent hover:text-white transition-colors"
+                  >
+                    {tag}
+                  </button>
+                ))}
               </div>
-
-              <div className="max-w-md mx-auto">
-                <h3 className="text-base font-bold text-text-primary">
-                  Restricted Repository Search
-                </h3>
-                <p className="mt-1.5 text-xs leading-relaxed text-text-muted">
-                  Full-text file indexing, orbital telemetry extraction, and mission dataset downloads are air-gapped and restricted to authorized ISTRAC personnel.
-                </p>
-              </div>
-
-              <div className="flex items-center justify-center gap-3 pt-2">
-                <Link to="/login" onClick={onClose}>
-                  <Button variant="primary" size="md" className="shadow-lg shadow-accent/25">
-                    <LogIn size={15} />
-                    <span>Log In to Search</span>
-                  </Button>
-                </Link>
-
-                <Link to="/register" onClick={onClose}>
-                  <Button variant="outline" size="md">
-                    Request Access
-                  </Button>
-                </Link>
-              </div>
-
-              <div className="flex items-center justify-center gap-2 pt-4 text-[11px] text-text-dim">
-                <ShieldCheck size={13} className="text-nominal" />
-                <span>Air-Gapped Multi-RBAC Security</span>
-              </div>
-            </div>
-          ) : query.trim() === '' ? (
-            /* Empty State for Logged In User */
-            <div className="py-10 text-center text-text-dim">
-              <Search size={28} className="mx-auto mb-2 opacity-40" />
-              <p className="text-xs">Type a filename, pass ID, satellite name, or extension to search.</p>
-              <span className="num mt-1 block text-[10px]">E.g. "cartosat", "telemetry.bin", "pass_04"</span>
             </div>
           ) : isSearching ? (
             /* Searching spinner */
             <div className="py-10 text-center">
-              <p className="num text-xs text-accent-light animate-pulse">Scanning telemetry index...</p>
+              <p className="num text-xs text-accent-light animate-pulse flex items-center justify-center gap-2">
+                <Sparkles size={14} />
+                <span>Scanning ISTRAC telemetry repository index…</span>
+              </p>
             </div>
           ) : results.length === 0 ? (
             /* No Results */
-            <div className="py-10 text-center text-text-dim">
-              <p className="text-xs text-text-secondary">No files or folders found matching "{query}"</p>
-              <p className="num mt-1 text-[10px]">Check your spelling or department access scope.</p>
+            <div className="py-10 text-center text-text-dim space-y-1">
+              <p className="text-xs font-semibold text-text-secondary">No files or telemetry records matched "{query}"</p>
+              <p className="num text-[10px] text-text-dim">Try searching by spacecraft name (e.g. Aditya, Cartosat) or file extension.</p>
             </div>
           ) : (
             /* Search Results List */
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <span className="eyebrow block px-2 pb-2 text-[10px] text-text-dim">
-                {results.length} item{results.length === 1 ? '' : 's'} found
+                {results.length} record{results.length === 1 ? '' : 's'} indexed
               </span>
               {results.map((item) => (
-                <button
+                <div
                   key={item.id}
-                  type="button"
-                  onClick={() => {
-                    onClose()
-                    navigate(`/dashboard/files/${item.departmentId}`)
-                  }}
-                  className="group flex w-full items-center justify-between rounded-xl p-3 text-left transition-colors hover:bg-card-hover border border-transparent hover:border-border-subtle"
+                  onClick={() => handleResultClick(item)}
+                  className="group flex w-full items-center justify-between rounded-xl p-3 text-left transition-all hover:bg-card-hover border border-border-subtle/60 hover:border-accent/40 cursor-pointer bg-[#060c18]"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface border border-border-subtle text-accent-light">
-                      {item.nodeType === 'FOLDER' ? <Folder size={16} /> : <FileText size={16} />}
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface border border-border-subtle text-accent-light group-hover:border-accent/50 group-hover:text-white transition-colors">
+                      {item.nodeType === 'FOLDER' ? <Folder size={17} /> : <FileText size={17} />}
                     </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-semibold text-text-primary group-hover:text-accent-light">
+
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="truncate text-xs font-bold text-white group-hover:text-accent-light transition-colors">
                         {item.name}
                       </p>
-                      <p className="num truncate text-[10px] text-text-dim">
-                        {item.departmentName} · {item.satelliteName}
-                      </p>
+                      <div className="flex items-center gap-2 num text-[10px] text-text-dim">
+                        <span className="text-accent-light font-semibold">/{item.departmentName}</span>
+                        <span>·</span>
+                        <span>{item.satelliteName}</span>
+                        {item.sizeBytes && Number(item.sizeBytes) > 0 && (
+                          <>
+                            <span>·</span>
+                            <span>{formatFileSize(Number(item.sizeBytes))}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <ArrowRight
-                    size={14}
-                    className="shrink-0 text-text-dim transition-transform group-hover:translate-x-1 group-hover:text-accent-light"
-                  />
-                </button>
+                  <div className="flex items-center gap-2 shrink-0 ml-3">
+                    <span className="rounded bg-surface border border-border-subtle px-1.5 py-0.5 text-[9px] font-bold uppercase num text-text-dim group-hover:text-white">
+                      {item.extension || 'DAT'}
+                    </span>
+                    <ArrowRight
+                      size={14}
+                      className="text-text-dim transition-transform group-hover:translate-x-1 group-hover:text-accent-light"
+                    />
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -216,7 +207,10 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-border-subtle bg-surface px-4 py-2.5 text-[11px] text-text-dim">
-          <span className="num">ISTRAC AIR-GAPPED INDEX</span>
+          <span className="num flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-nominal" />
+            <span>ISTRAC LIVE REPOSITORY INDEX</span>
+          </span>
           <span className="num">ESC to close</span>
         </div>
       </div>

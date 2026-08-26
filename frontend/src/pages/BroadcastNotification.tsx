@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Send,
   Megaphone,
@@ -6,13 +6,18 @@ import {
   AlertTriangle,
   Flame,
   Sparkles,
+  History,
+  Copy,
+  RotateCcw,
+  Users,
+  ShieldAlert,
+  Clock,
 } from 'lucide-react'
-import { useDepartments } from '../hooks/useDepartments'
 import { useBroadcast } from '../hooks/useBroadcast'
 import { useToastStore } from '../store/toastStore'
+import { apiClient } from '../api/client'
 import { Button, PageHeader, Textarea } from '../components'
 import { DeptMultiSelect } from '../components/DeptMultiSelect'
-import { NotificationPreviewCard } from '../components/NotificationPreviewCard'
 
 const URGENCY_LEVELS = [
   {
@@ -21,6 +26,7 @@ const URGENCY_LEVELS = [
     icon: Megaphone,
     color: 'border-accent text-accent-light bg-accent/10',
     prefix: '[NOTICE]',
+    type: 'NOTICE',
   },
   {
     id: 'TRACKING',
@@ -28,6 +34,7 @@ const URGENCY_LEVELS = [
     icon: Radio,
     color: 'border-[#0284C7] text-[#38BDF8] bg-[#0284C7]/10',
     prefix: '[TELEMETRY]',
+    type: 'TELEMETRY',
   },
   {
     id: 'MAINTENANCE',
@@ -35,6 +42,7 @@ const URGENCY_LEVELS = [
     icon: AlertTriangle,
     color: 'border-[#FF6B00] text-[#FF8533] bg-[#FF6B00]/10',
     prefix: '[STATION ALERT]',
+    type: 'MAINTENANCE',
   },
   {
     id: 'CRITICAL',
@@ -42,6 +50,7 @@ const URGENCY_LEVELS = [
     icon: Flame,
     color: 'border-critical text-critical bg-critical/10',
     prefix: '[CRITICAL ANOMALY]',
+    type: 'CRITICAL',
   },
 ]
 
@@ -61,20 +70,45 @@ const TARGETS: {
   { id: 'departments', label: 'Specific Operational Divisions', detail: 'Target selected departments (TTC, FDD, MOX, NETRA)' },
 ]
 
+interface BroadcastRecord {
+  id: string
+  type: string
+  category: string
+  message: string
+  senderName: string
+  actorId?: string
+  createdAt: string
+}
+
 export function BroadcastNotification() {
   const [urgency, setUrgency] = useState('STANDARD')
   const [message, setMessage] = useState('')
   const [target, setTarget] = useState<'all' | 'departments'>('all')
   const [selectedDeptIds, setSelectedDeptIds] = useState<string[]>([])
+  
+  // History state
+  const [history, setHistory] = useState<BroadcastRecord[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(true)
 
-  const { data: departments } = useDepartments()
   const broadcast = useBroadcast()
   const addToast = useToastStore((s) => s.addToast)
 
-  const departmentNames =
-    departments
-      ?.filter((d) => selectedDeptIds.includes(d.id))
-      .map((d) => d.name) ?? []
+  const fetchHistory = () => {
+    setLoadingHistory(true)
+    apiClient
+      .get('/admin/notifications/broadcasts')
+      .then((res: any) => {
+        if (res.data?.data) {
+          setHistory(res.data.data)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingHistory(false))
+  }
+
+  useEffect(() => {
+    fetchHistory()
+  }, [])
 
   const canSend =
     message.trim().length > 0 &&
@@ -88,11 +122,10 @@ export function BroadcastNotification() {
     broadcast.mutate(
       {
         message: finalFormattedMessage,
+        type: activeUrgencyObj.type,
+        category: urgency.toLowerCase(),
         target,
-        departmentIds:
-          target === 'departments'
-            ? selectedDeptIds
-            : undefined,
+        departmentIds: target === 'departments' ? selectedDeptIds : undefined,
       },
       {
         onSuccess: () => {
@@ -103,6 +136,7 @@ export function BroadcastNotification() {
           })
           setMessage('')
           setSelectedDeptIds([])
+          fetchHistory()
         },
         onError: () =>
           addToast({
@@ -114,20 +148,107 @@ export function BroadcastNotification() {
     )
   }
 
+  const handleRebroadcast = (record: BroadcastRecord) => {
+    // Strip prefix if any
+    let cleaned = record.message
+    for (const lvl of URGENCY_LEVELS) {
+      if (cleaned.startsWith(lvl.prefix)) {
+        cleaned = cleaned.slice(lvl.prefix.length).trim()
+        setUrgency(lvl.id)
+        break
+      }
+    }
+    setMessage(cleaned)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    addToast({ message: 'Loaded previous broadcast into composer', variant: 'success' })
+  }
+
+  const handleCopyMessage = (text: string) => {
+    navigator.clipboard.writeText(text)
+    addToast({ message: 'Broadcast copied to clipboard', variant: 'success' })
+  }
+
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6 pb-12">
-      <div className="border-b border-border-subtle pb-5">
-        <PageHeader
-          eyebrow="Mission Command & Control"
-          title="Station Operations Broadcast Center"
-          description="Publish high-priority operational notices, satellite tracking passes, and maintenance alerts across ISRO ground control."
-        />
+    <div className="w-full max-w-7xl mx-auto space-y-6 pb-16">
+      {/* Header */}
+      <PageHeader
+        eyebrow="Mission Command & Telemetry"
+        title="Operations Broadcast & Alert Center"
+        description="Publish real-time operational bulletins, pass telemetry alerts, and critical advisories to connected ground terminals."
+      />
+
+      {/* ============================================================ */}
+      {/* 1. EXECUTIVE SUMMARY STAT CARDS */}
+      {/* ============================================================ */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim block">
+              Total Broadcasts
+            </span>
+            <strong className="text-2xl font-bold text-white num block mt-0.5">
+              {history.length}
+            </strong>
+            <span className="text-[10px] text-text-dim block">Station bulletins dispatched</span>
+          </div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-subtle text-accent-light">
+            <Megaphone size={18} />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim block">
+              Audience Reach
+            </span>
+            <strong className="text-2xl font-bold text-nominal num block mt-0.5">
+              All Terminals
+            </strong>
+            <span className="text-[10px] text-text-dim block">Active WebSocket broadcast</span>
+          </div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-subtle text-nominal">
+            <Users size={18} />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim block">
+              Critical Alerts
+            </span>
+            <strong className="text-2xl font-bold text-critical num block mt-0.5">
+              {history.filter((h) => h.message.includes('CRITICAL') || h.type === 'CRITICAL').length}
+            </strong>
+            <span className="text-[10px] text-text-dim block">Spacecraft anomalies logged</span>
+          </div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-subtle text-critical">
+            <ShieldAlert size={18} />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim block">
+              Tracking Passes
+            </span>
+            <strong className="text-2xl font-bold text-cyan-300 num block mt-0.5">
+              {history.filter((h) => h.message.includes('TELEMETRY') || h.type === 'TELEMETRY').length}
+            </strong>
+            <span className="text-[10px] text-text-dim block">Pass schedule notifications</span>
+          </div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-subtle text-cyan-400">
+            <Radio size={18} />
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Compose Form */}
-        <div className="lg:col-span-2 space-y-5">
-          {/* Section 1: Notice Category & Urgency */}
+      {/* ============================================================ */}
+      {/* 2. MAIN 2-COLUMN LAYOUT: COMPOSER & BROADCAST HISTORY */}
+      {/* ============================================================ */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Compose Broadcast (7 cols) */}
+        <div className="lg:col-span-7 space-y-5">
+          {/* Section 1: Urgency & Priority */}
           <div className="rounded-xl border border-border-default bg-card p-5 space-y-3 shadow-sm">
             <label className="block text-xs font-bold text-text-primary uppercase tracking-wider">
               1. Broadcast Priority & Category
@@ -165,7 +286,7 @@ export function BroadcastNotification() {
             </div>
           </div>
 
-          {/* Section 2: Notice Message */}
+          {/* Section 2: Notice Content & Quick Templates */}
           <div className="rounded-xl border border-border-default bg-card p-5 space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-bold text-text-primary uppercase tracking-wider">
@@ -185,7 +306,7 @@ export function BroadcastNotification() {
               hint="Keep statements concise and actionable for shift controllers."
             />
 
-            {/* Quick ISRO Preset Templates */}
+            {/* Quick Templates */}
             <div className="space-y-1.5 pt-1">
               <label className="block text-[10px] font-bold text-text-dim uppercase tracking-wider flex items-center gap-1">
                 <Sparkles size={12} className="text-[#FF6B00]" />
@@ -205,7 +326,7 @@ export function BroadcastNotification() {
               </div>
             </div>
 
-            {/* Section 3: Target Recipients */}
+            {/* Section 3: Target Audience */}
             <div className="border-t border-border-subtle pt-4 space-y-3">
               <label className="block text-xs font-bold text-text-primary uppercase tracking-wider">
                 3. Target Audience
@@ -241,7 +362,7 @@ export function BroadcastNotification() {
                 ))}
               </div>
 
-              {/* Department selection */}
+              {/* Specific Departments Select */}
               {target === 'departments' && (
                 <div className="mt-3 animate-fadeIn">
                   <DeptMultiSelect
@@ -252,62 +373,96 @@ export function BroadcastNotification() {
               )}
             </div>
 
-            {/* Dispatch Action */}
-            <div className="flex items-center justify-between border-t border-border-subtle pt-4">
+            {/* Dispatch Action Button */}
+            <div className="pt-3 border-t border-border-subtle flex items-center justify-between">
               <p className="text-[11px] text-text-dim">
-                Dispatches live web push, banner alerts, and terminal notifications.
+                Will be broadcast live to active station terminals.
               </p>
 
               <Button
-                type="button"
                 variant="primary"
                 size="md"
-                onClick={handleSend}
                 disabled={!canSend || broadcast.isPending}
-                className="shadow-lg shadow-accent/25 px-5"
+                onClick={handleSend}
+                className="bg-accent hover:bg-accent-hover shadow-lg shadow-accent/25 px-5 font-bold"
               >
-                <Send size={14} />
-                <span>{broadcast.isPending ? 'Dispatching…' : 'Publish Broadcast Notice'}</span>
+                <Send size={14} className={broadcast.isPending ? 'animate-spin' : ''} />
+                <span>{broadcast.isPending ? 'Transmitting…' : 'Dispatch Broadcast'}</span>
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Right Column: Live Dispatch Preview */}
-        <div className="space-y-4">
-          <div className="rounded-xl border border-border-default bg-card p-5 space-y-4 shadow-sm">
-            <div className="flex items-center justify-between border-b border-border-subtle/80 pb-3">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <Radio size={14} className="text-[#FF6B00] animate-pulse" />
-                <span>Live Feed Preview</span>
-              </h3>
-              <span className="rounded bg-nominal/15 px-2 py-0.5 text-[9px] font-bold text-nominal border border-nominal/30">
-                REAL-TIME
+        {/* Right Column: Live Broadcast History Feed (5 cols) */}
+        <div className="lg:col-span-5 space-y-4">
+          <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm space-y-3">
+            <div className="flex items-center justify-between border-b border-border-subtle pb-3">
+              <div className="flex items-center gap-2">
+                <History size={16} className="text-accent-light" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">
+                  Broadcast History & Archive
+                </h3>
+              </div>
+
+              <span className="num text-[10px] text-text-dim font-bold">
+                {history.length} Transmissions
               </span>
             </div>
 
-            <NotificationPreviewCard
-              message={message ? `${activeUrgencyObj.prefix} ${message}` : `${activeUrgencyObj.prefix} Scheduled maintenance tonight from 23:00 to 01:00 IST.`}
-              target={target}
-              departmentNames={departmentNames}
-            />
+            {loadingHistory ? (
+              <div className="p-8 text-center text-xs text-text-dim">
+                Loading broadcast archives…
+              </div>
+            ) : history.length === 0 ? (
+              <div className="p-8 text-center space-y-1">
+                <p className="text-xs font-bold text-white">No Previous Broadcasts</p>
+                <p className="text-[10px] text-text-dim">Past mission transmissions will appear here.</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+                {history.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-3.5 rounded-xl border border-border-subtle bg-[#060c18] space-y-2 hover:border-border-bright transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-accent-light uppercase num flex items-center gap-1">
+                        <Clock size={11} />
+                        <span>{new Date(item.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+                      </span>
 
-            <div className="rounded-lg border border-border-subtle bg-[#060c18] p-3 text-[11px] text-text-dim space-y-1.5">
-              <div className="flex justify-between">
-                <span>Origin:</span>
-                <span className="font-bold text-text-primary">ISTRAC Bengaluru MOX</span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyMessage(item.message)}
+                          className="p-1 rounded text-text-dim hover:text-white hover:bg-surface transition-colors"
+                          title="Copy broadcast text"
+                        >
+                          <Copy size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRebroadcast(item)}
+                          className="p-1 rounded text-accent-light hover:text-white hover:bg-accent/20 transition-colors"
+                          title="Load into composer"
+                        >
+                          <RotateCcw size={12} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-text-primary leading-relaxed font-mono text-[11px] bg-black/30 p-2 rounded border border-white/5">
+                      {item.message}
+                    </p>
+
+                    <div className="flex items-center justify-between text-[10px] text-text-dim pt-1 border-t border-white/5">
+                      <span>Sender: <strong className="text-text-secondary">{item.senderName}</strong></span>
+                      <span className="num font-bold text-nominal uppercase">DISPATCHED</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="flex justify-between">
-                <span>Priority:</span>
-                <span className="font-bold text-accent-light">{activeUrgencyObj.label}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Target Count:</span>
-                <span className="font-bold text-nominal">
-                  {target === 'all' ? 'All Active Accounts' : `${selectedDeptIds.length} Divisions`}
-                </span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

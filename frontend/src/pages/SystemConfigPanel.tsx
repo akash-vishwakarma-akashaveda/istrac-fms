@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import {
   HardDrive,
-  Building2,
   FileCode,
   Shield,
   Zap,
@@ -692,62 +691,7 @@ export function SystemConfigPanel() {
         </div>
       </div>
 
-      {/* SECTION 3: GROUND STATION & FACILITY NODE */}
-      <div className="rounded-xl border border-border-default bg-card p-5 space-y-4 shadow-sm">
-        <div className="flex items-center gap-3 border-b border-border-subtle/80 pb-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface text-text-primary border border-border-default">
-            <Building2 size={18} />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-white">
-              Ground Station Hub & Facility Coordinates
-            </h3>
-            <p className="text-xs text-text-secondary">
-              Telemetry tracking station metadata and operational center identifier.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="sm:col-span-2">
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-semibold text-text-primary">
-                Station Facility Complex
-              </label>
-              <span className="text-[10px] text-text-dim">Headquarters Master Node</span>
-            </div>
-            <input
-              type="text"
-              disabled
-              value="ISTRAC Bengaluru Headquarters & MOX Complex"
-              className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-text-primary font-semibold cursor-not-allowed"
-            />
-            <p className="mt-1 text-[11px] text-text-dim">
-              Designated command hub coordinating telemetry passes across ISRO deep-space and LEO ground networks.
-            </p>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-semibold text-text-primary">
-                Ground Coordinates
-              </label>
-              <span className="text-[10px] text-text-dim">Antenna Site</span>
-            </div>
-            <input
-              type="text"
-              disabled
-              value="13.03° N, 77.51° E"
-              className="num w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-accent-light font-bold cursor-not-allowed"
-            />
-            <p className="mt-1 text-[11px] text-text-dim">
-              Calibrated coordinates for antenna azimuth/elevation look angles.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION 4: UPLOAD LIMITS & SECURITY POLICIES */}
+      {/* SECTION 3: UPLOAD LIMITS & SECURITY POLICIES */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Panel A: Upload & Ingest Limits */}
         <div className="rounded-xl border border-border-default bg-card p-5 space-y-4 shadow-sm">

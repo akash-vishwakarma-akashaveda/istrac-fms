@@ -4,7 +4,27 @@ export interface AdminStats {
   users: number
   files: number
   departments: number
+  satellites?: number
+  pendingUsers?: number
   storageUsedBytes: number
+  recentFiles?: Array<{
+    id: string
+    name: string
+    extension: string
+    sizeBytes: string
+    sha256?: string
+    department?: { id: string; name: string; code?: string }
+    report?: { id: string; title: string; spacecraft?: string; category?: string }
+    updatedAt: string
+  }>
+  recentLogs?: Array<{
+    id: number
+    userName: string
+    action: string
+    resourceType?: string
+    resourceId?: string
+    createdAt: string
+  }>
 }
 
 export interface AuditLogEntry {

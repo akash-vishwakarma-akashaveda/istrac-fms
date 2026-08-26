@@ -38,7 +38,7 @@ export function Navbar() {
           <Link
             to="/"
             className="group flex shrink-0 items-center gap-3 text-text-primary"
-            aria-label="ISTRAC-FMS home"
+            aria-label="ISTRAC-SIMS home"
           >
             <img
               src="/logo/isro_logo.svg"
@@ -48,7 +48,7 @@ export function Navbar() {
 
             <div className="flex flex-col">
               <span className="text-sm font-bold tracking-wider uppercase leading-tight">
-                ISTRAC<span className="text-accent-light">-FMS</span>
+                ISTRAC<span className="text-accent-light">-SIMS</span>
               </span>
               <span className="text-[10px] text-text-dim uppercase tracking-widest">
                 ISRO Ground Network

@@ -2,8 +2,8 @@ import { prisma } from '../config/db.js'
 
 export interface SearchParams {
   query: string
-  userId: string
-  isAdmin: boolean
+  userId?: string
+  isAdmin?: boolean
   departmentId?: string
   page?: number
   limit?: number
@@ -37,29 +37,34 @@ export const searchService = {
 
     let allowedDeptIds: string[] | undefined
 
-    if (!params.isAdmin) {
+    // If logged in as non-admin and has explicit department ACL restrictions
+    if (params.userId && !params.isAdmin) {
       const userAccess = await prisma.userDepartmentAccess.findMany({
         where: { userId: params.userId, deletedAt: null },
         select: { departmentId: true },
       })
-      allowedDeptIds = userAccess.map((a: any) => a.departmentId)
-      if (!allowedDeptIds || allowedDeptIds.length === 0) {
-        return { results: [], total: 0, page, limit }
+      if (userAccess.length > 0) {
+        allowedDeptIds = userAccess.map((a: any) => a.departmentId)
       }
     }
 
     const whereClause: any = {
       deletedAt: null,
-      status: 'ACTIVE',
       OR: [
         { name: { contains: term } },
         { description: { contains: term } },
+        { extension: { contains: term } },
+        { hddPath: { contains: term } },
+        { report: { title: { contains: term } } },
+        { report: { spacecraft: { contains: term } } },
+        { department: { name: { contains: term } } },
+        { department: { code: { contains: term } } },
       ],
     }
 
     if (params.departmentId) {
       whereClause.departmentId = params.departmentId
-    } else if (allowedDeptIds) {
+    } else if (allowedDeptIds && allowedDeptIds.length > 0) {
       whereClause.departmentId = { in: allowedDeptIds }
     }
 
@@ -71,6 +76,7 @@ export const searchService = {
         take: limit,
         orderBy: { updatedAt: 'desc' },
         include: {
+          report: true,
           department: {
             include: { satellite: true },
           },
@@ -84,13 +90,13 @@ export const searchService = {
       nodeType: f.nodeType,
       mimeType: f.mimeType,
       extension: f.extension,
-      sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : null,
+      sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
       departmentId: f.departmentId,
-      departmentName: f.department.name,
-      satelliteName: f.department.satellite.name,
-      hddPath: f.hddPath,
-      createdAt: f.createdAt.toISOString(),
-      updatedAt: f.updatedAt.toISOString(),
+      departmentName: f.department?.name || 'TTC Division',
+      satelliteName: f.report?.spacecraft || f.department?.satellite?.name || 'ISRO Primary Fleet',
+      hddPath: f.hddPath || '',
+      createdAt: f.createdAt ? f.createdAt.toISOString() : new Date().toISOString(),
+      updatedAt: f.updatedAt ? f.updatedAt.toISOString() : new Date().toISOString(),
     }))
 
     return { results, total, page, limit }

@@ -158,7 +158,7 @@ export function FeaturedReports() {
             <div>
               <p className="eyebrow flex items-center gap-2 text-accent-light">
                 <HardDrive size={14} />
-                Telemetry Repositories · Ingested Datasets
+                Telemetry Repositories · Files
               </p>
 
               <h2
@@ -169,7 +169,7 @@ export function FeaturedReports() {
               </h2>
 
               <p className="mt-2 max-w-xl text-xs leading-relaxed text-text-muted">
-                Public catalog of recent telemetry passes, orbit determinations, and launch vehicle tracking logs. Direct file download is restricted to authorized operators.
+                Public catalog of recent telemetry passes, orbit determinations, and launch vehicle tracking logs. Direct file download is restricted to authorized users.
               </p>
             </div>
 
@@ -390,7 +390,7 @@ function RestrictedFileModal({
           </div>
 
           <p className="text-xs leading-relaxed text-text-muted">
-            Direct retrieval of raw telemetry dumps, flight trajectories, and mission logs is restricted to authorized ISTRAC operators. Please log in with your credentials to download this file.
+            Direct retrieval of raw telemetry dumps, flight trajectories, and mission logs is restricted to authorized ISTRAC users. Please log in with your credentials to download this file.
           </p>
 
           {/* Action Buttons */}

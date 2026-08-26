@@ -34,6 +34,13 @@ router.get('/departments/public', async (_req, res, next) => {
         description: d.description,
         satellite: d.satellite,
         fileCount: d._count.files,
+        pageTitle: d.pageTitle,
+        pageAbout: d.pageAbout,
+        pageLeadOfficer: d.pageLeadOfficer,
+        pageLeadRole: d.pageLeadRole,
+        pageContact: d.pageContact,
+        pageBannerUrl: d.pageBannerUrl,
+        isPageEnabled: d.isPageEnabled,
         createdAt: d.createdAt,
       })),
     })
@@ -50,8 +57,11 @@ router.get('/departments/public/:deptId', async (req, res, next) => {
     const rawDeptId = req.params.deptId
     const deptId = Array.isArray(rawDeptId) ? rawDeptId[0] : rawDeptId
 
-    const department = await prisma.department.findUnique({
-      where: { id: deptId, deletedAt: null },
+    const department = await prisma.department.findFirst({
+      where: {
+        OR: [{ id: deptId }, { code: deptId }],
+        deletedAt: null,
+      },
       include: {
         satellite: { select: { id: true, name: true, code: true } },
         _count: { select: { files: { where: { deletedAt: null } } } },
@@ -70,8 +80,280 @@ router.get('/departments/public/:deptId', async (req, res, next) => {
         description: department.description,
         satellite: department.satellite,
         fileCount: department._count.files,
+        pageTitle: department.pageTitle,
+        pageAbout: department.pageAbout,
+        pageLeadOfficer: department.pageLeadOfficer,
+        pageLeadRole: department.pageLeadRole,
+        pageContact: department.pageContact,
+        pageBannerUrl: department.pageBannerUrl,
+        isPageEnabled: department.isPageEnabled,
         createdAt: department.createdAt,
       },
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ============================================================
+// PUBLIC/AUTH: GET FILES FOR SPECIFIC DEPARTMENT
+// ============================================================
+router.get('/departments/:deptId/files', async (req, res, next) => {
+  try {
+    const rawDeptId = req.params.deptId
+    const deptId = Array.isArray(rawDeptId) ? rawDeptId[0] : rawDeptId
+    const search = req.query.search ? String(req.query.search).trim() : ''
+    const extension = req.query.extension ? String(req.query.extension).trim().toUpperCase() : ''
+    const spacecraft = req.query.spacecraft ? String(req.query.spacecraft).trim() : ''
+
+    const department = await prisma.department.findFirst({
+      where: {
+        OR: [{ id: deptId }, { code: deptId }],
+        deletedAt: null,
+      },
+    })
+
+    if (!department) {
+      throw new AppError('department_not_found', 'Department not found', 404)
+    }
+
+    const where: any = {
+      departmentId: department.id,
+      deletedAt: null,
+      nodeType: 'FILE',
+      ...(extension && extension !== 'ALL' && { extension }),
+    }
+
+    if (search) {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { name: { contains: search } },
+            { description: { contains: search } },
+            { extension: { contains: search } },
+            { report: { title: { contains: search } } },
+            { report: { spacecraft: { contains: search } } },
+          ],
+        },
+      ]
+    }
+
+    if (spacecraft && spacecraft !== 'ALL') {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { report: { spacecraft: { contains: spacecraft } } },
+            { name: { contains: spacecraft } },
+            { hddPath: { contains: spacecraft } },
+          ],
+        },
+      ]
+    }
+
+    const files = await prisma.file.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+      include: {
+        report: { select: { id: true, title: true, category: true, spacecraft: true, classificationLevel: true } },
+        versions: {
+          orderBy: { versionNum: 'desc' },
+          take: 1,
+          select: { id: true, versionNum: true, sizeBytes: true, sha256: true, createdAt: true },
+        },
+      },
+    })
+
+    res.json({
+      data: files.map((f: any) => ({
+        id: f.id,
+        name: f.name,
+        nodeType: f.nodeType,
+        extension: (f.extension || 'DAT').toUpperCase(),
+        sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
+        sha256: f.sha256 || 'Verified SHA-256',
+        versionCount: f.versionCount || 1,
+        status: f.status,
+        description: f.description,
+        hddPath: f.hddPath,
+        report: f.report,
+        latestVersion: f.versions?.[0] ? {
+          id: f.versions[0].id,
+          versionNum: f.versions[0].versionNum,
+          sizeBytes: f.versions[0].sizeBytes ? f.versions[0].sizeBytes.toString() : '0',
+          sha256: f.versions[0].sha256,
+          createdAt: f.versions[0].createdAt,
+        } : null,
+        createdAt: f.createdAt,
+        updatedAt: f.updatedAt,
+      })),
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ============================================================
+// DEPARTMENT WORKSPACE & SHOWCASE HUB
+// ============================================================
+router.get('/departments/:deptId/hub', authMiddleware, async (req, res, next) => {
+  try {
+    const rawDeptId = req.params.deptId
+    const deptId = Array.isArray(rawDeptId) ? rawDeptId[0] : rawDeptId
+    const search = (req.query.search as string) || ''
+
+    // 1. Fetch Department Details
+    const department = await prisma.department.findFirst({
+      where: {
+        OR: [{ id: deptId }, { code: deptId }],
+        deletedAt: null,
+      },
+      include: {
+        satellite: { select: { id: true, name: true, code: true, description: true } },
+        _count: { select: { files: { where: { deletedAt: null } } } },
+      },
+    })
+
+    if (!department) {
+      throw new AppError('department_not_found', 'Department not found', 404)
+    }
+
+    // 2. Fetch Files with optional search
+    const filesWhere: any = {
+      departmentId: department.id,
+      deletedAt: null,
+      status: 'ACTIVE',
+      ...(search && {
+        OR: [
+          { name: { contains: search } },
+          { extension: { contains: search } },
+        ],
+      }),
+    }
+
+    const files = await prisma.file.findMany({
+      where: filesWhere,
+      take: 50,
+      orderBy: [{ nodeType: 'asc' }, { updatedAt: 'desc' }],
+      include: {
+        uploader: { select: { id: true, name: true } },
+      },
+    })
+
+    // 3. Fetch Reports for this department
+    const reports = await prisma.report.findMany({
+      where: {
+        departmentId: department.id,
+        deletedAt: null,
+      },
+      take: 20,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        createdBy: { select: { id: true, name: true } },
+      },
+    })
+
+    // 4. Fetch Mission Events for this department
+    const events = await prisma.missionEvent.findMany({
+      where: {
+        OR: [{ departmentId: department.id }, { satelliteId: department.satelliteId }],
+        deletedAt: null,
+      },
+      take: 10,
+      orderBy: { eventDate: 'asc' },
+    })
+
+    res.json({
+      data: {
+        department: {
+          id: department.id,
+          name: department.name,
+          code: department.code,
+          description: department.description,
+          hddPath: department.hddPath,
+          satellite: department.satellite,
+          fileCount: department._count.files,
+          pageTitle: department.pageTitle || `${department.name} Operational Division`,
+          pageAbout: department.pageAbout || department.description || 'ISRO Telemetry, Tracking & Command Operational Hub.',
+          pageLeadOfficer: department.pageLeadOfficer || 'Division Mission Controller',
+          pageLeadRole: department.pageLeadRole || 'Lead Flight Director',
+          pageContact: department.pageContact || `${(department.code || 'ops').toLowerCase()}@istrac.isro.gov.in`,
+          isPageEnabled: department.isPageEnabled,
+        },
+        files: files.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          nodeType: f.nodeType,
+          mimeType: f.mimeType,
+          extension: f.extension,
+          sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : null,
+          versionCount: f.versionCount,
+          uploader: f.uploader?.name || 'Mission Control',
+          createdAt: f.createdAt,
+          updatedAt: f.updatedAt,
+        })),
+        reports: reports.map((r: any) => ({
+          id: r.id,
+          title: r.title,
+          description: r.description,
+          category: r.category,
+          spacecraft: r.spacecraft,
+          status: r.status,
+          createdBy: r.createdBy?.name || 'Operator',
+          createdAt: r.createdAt,
+        })),
+        events,
+      },
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ============================================================
+// UPDATE DEPARTMENT LANDING PAGE SETTINGS (ADMIN)
+// ============================================================
+router.put('/departments/:deptId/page-settings', authMiddleware, adminMiddleware, async (req, res, next) => {
+  try {
+    const rawDeptId = req.params.deptId
+    const deptId = Array.isArray(rawDeptId) ? rawDeptId[0] : rawDeptId
+
+    const {
+      pageTitle,
+      pageAbout,
+      pageLeadOfficer,
+      pageLeadRole,
+      pageContact,
+      isPageEnabled,
+    } = req.body
+
+    const updated = await prisma.department.update({
+      where: { id: deptId },
+      data: {
+        ...(pageTitle !== undefined && { pageTitle: pageTitle?.trim() }),
+        ...(pageAbout !== undefined && { pageAbout: pageAbout?.trim() }),
+        ...(pageLeadOfficer !== undefined && { pageLeadOfficer: pageLeadOfficer?.trim() }),
+        ...(pageLeadRole !== undefined && { pageLeadRole: pageLeadRole?.trim() }),
+        ...(pageContact !== undefined && { pageContact: pageContact?.trim() }),
+        ...(isPageEnabled !== undefined && { isPageEnabled: Boolean(isPageEnabled) }),
+      },
+    })
+
+    auditService.log({
+      userId: req.user!.id,
+      action: 'DEPARTMENT:UPDATE_PAGE_SETTINGS',
+      resourceType: 'department_page',
+      resourceId: deptId,
+      newValue: updated as unknown as Record<string, unknown>,
+    })
+
+    res.json({
+      data: updated,
+      requestId: req.requestId,
     })
   } catch (err) {
     next(err)
@@ -185,6 +467,13 @@ const createDeptHandler = async (req: any, res: any, next: any) => {
       hddPath,
       allowUserFolderCreation,
       maxFolderDepth,
+      pageTitle,
+      pageAbout,
+      pageLeadOfficer,
+      pageLeadRole,
+      pageContact,
+      pageBannerUrl,
+      isPageEnabled,
     } = req.body
 
     if (!name) {
@@ -208,10 +497,10 @@ const createDeptHandler = async (req: any, res: any, next: any) => {
       throw new AppError('satellite_not_found', 'Specified satellite does not exist', 404)
     }
 
-    const existingName = await prisma.department.findUnique({
-      where: { satelliteId_name: { satelliteId, name } },
+    const existingName = await prisma.department.findFirst({
+      where: { satelliteId, name, deletedAt: null },
     })
-    if (existingName && !existingName.deletedAt) {
+    if (existingName) {
       throw new AppError(
         'department_exists',
         'A department with this name already exists in this satellite station',
@@ -236,6 +525,13 @@ const createDeptHandler = async (req: any, res: any, next: any) => {
         hddPath: finalHddPath,
         allowUserFolderCreation: Boolean(allowUserFolderCreation),
         maxFolderDepth: maxFolderDepth ? Number(maxFolderDepth) : 5,
+        pageTitle: pageTitle || null,
+        pageAbout: pageAbout || null,
+        pageLeadOfficer: pageLeadOfficer || null,
+        pageLeadRole: pageLeadRole || null,
+        pageContact: pageContact || null,
+        pageBannerUrl: pageBannerUrl || null,
+        isPageEnabled: isPageEnabled !== undefined ? Boolean(isPageEnabled) : true,
       },
       include: {
         satellite: true,
@@ -310,6 +606,13 @@ const updateDeptHandler = async (req: any, res: any, next: any) => {
       hddPath,
       allowUserFolderCreation,
       maxFolderDepth,
+      pageTitle,
+      pageAbout,
+      pageLeadOfficer,
+      pageLeadRole,
+      pageContact,
+      pageBannerUrl,
+      isPageEnabled,
       isActive,
       archived,
     } = req.body
@@ -332,7 +635,17 @@ const updateDeptHandler = async (req: any, res: any, next: any) => {
         hddPath: hddPath !== undefined ? hddPath : undefined,
         allowUserFolderCreation: allowUserFolderCreation !== undefined ? Boolean(allowUserFolderCreation) : undefined,
         maxFolderDepth: maxFolderDepth !== undefined ? Number(maxFolderDepth) : undefined,
+        pageTitle: pageTitle !== undefined ? pageTitle : undefined,
+        pageAbout: pageAbout !== undefined ? pageAbout : undefined,
+        pageLeadOfficer: pageLeadOfficer !== undefined ? pageLeadOfficer : undefined,
+        pageLeadRole: pageLeadRole !== undefined ? pageLeadRole : undefined,
+        pageContact: pageContact !== undefined ? pageContact : undefined,
+        pageBannerUrl: pageBannerUrl !== undefined ? pageBannerUrl : undefined,
+        isPageEnabled: isPageEnabled !== undefined ? Boolean(isPageEnabled) : undefined,
         isActive: isDeptActive,
+      },
+      include: {
+        satellite: true,
       },
     })
 

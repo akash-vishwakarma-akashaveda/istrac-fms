@@ -1,6 +1,7 @@
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, LayoutDashboard } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useCms, DEFAULT_CMS_BLOCKS } from '../context/cmsContext'
+import { useAuthStore } from '../store/authStore'
 import { Button } from '.'
 
 interface BannerContent {
@@ -12,12 +13,16 @@ interface BannerContent {
 }
 
 export function Banner() {
+  const user = useAuthStore((s) => s.user)
   const { cmsBlocks } = useCms()
   const banner =
     (cmsBlocks['banner'] as BannerContent | undefined) ??
     (DEFAULT_CMS_BLOCKS['banner'] as BannerContent)
 
   if (banner?.visible === false) return null
+
+  const targetHref = user ? (user.role === 'ADMIN' ? '/admin' : '/dashboard') : (banner.ctaHref ?? '/register')
+  const buttonLabel = user ? 'Go To Dashboard' : (banner.ctaText ?? 'Deploy Workstation')
 
   return (
     <section
@@ -51,9 +56,10 @@ export function Banner() {
             </div>
 
             <div className="flex shrink-0 flex-col gap-3 sm:flex-row">
-              <Link to={banner.ctaHref ?? '/register'}>
-                <Button variant="primary" size="lg" className="w-full shadow-lg shadow-accent/25 sm:w-auto">
-                  {banner.ctaText ?? 'Deploy Workstation'}
+              <Link to={targetHref}>
+                <Button variant="primary" size="lg" className="w-full shadow-lg shadow-accent/25 sm:w-auto flex items-center gap-2">
+                  {user && <LayoutDashboard size={16} />}
+                  <span>{buttonLabel}</span>
                   <ArrowRight size={16} strokeWidth={2} />
                 </Button>
               </Link>

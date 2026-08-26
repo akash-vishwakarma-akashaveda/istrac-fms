@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -11,6 +11,7 @@ import {
   ArrowRight,
 } from 'lucide-react'
 import { useCms, DEFAULT_CMS_BLOCKS } from '../context/cmsContext'
+import { eventsApi } from '../api/events.api'
 
 export interface MissionEvent {
   id: string
@@ -41,7 +42,19 @@ const MONTH_NAMES = [
 
 const DAYS_OF_WEEK = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
-export function MissionCalendar() {
+export interface MissionCalendarProps {
+  isEmbedded?: boolean
+  title?: string
+  hideViewAll?: boolean
+  className?: string
+}
+
+export function MissionCalendar({
+  isEmbedded = false,
+  title = 'Upcoming Events',
+  hideViewAll = false,
+  className = '',
+}: MissionCalendarProps = {}) {
   const { cmsBlocks } = useCms()
   const calData = cmsBlocks['calendar_events'] as
     | {
@@ -53,10 +66,53 @@ export function MissionCalendar() {
     events: MissionEvent[]
   }
 
-  const rawEvents = calData?.events ?? fallbackData.events ?? []
+  const [serverEvents, setServerEvents] = useState<MissionEvent[]>([])
 
-  // Dual-month navigation: month1 and month2 (defaulting to May 2024 / Aug 2026 based on year)
-  const [baseDate, setBaseDate] = useState(() => new Date(2026, 7, 1)) // August 2026
+  useEffect(() => {
+    eventsApi
+      .getEvents()
+      .then((data) => {
+        if (data && data.length > 0) {
+          const mapped: MissionEvent[] = data.map((ev) => {
+            const dateObj = new Date(ev.eventDate)
+            const dateStr = dateObj.toISOString().split('T')[0]
+            const timeStr =
+              dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) +
+              ' UTC'
+
+            let cat: MissionEvent['category'] = 'PASS'
+            if (ev.eventType === 'ORBIT_MANEUVER') cat = 'MANEUVER'
+            else if (ev.eventType === 'MAINTENANCE') cat = 'MAINTENANCE'
+            else if (ev.eventType === 'SEMINAR') cat = 'SPECIAL'
+            else if (ev.eventType === 'LAUNCH') cat = 'SPECIAL'
+
+            return {
+              id: ev.id,
+              title: ev.title,
+              subtitle: ev.satellite?.name ? `${ev.satellite.name} Operations` : ev.location || 'ISTRAC MOX',
+              date: dateStr,
+              time: timeStr,
+              category: cat,
+              department: ev.department?.name || 'Operations',
+              station: ev.location || 'ISTRAC Bengaluru',
+              description: ev.description || undefined,
+            }
+          })
+          setServerEvents(mapped)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  const rawEvents = useMemo(() => {
+    if (serverEvents.length > 0) {
+      return serverEvents
+    }
+    return calData?.events ?? fallbackData.events ?? []
+  }, [serverEvents, calData, fallbackData])
+
+  // Dual-month navigation: month1 and month2 (defaulting to current real month)
+  const [baseDate, setBaseDate] = useState(() => new Date())
   const [activeModalEvent, setActiveModalEvent] = useState<MissionEvent | null>(null)
 
   // Month 1 & Month 2 dates
@@ -119,84 +175,101 @@ export function MissionCalendar() {
   const month1Days = useMemo(() => getMonthGrid(year1, month1), [year1, month1])
   const month2Days = useMemo(() => getMonthGrid(year2, month2), [year2, month2])
 
+  const calendarContent = (
+    <div className={`rounded-2xl border border-border-default bg-[#0b1220]/95 p-6 shadow-2xl backdrop-blur-md ${className}`}>
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-border-subtle/70 pb-4">
+        <div className="flex items-center gap-2.5 text-text-primary">
+          <CalendarIcon size={18} className="text-accent-light" />
+          <h2 id="calendar-title" className="text-base font-bold tracking-wide text-white">
+            {title}
+          </h2>
+        </div>
+
+        {!hideViewAll && (
+          <a
+            href="#calendar"
+            className="text-xs font-semibold text-accent-light hover:underline flex items-center gap-1"
+          >
+            <span>View All Events</span>
+            <ArrowRight size={13} />
+          </a>
+        )}
+      </div>
+
+      {/* Dual Month Calendar Grids */}
+      <div className="mt-6 grid gap-8 lg:grid-cols-2">
+        {/* MONTH 1 */}
+        <MonthBlock
+          year={year1}
+          month={month1}
+          days={month1Days}
+          eventsByDate={eventsByDate}
+          onPrev={prevMonth}
+          onNext={nextMonth}
+          onSelectEvent={(ev) => setActiveModalEvent(ev)}
+        />
+
+        {/* MONTH 2 */}
+        <MonthBlock
+          year={year2}
+          month={month2}
+          days={month2Days}
+          eventsByDate={eventsByDate}
+          onPrev={prevMonth}
+          onNext={nextMonth}
+          onSelectEvent={(ev) => setActiveModalEvent(ev)}
+        />
+      </div>
+
+      {/* Bottom Legend */}
+      <div className="mt-8 flex flex-wrap items-center gap-6 border-t border-border-subtle/70 pt-5 text-xs text-text-muted">
+        <span className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-nominal" />
+          <span>Pass Window</span>
+        </span>
+
+        <span className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-orange-400" />
+          <span>Maneuver</span>
+        </span>
+
+        <span className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-accent" />
+          <span>Maintenance Window</span>
+        </span>
+
+        <span className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-purple-500" />
+          <span>Special Activity</span>
+        </span>
+
+        <span className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-text-dim" />
+          <span>Other Event</span>
+        </span>
+      </div>
+    </div>
+  )
+
+  if (isEmbedded) {
+    return (
+      <div className="space-y-4">
+        {calendarContent}
+        {activeModalEvent && (
+          <EventDetailsModal
+            event={activeModalEvent}
+            onClose={() => setActiveModalEvent(null)}
+          />
+        )}
+      </div>
+    )
+  }
+
   return (
     <section id="calendar" className="border-b border-border-subtle bg-page py-12 sm:py-16" aria-labelledby="calendar-title">
       <div className="shell">
-        {/* ========================================================================= */}
-        {/* DUAL-MONTH SIDE-BY-SIDE CALENDAR VIEW */}
-        {/* ========================================================================= */}
-        <div className="rounded-2xl border border-border-default bg-[#0b1220]/95 p-6 shadow-2xl backdrop-blur-md">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-border-subtle/70 pb-4">
-            <div className="flex items-center gap-2.5 text-text-primary">
-              <CalendarIcon size={18} className="text-accent-light" />
-              <h2 id="calendar-title" className="text-base font-bold tracking-wide text-text-primary">
-                Upcoming Events
-              </h2>
-            </div>
-
-            <a
-              href="#calendar"
-              className="text-xs font-semibold text-accent-light hover:underline flex items-center gap-1"
-            >
-              <span>View All Events</span>
-              <ArrowRight size={13} />
-            </a>
-          </div>
-
-          {/* Dual Month Calendar Grids */}
-          <div className="mt-6 grid gap-8 lg:grid-cols-2">
-            {/* MONTH 1 */}
-            <MonthBlock
-              year={year1}
-              month={month1}
-              days={month1Days}
-              eventsByDate={eventsByDate}
-              onPrev={prevMonth}
-              onNext={nextMonth}
-              onSelectEvent={(ev) => setActiveModalEvent(ev)}
-            />
-
-            {/* MONTH 2 */}
-            <MonthBlock
-              year={year2}
-              month={month2}
-              days={month2Days}
-              eventsByDate={eventsByDate}
-              onPrev={prevMonth}
-              onNext={nextMonth}
-              onSelectEvent={(ev) => setActiveModalEvent(ev)}
-            />
-          </div>
-
-          {/* Bottom Legend */}
-          <div className="mt-8 flex flex-wrap items-center gap-6 border-t border-border-subtle/70 pt-5 text-xs text-text-muted">
-            <span className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-nominal" />
-              <span>Pass Window</span>
-            </span>
-
-            <span className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-orange-400" />
-              <span>Maneuver</span>
-            </span>
-
-            <span className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-accent" />
-              <span>Maintenance Window</span>
-            </span>
-
-            <span className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-purple-500" />
-              <span>Special Activity</span>
-            </span>
-
-            <span className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-text-dim" />
-              <span>Other Event</span>
-            </span>
-          </div>
-        </div>
+        {calendarContent}
       </div>
 
       {/* Details Modal on Click or Hover */}

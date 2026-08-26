@@ -17,6 +17,28 @@ export const DEFAULT_CMS_BLOCKS: Record<string, Record<string, unknown>> = {
     badgeText: 'ISTRAC Ground Network Active · 24/7 Mission Operations',
     imageUrl: 'https://images.unsplash.com/photo-1517976487515-56839a85703f?auto=format&fit=crop&w=1200&q=80',
     imageAlt: 'Indian Deep Space Network (IDSN) 32-Meter Antenna Dish at Byalalu',
+    slides: [
+      {
+        url: 'https://images.unsplash.com/photo-1517976487515-56839a85703f?auto=format&fit=crop&w=1200&q=80',
+        caption: 'Indian Deep Space Network (IDSN) 32-Meter Antenna Dish at Byalalu',
+        alt: 'IDSN 32-Meter Antenna',
+      },
+      {
+        url: 'https://images.unsplash.com/photo-1541185933-ef5d8ed016c2?auto=format&fit=crop&w=1200&q=80',
+        caption: 'Mission Operations Complex (MOX) Flight Dynamics & Control Consoles',
+        alt: 'MOX Flight Control Consoles',
+      },
+      {
+        url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
+        caption: 'Real-time Global Satellite Telemetry Downlink Stream & Constellation Tracking',
+        alt: 'Satellite Constellation Network',
+      },
+      {
+        url: 'https://images.unsplash.com/photo-1516849841032-87cbac4d88f7?auto=format&fit=crop&w=1200&q=80',
+        caption: 'ISTRAC Bengaluru Main Control Room Operations Gallery',
+        alt: 'Control Room Gallery',
+      },
+    ],
   },
   announcements: {
     visible: true,

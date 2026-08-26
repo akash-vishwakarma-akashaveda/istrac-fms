@@ -1,5 +1,6 @@
-import { Archive, Building2, Plus, RotateCcw } from 'lucide-react'
+import { Archive, Building2, Plus, RotateCcw, ExternalLink } from 'lucide-react'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   useDepartments,
   useCreateDepartment,
@@ -27,7 +28,13 @@ export function DepartmentManager() {
   const [editingDept, setEditingDept] = useState<{
     id: string
     name: string
+    code?: string
     folderName: string
+    pageTitle?: string
+    pageAbout?: string
+    pageLeadOfficer?: string
+    pageLeadRole?: string
+    pageContact?: string
   } | null>(null)
 
   const filtered =
@@ -43,17 +50,29 @@ export function DepartmentManager() {
 
   async function handleCreate(data: {
     name: string
+    code?: string
     hddPath: string
+    pageTitle?: string
+    pageAbout?: string
+    pageLeadOfficer?: string
+    pageLeadRole?: string
+    pageContact?: string
   }) {
     await createDept.mutateAsync(data)
 
-    addToast({ message: 'Department created', variant: 'success' })
+    addToast({ message: 'Department created with CMS configuration', variant: 'success' })
     setModalOpen(false)
   }
 
   async function handleEdit(data: {
     name: string
+    code?: string
     hddPath: string
+    pageTitle?: string
+    pageAbout?: string
+    pageLeadOfficer?: string
+    pageLeadRole?: string
+    pageContact?: string
   }) {
     if (!editingDept) return
 
@@ -62,7 +81,7 @@ export function DepartmentManager() {
       ...data,
     })
 
-    addToast({ message: 'Department updated', variant: 'success' })
+    addToast({ message: 'Department CMS updated', variant: 'success' })
     setEditingDept(null)
   }
 
@@ -79,10 +98,10 @@ export function DepartmentManager() {
       {
         onSuccess: () =>
           addToast(
-          {message:  `${name} ${
-              currentlyArchived ? 'restored' : 'archived'
-            }`,
-            variant: 'info'}
+            {
+              message: `${name} ${currentlyArchived ? 'restored' : 'archived'}`,
+              variant: 'info',
+            }
           ),
 
         onError: () => addToast({ message: 'Action failed', variant: 'error' }),
@@ -90,15 +109,17 @@ export function DepartmentManager() {
     )
   }
 
-  function openEdit(dept: {
-    id: string
-    name: string
-    hddPath: string
-  }) {
+  function openEdit(dept: any) {
     setEditingDept({
       id: dept.id,
       name: dept.name,
-      folderName: dept.hddPath.replace(HDD_ROOT, ''),
+      code: dept.code || '',
+      folderName: dept.hddPath ? dept.hddPath.replace(HDD_ROOT, '') : '',
+      pageTitle: dept.pageTitle || '',
+      pageAbout: dept.pageAbout || '',
+      pageLeadOfficer: dept.pageLeadOfficer || '',
+      pageLeadRole: dept.pageLeadRole || '',
+      pageContact: dept.pageContact || '',
     })
   }
 
@@ -264,12 +285,25 @@ export function DepartmentManager() {
               </div>
 
               {/* Storage path — a machine value, so mono and full width. */}
-              <div className="px-4 py-3">
-                <p className="col-label">Storage path</p>
+              <div className="px-4 py-3 space-y-2.5">
+                <div>
+                  <p className="col-label">Storage path</p>
+                  <p className="num mt-1.5 break-all text-[11px] leading-5 text-text-secondary">
+                    {dept.hddPath}
+                  </p>
+                </div>
 
-                <p className="num mt-1.5 break-all text-[11px] leading-5 text-text-secondary">
-                  {dept.hddPath}
-                </p>
+                <div className="pt-2 border-t border-border-subtle flex items-center justify-between">
+                  <span className="num text-[10px] text-text-dim">/{dept.code || 'OPS'} Division</span>
+
+                  <Link
+                    to={`/departments/${dept.id}`}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent-light hover:text-white transition-colors"
+                  >
+                    <span>Open Department Page</span>
+                    <ExternalLink size={12} />
+                  </Link>
+                </div>
               </div>
             </article>
           ))}

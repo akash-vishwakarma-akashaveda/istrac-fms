@@ -37,6 +37,15 @@ router.get('/departments/:deptId/files', authMiddleware, deptAccessMiddleware, a
         orderBy: [{ nodeType: 'asc' }, { name: 'asc' }],
         include: {
           uploader: { select: { id: true, name: true } },
+          report: {
+            select: {
+              id: true,
+              title: true,
+              spacecraft: true,
+              category: true,
+              reportNumber: true,
+            },
+          },
         },
       }),
     ])
@@ -50,10 +59,15 @@ router.get('/departments/:deptId/files', authMiddleware, deptAccessMiddleware, a
         extension: item.extension,
         sizeBytes: item.sizeBytes ? item.sizeBytes.toString() : null,
         versionCount: item.versionCount,
-        uploader: item.uploader.name,
+        uploader: item.uploader?.name || 'System',
+        spacecraft: item.report?.spacecraft || null,
+        title: item.report?.title || null,
+        category: item.report?.category || null,
+        reportNumber: item.report?.reportNumber || null,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
       })),
+      accessLevel: req.deptAccessLevel || 'READ_ONLY',
       total,
       page,
       limit,

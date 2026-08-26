@@ -11,6 +11,17 @@ export interface AuditLogOpts {
   userAgent?: string
 }
 
+function safeStringify(obj: unknown): string | undefined {
+  if (obj === undefined || obj === null) return undefined
+  try {
+    return JSON.stringify(obj, (_, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    )
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * Append-only audit logger.
  * Mutations are logged fire-and-forget; never blocks the caller.
@@ -24,8 +35,8 @@ export const auditService = {
           action: opts.action,
           resourceType: opts.resourceType,
           resourceId: opts.resourceId,
-          oldValue: opts.oldValue ? JSON.stringify(opts.oldValue) : undefined,
-          newValue: opts.newValue ? JSON.stringify(opts.newValue) : undefined,
+          oldValue: safeStringify(opts.oldValue),
+          newValue: safeStringify(opts.newValue),
           ipAddress: opts.ipAddress,
           userAgent: opts.userAgent,
         },

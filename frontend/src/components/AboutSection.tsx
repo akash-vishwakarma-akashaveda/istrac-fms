@@ -71,11 +71,11 @@ export function AboutSection() {
             fallbackSubtitle="Mission Operations Complex (MOX-2)"
           />
 
-          {/* Bottom Coordinates Strip */}
+          {/* Bottom Station Node Strip */}
           <div className="absolute bottom-0 inset-x-0 z-20 flex items-center justify-between border-t border-border-subtle/80 bg-[#0b1220]/85 px-4 py-2.5 backdrop-blur-md">
             <div>
               <p className="eyebrow text-[9px] text-text-dim">PRIMARY CONTROL NODE</p>
-              <p className="num text-xs font-bold text-text-primary">13.034°N · 77.512°E (BLR)</p>
+              <p className="num text-xs font-bold text-text-primary">Bengaluru MOX Complex (BLR)</p>
             </div>
             <span className="num text-[10px] text-nominal font-semibold">● SYNCHRONIZED</span>
           </div>

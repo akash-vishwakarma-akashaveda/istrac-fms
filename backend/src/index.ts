@@ -24,11 +24,17 @@ import { cmsRouter } from './routes/cms.routes.js'
 import { adminRouter } from './routes/admin.routes.js'
 import { healthRouter } from './routes/health.routes.js'
 import { reportPresetRouter } from './routes/reportPreset.routes.js'
+import { eventRouter } from './routes/event.routes.js'
 
 // Services & Daemons
 import { startHddHealthService } from './services/hddHealth.service.js'
 import { startHddSyncService } from './services/hddSync.service.js'
 import { createWsServer } from './ws/wsServer.js'
+
+// Enable JSON.stringify for BigInt across all Prisma models
+;(BigInt.prototype as any).toJSON = function () {
+  return this.toString()
+}
 
 const app = express()
 const server = createServer(app)
@@ -56,6 +62,7 @@ app.use(notificationRouter)
 app.use(cmsRouter)
 app.use(adminRouter)
 app.use(reportPresetRouter)
+app.use(eventRouter)
 app.use(healthRouter)
 
 // ============================================================

@@ -59,7 +59,6 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
 
   // Step 2: Station Identity
   const [stationName, setStationName] = useState('ISTRAC Bengaluru Ground Station & MOX Complex')
-  const [stationCoords, setStationCoords] = useState('13.03° N, 77.51° E')
 
   // Step 3: Satellite Fleet & Departments
   const [satellites, setSatellites] = useState<Satellite[]>([])
@@ -451,7 +450,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                     Step 2: Ground Station & Facility Identity
                   </h3>
                   <p className="text-xs text-text-secondary">
-                    Configure facility telemetry metadata, orbital tracking coordinates, and station mandate.
+                    Configure facility telemetry metadata, master node identity, and station mandate.
                   </p>
                 </div>
               </div>
@@ -466,26 +465,16 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                 required
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  id="station-coords-input"
-                  label="Geographic Coordinates"
-                  value={stationCoords}
-                  onChange={(e) => setStationCoords(e.target.value)}
-                  hint="Used in antenna elevation tracking calculations."
+              <div>
+                <label className="block text-xs font-semibold text-text-primary mb-1.5">
+                  Operating Network
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value="ISRO ISTRAC Space Operations Network"
+                  className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-text-muted cursor-not-allowed"
                 />
-
-                <div>
-                  <label className="block text-xs font-semibold text-text-primary mb-1.5">
-                    Operating Network
-                  </label>
-                  <input
-                    type="text"
-                    disabled
-                    value="ISRO ISTRAC Space Operations Network"
-                    className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-text-muted cursor-not-allowed"
-                  />
-                </div>
               </div>
             </div>
           </div>

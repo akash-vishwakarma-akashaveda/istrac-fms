@@ -1,8 +1,28 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Building, Satellite, ArrowRight } from 'lucide-react'
+import { Satellite, ArrowRight, HardDrive } from 'lucide-react'
 import { departmentsApi, type Department } from '../api/departments.api'
 import { Navbar, Footer, Input } from '../components'
+import { ImageWithFallback } from '../components/ImageWithFallback'
+
+function getDeptBanner(dept: Department): string {
+  if (dept.pageBannerUrl) {
+    try {
+      const parsed = JSON.parse(dept.pageBannerUrl)
+      if (Array.isArray(parsed) && parsed[0]?.url) return parsed[0].url
+    } catch {
+      if (dept.pageBannerUrl.startsWith('http')) return dept.pageBannerUrl
+    }
+  }
+  const fallbackImages: Record<string, string> = {
+    TTC: 'https://images.unsplash.com/photo-1517976487515-56839a85703f?auto=format&fit=crop&w=800&q=80',
+    MOX: 'https://images.unsplash.com/photo-1541185933-ef5d8ed016c2?auto=format&fit=crop&w=800&q=80',
+    FDD: 'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?auto=format&fit=crop&w=800&q=80',
+    NETRA: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=800&q=80',
+    GSO: 'https://images.unsplash.com/photo-1517976487515-56839a85703f?auto=format&fit=crop&w=800&q=80',
+  }
+  return fallbackImages[dept.code?.toUpperCase() || 'TTC'] || fallbackImages['TTC']
+}
 
 export function DepartmentsList() {
   const [departments, setDepartments] = useState<Department[]>([])
@@ -29,7 +49,7 @@ export function DepartmentsList() {
 
       <main className="pb-24">
         {/* Header */}
-        <section className="relative border-b border-border-subtle bg-page-soft py-16 lg:py-20 overflow-hidden">
+        <section className="relative border-b border-border-subtle bg-page-soft py-14 lg:py-18 overflow-hidden">
           <div className="graticule absolute inset-0 opacity-30 pointer-events-none" />
           <div className="shell relative z-10">
             <p className="eyebrow flex items-center gap-2.5 text-accent-light">
@@ -66,44 +86,62 @@ export function DepartmentsList() {
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((dept) => (
-                <Link
-                  key={dept.id}
-                  to={`/departments/${dept.id}`}
-                  className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border-default bg-card p-6 shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-accent/40 hover:shadow-2xl"
-                >
-                  <div>
-                    <div className="flex items-center justify-between border-b border-border-subtle pb-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-subtle text-accent-light group-hover:border-accent/50 group-hover:bg-accent/10 transition-colors">
-                        <Building size={20} />
-                      </div>
+              {filtered.map((dept) => {
+                const bannerImg = getDeptBanner(dept)
 
+                return (
+                  <Link
+                    key={dept.id}
+                    to={`/departments/${dept.id}`}
+                    className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border-default bg-card shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-accent/40 hover:shadow-2xl"
+                  >
+                    {/* Visual Banner Thumbnail */}
+                    <div className="relative h-44 w-full overflow-hidden border-b border-border-subtle bg-[#060b16]">
+                      <ImageWithFallback
+                        src={bannerImg}
+                        alt={dept.name}
+                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#060b16] via-transparent to-transparent" />
+
+                      {/* Division Shortcode Tag */}
                       {dept.code && (
-                        <span className="num rounded-full border border-accent/30 bg-accent/10 px-2.5 py-0.5 text-xs font-bold text-accent-light">
-                          {dept.code}
+                        <span className="absolute top-3 right-3 num font-mono rounded-full border border-accent/40 bg-[#060b16]/80 backdrop-blur-md px-2.5 py-0.5 text-xs font-bold text-accent-light shadow-md">
+                          /{dept.code}
                         </span>
                       )}
+
+                      {/* Telemetry Indicator */}
+                      <div className="absolute bottom-2.5 left-3 flex items-center gap-1.5 text-[10px] font-mono font-bold text-nominal bg-[#060b16]/80 px-2 py-0.5 rounded-full border border-nominal/30 backdrop-blur-sm">
+                        <span className="h-1.5 w-1.5 rounded-full bg-nominal animate-pulse" />
+                        <span>LIVE DIVISION</span>
+                      </div>
                     </div>
 
-                    <h3 className="mt-4 text-base font-bold text-text-primary group-hover:text-accent-light transition-colors">
-                      {dept.name}
-                    </h3>
+                    <div className="p-6 flex flex-col justify-between flex-1">
+                      <div>
+                        <h3 className="text-base font-bold text-text-primary group-hover:text-accent-light transition-colors">
+                          {dept.pageTitle || dept.name}
+                        </h3>
 
-                    <p className="mt-2 text-xs leading-relaxed text-text-muted line-clamp-2">
-                      {dept.description || 'Provides telemetry processing, satellite operations, and mission telemetry data archiving.'}
-                    </p>
-                  </div>
+                        <p className="mt-2 text-xs leading-relaxed text-text-muted line-clamp-2">
+                          {dept.pageAbout || dept.description || 'Provides telemetry processing, satellite operations, and mission telemetry data archiving.'}
+                        </p>
+                      </div>
 
-                  <div className="mt-6 border-t border-border-subtle pt-4 flex items-center justify-between text-[11px] text-text-dim">
-                    <span className="num text-text-secondary font-medium">
-                      {dept.satellite?.name || 'Bengaluru Ground Station'}
-                    </span>
-                    <span className="flex items-center gap-1 font-semibold text-accent-light group-hover:underline">
-                      View Profile <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
-                    </span>
-                  </div>
-                </Link>
-              ))}
+                      <div className="mt-6 border-t border-border-subtle pt-4 flex items-center justify-between text-[11px] text-text-dim">
+                        <span className="num text-text-secondary font-medium flex items-center gap-1">
+                          <HardDrive size={12} className="text-accent-light" />
+                          <span>{dept.fileCount ?? 0} Datasets</span>
+                        </span>
+                        <span className="flex items-center gap-1 font-semibold text-accent-light group-hover:underline">
+                          View Division <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })}
 
               {filtered.length === 0 && (
                 <div className="col-span-full py-16 text-center text-text-muted rounded-2xl border border-dashed border-border-default bg-card">

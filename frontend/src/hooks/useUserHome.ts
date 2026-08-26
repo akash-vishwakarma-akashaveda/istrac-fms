@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { departmentsApi, browseApi } from '../api'
+import { departmentsApi, browseApi, usersApi } from '../api'
 
 export interface UserDeptCard {
   id: string
@@ -37,7 +37,7 @@ export function useRecentFiles() {
     queryKey: ['recent-files'],
     queryFn: async () => {
       try {
-        const res = await browseApi.search('', undefined, 1, 5)
+        const res = await browseApi.search('', undefined, 1, 10)
         return (res.data || []).map((f) => ({
           id: f.id,
           name: f.name,
@@ -50,5 +50,15 @@ export function useRecentFiles() {
         return []
       }
     },
+  })
+}
+
+export function useMissionOverview() {
+  return useQuery({
+    queryKey: ['mission-overview'],
+    queryFn: async () => {
+      return await usersApi.getMissionOverview()
+    },
+    staleTime: 30000,
   })
 }

@@ -275,7 +275,7 @@ export function AdminHome() {
       </div>
 
       {/* Primary Statistics Cards Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           label="Authorized Personnel"
           value={isLoading ? '—' : stats?.users ?? 6}
@@ -284,10 +284,10 @@ export function AdminHome() {
         />
 
         <StatCard
-          label="Ingested Telemetry Files"
-          value={isLoading ? '—' : stats?.files ?? 5}
+          label="Telemetry Files"
+          value={isLoading ? '—' : stats?.files ?? 6}
           icon={FileText}
-          trend="Mission datasets archived"
+          trend="Active mission datasets"
         />
 
         <StatCard
@@ -298,12 +298,83 @@ export function AdminHome() {
         />
 
         <StatCard
+          label="Satellites & Fleets"
+          value={isLoading ? '—' : stats?.satellites ?? 6}
+          icon={Radio}
+          trend="Active mission programs"
+        />
+
+        <StatCard
           label="Storage Allocated"
-          value={isLoading ? '—' : formatBytes(stats?.storageUsedBytes ?? 682857088)}
+          value={isLoading ? '—' : formatBytes(stats?.storageUsedBytes ?? 396361728)}
           icon={HardDrive}
-          trend="Across ground storage arrays"
+          trend="Physical storage consumed"
         />
       </div>
+
+      {/* Recent Datasets Quick View (Live from MySQL) */}
+      {stats?.recentFiles && stats.recentFiles.length > 0 && (
+        <div className="rounded-xl border border-border-default bg-card shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-default bg-surface/50">
+            <div className="flex items-center gap-2">
+              <FileText size={15} className="text-accent-light" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">
+                Recent Files
+              </h3>
+              <span className="num font-bold text-[10px] text-nominal rounded-full bg-nominal/15 border border-nominal/30 px-2 py-0.5">
+                LIVE REPOSITORY FEED
+              </span>
+            </div>
+
+            <Link
+              to="/admin/files"
+              className="text-xs font-bold text-accent-light hover:underline flex items-center gap-1"
+            >
+              <span>View All Files</span>
+              <ArrowRight size={13} />
+            </Link>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[750px]">
+              <thead>
+                <tr className="border-b border-border-subtle bg-surface text-[10px] font-bold text-text-dim uppercase tracking-wider">
+                  <th className="px-4 py-2.5">File Name</th>
+                  <th className="px-4 py-2.5">Department</th>
+                  <th className="px-4 py-2.5">Spacecraft Target</th>
+                  <th className="px-4 py-2.5">Size</th>
+                  <th className="px-4 py-2.5">Date Added</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-subtle text-xs">
+                {stats.recentFiles.map((file) => (
+                  <tr key={file.id} className="hover:bg-card-hover transition-colors">
+                    <td className="px-4 py-2.5">
+                      <span className="font-bold text-white block truncate max-w-xs">{file.name}</span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className="num text-[11px] font-mono text-accent-light">
+                        /{file.department?.code || file.department?.name || 'TTC'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className="text-xs text-text-primary">
+                        {file.report?.spacecraft || 'Fleet Mission'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 num text-text-secondary text-[11px]">
+                      {formatBytes(Number(file.sizeBytes) || 0)}
+                    </td>
+                    <td className="px-4 py-2.5 num text-text-dim text-[10px]">
+                      {new Date(file.updatedAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Pending Access Requests Banner (Live Queue) */}
       {pendingUsers.length > 0 && (
@@ -458,7 +529,7 @@ export function AdminHome() {
                 <ArrowRight size={14} className="opacity-0 -translate-x-2 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
               </h4>
               <p className="mt-1 text-xs text-text-secondary leading-relaxed">
-                Manage operator profiles, assign administrative permissions, suspend accounts, and force logouts.
+                Manage user profiles, assign administrative permissions, suspend accounts, and force logouts.
               </p>
             </div>
           </Link>

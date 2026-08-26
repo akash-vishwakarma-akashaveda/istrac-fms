@@ -1,16 +1,31 @@
 import { apiClient, extractData } from './client'
 
+export interface UserDepartmentAccessItem {
+  id?: string
+  departmentId?: string
+  accessLevel?: 'READ_ONLY' | 'READ_WRITE'
+  department?: {
+    id: string
+    name: string
+    code?: string
+    satellite?: { code: string }
+  }
+}
+
 export interface UserProfile {
   id: string
   name: string
+  designation?: string | null
   email: string
   employeeId?: string | null
-  role: 'ADMIN' | 'MEMBER' | 'SUPER_ADMIN' | 'DEPT_ADMIN' | 'GUEST'
+  phone?: string | null
+  role: 'ADMIN' | 'MEMBER'
   status: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'REJECTED'
   departmentPreference?: string | null
   reasonForAccess?: string | null
   lastLogin?: string | null
   createdAt: string
+  departmentAccess?: UserDepartmentAccessItem[]
 }
 
 export interface LoginRequest {

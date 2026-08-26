@@ -142,7 +142,7 @@ export function GuestAccessPanel() {
                 <Link to="/dashboard">
                   <Button variant="primary" size="md" className="w-full shadow-lg shadow-accent/25">
                     <UserCheck size={16} strokeWidth={2} />
-                    <span>Go to Mission Dashboard</span>
+                    <span>Go To Dashboard</span>
                   </Button>
                 </Link>
               ) : (
@@ -169,7 +169,7 @@ export function GuestAccessPanel() {
             <span className="flex items-center gap-1.5">
               <ShieldCheck size={13} className="text-nominal" /> ISRO Air-Gapped Network
             </span>
-            <span className="num">FMS-SEC 2.4</span>
+            <span className="num">SIMS-SEC 2.4</span>
           </div>
         </div>
       </div>

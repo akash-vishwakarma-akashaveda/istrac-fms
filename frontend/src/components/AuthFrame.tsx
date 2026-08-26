@@ -19,7 +19,7 @@ interface AuthFrameProps {
   /** Links or buttons for the top-right of the strip. */
   actions?: ReactNode
   /** Max width of the content column. */
-  width?: 'sm' | 'md'
+  width?: 'sm' | 'md' | 'lg' | 'xl'
   children: ReactNode
 }
 
@@ -45,12 +45,12 @@ export function AuthFrame({ actions, width = 'sm', children }: AuthFrameProps) {
           <Link
             to="/"
             className="group flex items-center gap-2.5 text-text-primary"
-            aria-label="ISTRAC-FMS home"
+            aria-label="ISTRAC-SIMS home"
           >
             <StationMark />
 
             <span className="text-[13px] tracking-[0.06em]">
-              ISTRAC<span className="text-accent-light">-FMS</span>
+              ISTRAC<span className="text-accent-light">-SIMS</span>
             </span>
           </Link>
 
@@ -59,12 +59,24 @@ export function AuthFrame({ actions, width = 'sm', children }: AuthFrameProps) {
       </header>
 
       <main className="relative z-10 flex flex-1 items-center justify-center px-4 py-10 sm:px-6">
-        <div className={`w-full ${width === 'md' ? 'max-w-md' : 'max-w-sm'}`}>{children}</div>
+        <div
+          className={`w-full ${
+            width === 'xl'
+              ? 'max-w-3xl'
+              : width === 'lg'
+                ? 'max-w-2xl'
+                : width === 'md'
+                  ? 'max-w-md'
+                  : 'max-w-sm'
+          }`}
+        >
+          {children}
+        </div>
       </main>
 
       <footer className="relative z-10 border-t border-border-subtle">
         <div className="shell flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-4">
-          <p className="num text-[10px] text-text-dim">BLR · 13.03°N 77.51°E</p>
+          <p className="num text-[10px] text-text-dim">BLR · MOX Complex</p>
           <p className="num text-[10px] text-text-dim">REF UTC</p>
         </div>
       </footer>

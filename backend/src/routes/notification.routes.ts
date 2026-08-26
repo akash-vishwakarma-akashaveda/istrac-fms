@@ -169,22 +169,75 @@ router.delete('/notifications/:notifId', authMiddleware, async (req, res, next) 
 })
 
 // ============================================================
+// ADMIN: LIST BROADCAST NOTIFICATION HISTORY
+// ============================================================
+router.get('/admin/notifications/broadcasts', authMiddleware, adminMiddleware, async (_req, res, next) => {
+  try {
+    const broadcasts = await prisma.notification.findMany({
+      where: {
+        type: { in: ['BROADCAST', 'SYSTEM', 'MAINTENANCE', 'PASS', 'CRITICAL', 'TELEMETRY', 'NOTICE'] },
+        deletedAt: null,
+      },
+      take: 50,
+      orderBy: { createdAt: 'desc' },
+      distinct: ['message'],
+    })
+
+    const senderIds = Array.from(new Set(broadcasts.map((b: any) => b.actorId).filter(Boolean)))
+    const users = await prisma.user.findMany({
+      where: { id: { in: senderIds as string[] } },
+      select: { id: true, name: true, email: true, role: true },
+    })
+    const userMap = new Map(users.map((u: any) => [u.id, u]))
+
+    res.json({
+      data: broadcasts.map((b: any) => ({
+        id: b.id.toString(),
+        type: b.type,
+        category: b.category,
+        message: b.message,
+        actorId: b.actorId,
+        senderName: b.actorId ? (userMap.get(b.actorId)?.name || 'Command Authority') : 'System Broadcaster',
+        createdAt: b.createdAt,
+      })),
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ============================================================
 // ADMIN: BROADCAST NOTIFICATION TO ALL USERS
 // ============================================================
 router.post('/admin/notifications/broadcast', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
-    const { message, type = 'BROADCAST', category = 'system' } = req.body
+    const { message, type = 'BROADCAST', category = 'system', departmentIds, target = 'all' } = req.body
 
     if (!message) {
       throw new AppError('missing_message', 'Broadcast message is required', 400)
     }
 
-    await notificationService.sendBroadcast({
-      type,
-      category,
-      message,
-      actorId: req.user!.id,
-    })
+    if (target === 'departments' && Array.isArray(departmentIds) && departmentIds.length > 0) {
+      const usersInDepts = await prisma.userDepartmentAccess.findMany({
+        where: { departmentId: { in: departmentIds }, deletedAt: null },
+        select: { userId: true },
+      })
+      const recipientIds = Array.from(new Set(usersInDepts.map((u: any) => u.userId)))
+      notificationService.send({
+        type,
+        category,
+        message,
+        actorId: req.user!.id,
+        recipientIds,
+      })
+    } else {
+      await notificationService.sendBroadcast({
+        type,
+        category,
+        message,
+        actorId: req.user!.id,
+      })
+    }
 
     res.status(201).json({
       data: { message: 'Broadcast notification transmitted to all stations and members' },

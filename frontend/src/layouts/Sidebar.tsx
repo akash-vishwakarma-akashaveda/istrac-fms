@@ -1,5 +1,5 @@
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
 
 import { useAuthStore } from '../store/authStore'
 import { useUIStore } from '../store/uiStore'
@@ -20,7 +20,7 @@ export function Sidebar() {
   const user = useAuthStore((state) => state.user)
   const { sidebarCollapsed, toggleSidebar } = useUIStore()
 
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'DEPT_ADMIN'
+  const isAdmin = user?.role === 'ADMIN'
 
   const visibleItems = navItems.filter((item) => !item.adminOnly || isAdmin)
 
@@ -41,15 +41,17 @@ export function Sidebar() {
         }`}
       >
         {sidebarCollapsed ? (
-          <StationMark className="h-7" />
+          <Link to="/" title="Return to Public Portal Homepage" className="flex items-center justify-center">
+            <StationMark className="h-7" />
+          </Link>
         ) : (
-          <div className="flex min-w-0 items-center gap-2.5">
+          <Link to="/" title="Return to Public Portal Homepage" className="flex min-w-0 items-center gap-2.5 hover:opacity-90 transition-opacity">
             <StationMark className="h-8" />
 
             <span className="truncate text-[13px] font-extrabold tracking-[0.06em] text-white">
-              ISTRAC<span className="text-[#FF6B00] font-black">-FMS</span>
+              ISTRAC<span className="text-[#FF6B00] font-black">-SIMS</span>
             </span>
-          </div>
+          </Link>
         )}
 
         <button
@@ -89,7 +91,7 @@ export function Sidebar() {
         <div className="shrink-0 border-t border-border-subtle px-3 py-2.5">
           <p className="eyebrow text-text-dim text-[9px]">Ground Station</p>
           <p className="num mt-0.5 text-[10px] text-text-dim font-medium">
-            BLR · 13.03°N 77.51°E
+            BLR · MOX Complex
           </p>
         </div>
       )}
