@@ -2,6 +2,8 @@ import {
   Navbar,
   AnnouncementBar,
   Hero,
+  QuickStatsBanner,
+  OperationalDivisions,
   FeaturedReports,
   MissionCalendar,
   AboutSection,
@@ -24,6 +26,8 @@ export function Landing() {
       <AnnouncementBar />
       <main id="main">
         <Hero />
+        <QuickStatsBanner />
+        <OperationalDivisions />
         <FeaturedReports />
         <MissionCalendar />
         <AboutSection />

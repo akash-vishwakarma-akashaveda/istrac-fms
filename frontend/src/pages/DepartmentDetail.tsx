@@ -21,6 +21,7 @@ import {
   Image as ImageIcon,
   Plus,
   Trash2,
+  Lock,
 } from 'lucide-react'
 import { departmentsApi, type Department } from '../api/departments.api'
 import { satellitesApi, type Satellite as SatelliteType } from '../api/satellites.api'
@@ -128,6 +129,7 @@ export function DepartmentDetail() {
   const [versionPanelFile, setVersionPanelFile] = useState<{ id: string; name: string } | null>(null)
 
   // Department CMS Edit Modal State
+  const [loginModalOpen, setLoginModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editForm, setEditForm] = useState({
     name: '',
@@ -672,7 +674,10 @@ export function DepartmentDetail() {
                               /{dept.code || 'OPS'}
                             </span>
                             <h3
-                              onClick={() => setPreviewFile(file as unknown as FileNode)}
+                              onClick={() => {
+                                if (!user) setLoginModalOpen(true)
+                                else setPreviewFile(file as unknown as FileNode)
+                              }}
                               className="font-bold text-white text-sm hover:text-accent-light cursor-pointer truncate transition-colors"
                               title={file.name}
                             >
@@ -707,8 +712,11 @@ export function DepartmentDetail() {
                           <span className="text-[9px] text-text-dim block uppercase font-bold">Revisions</span>
                           <button
                             type="button"
-                            onClick={() => setVersionPanelFile({ id: file.id, name: file.name })}
-                            className="text-purple-300 font-bold hover:underline"
+                            onClick={() => {
+                              if (!user) setLoginModalOpen(true)
+                              else setVersionPanelFile({ id: file.id, name: file.name })
+                            }}
+                            className="text-purple-300 font-bold hover:underline cursor-pointer"
                           >
                             v{file.versionCount || 1} Version History
                           </button>
@@ -723,24 +731,37 @@ export function DepartmentDetail() {
                     </div>
 
                     {/* Bottom Action Buttons */}
-                    <div className="flex items-center justify-between pt-3 border-t border-border-subtle">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewFile(file as unknown as FileNode)}
-                        className="px-3 py-1.5 rounded-lg border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-white transition-all text-xs font-bold flex items-center gap-1.5"
-                      >
-                        <Eye size={13} className="text-accent-light" />
-                        <span>Preview</span>
-                      </button>
+                    <div className="pt-3 border-t border-border-subtle">
+                      {!user ? (
+                        <button
+                          type="button"
+                          onClick={() => setLoginModalOpen(true)}
+                          className="w-full py-2 px-3 rounded-lg border border-accent/40 bg-accent/15 text-accent-light hover:bg-accent hover:text-white transition-all text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                        >
+                          <Lock size={13} />
+                          <span>Sign In to Access File</span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewFile(file as unknown as FileNode)}
+                            className="px-3 py-1.5 rounded-lg border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-white transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Eye size={13} className="text-accent-light" />
+                            <span>Preview</span>
+                          </button>
 
-                      <a
-                        href={`/api/files/${file.id}/download`}
-                        download={file.name}
-                        className="px-3 py-1.5 rounded-lg border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all text-xs font-bold flex items-center gap-1.5"
-                      >
-                        <Download size={13} />
-                        <span>Download</span>
-                      </a>
+                          <a
+                            href={`/api/files/${file.id}/download`}
+                            download={file.name}
+                            className="px-3 py-1.5 rounded-lg border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Download size={13} />
+                            <span>Download</span>
+                          </a>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )
@@ -778,7 +799,10 @@ export function DepartmentDetail() {
                               </div>
                               <div className="min-w-0">
                                 <p
-                                  onClick={() => setPreviewFile(file as unknown as FileNode)}
+                                  onClick={() => {
+                                    if (!user) setLoginModalOpen(true)
+                                    else setPreviewFile(file as unknown as FileNode)
+                                  }}
                                   className="font-bold text-white hover:text-accent-light cursor-pointer truncate max-w-xs transition-colors"
                                   title="Preview File"
                                 >
@@ -807,8 +831,11 @@ export function DepartmentDetail() {
                           <td className="px-4 py-3.5">
                             <button
                               type="button"
-                              onClick={() => setVersionPanelFile({ id: file.id, name: file.name })}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-purple-400/40 bg-purple-400/10 text-purple-300 hover:bg-purple-400/20 text-[10px] font-bold num transition-colors"
+                              onClick={() => {
+                                if (!user) setLoginModalOpen(true)
+                                else setVersionPanelFile({ id: file.id, name: file.name })
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-purple-400/40 bg-purple-400/10 text-purple-300 hover:bg-purple-400/20 text-[10px] font-bold num transition-colors cursor-pointer"
                               title="Open Revision History Drawer"
                             >
                               <History size={11} />
@@ -823,25 +850,36 @@ export function DepartmentDetail() {
 
                           {/* Actions */}
                           <td className="px-4 py-3.5 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
+                            {!user ? (
                               <button
                                 type="button"
-                                onClick={() => setPreviewFile(file as unknown as FileNode)}
-                                className="p-1.5 rounded-md border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-white transition-all"
-                                title="Preview File"
+                                onClick={() => setLoginModalOpen(true)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-accent/40 bg-accent/10 text-accent-light hover:bg-accent hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
                               >
-                                <Eye size={13} />
+                                <Lock size={12} />
+                                <span>Sign In to Access</span>
                               </button>
+                            ) : (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewFile(file as unknown as FileNode)}
+                                  className="p-1.5 rounded-md border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-white transition-all cursor-pointer"
+                                  title="Preview File"
+                                >
+                                  <Eye size={13} />
+                                </button>
 
-                              <a
-                                href={`/api/files/${file.id}/download`}
-                                download={file.name}
-                                className="p-1.5 rounded-md border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all"
-                                title="Download Dataset"
-                              >
-                                <Download size={13} />
-                              </a>
-                            </div>
+                                <a
+                                  href={`/api/files/${file.id}/download`}
+                                  download={file.name}
+                                  className="p-1.5 rounded-md border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all cursor-pointer"
+                                  title="Download Dataset"
+                                >
+                                  <Download size={13} />
+                                </a>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       )
@@ -1035,6 +1073,39 @@ export function DepartmentDetail() {
       {previewFile && (
         <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />
       )}
+
+      {/* LOGIN PROMPT MODAL FOR UNAUTHENTICATED USERS */}
+      <Modal
+        isOpen={loginModalOpen}
+        onClose={() => setLoginModalOpen(false)}
+        title="Authentication Required"
+      >
+        <div className="space-y-4 py-1">
+          <div className="flex items-start gap-3.5 p-4 rounded-xl border border-accent/30 bg-accent/10">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/20 text-accent-light border border-accent/30">
+              <Lock size={20} />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-white">Restricted Operational Telemetry</h4>
+              <p className="text-xs text-text-secondary leading-relaxed">
+                Access to live mission datasets, binary streams, and revision histories is restricted to authenticated ISTRAC-SIMS operators and personnel.
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-2 flex items-center justify-end gap-2.5">
+            <Button variant="outline" size="sm" onClick={() => setLoginModalOpen(false)}>
+              Cancel
+            </Button>
+            <Link to="/login">
+              <Button variant="primary" size="sm" className="shadow-md shadow-accent/25">
+                <span>Sign In to Continue</span>
+                <ChevronRight size={14} />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </Modal>
 
       <Footer />
     </div>
