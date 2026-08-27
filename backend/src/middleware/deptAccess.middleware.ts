@@ -9,17 +9,17 @@ import { AppError } from '../lib/errors.js'
 
 export async function deptAccessMiddleware(req: Request, _res: Response, next: NextFunction): Promise<void> {
   try {
-    const deptId = (req.params.deptId ?? req.body?.departmentId ?? req.query?.departmentId ?? '') as string
-
-    if (!deptId) {
-      throw new AppError('missing_department', 'Department ID required', 400)
-    }
-
     // ADMINs bypass dept access check
     if (req.user?.role === 'ADMIN') {
       req.deptAccessLevel = 'READ_WRITE'
       next()
       return
+    }
+
+    const deptId = (req.params.deptId ?? req.body?.departmentId ?? req.query?.departmentId ?? '') as string
+
+    if (!deptId) {
+      throw new AppError('missing_department', 'Department ID required', 400)
     }
 
     if (!req.user) {

@@ -60,6 +60,8 @@ export function UserManagement() {
   // Edit User & Multi-Department Clearance State
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null)
   const [editName, setEditName] = useState('')
+  const [editDesignation, setEditDesignation] = useState('')
+  const [editPhone, setEditPhone] = useState('')
   const [editBadgeId, setEditBadgeId] = useState('')
   const [editRole, setEditRole] = useState<'MEMBER' | 'ADMIN'>('MEMBER')
   const [editStatus, setEditStatus] = useState('ACTIVE')
@@ -80,6 +82,8 @@ export function UserManagement() {
   const handleOpenEdit = (user: UserProfile) => {
     setEditingUser(user)
     setEditName(user.name)
+    setEditDesignation(user.designation || '')
+    setEditPhone(user.phone || '')
     setEditBadgeId(user.employeeId || '')
     setEditRole(user.role === 'ADMIN' ? 'ADMIN' : 'MEMBER')
     setEditStatus(user.status)
@@ -139,6 +143,8 @@ export function UserManagement() {
     try {
       await usersApi.updateUser(editingUser.id, {
         name: editName.trim(),
+        designation: editDesignation.trim() || undefined,
+        phone: editPhone.trim() || undefined,
         employeeId: editBadgeId.trim() || undefined,
         role: editRole,
         status: editStatus,
@@ -587,6 +593,34 @@ export function UserManagement() {
                 value={editBadgeId}
                 onChange={(e) => setEditBadgeId(e.target.value)}
                 placeholder="e.g. ISRO-TTC-042"
+                className="num font-mono w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-text-primary mb-1">
+                Designation / Operational Title
+              </label>
+              <input
+                type="text"
+                value={editDesignation}
+                onChange={(e) => setEditDesignation(e.target.value)}
+                placeholder="e.g. Lead Astrodynamics Specialist"
+                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-text-primary mb-1">
+                Contact Phone / Intercom
+              </label>
+              <input
+                type="text"
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                placeholder="e.g. +91 80 2838 4001"
                 className="num font-mono w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
               />
             </div>

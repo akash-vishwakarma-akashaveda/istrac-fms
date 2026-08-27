@@ -1,410 +1,904 @@
-# ISTRAC-FMS Backend Architecture & Technical Reference
+# ISTRAC-SIMS Backend Architecture & Technical Reference
 
-> **System:** Indian Space Research Auxiliary Centres — File Management System (ISTRAC-FMS)  
-> **Version:** 1.0.0 (V1 Production Baseline)  
-> **Target Environment:** Intranet Air-Gapped / Isolated Ground Station Network  
-> **Core Stack:** Express 5 · Node.js 20+ (ESM) · TypeScript 5 · Prisma 7 · MySQL 8.0 · Redis 7.0 · WebSocket (`ws`)
+> **Application:** ISRO Telemetry, Tracking & Command Network — Satellite Information Management System (Backend)
+> **Version:** 1.1.0 (V1 Production Baseline)
+> **Runtime:** Node.js 20 LTS · TypeScript 5 · ESM (`"type": "module"`)
+> **Core Stack:** Express 5 · Prisma 6 (@prisma/adapter-mariadb) · ioredis · jsonwebtoken · bcrypt · multer · nodemailer · ws
 
 ---
 
 ## 📑 Table of Contents
 
-1. [Executive Summary & Core Philosophy](#1-executive-summary--core-philosophy)
-2. [Architectural Decisions — The "What & Why"](#2-architectural-decisions--the-what--why)
-   - [2.1 Metadata-Only Database vs Physical HDD Mount](#21-metadata-only-database-vs-physical-hdd-mount)
-   - [2.2 Top-Level Hierarchy: Satellite Station → Department → File](#22-top-level-hierarchy-satellite-station--department--file)
-   - [2.3 Tri-Instance Redis Architecture](#23-tri-instance-redis-architecture)
-   - [2.4 Authentication & Token Lifecycle Strategy](#24-authentication--token-lifecycle-strategy)
-   - [2.5 Storage Pipeline & Compensation Pattern](#25-storage-pipeline--compensation-pattern)
-   - [2.6 Asynchronous Non-Blocking Audit Logging](#26-asynchronous-non-blocking-audit-logging)
-3. [Complete Codebase Directory Map](#3-complete-codebase-directory-map)
-4. [Database Schema & Entity Models](#4-database-schema--entity-models)
-5. [Cross-Cutting Middleware Layer](#5-cross-cutting-middleware-layer)
-6. [Core Business Logic Services](#6-core-business-logic-services)
-7. [REST API Endpoint Specifications](#7-rest-api-endpoint-specifications)
-8. [Real-Time WebSocket & PubSub Bridge](#8-real-time-websocket--pubsub-bridge)
-9. [Background Daemons & Health Monitoring](#9-background-daemons--health-monitoring)
-10. [Security, Concurrency & Defense-in-Depth](#10-security-concurrency--defense-in-depth)
+1. [Server Entry Point & Startup Sequence](#1-server-entry-point--startup-sequence)
+2. [Environment Configuration (`src/config/env.ts`)](#2-environment-configuration-srcconfigenvts)
+3. [Database Layer — Prisma + MariaDB Adapter (`src/config/db.ts`)](#3-database-layer--prisma--mariadb-adapter-srcconfigdbts)
+4. [Redis Configuration — Tri-Instance Pattern (`src/config/redis.ts`)](#4-redis-configuration--tri-instance-pattern-srcconfigredists)
+5. [CORS Configuration (`src/config/cors.ts`)](#5-cors-configuration-srcconfigcorsts)
+6. [Middleware Pipeline — Ordered Chain](#6-middleware-pipeline--ordered-chain)
+7. [Library Modules (`src/lib/`)](#7-library-modules-srclib)
+8. [Services Layer (`src/services/`)](#8-services-layer-srcservices)
+9. [WebSocket Server (`src/ws/wsServer.ts`)](#9-websocket-server-srcwswsserverts)
+10. [Route Inventory — All API Endpoints](#10-route-inventory--all-api-endpoints)
+11. [Background Daemons](#11-background-daemons)
+12. [Prisma Schema — Data Model Reference](#12-prisma-schema--data-model-reference)
+13. [API Response Envelope Standard](#13-api-response-envelope-standard)
+14. [Error Codes Reference](#14-error-codes-reference)
 
 ---
 
-## 1. Executive Summary & Core Philosophy
+## 1. Server Entry Point & Startup Sequence
 
-ISTRAC-FMS is an enterprise-grade file management system engineered specifically for telemetry, tracking, command, and mission operations data across ISTRAC ground stations (e.g., ISTRAC Bengaluru, Sriharikota, Port Blair, Mauritius). 
+**File:** `src/index.ts` (110 lines)
 
-### Key Design Mandates:
-- **Intranet Air-Gap Readiness:** Zero external CDN, Google Fonts, or internet analytics dependencies. All assets, fonts, and dependencies run locally.
-- **Fail-Safe High Reliability:** Hardware storage faults, unexpected power terminations, or database drops must never leave corrupt orphan files or inconsistent state.
-- **Strict Role-Based Multi-Tenancy:** Separation of departmental data across satellite facilities with defense against horizontal privilege escalation.
-- **Defense in Depth:** Mandatory token revocation blacklists, rate limiting, request tracing, strict CORS origins, path traversal guards, magic byte inspections, and tamper-evident append-only audit logging.
-
----
-
-## 2. Architectural Decisions — The "What & Why"
-
-### 2.1 Metadata-Only Database vs Physical HDD Mount
-
-#### What:
-The MySQL database stores **only file metadata** (name, MIME type, size in bytes, SHA-256 hash, department ID, version number, uploader ID, status). The raw binary contents of files are never stored in MySQL (no `BLOB` or `LONGBLOB` data types). Instead, files reside directly on a mounted enterprise storage volume at `env.HDD_MOUNT_PATH` (e.g., `/mnt/istrac-data` or a dedicated high-capacity NAS/SAN partition).
-
-#### Why:
-1. **Database Sizing & Performance:** Storing multi-gigabyte mission dumps, telemetry recordings, and optical captures inside relational tables degrades B-tree index performance, bloats database backups (mysqldump), causes high memory consumption on `innodb_buffer_pool`, and slows down table scans.
-2. **Streaming Efficiency:** Physical file paths allow Node.js to use zero-copy kernel streams (`fs.createReadStream().pipe(res)`) and chunked multipart uploads directly to disk without loading multi-gigabyte payloads into Node.js V8 heap memory.
-3. **Backup Decoupling:** Database dumps remain compact (< 100MB) and fast to restore, while the storage volume is independently backed up via snapshotting, RAID-1/RAID-6, or periodic `rsync` mirrors.
-
----
-
-### 2.2 Top-Level Hierarchy: Satellite Station → Department → File
-
-#### What:
-The organizational hierarchy is modeled as:
+### Full Middleware Chain (Order is Critical)
 ```
-Satellite Station (e.g., "ISTRAC Bengaluru" [code: ISTRAC-BLR])
-  └── Department (e.g., "Engineering", "Mission Operations")
-        ├── Files & Folders (Recursive FileTree)
-        │     └── FileVersion History (v1, v2, v3...)
-        └── UserDepartmentAccess (READ_ONLY | READ_WRITE)
-```
-Every department **must** belong to a `Satellite`, and department names are uniquely scoped per satellite via the database constraint `@@unique([satelliteId, name])`.
-
-#### Why:
-1. **Multi-Facility Topology:** ISTRAC operates multiple physical ground stations across India and overseas. Stations have distinct mission allocations, local network drives, and personnel.
-2. **Autonomous Scoping:** Scoping departments under satellites prevents naming collisions (e.g., both Bengaluru and Sriharikota can have an "Operations" department without conflict) while allowing the Super Admin to filter statistics and audits per station.
-
----
-
-### 2.3 Tri-Instance Redis Architecture
-
-#### What:
-In [`src/config/redis.ts`](file:///D:/istrac-fms/backend/src/config/redis.ts), three distinct `ioredis` client connections are instantiated:
-1. `redis` — General cache, login rate limiting, session TTLs, and revoked token blacklist.
-2. `redisPub` — Dedicated Publisher for Redis Pub/Sub channels (`notification.*`, `cms.update`, `hdd.sync`, `file.*`).
-3. `redisSub` — Dedicated Subscriber for long-lived Pub/Sub event loops.
-
-#### Why:
-According to the Redis protocol specification, once a Redis client enters the `SUBSCRIBE` or `PSUBSCRIBE` state, it is locked into listener mode and can no longer issue regular commands (such as `GET`, `SET`, `INCR`, `EXPIRE`). Separating general operations, publishing, and subscribing into dedicated connection pools prevents command blocking and enables clean horizontal scaling across multiple PM2 worker processes.
-
----
-
-### 2.4 Authentication & Token Lifecycle Strategy
-
-#### What:
-- **Access Tokens:** Short-lived (15 minutes), signed with `env.JWT_SECRET`, containing `AuthUser` claims (`id`, `role: ADMIN | MEMBER`, `email`, `name`). Passed via `Authorization: Bearer <token>` header.
-- **Refresh Tokens:** Long-lived (7 days), signed with `env.JWT_REFRESH_SECRET`, delivered via strict `httpOnly`, `sameSite: 'strict'` cookie. The raw token is hashed via SHA-256 before storage in the `RefreshToken` database table.
-- **Token Blacklisting:** Explicit logout or account suspension immediately adds the active access token signature to Redis (`blacklist:<token>`) with a 15-minute TTL, and invalidates the refresh session in the database.
-
-#### Why:
-1. **XSS Protection:** Refresh tokens stored in `httpOnly` cookies cannot be accessed or stolen by malicious client-side JavaScript.
-2. **Instant Revocation:** Standard stateless JWTs cannot be revoked before expiration without a database check. By maintaining a lightweight, in-memory Redis blacklist, any token can be instantly invalidated on logout or admin suspension with sub-millisecond overhead.
-3. **Defense Against Token Database Leaks:** Storing only the SHA-256 hash of refresh tokens ensures that a database compromise does not allow an attacker to forge session refresh requests.
-
----
-
-### 2.5 Storage Pipeline & Compensation Pattern
-
-#### What:
-When an upload arrives (`POST /files/upload` or `POST /files/upload/complete`):
-1. The destination folder is created on the physical storage mount.
-2. The payload is written atomically using a temporary file (`.tmp`) and renamed upon completion.
-3. The SHA-256 checksum and exact byte count are computed from disk.
-4. A MySQL database transaction (`prisma.$transaction`) inserts the `File` and `FileVersion` records.
-5. **Compensation Pattern:** If the MySQL database transaction fails or rolls back, a `catch` block immediately deletes the newly written physical file from disk (`await hddService.deleteFile(...)`) before propagating the error.
-
-#### Why:
-Without the compensation pattern, a database failure after writing to disk would leave un-indexed "ghost" files on the storage array that consume disk space without being visible in the application.
-
----
-
-### 2.6 Asynchronous Non-Blocking Audit Logging
-
-#### What:
-Mutating operations (`POST`, `PUT`, `PATCH`, `DELETE`) are captured by [`audit.middleware.ts`](file:///D:/istrac-fms/backend/src/middleware/audit.middleware.ts) using the `res.on('finish', ...)` event after the HTTP response has already been sent to the client. The insertion into `AuditLog` is completely asynchronous and fire-and-forget.
-
-#### Why:
-1. **Zero Added Latency:** Logging operations do not delay the client's API response time.
-2. **Isolation:** If the audit logging write encounters a momentary issue, it will log to stderr without causing the user's business transaction to fail or roll back.
-
----
-
-## 3. Complete Codebase Directory Map
-
-```
-backend/
-├── package.json               # Node.js dependencies, engine specifications, and lifecycle scripts
-├── tsconfig.json              # TypeScript compiler configuration (ES2022 / NodeNext module resolution)
-├── prisma.config.ts           # Prisma CLI configuration
-├── prisma/
-│   ├── schema.prisma          # Authoritative Prisma data model (19 tables, 8 enums)
-│   ├── seed.ts                # Initial seeder (Satellite, Super Admin, Departments, Sample files)
-│   ├── migrations/            # Migration repository for schema version control
-│   │   ├── migration_lock.toml
-│   │   └── 20260825031935_init_backend_v1/
-│   │       └── migration.sql  # Production baseline SQL DDL script
-│   └── generated/prisma/      # Compiled Prisma Client runtime
-└── src/
-    ├── index.ts               # Express application entrypoint, middleware chain & graceful shutdown
-    ├── config/
-    │   ├── env.ts             # Environment variable loader with fail-fast validation
-    │   ├── db.ts              # Prisma MariaDB/MySQL driver-adapter singleton
-    │   ├── redis.ts           # Tri-instance Redis pool (general, publisher, subscriber)
-    │   └── cors.ts            # Strict origin whitelist and credential configuration
-    ├── types/
-    │   ├── api.ts             # Shared DTOs, response wrappers, and pagination shapes
-    │   ├── express.d.ts       # Express Request interface type augmentation
-    │   └── types.ts           # EnvConfig interface declaration
-    ├── lib/
-    │   ├── errors.ts          # Operational AppError class and global Express error handler
-    │   ├── jwt.ts             # Access and refresh token sign/verify utilities
-    │   ├── pubsub.ts          # Type-safe wrapper over Redis Pub/Sub channels
-    │   └── requestId.ts       # UUID v4 correlation ID middleware
-    ├── middleware/
-    │   ├── auth.middleware.ts          # JWT verification & Redis blacklist check
-    │   ├── admin.middleware.ts         # ADMIN role guard
-    │   ├── deptAccess.middleware.ts    # Department membership check with Redis cache
-    │   ├── rateLimiter.middleware.ts   # Sliding window login & download rate limiters
-    │   ├── audit.middleware.ts         # Post-response state mutation auditor
-    │   └── hddAvailability.middleware.ts # Physical mount probe & outage guard
-    ├── services/
-    │   ├── audit.service.ts         # Append-only audit logger
-    │   ├── email.service.ts         # Campus SMTP mailer & notification templates
-    │   ├── notification.service.ts  # Database notification creator & Redis publisher
-    │   ├── hdd.service.ts           # Low-level atomic file I/O & path traversal defense
-    │   ├── hddHealth.service.ts     # 60s background storage probe daemon
-    │   ├── hddSync.service.ts       # 15m periodic disk reconciliation walker
-    │   ├── search.service.ts        # RBAC-scoped multi-field search engine
-    │   └── file.service.ts          # Transactional upload pipeline & compensation
-    ├── routes/
-    │   ├── auth.routes.ts           # Authentication, token rotation, and password resets
-    │   ├── satellite.routes.ts      # Satellite ground station administration
-    │   ├── department.routes.ts     # Department management & user membership assignment
-    │   ├── user.routes.ts           # User accounts, approval queue, and suspensions
-    │   ├── file.routes.ts           # Uploads, chunking, downloads, versioning, folders
-    │   ├── browse.routes.ts         # Folder hierarchy trees and search endpoints
-    │   ├── notification.routes.ts   # Notification inbox and broadcast delivery
-    │   ├── cms.routes.ts            # CMS content blocks and real-time push updates
-    │   ├── admin.routes.ts          # Admin metrics, audit log viewer, system settings
-    │   └── health.routes.ts         # Liveness and storage hardware health probes
-    └── ws/
-        └── wsServer.ts              # WebSocket server & Redis event fanout bridge
+Request arrives
+  ↓
+cors(corsOptions)             — Preflight handled; non-matching origins get 204 with no ACAO header
+  ↓
+express.json({ limit: '50mb' })   — JSON body parsing; 50MB limit for base64 payloads
+  ↓
+express.urlencoded({ extended: true, limit: '50mb' })   — Form-encoded body parsing
+  ↓
+cookieParser()               — Parses httpOnly cookies (used for refreshToken extraction)
+  ↓
+requestIdMiddleware          — Injects UUID v4 req.requestId, echoes as X-Request-Id header
+  ↓
+httpLoggerMiddleware         — Hooks res.on('finish') to log method/url/status/duration/user
+  ↓
+auditMiddleware              — Hooks res.on('finish') to write auditLog for POST/PUT/PATCH/DELETE
+  ↓
+Routes                       — 12 domain routers
+  ↓
+globalErrorHandler           — 4-argument Express error handler (MUST be last)
 ```
 
----
-
-## 4. Database Schema & Entity Models
-
-### Core Enums
-- **`UserRole`**: `ADMIN`, `MEMBER`
-- **`UserStatus`**: `PENDING`, `ACTIVE`, `SUSPENDED`, `REJECTED`
-- **`AccessLevel`**: `READ_ONLY`, `READ_WRITE`
-- **`FileNodeType`**: `FILE`, `FOLDER`
-- **`FileStatus`**: `ACTIVE`, `ORPHANED`, `DELETED`, `UNREGISTERED`
-- **`ReportStatus`**: `ACTIVE`, `ARCHIVED`, `DELETED`
-- **`ReportCategory`**: `SPECIAL_OPERATIONS`, `ANOMALY`, `STUDY`, `DAILY_REPORT`, `OTHER`
-- **`AccessRequestStatus`**: `PENDING`, `APPROVED`, `REJECTED`, `CANCELLED`
-
-### Primary Models Overview
-
-| Model | Description | Key Constraints & Indexes |
-|---|---|---|
-| **`Satellite`** | Top-level ground station / facility unit | `UNIQUE(code)`, `INDEX(name)`, `INDEX(deletedAt)` |
-| **`Department`** | Organizational unit under a Satellite with dedicated HDD path | `UNIQUE(satelliteId, name)`, `INDEX(satelliteId)`, `INDEX(deletedAt)` |
-| **`User`** | System operator or administrator account | `UNIQUE(email)`, `UNIQUE(employeeId)` |
-| **`UserDepartmentAccess`** | Junction table mapping user permissions to departments | `UNIQUE(userId, departmentId)`, `INDEX(userId)`, `INDEX(departmentId)` |
-| **`File`** | Metadata record for a file or folder on disk | `UNIQUE(hddPath)`, `INDEX(departmentId, status)`, `INDEX(parentId)` |
-| **`FileVersion`** | Historical versions of a physical file | `UNIQUE(fileId, versionNum)`, `INDEX(fileId)` |
-| **`Notification`** | User inbox alerts with JSON metadata | `BIGINT AUTO_INCREMENT PK`, `INDEX(userId, readAt, createdAt)` |
-| **`AuditLog`** | Tamper-evident, append-only log of mutations | `BIGINT AUTO_INCREMENT PK`, `INDEX(userId, createdAt)`, `INDEX(action)` |
-| **`RefreshToken`** | SHA-256 hashed refresh token session records | `UNIQUE(tokenHash)`, `INDEX(userId)`, `INDEX(expiresAt)` |
-| **`CmsBlock`** | Dynamic content blocks for the landing portal | `VARCHAR PK(blockKey)` |
-| **`SystemConfig`** | Global runtime configurations (upload caps, rate limits) | `VARCHAR PK(configKey)` |
-
----
-
-## 5. Cross-Cutting Middleware Layer
-
+### BigInt Serialization Patch
+```ts
+(BigInt.prototype as any).toJSON = function () { return this.toString() }
 ```
-Incoming Request
-       │
-       ▼
-┌─────────────────────────┐
-│       corsOptions       │ ── Rejects unwhitelisted origins
-└────────────┬────────────┘
-             ▼
-┌─────────────────────────┐
-│   requestIdMiddleware   │ ── Attaches UUID v4 and X-Request-Id header
-└────────────┬────────────┘
-             ▼
-┌─────────────────────────┐
-│     auditMiddleware     │ ── Hooks res.on('finish') for post-response logging
-└────────────┬────────────┘
-             ▼
-┌─────────────────────────┐
-│     authMiddleware      │ ── Validates JWT Bearer + checks Redis blacklist
-└────────────┬────────────┘
-             ▼
-┌─────────────────────────┐
-│     adminMiddleware     │ ── Enforces req.user.role === 'ADMIN'
-└────────────┬────────────┘
-             ▼
-┌─────────────────────────┐
-│  deptAccessMiddleware   │ ── Enforces user department membership (5m Redis cache)
-└────────────┬────────────┘
-             ▼
-┌─────────────────────────┐
-│  rateLimiterMiddleware  │ ── Login brute-force (5/15m) & download throttle (100/hr)
-└────────────┬────────────┘
-             ▼
-┌─────────────────────────┐
-│ hddAvailabilityMiddle.. │ ── Validates physical mount point accessibility
-└────────────┬────────────┘
-             ▼
-┌─────────────────────────┐
-│      Route Handler      │
-└────────────┬────────────┘
-             ▼
-┌─────────────────────────┐
-│   globalErrorHandler    │ ── Formats uniform JSON error response
-└─────────────────────────┘
+Prisma returns `sizeBytes` as `BigInt` from MariaDB (because file sizes can exceed `Number.MAX_SAFE_INTEGER` for multi-TB storage). This patch makes `JSON.stringify` serialize BigInt values as strings automatically, ensuring correct JSON output without manual `.toString()` calls in every route handler.
+
+### Graceful Shutdown
+Both `SIGINT` (Ctrl+C) and `SIGTERM` (PM2 stop, systemctl stop) trigger `shutdown()`:
+1. `server.close()` — stops accepting new connections, waits for in-flight requests to complete.
+2. `await prisma.$disconnect()` — flushes connection pool and closes database sockets.
+3. `redis.disconnect()` / `redisPub.disconnect()` / `redisSub.disconnect()` — closes all 3 ioredis connections.
+4. `process.exit(0)` on success, `process.exit(1)` on error.
+
+---
+
+## 2. Environment Configuration (`src/config/env.ts`)
+
+### `required(key)` Guard
+Any missing required environment variable throws immediately at startup with a descriptive error message referencing the `.env.example` file. This fails fast — the server never enters a partially-configured state.
+
+### Dual dotenv Load
+```ts
+dotenv.config({ path: path.resolve(__dirname, '../../.env') })    // dist/ built output
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') }) // src/ dev with ts-node
+```
+Handles both `npm run dev` (runs from `src/`) and `npm start` (runs from `dist/`) without requiring different config file paths.
+
+### Required Variables
+| Variable | Type | Description |
+| :--- | :--- | :--- |
+| `DATABASE_URL` | string | Prisma DSN (`mysql://user:pass@host:3306/db`) |
+| `REDIS_URL` | string | ioredis connection URL (`redis://127.0.0.1:6379`) |
+| `JWT_SECRET` | string | 256-bit minimum random secret for access tokens |
+| `JWT_REFRESH_SECRET` | string | Separate 256-bit secret for refresh tokens |
+| `HDD_MOUNT_PATH` | string | Absolute path to storage mount (`/mnt/istrac_data`) |
+| `MYSQL_ROOT_PASSWORD` | string | MariaDB root password (required for adapter initialization) |
+| `MYSQL_DATABASE` | string | Database name (e.g., `istrac_sims`) |
+| `MYSQL_USER` | string | Application database user |
+| `MYSQL_PASSWORD` | string | Application database password |
+| `MYSQL_HOST` | string | Database hostname (`127.0.0.1`, not `localhost`) |
+
+### Optional Variables with Defaults
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `PORT` | `3000` | HTTP listener port |
+| `NODE_ENV` | `development` | Controls error verbosity in `globalErrorHandler` |
+| `ALLOWED_ORIGINS` | `['http://localhost:5173', 'http://localhost:3000']` | Comma-separated explicit CORS origins. Trimmed, trailing-slash stripped |
+| `APP_URL` | `http://localhost:5173` | Base URL for email links (password reset, approval) |
+| `SMTP_HOST` | `localhost` | SMTP mail server hostname |
+| `SMTP_PORT` | `25` | SMTP port (25 = no-auth local relay, 587 = STARTTLS) |
+| `SMTP_USER` | undefined | SMTP auth username (if required) |
+| `SMTP_PASS` | undefined | SMTP auth password (if required) |
+| `ADMIN_EMAIL` | `admin@istrac.local` | Destination for system alert emails |
+| `DEBUG_PRISMA` | `false` | Set `true` to log raw SQL queries via the structured logger |
+| `LOG_LEVEL` | `info` | Minimum log level: `debug`, `http`, `info`, `warn`, `error` |
+
+**Why `MYSQL_HOST = 127.0.0.1` not `localhost`?** On Linux, `localhost` resolves to the Unix socket (`/var/run/mysqld/mysqld.sock`). The `@prisma/adapter-mariadb` library uses the TCP protocol, which requires `127.0.0.1` to route correctly through the network stack.
+
+---
+
+## 3. Database Layer — Prisma + MariaDB Adapter (`src/config/db.ts`)
+
+### Why `@prisma/adapter-mariadb` Instead of Standard Prisma MySQL?
+Prisma's standard MySQL connector uses a custom protocol implementation that is incompatible with MariaDB's protocol extensions introduced in MariaDB 10.6+ (specifically the `COM_STMT_BULK_EXECUTE` and `OK_PACKET` differences). `@prisma/adapter-mariadb` wraps the `mariadb` native Node.js driver, which is maintained by the MariaDB Corporation and fully protocol-compatible.
+
+### Prisma Client Configuration
+```ts
+const adapter = new PrismaMariaDb({
+  host: env.MYSQL_HOST,
+  port: env.MYSQL_PORT || 3306,
+  user: env.MYSQL_USER,
+  password: env.MYSQL_PASSWORD,
+  database: env.MYSQL_DATABASE,
+  allowPublicKeyRetrieval: true,  // required for some MariaDB auth plugin configurations
+})
 ```
 
----
-
-## 6. Core Business Logic Services
-
-### `HddService` ([`src/services/hdd.service.ts`](file:///D:/istrac-fms/backend/src/services/hdd.service.ts))
-- **`guardPath(path)`**: Resolves paths against `env.HDD_MOUNT_PATH` and throws `AppError('path_traversal', 400)` if an attempt is made to escape the storage root.
-- **`writeFile(destPath, data)`**: Writes to `${destPath}.<random>.tmp` before renaming atomically to avoid partial file writes.
-- **`streamFile(filePath)`**: Returns a high-efficiency `ReadableStream` to Express response pipelines.
-- **`validateMagicBytes(filePath)`**: Reads the first 8 bytes of files to verify genuine signatures (e.g., `%PDF`, PNG header, JPEG markers, ZIP signatures).
-
-### `FileService` ([`src/services/file.service.ts`](file:///D:/istrac-fms/backend/src/services/file.service.ts))
-- Orchestrates multi-step file uploads:
-  1. Department & parent folder validation
-  2. Physical disk write
-  3. SHA-256 computation
-  4. Prisma transactional write for `File` + `FileVersion` records
-  5. Rollback compensation on error
-  6. Non-blocking audit and notification events
-
-### `HddSyncService` ([`src/services/hddSync.service.ts`](file:///D:/istrac-fms/backend/src/services/hddSync.service.ts))
-- Runs on boot and every 15 minutes. Walks the physical storage directory tree, compares against database records, flags missing database entries as `status: 'UNREGISTERED'`, and marks database records whose physical files were deleted externally as `status: 'ORPHANED'`.
-
-### `HddHealthService` ([`src/services/hddHealth.service.ts`](file:///D:/istrac-fms/backend/src/services/hddHealth.service.ts))
-- Probes the physical mount point every 60 seconds with write/read/unlink tests. On failure, sets `hdd:degraded` in Redis and dispatches an emergency alert to `env.ADMIN_EMAIL`. On recovery, clears flags and sends a recovery notice.
+### SQL Query Logging Gate
+```ts
+const shouldLogQueries = process.env.DEBUG_PRISMA === 'true'
+```
+By default, only `warn` and `error` Prisma events are emitted to stdout. When `DEBUG_PRISMA=true`, the query event is wired to emit full SQL with parameters and execution time via `logger.debug('PRISMA', ...)`. This is intentionally opt-in because in production MariaDB generates hundreds of queries per minute from concurrent dashboard polling, which would fill log files and obscure operational events.
 
 ---
 
-## 7. REST API Endpoint Specifications
+## 4. Redis Configuration — Tri-Instance Pattern (`src/config/redis.ts`)
 
-All endpoints return a uniform JSON response envelope:
+Three **separate ioredis client instances** are created from the same `REDIS_URL`:
+```ts
+export const redis    = new Redis(env.REDIS_URL, redisOptions)  // General cache + rate limiting
+export const redisPub = new Redis(env.REDIS_URL, redisOptions)  // Publish only
+export const redisSub = new Redis(env.REDIS_URL, redisOptions)  // Subscribe only
+```
+
+**Why 3 instances?** A Redis client enters "subscriber mode" the moment `client.subscribe()` or `client.psubscribe()` is called. In subscriber mode, the only valid commands are subscribe/unsubscribe/psubscribe/punsubscribe/ping/quit. Calling any other command (e.g., `redis.get()`, `redis.setex()`) on a subscribed client throws `ERR Can't call 'get' on connection in subscriber mode`. Separating into 3 clients ensures:
+- `redis` — free to run `get`, `set`, `incr`, `expire`, `del` at any time.
+- `redisPub` — used only for `publish()` calls from services.
+- `redisSub` — dedicated subscriber, receives all channel messages and routes them through the `pubsub` module handlers.
+
+### Resilience Settings
+```ts
+maxRetriesPerRequest: 1     // Fail fast on individual commands rather than hanging
+retryStrategy: (times) => times > 3 ? null : Math.min(times * 100, 2000)  // Stop after 3 retries
+reconnectOnError: () => false  // Do not auto-reconnect on Redis errors in production
+enableOfflineQueue: false    // Reject commands immediately if disconnected (no silently queuing)
+```
+These settings ensure Redis connectivity issues never cause requests to silently hang waiting for a Redis reply. All middleware that uses Redis has explicit in-memory fallbacks.
+
+---
+
+## 5. CORS Configuration (`src/config/cors.ts`)
+
+### 4-Rule Origin Check (in priority order)
+1. **No origin (server-to-server):** `curl`, mobile apps, Postman — always allowed (`callback(null, true)`).
+2. **Explicit whitelist:** Origins in `ALLOWED_ORIGINS` env var (exact string match after normalization).
+3. **AWS Amplify pattern:** Regex `/\.amplifyapp\.com$/i` — allows all Amplify app preview branches (`<branch>.<app>.amplifyapp.com`).
+4. **AWS CloudFront pattern:** Regex `/\.cloudfront\.net$/i` — allows the distribution URL used as CDN origin.
+5. **Localhost pattern:** `/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i` — all local dev ports.
+
+**On rejection:** `callback(null, false)` — this allows CORS to properly omit the `Access-Control-Allow-Origin` header, returning a valid HTTP response (no status code). The original bug was `throw new Error(...)` inside the callback, which caused Express to propagate an uncaught exception → HTTP 500.
+
+### Allowed Headers
+`Content-Type`, `Authorization`, `X-Requested-With`, `Accept`, `Origin`, `x-request-id`, `Range`
+
+The `Range` header is required to support resumable/partial file downloads from `GET /files/:id/download`.
+
+### Exposed Headers
+`Content-Range`, `Accept-Ranges`, `x-request-id`, `Content-Disposition`
+
+These headers must be explicitly exposed in the CORS response so browser JavaScript can read them. `Content-Disposition` is needed so the browser downloads files with the correct filename. `x-request-id` allows the frontend to show request IDs in error UIs.
+
+### Preflight Caching
+`maxAge: 86400` — browsers cache preflight responses for 24 hours. This eliminates the OPTIONS preflight call on every API request, significantly reducing perceived latency on the first request of each hour.
+
+---
+
+## 6. Middleware Pipeline — Ordered Chain
+
+### `requestIdMiddleware` (`src/lib/requestId.ts`)
+- Generates `crypto.randomUUID()` (UUID v4) on every request.
+- Attaches to `req.requestId` for use in route handlers and error responses.
+- Sets `X-Request-Id` response header so clients can correlate frontend errors with backend logs.
+- **Must run first** — before any middleware that might generate a response (e.g., CORS) so that even error responses include a request ID.
+
+### `httpLoggerMiddleware` (`src/middleware/logger.middleware.ts`)
+- Hooks into `res.on('finish', ...)` — logs **after** the response is sent, adding zero latency to response time.
+- Skips `OPTIONS` preflight requests to reduce noise.
+- Uses `process.hrtime()` for nanosecond-precision timing (`(diff[0] * 1e3 + diff[1] * 1e-6).toFixed(2)` ms).
+- Status code color coding: 2xx → green, 3xx → cyan, 4xx → yellow, 5xx → red.
+- If `req.user` is populated (by a downstream `authMiddleware` call), logs the user's email and role.
+
+### `auditMiddleware` (`src/middleware/audit.middleware.ts`)
+- Hooks into `res.on('finish', ...)` — **non-blocking, zero latency impact**.
+- Only fires for mutating HTTP methods: `POST`, `PUT`, `PATCH`, `DELETE`.
+- Only records **successful** operations (`statusCode < 400`) — prevents audit log spam from rejected requests.
+- Only records **authenticated** operations — anonymous mutations are not audited.
+- Derives `action` string: `POST:/files/upload`, `DELETE:/admin/users/:id`, etc.
+- Derives `resourceType` from URL segments (handles `/admin/...` prefix intelligently).
+- Uses `req.params.id || req.params.userId || req.params.deptId || req.params.fileId` to extract the resource ID.
+- Insert is fire-and-forget (`.catch(...)` logs error, never throws).
+
+### `authMiddleware` (`src/middleware/auth.middleware.ts`)
+Applied per-route (not globally). Performs:
+1. Extracts `Authorization: Bearer <token>` header; throws `AppError(401)` if missing.
+2. `verifyAccessToken(token)` — checks JWT signature + expiry using `JWT_SECRET`.
+3. `sessionStore.isBlacklisted(token)` — checks Redis blacklist for revoked tokens (handles logout and admin force-invalidation).
+4. Populates `req.user = { id, role, email, name }` from decoded JWT payload.
+
+### `optionalAuthMiddleware` (`src/middleware/auth.middleware.ts`)
+Same validation as `authMiddleware`, but returns `next()` without error if no token is present. Used on `GET /departments/public/:id` and similar routes that serve both authenticated and anonymous users with different response shapes.
+
+### `adminMiddleware` (`src/middleware/admin.middleware.ts`)
+- Single check: `req.user?.role !== 'ADMIN'` → throws `AppError(403)`.
+- **Always chained after `authMiddleware`** — assumes `req.user` is already populated.
+- Used on all `/admin/...` routes and write operations that require admin privileges.
+
+### `deptAccessMiddleware` (`src/middleware/deptAccess.middleware.ts`)
+- Extracts `deptId` from `req.params.deptId`, `req.body.departmentId`, or `req.query.departmentId` (in that priority order).
+- `ADMIN` users bypass the check — `req.deptAccessLevel = 'READ_WRITE'` immediately.
+- For `MEMBER` users: checks Redis cache key `dept-access:{userId}:{deptId}` first (TTL: 5 minutes).
+- On cache miss: queries `UserDepartmentAccess` table, stores result in Redis for 5 minutes.
+- `'none'` is cached for denied access to prevent DB hammering on repeated denied requests.
+- Sets `req.deptAccessLevel` to `'READ_ONLY'` or `'READ_WRITE'` for downstream route handlers.
+
+### `hddAvailabilityMiddleware` (`src/middleware/hddAvailability.middleware.ts`)
+- Guards all upload/download routes.
+- Checks Redis key `hdd:available` (TTL: 30s). Cache hit `'ok'` → immediate pass; cache hit `'fail'` → immediate `503`.
+- On cache miss: calls `fs.access(HDD_MOUNT_PATH, R_OK | W_OK)`. If path doesn't exist (dev), auto-creates it with `fs.mkdir`.
+- On storage failure: caches `'fail'` for 30s, publishes `'admin.alert'` via Redis Pub/Sub, throws `AppError(503)`.
+- **Why 30s TTL?** File upload operations are latency-sensitive. A per-request `fs.access()` call adds ~2–5ms on networked NFS mounts. 30s caching limits this to once per window while still detecting storage failures within half a minute.
+
+### `loginRateLimiter` (`src/middleware/rateLimiter.middleware.ts`)
+- Key: `rate:login:{clientIP}`. Window: 15 minutes. Limit: 10 attempts (200 in development).
+- Uses Redis `INCR` + `EXPIRE` — atomic, no race condition.
+- In-memory `Map<string, {count, expiresAt}>` fallback if Redis is offline.
+- Returns `Retry-After` header on `429` with seconds remaining in the window.
+
+### `downloadRateLimiter` (`src/middleware/rateLimiter.middleware.ts`)
+- Key: `rate:download:{userId}`. Window: 1 hour. Limit: 100 downloads/hour per user.
+- Only applies to authenticated users (`req.user` must be set by prior `authMiddleware`).
+- Prevents bulk exfiltration of sensitive telemetry documents via automated scripts.
+
+### `globalErrorHandler` (`src/lib/errors.ts`)
+Three error classifications (matched in order):
+
+1. **`AppError` (operational):** Known, expected errors thrown by application code. `statusCode >= 500` → `logger.error`, otherwise `logger.warn`. Response: `{ error: { code, message, ?details }, requestId }`.
+2. **Prisma known errors:** `PrismaClientKnownRequestError`. Mapped to HTTP status: `P2002` (unique constraint) → 409 Conflict; `P2025` (record not found) → 404 Not Found; others → 500.
+3. **Unknown errors (programmer errors):** In development, full message + stack is returned. In production, generic `"An unexpected error occurred"` — internal details never leak.
+
+---
+
+## 7. Library Modules (`src/lib/`)
+
+### `logger.ts` — Structured Color-Coded Logger
+**Class `Logger`** with 5 log levels (weight-ordered):
+| Level | Weight | ANSI Color | Usage |
+| :--- | :--- | :--- | :--- |
+| `debug` | 10 | Gray | SQL queries, cache hits, verbose tracing |
+| `http` | 20 | Bright Magenta | HTTP request/response events |
+| `info` | 30 | Bright Cyan | Startup, daemon events, business actions |
+| `warn` | 40 | Bright Yellow | Recoverable errors, CORS rejections, failed retries |
+| `error` | 50 | Bright Red | Exceptions, storage failures, database errors |
+
+Each log line format:
+```
+2026-08-27 10:30:15.234 [HTTP ] [BOOT] 🛰️  ISTRAC-SIMS Backend active on port 3000
+```
+- `LOG_LEVEL` env var controls minimum level weight. Default `info` → debug logs suppressed.
+- `logger.child('TAG')` creates a pre-tagged sub-logger for scoped modules (used in services as `logger.info('HDD-SYNC', ...)`, `logger.error('WEBSOCKET', ...)`).
+
+### `jwt.ts` — Token Signing & Verification
+**Access tokens (15-minute TTL):**
+```ts
+payload = { id, role, email, name, jti: crypto.randomUUID() }
+signed with JWT_SECRET
+```
+**Refresh tokens (7-day TTL):**
+```ts
+payload = { sub: userId, jti: crypto.randomUUID() }
+signed with JWT_REFRESH_SECRET
+```
+- Both use separate secrets to prevent a compromised refresh token from forging access tokens.
+- `jti` (JWT ID) is a `crypto.randomUUID()` in each token for blacklist lookups (`sessionStore.isBlacklisted`).
+- `verifyAccessToken` / `verifyRefreshToken` throw `AppError(401)` (not generic `Error`) so `globalErrorHandler` classifies them as operational errors.
+
+### `errors.ts` — `AppError` Class
+```ts
+class AppError extends Error {
+  readonly code: string         // machine-readable error slug
+  readonly statusCode: number   // HTTP status code
+  readonly details?: unknown    // optional debug details
+  readonly isOperational = true // distinguishes from programmer errors
+}
+```
+`Object.setPrototypeOf(this, new.target.prototype)` restores the prototype chain (required in TypeScript when extending built-in classes compiled to ES5 targets).
+
+`Error.captureStackTrace(this, this.constructor)` trims the `AppError` constructor frames from the stack trace for cleaner logs.
+
+### `pubsub.ts` — Redis Pub/Sub Abstraction
+```ts
+pubsub.publish(channel, object)  // JSON.stringify → redisPub.publish
+pubsub.subscribe(channel, handler)  // redisSub.subscribe + in-memory handlers map
+```
+**In-memory fallback:** If `redisPub.publish` throws (Redis offline), the message is delivered directly to in-memory handlers registered via `pubsub.subscribe`. This keeps notification delivery working in local development without Redis.
+
+### `requestId.ts` — UUID Request Correlation
+- Generates `crypto.randomUUID()` (native Node.js — no library).
+- Sets `req.requestId` (TypeScript augmented `Request` type) and `X-Request-Id` response header.
+- Request IDs appear in every API error response, every audit log entry, and every HTTP log line — enabling full request tracing from browser to database.
+
+---
+
+## 8. Services Layer (`src/services/`)
+
+### `sessionStore.ts` — Token Blacklist & Session Registry
+Redis-backed with in-memory `Map` fallback. Uses two key namespaces:
+
+| Operation | Redis Key | TTL |
+| :--- | :--- | :--- |
+| `set(userId, tokenId)` | `session:{tokenId}` → `userId` | 7 days |
+| `get(tokenId)` | `session:{tokenId}` | — |
+| `revoke(tokenId)` | Deletes `session:{tokenId}`, sets `blacklist:{tokenId}` → `'1'` | 7 days |
+| `isBlacklisted(tokenId)` | Checks `blacklist:{tokenId}` | — |
+
+**Why store by `tokenId` (jti), not `userId`?** A user may have multiple active sessions (browser + mobile + API). Blacklisting by `userId` would invalidate all sessions on logout. Blacklisting by `jti` allows targeted revocation of a single token (e.g., admin force-logout of a specific session) without affecting other concurrent sessions.
+
+### `fileService.ts` — Upload Pipeline Orchestrator
+The complete file upload sequence:
+```
+1. Validate department (active, not deleted)
+2. Validate parent folder (if parentId provided)
+3. Build physical storage path:
+   {hddPath}/{spacecraft}/{parentFolder}/{sanitized_filename}
+   - spacecraft: (params.spacecraft || 'GENERAL').replace(/[^a-zA-Z0-9_-]/g, '_')
+   - filename: originalName.replace(/[^a-zA-Z0-9._-]/g, '_')
+4. Check for existing file at that path:
+   → If exists: create versioned path `.v{N}_{filename}`, increment versionCount
+   → If new: use destPath directly
+5. hddService.writeFile() — atomic temp-file write
+6. hddService.computeChecksum() — SHA-256 via Node.js crypto streams
+7. hddService.getFileSize() — fs.stat().size
+8. prisma.$transaction():
+   → Create FileVersion record
+   → Create or update File record with new versionCount
+   → Create Report record (if metadata: title, spacecraft, category provided)
+9. On DB failure: hddService.deleteFile() (compensation — cleans up physical file)
+10. auditService.log() → write audit record
+11. notificationService.send() → notify department members of new file
+```
+
+### `hddService.ts` — Physical Storage Operations
+All operations call `guardPath()` first:
+```ts
+guardPath(targetPath: string): string {
+  const resolved = path.resolve(targetPath)
+  if (!resolved.startsWith(MOUNT_ROOT)) {
+    throw new AppError('path_traversal', 'Invalid storage path access attempt', 400)
+  }
+  return resolved
+}
+```
+**Why `guardPath`?** Without this check, a malicious request with `parentId` pointing to a folder like `../../etc` could cause file operations outside the storage mount. `path.resolve()` resolves all `..` components before the `startsWith(MOUNT_ROOT)` check.
+
+**Atomic Write Pattern:**
+```ts
+const tmpPath = `${safeDest}.${crypto.randomBytes(6).toString('hex')}.tmp`
+await fs.writeFile(tmpPath, data)
+await fs.rename(tmpPath, safeDest)
+```
+Writing to a temporary file and renaming is atomic on POSIX filesystems. If the write fails midway, the original file (if any) is untouched. Only a fully written file becomes visible under the final path.
+
+**SHA-256 via streaming:**
+```ts
+const hash = crypto.createHash('sha256')
+const stream = createReadStream(safePath)
+await pipeline(stream, hash)  // Node.js stream/promises pipeline
+return hash.digest('hex')
+```
+Uses Node.js streams (not loading the whole file into memory) — essential for large telemetry files that may exceed available RAM.
+
+### `hddSyncService.ts` — Storage Reconciliation Daemon
+Runs on startup and every 15 minutes thereafter (configurable). Three-phase reconciliation:
+
+**Phase 1 — Disk → DB (Register Unknown Files):**
+- Recursively walks `HDD_MOUNT_PATH` with `getFiles(dir)`.
+- Skips dotfiles (`.health_probe`, `.gitkeep`, etc.).
+- For each disk file not in DB: looks up matching department by `hddPath` prefix, creates a `File` record with `status: 'UNREGISTERED'`, attributed to the first admin user.
+- **Why `UNREGISTERED`?** Files copied directly to storage by engineers bypassing the upload portal need to be visible in the UI so admins can formally register/classify them.
+
+**Phase 2 — DB → Disk (Update `lastSynced`):**
+- For each disk file already in DB: updates `lastSynced` and `sizeBytes` (handles files modified externally).
+
+**Phase 3 — DB → Disk (Mark Orphaned):**
+- Queries all `ACTIVE` files in DB.
+- For each DB file whose `hddPath` no longer exists on disk: marks as `status: 'ORPHANED'`.
+- **Why `ORPHANED` status?** Hard-deleting DB records for missing files would lose all metadata (uploader, category, version history). `ORPHANED` preserves the record for audit trail and admin investigation.
+
+After sync: publishes `{ completedAt, stats }` to Redis `hdd.sync` channel → `wsServer` relays as `SYNC_COMPLETE` to all admin WebSocket connections.
+
+### `hddHealthService.ts` — Storage Mount Health Probe
+Runs every 60 seconds. Write-Read-Delete probe:
+```
+1. fs.mkdir(mountRoot, { recursive: true })     — ensure mount exists
+2. fs.writeFile('.health_probe', 'probe-{ts}')  — test write access
+3. fs.readFile('.health_probe', 'utf8')          — test read access
+4. fs.unlink('.health_probe')                   — cleanup probe file
+```
+On failure:
+- Sets Redis key `hdd:degraded` with TTL 120s (2 minutes).
+- If this is the first failure (`!hasAlerted`): sends admin alert email via `emailService.sendAdminAlert`.
+On recovery:
+- Clears `hdd:degraded` from Redis.
+- If was previously alerted: sends "Storage Recovered" email.
+
+### `notificationService.ts` — DB + Real-Time Notification Delivery
+```ts
+notificationService.send({ type, category, actorId?, recipientIds[], resourceType?, resourceId?, message, metadata? })
+```
+Steps:
+1. `prisma.notification.createMany()` — batch insert one row per recipient.
+2. For each recipient: `pubsub.publish('notification.{userId}', {...})` → Redis → WebSocket.
+3. Fire-and-forget: DB and pubsub calls use `.then().catch()` — never blocks the caller.
+
+```ts
+notificationService.sendBroadcast(opts)
+```
+1. Queries all `ACTIVE` users to build `recipientIds`.
+2. Calls `send()` for targeted records.
+3. Also publishes to `notification.broadcast` channel → delivered to all connected WebSocket clients simultaneously.
+
+### `emailService.ts` — Nodemailer SMTP Client
+Configured with:
+- `secure: false` — uses STARTTLS upgrade (port 587) or plain (port 25).
+- `ignoreTLS: true` — for internal SMTP relays on ISRO intranet that don't use TLS.
+- `auth: undefined` if `SMTP_USER` is not set — allows anonymous relay on internal mail servers.
+
+Email methods (all fire-and-forget):
+| Method | Trigger | Subject |
+| :--- | :--- | :--- |
+| `sendApprovalEmail` | Admin approves user | "Your ISTRAC-FMS account has been approved" |
+| `sendRejectionEmail` | Admin rejects user | "ISTRAC-FMS Registration Update" |
+| `sendSuspensionEmail` | Admin suspends user | "ISTRAC-FMS Account Suspended" |
+| `sendPasswordResetEmail` | User requests reset | "ISTRAC-FMS Password Reset" (15-min link) |
+| `sendBroadcastEmail` | Admin sends broadcast | BCC to all users, To: ADMIN_EMAIL |
+| `sendAdminAlert` | Storage failure/recovery | "[ALERT] {subject}" to ADMIN_EMAIL |
+
+### `auditService.ts` — Append-Only Audit Logger
+```ts
+auditService.log({ userId?, action, resourceType?, resourceId?, oldValue?, newValue?, ipAddress?, userAgent? })
+```
+- `safeStringify()` handles `BigInt` values in `oldValue`/`newValue` JSON.
+- Fire-and-forget: `.catch(err => console.error(...))` — audit log failures never block the main flow.
+- Called directly in routes that need `oldValue`/`newValue` diff recording (e.g., user status changes, file deletions).
+
+### `bootstrapService.ts` — First-Run Provisioning
+Called from `AdminRoute POST /admin/bootstrap`. Idempotently creates:
+- 6 default satellites: Aditya-L1, Chandrayaan-3, EOS-08, Cartosat-3, Gaganyaan, NISAR.
+- 5 default departments: TTC, FDD, MOX, NETRA, GSO — each with `hddPath`, code, and description.
+- Creates physical storage directories for each department via `hddService`.
+- Sets `system_setup_complete = true` in `SystemConfig`.
+- **Idempotent:** uses `upsert` not `create` — safe to call multiple times.
+
+### `searchService.ts` — Full-Text File Search
+```ts
+searchService.search({ query, userId?, isAdmin?, departmentId?, page?, limit? })
+```
+- `limit` capped at 100, minimum 1. `page` minimum 1.
+- For `MEMBER` users with department ACLs: pre-queries `UserDepartmentAccess` to build `allowedDeptIds` filter.
+- Searches across: `name`, `description`, `extension`, `hddPath`, `report.title`, `report.spacecraft`, `department.name`, `department.code`.
+- Runs `prisma.file.count` and `prisma.file.findMany` in `Promise.all` for single round-trip.
+- Returns `{ results, total, page, limit }` for frontend pagination.
+
+---
+
+## 9. WebSocket Server (`src/ws/wsServer.ts`)
+
+### Connection Architecture
+```
+HTTP Server (Node.js http.createServer)
+  ↓
+WebSocketServer({ server, path: '/ws' })
+  ↓
+wss.on('connection', (ws, req) => { ... })
+```
+The WS server shares the same TCP port as the HTTP Express server by attaching to the `http.Server` instance. No separate port is needed.
+
+### Client Registry
+```ts
+const clients = new Map<string, ConnectedClient[]>()
+// Key: userId, Value: array (user can have multiple tabs/connections)
+```
+Each `ConnectedClient`:
+```ts
+interface ConnectedClient {
+  ws: WebSocket
+  userId: string
+  role: 'ADMIN' | 'MEMBER'
+  deptIds: string[]     // user's department memberships at connection time
+  missedPings: number   // increments each heartbeat, reset on pong
+  heartbeatTimer: NodeJS.Timeout
+}
+```
+
+### Connection Handshake
+1. Parse `token` from query string: `ws://host/ws?token=<accessToken>`.
+2. `verifyAccessToken(token)` — throws on invalid/expired → `ws.close(4401, 'Unauthorized')`.
+3. Fetch user's department memberships from DB for scoped notifications.
+4. Register client in `clients` Map.
+5. Start 30s heartbeat interval.
+
+### Heartbeat & Dead Connection Cleanup
+```
+Every 30s:
+  client.missedPings++
+  ws.send({ type: 'ping' })
+  
+On receiving 'pong':
+  client.missedPings = 0
+
+If client.missedPings >= 3 (90s silence):
+  clearInterval(heartbeatTimer)
+  removeClient(client)
+  ws.terminate()         ← force close without waiting for TCP FIN
+```
+**Why 3 missed pings?** Network interruptions (brief mobile signal loss, VPN reconnect) might cause a single missed ping. 3 consecutive misses (90 seconds of silence) reliably indicates a dead connection without being overly aggressive.
+
+### Targeted Send Functions
+```ts
+sendToUser(userId, event, payload)    // → user's all open tabs
+sendToAll(event, payload)             // → every connected client
+sendToAdmins(event, payload)          // → clients with role === 'ADMIN'
+sendToDeptUsers(deptId, event, payload) // → clients with deptId in their deptIds[] OR role 'ADMIN'
+```
+
+### Redis Pub/Sub → WebSocket Bridge
+Two subscription types:
+
+**Exact channel subscriptions:**
+```ts
+redisSub.subscribe('cms.update', 'hdd.sync', 'notification.broadcast')
+```
+| Redis Channel | WebSocket Event | Audience |
+| :--- | :--- | :--- |
+| `cms.update` | `CMS_UPDATE` | All clients |
+| `hdd.sync` | `SYNC_COMPLETE` | Admin clients only |
+| `notification.broadcast` | `NOTIFICATION` | All clients |
+
+**Pattern subscriptions (wildcard):**
+```ts
+redisSub.psubscribe('notification.*', 'file.*')
+```
+| Redis Pattern | WebSocket Event | Audience |
+| :--- | :--- | :--- |
+| `notification.{userId}` | `NOTIFICATION` | Specific user |
+| `file.upload.{deptId}` | `FILE_UPLOAD` | Department members + admins |
+| `file.deleted.{deptId}` | `FILE_DELETED` | Department members + admins |
+
+---
+
+## 10. Route Inventory — All API Endpoints
+
+### Auth Routes (`src/routes/auth.routes.ts`) — prefix: `/auth`
+| Method | Path | Middleware | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/auth/register` | `loginRateLimiter` | Submit access request; creates user with `status: PENDING` |
+| `POST` | `/auth/login` | `loginRateLimiter` | Validate credentials; return access token + set `refreshToken` httpOnly cookie |
+| `POST` | `/auth/refresh` | — | Read refresh cookie, verify, return new access token |
+| `POST` | `/auth/logout` | `authMiddleware` | Revoke current token; clear refresh cookie |
+| `GET` | `/auth/me` | `authMiddleware` | Return full user profile + department access list |
+| `PUT` | `/auth/change-password` | `authMiddleware` | Change own password (bcrypt 12 rounds) |
+| `PUT` | `/auth/force-password-change` | `authMiddleware` | First-login forced change; clears `tempPass` flag |
+| `POST` | `/auth/forgot-password` | `loginRateLimiter` | Generate 15-min reset token; email reset link |
+| `POST` | `/auth/reset-password` | `loginRateLimiter` | Validate token from email; set new password |
+
+**Login Flow Detail:**
+1. Find user by email (`deletedAt: null`).
+2. Check `status !== 'ACTIVE'` → 403 with status-specific message.
+3. `bcrypt.compare(password, user.passwordHash)` — 12 rounds.
+4. `signAccessToken(user)` → 15-min JWT.
+5. `signRefreshToken(user.id)` → 7-day JWT.
+6. `sessionStore.set(userId, refreshToken.jti)`.
+7. `res.cookie('refreshToken', token, { httpOnly: true, secure: NODE_ENV === 'production', sameSite: 'strict', maxAge: 7d })`.
+8. Response: `{ accessToken, user }`.
+
+**Refresh Token Rotation:**
+- Reads `req.cookies.refreshToken`.
+- `verifyRefreshToken(token)` → checks signature + expiry.
+- Checks `sessionStore.get(tokenId)` — must be in valid sessions.
+- `sessionStore.revoke(oldTokenId)` — invalidate old refresh token.
+- Issues new access + refresh token pair.
+- Writes new `refreshToken` cookie.
+
+### Department Routes (`src/routes/department.routes.ts`)
+| Method | Path | Middleware | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/departments/public` | — | All `isPageEnabled` departments (no auth required) |
+| `GET` | `/departments/public/:id` | `optionalAuthMiddleware` | Single department public page with CMS data |
+| `GET` | `/departments` | `authMiddleware` | Departments the user has access to |
+| `POST` | `/departments` | `authMiddleware`, `adminMiddleware` | Create department |
+| `PUT` | `/departments/:id` | `authMiddleware`, `adminMiddleware` | Update department + CMS fields |
+| `DELETE` | `/departments/:id` | `authMiddleware`, `adminMiddleware` | Soft-delete department |
+| `GET` | `/admin/departments` | `authMiddleware`, `adminMiddleware` | All departments (with filters) |
+| `GET` | `/admin/departments/:id` | `authMiddleware`, `adminMiddleware` | Full department detail |
+| `POST` | `/admin/departments/:id/users` | `authMiddleware`, `adminMiddleware` | Grant user access to department |
+| `DELETE` | `/admin/departments/:id/users/:userId` | `authMiddleware`, `adminMiddleware` | Revoke user department access |
+
+### File Routes (`src/routes/file.routes.ts`)
+| Method | Path | Middleware | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/files/upload` | `auth`, `admin`, `deptAccess`, `hddAvail`, `multer(50MB)` | Single-shot file upload |
+| `POST` | `/files/upload/chunk` | `auth`, `admin`, `hddAvail`, `multer(10MB/chunk)` | Upload one chunk of chunked transfer |
+| `POST` | `/files/upload/complete` | `auth`, `admin`, `hddAvail` | Assemble chunks → final file |
+| `GET` | `/files/:id/download` | `auth`, `downloadRateLimiter` | Stream file from HDD with `Content-Disposition` header |
+| `GET` | `/files/:id/stream` | `optionalAuth` | Streaming preview (supports `Range` header for video seek) |
+| `GET` | `/files/:id/versions` | `auth` | File version history array |
+| `DELETE` | `/files/:id` | `auth`, `admin` | Soft-delete file (sets `deletedAt`) |
+| `PUT` | `/files/:id/restore` | `auth`, `admin` | Restore soft-deleted file (clears `deletedAt`) |
+| `POST` | `/files/folders` | `auth`, `admin`, `deptAccess` | Create named folder node |
+| `GET` | `/admin/files/repository-list` | `auth`, `admin` | Flat file list with search/filter for CMS picker |
+| `GET` | `/admin/files/orphaned` | `auth`, `admin` | Files with `status: 'ORPHANED'` |
+| `GET` | `/admin/files/unregistered` | `auth`, `admin` | Files auto-discovered by HDD sync |
+
+### User Routes (`src/routes/user.routes.ts`)
+| Method | Path | Middleware | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/admin/users` | `auth`, `admin` | Paginated user roster with filters |
+| `GET` | `/admin/users/pending` | `auth`, `admin` | Users with `status: 'PENDING'` |
+| `POST` | `/admin/users/:id/approve` | `auth`, `admin` | Approve + grant department access |
+| `POST` | `/admin/users/:id/reject` | `auth`, `admin` | Reject with optional reason |
+| `POST` | `/admin/users/:id/suspend` | `auth`, `admin` | Suspend active user |
+| `POST` | `/admin/users/:id/restore` | `auth`, `admin` | Reinstate suspended user |
+| `POST` | `/admin/users/:id/reset-password` | `auth`, `admin` | Generate temp password, set `tempPass: true` |
+| `PUT` | `/admin/users/:id` | `auth`, `admin` | Update user details |
+| `DELETE` | `/admin/users/:id` | `auth`, `admin` | Soft-delete user |
+| `GET` | `/user/mission-overview` | `auth` | KPI summary for logged-in user's dashboard |
+| `PUT` | `/user/profile` | `auth` | Update own profile fields |
+
+### Browse Routes (`src/routes/browse.routes.ts`)
+| Method | Path | Middleware | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/departments/:deptId/files` | `auth`, `deptAccess` | Paginated file listing within a folder |
+| `GET` | `/departments/:deptId/tree` | `auth`, `deptAccess` | Recursive folder tree JSON |
+| `GET` | `/search` | `auth` | Full-text search via `searchService` |
+
+### Notification Routes (`src/routes/notification.routes.ts`)
+| Method | Path | Middleware | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/notifications` | `auth` | Paginated notification inbox |
+| `PUT` | `/notifications/:id/read` | `auth` | Mark single notification as read |
+| `PUT` | `/notifications/read-all` | `auth` | Mark all as read |
+| `DELETE` | `/notifications/:id` | `auth` | Delete notification |
+
+### Event Routes (`src/routes/event.routes.ts`)
+| Method | Path | Middleware | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/events` | `auth` | List events (filterable by status, type, satellite, department) |
+| `GET` | `/events/active-banner` | — | Public: events with `showOnBanner: true` + active broadcasts |
+| `POST` | `/events` | `auth`, `admin` | Create mission event |
+| `PUT` | `/events/:id` | `auth`, `admin` | Update event |
+| `DELETE` | `/events/:id` | `auth`, `admin` | Delete event |
+
+### CMS Routes (`src/routes/cms.routes.ts`)
+| Method | Path | Middleware | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/cms/blocks` | — | All CMS key-value blocks (public) |
+| `PUT` | `/cms/blocks/:key` | `auth`, `admin` | Update a CMS block; publishes `cms.update` to Redis |
+
+### Satellite Routes (`src/routes/satellite.routes.ts`)
+| Method | Path | Middleware | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/satellites` | `auth` | List all satellites |
+| `POST` | `/admin/satellites` | `auth`, `admin` | Create satellite record |
+| `PUT` | `/admin/satellites/:id` | `auth`, `admin` | Update satellite |
+| `DELETE` | `/admin/satellites/:id` | `auth`, `admin` | Soft-delete satellite |
+
+### Admin Routes (`src/routes/admin.routes.ts`)
+| Method | Path | Middleware | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/admin/stats` | `auth`, `admin` | 8-query parallel stats: users, files, depts, storage bytes, pending users, recent files, recent logs |
+| `GET` | `/admin/audit-logs` | `auth`, `admin` | Cursor-paginated audit log with filters |
+| `GET` | `/admin/settings` | `auth`, `admin` | All SystemConfig key-value pairs |
+| `PUT` | `/admin/settings/:key` | `auth`, `admin` | Update a config value |
+| `POST` | `/admin/notifications/broadcast` | `auth`, `admin` | Trigger system-wide broadcast notification |
+| `GET` | `/admin/drives` | `auth`, `admin` | Detected system drives via `driveDetectorService` |
+| `POST` | `/admin/bootstrap` | `auth`, `admin` | First-run setup: create satellites, depts, storage dirs |
+
+### Health Routes (`src/routes/health.routes.ts`)
+| Method | Path | Middleware | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/health` | — | Public liveness probe: DB + Redis + HDD → `{status, db, redis, hdd}` |
+| `GET` | `/admin/health/hdd` | `auth`, `admin` | Detailed HDD status: mounted flag + `isDegraded` from Redis |
+
+### Report Preset Routes (`src/routes/reportPreset.routes.ts`)
+CRUD for `ReportCategoryPreset` and `NamingPreset` — used in upload workflow to autocomplete category and filename pattern fields.
+
+---
+
+## 11. Background Daemons
+
+Two daemons are started at boot from `src/index.ts`:
+
+### `startHddHealthService()` — Storage Mount Health Probe
+- Interval: **every 60 seconds**.
+- Actions: write/read/delete probe file at `{HDD_MOUNT_PATH}/.health_probe`.
+- Alert: emails `ADMIN_EMAIL` on first failure; emails recovery notice when restored.
+- Redis: `hdd:degraded` key with 120s TTL used as a circuit breaker by `hddAvailabilityMiddleware`.
+
+### `startHddSyncService(15)` — Storage Reconciliation
+- Interval: **every 15 minutes**.
+- Runs immediately on startup, then on interval.
+- Guard: `if (syncTimer) return` — idempotent, never spawns two simultaneous sync timers.
+- Publishes `hdd.sync` to Redis on completion → WebSocket `SYNC_COMPLETE` to admin clients.
+
+---
+
+## 12. Prisma Schema — Data Model Reference
+
+### Core Models
+
+**`User`**
+```
+id, name, designation, email, employeeId, phone, passwordHash,
+role (ADMIN|MEMBER), status (PENDING|ACTIVE|SUSPENDED|REJECTED),
+departmentPreference, reasonForAccess, tempPass (bool),
+lastLogin, createdAt, deletedAt
+```
+
+**`Department`**
+```
+id, satelliteId (→Satellite), name, code, description,
+hddPath, isActive, allowUserFolderCreation, maxFolderDepth,
+pageTitle, pageAbout, pageLeadOfficer, pageLeadRole, pageContact,
+pageBannerUrl, isPageEnabled,
+createdAt, updatedAt, deletedAt
+```
+
+**`File`**
+```
+id, departmentId (→Department), reportId (→Report?),
+parentId (→File? self-relation for folders), nodeType (FILE|FOLDER),
+name, hddPath, sizeBytes (BigInt), mimeType, extension,
+sha256, status (ACTIVE|UNREGISTERED|ORPHANED|DELETED),
+description, versionCount, uploaderId (→User),
+lastSynced, deletedAt, createdAt, updatedAt
+```
+
+**`FileVersion`**
+```
+id, fileId (→File), versionNum, hddPath, sizeBytes (BigInt),
+sha256, uploadedBy (→User), createdAt
+```
+
+**`Report`** (optional metadata for uploaded files)
+```
+id, fileId (→File), title, spacecraft, category
+(SPECIAL_OPERATIONS|ANOMALY|STUDY|DAILY_REPORT|OTHER),
+classificationLevel, versionLabel, reportNumber, createdAt
+```
+
+**`Satellite`**
+```
+id, name, code (unique), noradId, orbitType,
+status (ACTIVE|INACTIVE|DECOMMISSIONED), description,
+createdAt, deletedAt
+```
+
+**`UserDepartmentAccess`**
+```
+id, userId (→User), departmentId (→Department),
+accessLevel (READ_ONLY|READ_WRITE), createdAt, deletedAt
+```
+
+**`AuditLog`**
+```
+id (BigInt autoincrement), userId (→User?), action,
+resourceType, resourceId, oldValue (JSON string), newValue (JSON string),
+ipAddress, userAgent, createdAt
+```
+**Why `BigInt` for `id`?** The audit log is append-only and high-volume. Regular ISRO operations generate thousands of records per day. A 32-bit `INT` (`~2.1 billion`) would be exhausted within years. `BigInt` (`BIGINT UNSIGNED` in MariaDB — ~18.4 quintillion rows) is effectively unlimited.
+
+**`Notification`**
+```
+id, userId (→User), type, category, actorId (→User?),
+resourceType, resourceId, message, metadata (JSON string),
+isRead (bool), createdAt
+```
+
+**`MissionEvent`**
+```
+id, title, description, eventType
+(MISSION_PASS|LAUNCH|ORBIT_MANEUVER|MAINTENANCE|SEMINAR|ANOMALY),
+satelliteId (→Satellite?), departmentId (→Department?),
+eventDate, endDate, location, urgency (NORMAL|IMPORTANT|CRITICAL),
+status (UPCOMING|IN_PROGRESS|COMPLETED|CANCELLED),
+showOnBanner (bool), createdAt, updatedAt
+```
+
+**`SystemConfig`**
+```
+key (unique), value (string), updatedAt
+```
+Known config keys: `system_setup_complete`, `maintenance_mode`, `max_upload_mb`.
+
+**`CmsBlock`**
+```
+key (unique), data (JSON string), updatedAt
+```
+Known keys: `hero`, `announcements`, `about`, `contact`, `featured_reports`, `divisions`.
+
+**`ReportCategoryPreset`** / **`NamingPreset`**
+Admin-defined autocomplete suggestions for the upload form.
+
+---
+
+## 13. API Response Envelope Standard
+
+Every successful API response uses this structure:
 ```json
 {
   "data": { ... },
-  "requestId": "c1f7b0f2-7f28-4e50-9d04-9a8c1f0d3e21"
+  "requestId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
-Error responses:
+For list responses with pagination:
+```json
+{
+  "data": [ ... ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 157,
+    "hasNext": true
+  },
+  "requestId": "..."
+}
+```
+
+For cursor-paginated responses (audit logs):
+```json
+{
+  "data": [ ... ],
+  "nextCursor": "9876543",
+  "hasMore": true,
+  "requestId": "..."
+}
+```
+
+Every error response:
 ```json
 {
   "error": {
-    "code": "department_not_found",
-    "message": "Department does not exist or is inactive"
+    "code": "not_found",
+    "message": "Resource not found",
+    "details": "Optional debug info (dev only)"
   },
-  "requestId": "c1f7b0f2-7f28-4e50-9d04-9a8c1f0d3e21"
+  "requestId": "..."
 }
 ```
 
-### Route Summary Table
-
-| Method | Endpoint | Auth Level | Description |
-|---|---|---|---|
-| `POST` | `/auth/register` | Public | Submit registration (status: PENDING) |
-| `POST` | `/auth/login` | Public | Authenticate user, issue JWT + httpOnly cookie |
-| `POST` | `/auth/refresh` | Public (Cookie) | Rotate refresh token and issue new access token |
-| `POST` | `/auth/logout` | Authenticated | Revoke refresh token & blacklist access token |
-| `GET` | `/auth/me` | Authenticated | Retrieve profile of authenticated operator |
-| `POST` | `/auth/forgot-password` | Public | Dispatch password reset token link |
-| `POST` | `/auth/reset-password` | Public | Reset password using verified token |
-| `PUT` | `/auth/change-password` | Authenticated | Change active account password |
-| `GET` | `/satellites` | Authenticated | List all active satellite stations for UI |
-| `GET` | `/admin/satellites` | Admin | List all satellites with department metrics |
-| `POST` | `/admin/satellites` | Admin | Register a new satellite ground station |
-| `PUT` | `/admin/satellites/:id` | Admin | Update satellite details |
-| `DELETE` | `/admin/satellites/:id` | Admin | Soft-deactivate satellite station |
-| `GET` | `/departments` | Authenticated | List user's accessible departments |
-| `GET` | `/admin/departments` | Admin | List all departments with file & user counts |
-| `POST` | `/admin/departments` | Admin | Create department under a satellite |
-| `PUT` | `/admin/departments/:id` | Admin | Update department name or folder settings |
-| `DELETE` | `/admin/departments/:id` | Admin | Soft-deactivate department |
-| `POST` | `/admin/departments/:id/users` | Admin | Grant user `READ_ONLY` or `READ_WRITE` access |
-| `DELETE` | `/admin/departments/:id/users/:uid` | Admin | Revoke user department access |
-| `GET` | `/admin/users` | Admin | Paginated user roster with search & filters |
-| `GET` | `/admin/users/pending` | Admin | Pending registration approval queue |
-| `POST` | `/admin/users/:id/approve` | Admin | Approve pending operator registration |
-| `POST` | `/admin/users/:id/reject` | Admin | Reject registration with reason |
-| `POST` | `/admin/users/:id/suspend` | Admin | Toggle account suspension (revokes tokens) |
-| `POST` | `/files/upload` | Authenticated + Dept Access | Single-shot multipart file upload (up to 50MB) |
-| `POST` | `/files/upload/chunk` | Authenticated + Dept Access | Upload 10MB chunk to temp storage |
-| `POST` | `/files/upload/complete` | Authenticated + Dept Access | Assemble chunks, verify SHA-256, commit file |
-| `GET` | `/files/:id/download` | Authenticated + Dept Access | Stream physical file with content disposition |
-| `DELETE` | `/files/:id` | Authenticated + Dept Access | Soft-delete file to trash |
-| `PUT` | `/files/:id/restore` | Admin | Restore file from trash |
-| `GET` | `/files/:id/versions` | Authenticated + Dept Access | Retrieve historical file versions |
-| `POST` | `/files/folders` | Authenticated + Dept Access | Create folder node on storage array |
-| `GET` | `/departments/:id/files` | Authenticated + Dept Access | Paginated listing of files/folders |
-| `GET` | `/departments/:id/tree` | Authenticated + Dept Access | Recursive folder hierarchy tree |
-| `GET` | `/search` | Authenticated | RBAC-scoped multi-field search |
-| `GET` | `/notifications` | Authenticated | List user notification inbox |
-| `PUT` | `/notifications/:id/read` | Authenticated | Mark notification as read |
-| `PUT` | `/notifications/read-all` | Authenticated | Mark all notifications read |
-| `POST` | `/admin/notifications/broadcast` | Admin | Transmit system broadcast to all users |
-| `GET` | `/cms/blocks` | Public | Fetch all landing page content blocks |
-| `PUT` | `/cms/blocks/:key` | Admin | Update CMS block and push live update |
-| `GET` | `/admin/stats` | Admin | Real-time counts (users, files, storage used) |
-| `GET` | `/admin/audit-logs` | Admin | Cursor-paginated audit log viewer |
-| `GET` | `/admin/settings` | Admin | System configuration properties |
-| `PUT` | `/admin/settings/:key` | Admin | Update system configuration key |
-| `GET` | `/health` | Public | Liveness probe (DB, Redis, HDD) |
-| `GET` | `/admin/health/hdd` | Admin | Detailed storage mount diagnostics |
-
 ---
 
-## 8. Real-Time WebSocket & PubSub Bridge
+## 14. Error Codes Reference
 
-### Connection & Heartbeat Protocol
-- **Endpoint:** `ws://<host>:<port>/ws?token=<accessToken>`
-- Handshake validates access token signature via `verifyAccessToken()`. Invalid or expired tokens are immediately rejected with close code `4401`.
-- Server sends `{ type: "ping" }` frames every 30 seconds. If a client fails to respond after 3 consecutive intervals, the socket is terminated and removed from the active connection pool.
-
-### Event Dispatch Table
-
-| Event Name | Scope / Target | Trigger Condition |
-|---|---|---|
-| `NOTIFICATION` | Target `userId` or Broadcast | New user notification or admin broadcast |
-| `CMS_UPDATE` | All connected clients | Admin modified a CMS content block |
-| `FILE_UPLOAD` | Users assigned to `departmentId` | New file uploaded or version incremented |
-| `FILE_DELETED` | Users assigned to `departmentId` | File moved to trash |
-| `SYNC_COMPLETE` | Admin users only | Background HDD reconciliation finished |
-
----
-
-## 9. Background Daemons & Health Monitoring
-
-1. **Storage Availability Probe:** Every 60 seconds (`HddHealthService`) verifies physical directory access and dispatches alerts on failure.
-2. **HDD Reconciliation Daemon:** Every 15 minutes (`HddSyncService`) crawls the disk volume to detect unregistered or orphaned files.
-3. **Graceful Shutdown Protocol:** On `SIGINT` or `SIGTERM`, the HTTP server ceases accepting new connections, drains existing requests, disconnects from Prisma MySQL, closes all 3 Redis connections, and shuts down cleanly without resource leakage.
-
----
-
-## 10. Security, Concurrency & Defense-in-Depth
-
-| Threat | Mitigation Mechanism |
-|---|---|
-| **Directory / Path Traversal** | `hddService.guardPath()` validates all paths against `path.resolve(env.HDD_MOUNT_PATH)`. |
-| **Tampered File Uploads** | Magic byte validation inspects binary headers for PDF, PNG, JPG, and ZIP formats. |
-| **Brute-Force Authentication** | `loginRateLimiter` enforces 5 attempts per IP per 15 minutes using Redis TTL. |
-| **Mass Data Exfiltration** | `downloadRateLimiter` throttles downloads to 100/hr and alerts on >50 downloads in 10 minutes. |
-| **Unauthorized Data Access** | `deptAccessMiddleware` checks database permissions with a 5-minute Redis cache. |
-| **Stolen Revoked Tokens** | Redis token blacklist checked on every request via `authMiddleware`. |
-| **Audit Log Tampering** | `AuditLog` table has no `UPDATE` or `DELETE` API endpoints and uses auto-incrementing IDs. |
+| Code | HTTP Status | Source | Description |
+| :--- | :--- | :--- | :--- |
+| `missing_token` | 401 | `authMiddleware` | No Bearer token in Authorization header |
+| `token_invalid` | 401 | `jwt.ts` | JWT signature invalid or expired |
+| `token_revoked` | 401 | `authMiddleware` | Token found in Redis blacklist |
+| `refresh_token_invalid` | 401 | `jwt.ts` | Refresh token invalid or expired |
+| `unauthorized` | 401 | `authMiddleware` | Generic auth failure |
+| `forbidden` | 403 | `adminMiddleware` | User is not ADMIN |
+| `dept_access_denied` | 403 | `deptAccessMiddleware` | User not in department's access list |
+| `account_inactive` | 403 | `auth.routes.ts` | User `status` is not `ACTIVE` |
+| `missing_fields` | 400 | various routes | Required body field absent |
+| `invalid_credentials` | 400 | `auth.routes.ts` | Wrong email or password |
+| `path_traversal` | 400 | `hddService.guardPath` | Storage path escapes mount root |
+| `missing_department` | 400 | `deptAccessMiddleware` | No department ID provided |
+| `user_exists` | 409 | `auth.routes.ts` | Email or employeeId already registered |
+| `conflict` | 409 | `globalErrorHandler` | Prisma `P2002` unique constraint |
+| `not_found` | 404 | `globalErrorHandler` | Prisma `P2025` record not found |
+| `department_not_found` | 404 | `fileService` | Department inactive or missing |
+| `parent_not_found` | 404 | `fileService` | Parent folder node missing |
+| `file_not_found` | 404 | `hddService.streamFile` | Physical file absent from storage mount |
+| `rate_limit_exceeded` | 429 | `loginRateLimiter` | >10 login attempts in 15 minutes |
+| `download_limit_exceeded` | 429 | `downloadRateLimiter` | >100 downloads/hour |
+| `hdd_unavailable` | 503 | `hddAvailabilityMiddleware` | Storage mount not accessible |
+| `database_error` | 500 | `globalErrorHandler` | Unhandled Prisma error |
+| `internal_error` | 500 | `globalErrorHandler` | Unhandled programmer error |

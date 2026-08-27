@@ -1,8 +1,8 @@
-# ISTRAC-FMS Design System & UI Specification
+# ISTRAC-SIMS Design System & UI Specification
 
-> **System:** Indian Space Research Auxiliary Centres — File Management System (ISTRAC-FMS)  
-> **Target Theme:** Mission Control & Aerospace Ground Operations  
-> **Version:** 1.0.0 Production Baseline  
+> **System:** Indian Space Research Organisation — Satellite Information Management System (ISTRAC-SIMS)  
+> **Target Theme:** Mission Control Operations & Aerospace Ground Telemetry  
+> **Version:** 1.2.0 Production Baseline  
 > **Location:** `documents/DESIGN_SYSTEM.md`
 
 ---
@@ -11,236 +11,305 @@
 
 1. [Core Design Philosophy & Principles](#1-core-design-philosophy--principles)
 2. [Color Palette & Token Architecture](#2-color-palette--token-architecture)
+   - [2.1 Background Planes & Surfaces](#21-background-planes--surfaces)
+   - [2.2 Hairline Borders & Dividers](#22-hairline-borders--dividers)
+   - [2.3 Text Tones & Contrast Hierarchy](#23-text-tones--contrast-hierarchy)
+   - [2.4 Brand Accent & Telemetry Status Tones](#24-brand-accent--telemetry-status-tones)
 3. [Typography Hierarchy & Font Stacks](#3-typography-hierarchy--font-stacks)
+   - [3.1 Font Stacks & Dual-Font Discipline](#31-font-stacks--dual-font-discipline)
+   - [3.2 Type Scale & Hierarchy](#32-type-scale--hierarchy)
 4. [Spacing Scale, Layout Grid & Breakpoints](#4-spacing-scale-layout-grid--breakpoints)
 5. [Elevation, Hairlines & Corner Radii](#5-elevation-hairlines--corner-radii)
 6. [Core Component Specifications](#6-core-component-specifications)
    - [6.1 Buttons & Action Triggers](#61-buttons--action-triggers)
-   - [6.2 Badges & Telemetry Indicators](#62-badges--telemetry-indicators)
-   - [6.3 Form Controls & Validation States](#63-form-controls--validation-states)
-   - [6.4 Mission Data Tables](#64-mission-data-tables)
-   - [6.5 Modals, Drawers & Dialogs](#65-modals-drawers--dialogs)
-   - [6.6 Toast Notification System](#66-toast-notification-system)
-7. [Iconography & Visual Assets Guidelines](#7-iconography--visual-assets-guidelines)
-8. [Component State Conventions](#8-component-state-conventions)
-9. [Accessibility & Air-Gap Standards](#9-accessibility--air-gap-standards)
+   - [6.2 Badges & Telemetry Status Indicators](#62-badges--telemetry-status-indicators)
+   - [6.3 Form Controls & Validation States (`Input`, `Select`, `Textarea`)](#63-form-controls--validation-states)
+   - [6.4 Auth Frame & Security Cards (`AuthFrame`, `AuthCard`)](#64-auth-frame--security-cards)
+   - [6.5 Password Strength Meter (`PasswordStrengthMeter`)](#65-password-strength-meter)
+   - [6.6 Mission Data Tables & Repository Grids](#66-mission-data-tables--repository-grids)
+   - [6.7 Dual-Month Mission Operations Calendar (`MissionCalendar`)](#67-dual-month-mission-operations-calendar)
+   - [6.8 Modals, File Previews & Version Drawers](#68-modals-file-previews--version-drawers)
+   - [6.9 Toast Notification System (`toastStore`)](#69-toast-notification-system)
+7. [Iconography Guidelines](#7-iconography-guidelines)
+8. [Air-Gap, Performance & Accessibility Standards](#8-air-gap-performance--accessibility-standards)
 
 ---
 
 ## 1. Core Design Philosophy & Principles
 
-The ISTRAC-FMS interface is designed as an **Aerospace Mission Control Operations Console**. It prioritizes density, optical contrast, sub-second scanning speed, and strict visual hierarchy.
+The ISTRAC-SIMS interface is architected as an **Aerospace Ground Station Mission Control Operations Console**. It prioritizes high optical density, rapid scanning under low-light control room environments, sub-second telemetry recognition, and strict visual hierarchy.
 
-### The Four Pillars:
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        ISTRAC-SIMS AESTHETIC                           │
+├────────────────────────────────────────────────────────────────────────┤
+│  • Deep Space Charcoal Planes (#04070e / #080d17 / #0c121e)            │
+│  • Hairline Borders (1px #223049) over heavy drop shadows              │
+│  • Cyan/ISRO Blue Active Glows (#00f0ff / #1d72fe)                     │
+│  • Strict Tabular Monospace numbers for telemetry and file metrics     │
+│  • Clear Telemetry Color States (Nominal, Warning, Critical, Special) │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### The Four Foundational Pillars:
 
 1. **Machine Precision vs. Human Editorial:**
-   - **Machine Data** (Coordinates, SHA-256 hashes, file sizes, timestamps, station IDs, byte counts) **MUST always be set in Monospace** (`font-mono` / tabular-nums).
-   - **Human Content** (Titles, descriptions, instructions, button labels) **MUST always be set in Sans-Serif** (`font-sans`).
+   - **Machine Data** (Coordinates, SHA-256 hashes, file sizes, timestamps, station IDs, telemetry counts, UTC dates) **MUST always be set in Monospace** (`font-mono` / tabular-nums).
+   - **Human Content** (Titles, descriptions, instructions, button labels, operational division names) **MUST always be set in Sans-Serif** (`font-sans`).
 
 2. **Hairlines over Heavy Drop-Shadows:**
-   - Visual depth is achieved through 1px border value shifts (`border-subtle`, `border-default`, `border-bright`) and inset highlights rather than blurry drop shadows.
+   - Depth and boundaries are established via 1px border value shifts (`border-subtle`, `border-default`, `border-bright`) and inset highlights rather than blurred elevation shadows.
 
 3. **Restrained Chromatic Voice:**
-   - The interface uses a deep space charcoal canvas (`#04070e`, `#080d17`, `#101726`) with a single primary brand voice (**ISRO Mission Blue**: `#1d72fe`) and four distinct telemetry status tones (Nominal Green, Warning Amber, Critical Red, Special Purple).
+   - The canvas remains neutral deep space charcoal. Color is reserved exclusively for interactive states and operational status telemetry.
 
 4. **Zero-Fluff, Direct Action:**
-   - Avoid ambiguous terminology. Use standard action terms (**"Log In"**, **"Request Access"**, **"Upload File"**, **"Restore"**) rather than abstract phrasing.
+   - Action verbs must be concise, standard, and imperative: **"Log In"**, **"Request Access"**, **"Upload File"**, **"Restore"**, **"Reconcile Storage"**, **"Approve"**.
 
 ---
 
 ## 2. Color Palette & Token Architecture
 
-All colors are declared as CSS custom variables in [`src/index.css`](file:///D:/istrac-fms/frontend/src/index.css) and exposed via Tailwind CSS v4 `@theme`.
+All colors are declared as CSS custom variables in `src/index.css` and bound to Tailwind CSS utility classes.
 
-### 2.1 Background Planes
+### 2.1 Background Planes & Surfaces
+| Token / Utility | Hex Value | Semantic Usage |
+| :--- | :--- | :--- |
+| `bg-page` / `--color-page` | `#04070e` | Master canvas background (deep space black-blue). |
+| `bg-page-soft` / `--color-page-soft` | `#080d17` | Secondary background for alternate page sections. |
+| `bg-surface` / `--color-surface` | `#0c121e` | Structural sidebars, topbars, search bars, and sub-navs. |
+| `bg-card` / `--color-card` | `#101726` | Elevated cards, repository data containers, modal dialogs. |
+| `bg-card-hover` | `#172033` | Interactive hover state for table rows and cards. |
+| `bg-input` | `#09101f` | Form field background with optical inset. |
+| `bg-input-focus` | `#0c162b` | Form field background on focus state. |
 
-| Token | Hex Value | Role / Usage |
-|---|---|---|
-| `--color-page` | `#04070e` | Master canvas background (deep space black-blue). |
-| `--color-page-soft` | `#080d17` | Secondary background for alternating page sections. |
-| `--color-surface` | `#0c121e` | Structural headers, topbars, sidebars, and sub-panels. |
-| `--color-card` | `#101726` | Elevated cards, data table containers, and modal dialogs. |
-| `--color-card-hover` | `#172033` | Interactive hover state for cards and table rows. |
+### 2.2 Hairline Borders & Dividers
+| Token / Utility | Hex Value | Semantic Usage |
+| :--- | :--- | :--- |
+| `border-border-subtle` | `#192336` | Hairline dividers between table rows, sub-menu items. |
+| `border-border-default` | `#223049` | Standard structural borders on cards, modals, and inputs. |
+| `border-border-bright` | `#364b6e` | Highlighted borders on hover, card focus, active selection. |
+| `border-accent/30` | `rgba(0,240,255,0.3)` | Brand active container hairline highlight. |
 
-### 2.2 Hairline Borders
+### 2.3 Text Tones & Contrast Hierarchy
+| Token / Utility | Hex Value | Contrast & Usage |
+| :--- | :--- | :--- |
+| `text-text-primary` | `#f1f5f9` (Slate-100) | High-contrast body, primary headers, values. |
+| `text-text-secondary` | `#94a3b8` (Slate-400) | Subtitles, field labels, metadata descriptions. |
+| `text-text-dim` | `#64748b` (Slate-500) | Timestamps, placeholder text, hints, helper copy. |
+| `text-text-muted` | `#475569` (Slate-600) | Disabled controls, inactive icons, breadcrumb slashes. |
 
-| Token | Hex Value | Role / Usage |
-|---|---|---|
-| `--color-border-subtle` | `#192336` | Hairline dividers between table rows and menu items. |
-| `--color-border-default` | `#223049` | Standard structural borders on cards and inputs. |
-| `--color-border-bright` | `#364b6e` | Highlighted borders on hover or focused containers. |
-
-### 2.3 Typography & Text Tones
-
-| Token | Hex Value | Role / Usage |
-|---|---|---|
-| `--color-text-primary` | `#f1f5f9` | High-contrast headings and primary labels (`Slate 100`). |
-| `--color-text-secondary` | `#94a3b8` | Readable body text and descriptions (`Slate 400`). |
-| `--color-text-muted` | `#64748b` | Sub-labels, metadata hints, and table column headers (`Slate 500`). |
-| `--color-text-dim` | `#475569` | Micro-readouts, timestamps, and disabled placeholders (`Slate 600`). |
-
-### 2.4 Brand Accent & Telemetry Status Colors
-
-| Role | Primary Hex | Hover Hex | Subtle BG Hex | Semantic Meaning |
-|---|---|---|---|---|
-| **Mission Blue** | `#1d72fe` | `#3b82f6` | `rgba(29,114,254,0.12)` | Primary actions, links, focus states. |
-| **Nominal Green** | `#10b981` | `#34d399` | `#064e3b` | Operational, verified, active, AOS lock. |
-| **Warning Amber** | `#f59e0b` | `#fbbf24` | `#451a03` | Standby, pending approval, acquisition delay. |
-| **Critical Red** | `#ef4444` | `#f87171` | `#450a0a` | Suspended, deleted, lost of signal (LOS), errors. |
-| **Special Purple** | `#a855f7` | `#c084fc` | `#3b0764` | Super admin badge, special operations telemetry. |
+### 2.4 Brand Accent & Telemetry Status Tones
+| State Tone | Primary Accent | Subtle Surface BG | Hairline Border | Semantic Meaning |
+| :--- | :--- | :--- | :--- | :--- |
+| **ISRO Cyan** | `#00f0ff` | `rgba(0, 240, 255, 0.12)` | `rgba(0, 240, 255, 0.30)` | Brand primary, active navigation, focus rings, links. |
+| **ISRO Blue** | `#1d72fe` | `rgba(29, 114, 254, 0.15)` | `rgba(29, 114, 254, 0.35)` | Primary action buttons, prominent submit CTAs. |
+| **Nominal Green** | `#10b981` | `rgba(16, 185, 129, 0.12)` | `rgba(16, 185, 129, 0.30)` | Operational, online, verified, active pass, healthy HDD. |
+| **Warning Amber** | `#f59e0b` | `rgba(245, 158, 11, 0.12)` | `rgba(245, 158, 11, 0.30)` | Pending approval, degraded storage, sync in-progress. |
+| **Critical Red** | `#ef4444` | `rgba(239, 68, 68, 0.12)` | `rgba(239, 68, 68, 0.30)` | Suspended account, storage error, deleted file, validation error. |
+| **Special Purple** | `#a855f7` | `rgba(168, 85, 247, 0.15)` | `rgba(168, 85, 247, 0.30)` | Super admin badge, version history drawer, orbit maneuvers. |
 
 ---
 
 ## 3. Typography Hierarchy & Font Stacks
 
-### 3.1 Font Stacks
+### 3.1 Font Stacks & Dual-Font Discipline
+- **Primary Sans:** `Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`
+- **Telemetry Monospace:** `"JetBrains Mono", "Fira Code", SFMono-Regular, Menlo, Monaco, Consolas, monospace`
 
-```css
-/* Sans-Serif Stack for UI & Editorial Content */
---font-sans: "Inter", "Plus Jakarta Sans", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-
-/* Monospace Stack for Data, Checksums & Coordinates */
---font-mono: "JetBrains Mono", "SF Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+```tsx
+// Rule of Thumb:
+<h1 className="font-sans font-bold text-text-primary text-xl">
+  Orbit Determination Report
+</h1>
+<span className="font-mono text-xs text-accent-light">
+  SHA256: 8f4a12...9b · 48.2 MB · 2026-08-27T10:30:00Z
+</span>
 ```
 
-### 3.2 Typography Scale & Style Rules
-
-| Level | Size | Weight | Tracking | Line Height | Usage Example |
-|---|---|---|---|---|---|
-| **Display Hero** | `3.6rem (58px)` | `Bold (700)` | `-0.03em` | `1.12` | Main landing headline (`Spacecraft Operations Area`) |
-| **Heading 1 (H1)** | `2.25rem (36px)` | `Bold (700)` | `-0.025em` | `1.2` | Page titles (`Department File Manager`) |
-| **Heading 2 (H2)** | `1.5rem (24px)` | `SemiBold (600)` | `-0.02em` | `1.3` | Section headings (`Core Capabilities`) |
-| **Heading 3 (H3)** | `1.125rem (18px)` | `SemiBold (600)` | `-0.015em` | `1.4` | Card titles (`Air-Gapped Intranet Security`) |
-| **Body Large** | `1.0rem (16px)` | `Regular (400)` | `0` | `1.6` | Hero subtitles, lead paragraphs |
-| **Body Regular** | `0.875rem (14px)` | `Regular (400)` | `0` | `1.5` | Standard UI text, descriptions, table cells |
-| **Body Small** | `0.75rem (12px)` | `Regular (400)` | `0` | `1.4` | Input hints, timestamp readouts |
-| **Eyebrow Label** | `0.6875rem (11px)` | `SemiBold (600)` | `0.12em` | `1.0` | `eyebrow`: Uppercase section markers |
-| **Monospace Data** | `0.8125rem (13px)` | `Medium (500)` | `0.02em` | `1.0` | `num`: Coordinates, hashes, file byte counts |
+### 3.2 Type Scale & Hierarchy
+| Level | Font / Weight | Size / Line Height | Tracking | Usage |
+| :--- | :--- | :--- | :--- | :--- |
+| **Display 1** | Sans / Bold (700) | `text-3xl` (30px / 36px) | `tracking-tight` | Landing hero headlines. |
+| **Page Title (H1)** | Sans / Bold (700) | `text-xl` (20px / 28px) | `tracking-tight` | Major view headers, modal titles. |
+| **Section Header (H2)** | Sans / SemiBold (600) | `text-lg` (18px / 24px) | `tracking-normal` | Card container titles, table headers. |
+| **Eyebrow / Status Tag** | Sans / Bold (700) | `text-[10px]` (10px / 14px) | `tracking-wider uppercase` | `SEC LEVEL 4`, `OPERATIONAL STATUS`. |
+| **Body Standard** | Sans / Regular (400) | `text-sm` (14px / 20px) | `tracking-normal` | General copy, form labels, tooltips. |
+| **Body Compact / Sub** | Sans / Regular (400) | `text-xs` (12px / 16px) | `tracking-normal` | Helper text, secondary descriptions. |
+| **Telemetry / Data Tag** | Mono / Medium (500) | `text-xs` (12px / 16px) | `tracking-normal tabular-nums` | File sizes, hashes, coordinate vectors. |
 
 ---
 
 ## 4. Spacing Scale, Layout Grid & Breakpoints
 
-### 4.1 8pt Baseline Spacing
-All paddings and margins adhere to an 8px modular scale:
-- `gap-1` (`4px`) / `gap-2` (`8px`) / `gap-3` (`12px`) / `gap-4` (`16px`) / `gap-6` (`24px`) / `gap-8` (`32px`) / `gap-12` (`48px`) / `gap-16` (`64px`).
-
-### 4.2 Standard Containers
-- **`shell`**: Max-width `1280px` centered with responsive `1.25rem` side padding.
-- **`shell-wide`**: Max-width `1560px` centered for wide mission control tables and monitor arrays.
-
-### 4.3 Breakpoints
-- `sm`: `640px` (Tablets / small viewports)
-- `md`: `768px` (Medium screens / sidebar collapse trigger)
-- `lg`: `1024px` (Standard desktop monitors)
-- `xl`: `1280px` (High-resolution workstation displays)
-- `2xl`: `1536px` (Dual-monitor console arrays)
+- **Baseline Grid:** 4px micro-grid / 8px component rhythm (`p-2` = 8px, `p-3` = 12px, `p-4` = 16px, `p-6` = 24px, `p-8` = 32px).
+- **Page Container Max-Width:** `max-w-7xl` (1280px) with responsive horizontal padding (`px-4 sm:px-6 lg:px-8`).
+- **Sidebar Widths:**
+  - Admin/Dashboard Sidebar: `w-64` (256px) expanded, `w-16` (64px) collapsed.
+- **Breakpoints:**
+  - `sm`: 640px (Mobile landscape / small tablets)
+  - `md`: 768px (Tablets / collapsed desktop layouts)
+  - `lg`: 1024px (Standard desktop / dual-pane dashboards)
+  - `xl`: 1280px (Wide mission operations console)
+  - `2xl`: 1536px (Multi-monitor flight console)
 
 ---
 
 ## 5. Elevation, Hairlines & Corner Radii
 
-### 5.1 Corner Radii Scale
-- `--radius-xs` (`3px`): Micro badges and indicators.
-- `--radius-sm` (`5px`): Input fields and small buttons.
-- `--radius-md` (`8px`): Standard buttons, dropdowns, table cards.
-- `--radius-lg` (`12px`): Sub-panels, stat cards, preview boxes.
-- `--radius-xl` (`16px`): Modals, large feature cards, terminal windows.
-- `--radius-2xl` (`20px`): Section hero cards and visualizer plates.
-
-### 5.2 Shadows & Insets
-- **`shadow-card`**: `inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 4px rgba(0, 0, 0, 0.5)`
-- **`shadow-card-hover`**: `inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 24px -4px rgba(0, 0, 0, 0.65)`
-- **`shadow-glow`**: `0 0 20px rgba(29, 114, 254, 0.25)`
+- **Corner Radii:**
+  - Buttons, Inputs, Badges: `rounded-lg` (8px)
+  - Cards, Modal Containers, Alert Boxes: `rounded-xl` (12px)
+  - Full Pills / Status Dots: `rounded-full` (9999px)
+- **Border Treatments:**
+  - All cards use `border border-border-default` with background `#101726`.
+  - Focused interactive elements receive `focus:border-accent focus:ring-1 focus:ring-accent/40 outline-none`.
 
 ---
 
 ## 6. Core Component Specifications
 
-### 6.1 Buttons & Action Triggers ([`src/components/Button.tsx`](file:///D:/istrac-fms/frontend/src/components/Button.tsx))
+### 6.1 Buttons & Action Triggers
+The [`Button`](file:///D:/istrac-fms/frontend/src/components/Button.tsx) component supports 4 primary variants:
 
-| Variant | Visual Style | Use Case |
-|---|---|---|
-| **Primary** | Solid `#1d72fe` background, white text, subtle top inset highlight, hover `#3b82f6`. | Main call to action (`Log In`, `Upload`, `Approve`). |
-| **Secondary** | `#172033` surface background, `#f1f5f9` text, `border-subtle`. | Secondary actions (`Cancel`, `View Details`). |
-| **Outline** | Transparent background, `border-default`, `#f1f5f9` text, hover `bg-card-hover`. | Auxiliary actions (`Request Access`, `Add Filter`). |
-| **Danger** | Solid `#ef4444` or critical outline with red text. | Destructive actions (`Delete File`, `Suspend User`, `Revoke`). |
-| **Ghost** | Transparent background, no border, text `#94a3b8`, hover `text-white`. | Toolbar icon buttons (`Close`, `Refresh`, `More Options`). |
+```tsx
+// 1. Primary Action (ISRO Blue with subtle glow)
+<Button variant="primary" size="md">Upload Telemetry</Button>
+// Class: bg-accent hover:bg-accent-hover text-white font-medium shadow-md shadow-accent/20
 
----
+// 2. Outline / Secondary
+<Button variant="outline" size="md">Download Dataset</Button>
+// Class: border border-border-default hover:border-border-bright bg-surface/50 text-text-primary
 
-### 6.2 Badges & Telemetry Indicators ([`src/components/Badge.tsx`](file:///D:/istrac-fms/frontend/src/components/Badge.tsx))
+// 3. Ghost / Subtle
+<Button variant="ghost" size="sm">Cancel</Button>
+// Class: hover:bg-card-hover text-text-secondary hover:text-text-primary
 
-Badges use 11px uppercase monospace font with status indicator dots:
-- **Active / Nominal:** Green dot + `bg-nominal/10 text-nominal border-nominal/30`
-- **Pending / Warning:** Amber dot + `bg-warning/10 text-warning border-warning/30`
-- **Suspended / Critical:** Red dot + `bg-critical/10 text-critical border-critical/30`
-- **Read Only:** Blue dot + `bg-accent/10 text-accent-light border-accent/30`
-
----
-
-### 6.3 Form Controls & Validation States ([`src/components/Input.tsx`](file:///D:/istrac-fms/frontend/src/components/Input.tsx))
-
-- **Background:** `bg-surface` (`#0c121e`)
-- **Border:** `border-default` (`#223049`), transitions to `border-accent` on focus with a `2px` focus ring.
-- **Label:** `col-label` uppercase 11px font with `#94a3b8` tone.
-- **Error State:** Red border `border-critical`, error message displayed below in 12px red font.
-- **Tabular Inputs:** File hashes, email addresses, and timestamps automatically adopt `font-mono`.
+// 4. Danger / Destructive
+<Button variant="danger" size="md">Purge File</Button>
+// Class: bg-critical/15 hover:bg-critical/25 text-critical border border-critical/30
+```
 
 ---
 
-### 6.4 Mission Data Tables ([`src/components/Table.tsx`](file:///D:/istrac-fms/frontend/src/components/Table.tsx))
+### 6.2 Badges & Telemetry Status Indicators
+The [`Badge`](file:///D:/istrac-fms/frontend/src/components/Badge.tsx) component renders status chips:
 
-- **Container:** `rounded-xl border border-border-subtle bg-card overflow-hidden`
-- **Header:** Sticky `bg-surface`, 11px uppercase `col-label` styling with sort arrow indicators.
-- **Rows:** `border-b border-border-subtle hover:bg-card-hover transition-colors`
-- **Numerical Columns:** Right-aligned or left-aligned with `num` tabular fonts.
+```tsx
+<Badge variant="nominal">ACTIVE PASS</Badge>
+<Badge variant="warning">PENDING APPROVAL</Badge>
+<Badge variant="critical">STORAGE DEGRADED</Badge>
+<Badge variant="purple">SUPER ADMIN</Badge>
+<Badge variant="cyan">AOS LOCK</Badge>
+```
 
----
-
-### 6.5 Modals & Dialogs ([`src/components/Modal.tsx`](file:///D:/istrac-fms/frontend/src/components/Modal.tsx))
-
-- **Backdrop:** `bg-page/80 backdrop-blur-md`
-- **Dialog Surface:** `bg-card border border-border-default rounded-2xl shadow-2xl max-w-lg`
-- **Header:** Title + description + close `X` button.
-- **Footer:** Action bar right-aligned with `Cancel` (Secondary) and `Confirm` (Primary).
+**Standard Badge Styling:** `inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wide border`
 
 ---
 
-### 6.6 Toast Notification System ([`src/components/Toast.tsx`](file:///D:/istrac-fms/frontend/src/components/Toast.tsx))
+### 6.3 Form Controls & Validation States
+The [`Input`](file:///D:/istrac-fms/frontend/src/components/Input.tsx) component provides an all-in-one accessible input with:
+- Uppercase column label (`col-label`)
+- Automatic optical inset background (`bg-[#09101f]`)
+- **Integrated Password Toggle:** Automatically renders a single `Eye` / `EyeOff` button at `right-3` when `type="password"`. **Never wrap with external eye toggle buttons.**
+- Accessible error and guidance hint text.
 
-- **Position:** Fixed top-right / bottom-right stack (`z-50`).
-- **Dismissal:** 5-second automatic timer with manual close icon.
-- **Variants:** `success` (green pulse), `error` (red pulse), `info` (blue pulse).
+```tsx
+// Standard Text Input:
+<Input
+  id="employeeId"
+  label="ISRO Employee ID *"
+  placeholder="e.g. BLR-1048"
+  error={errors.employeeId?.message}
+  {...register("employeeId")}
+/>
+
+// Password Input (Toggle handled automatically):
+<Input
+  id="password"
+  label="Account Password *"
+  type="password"
+  placeholder="••••••••••••"
+  error={errors.password?.message}
+  {...register("password")}
+/>
+```
 
 ---
 
-## 7. Iconography & Visual Assets Guidelines
-
-- **Icon Set:** `lucide-react`
-- **Standard Sizing:**
-  - Micro icons in badges / buttons: `14px - 16px` (stroke width `1.8 - 2.2`)
-  - Standard action icons: `18px - 20px` (stroke width `1.8`)
-  - Large feature icons: `24px` (stroke width `1.8`)
-- **Air-Gap Mandate:** Zero external SVG links or web fonts. All icons are compiled locally via Vite.
+### 6.4 Auth Frame & Security Cards
+Used across `Login.tsx`, `Register.tsx`, `ForgetPassword.tsx`, and `ForcePasswordChange.tsx`:
+- [`AuthFrame`](file:///D:/istrac-fms/frontend/src/components/AuthFrame.tsx): Deep-space backdrop with telemetry grid pattern and top-right navigation actions.
+- [`AuthCard`](file:///D:/istrac-fms/frontend/src/components/AuthCard.tsx): Bordered security card featuring an uppercase eyebrow tag (`eyebrow="Air-Gapped Intranet"`) and security badge (`status="SEC LEVEL 4"`).
 
 ---
 
-## 8. Component State Conventions
-
-| State | Visual Treatment |
-|---|---|
-| **Hover** | Surface value increases by 1 shade (`bg-card` ➔ `bg-card-hover`), borders brighten (`border-subtle` ➔ `border-default`), text transitions to pure white. |
-| **Active / Pressed** | Button translates down by `1px` or scales down to `0.98`. |
-| **Focus-Visible** | Visible 2px outline in `--color-accent` with 2px offset. |
-| **Disabled** | Opacity reduced to `40%`, cursor set to `not-allowed`, click events suppressed. |
-| **Loading / Skeleton** | `bg-card-hover animate-pulse` shimmer with rounded corners. |
+### 6.5 Password Strength Meter
+The [`PasswordStrengthMeter`](file:///D:/istrac-fms/frontend/src/components/PasswordStrengthMeter.tsx) displays 4 animated progress segments:
+- Segment 1: At least 10 characters
+- Segment 2: Contains uppercase letter (`A-Z`)
+- Segment 3: Contains a number (`0-9`)
+- Segment 4: Contains a special character (`!@#$%^&*`)
+Colors transition dynamically from Red (`bg-critical`) → Amber (`bg-warning`) → Green (`bg-nominal`).
 
 ---
 
-## 9. Accessibility & Air-Gap Standards
+### 6.6 Mission Data Tables & Repository Grids
+- **View Toggle Mode:** Supports both `table` (compact monospace list) and `card` (visual telemetry preview card) modes.
+- **Table Headers:** Monospace uppercase headers (`font-mono text-xs uppercase tracking-wider text-text-dim`).
+- **Alternating Hairline:** `divide-y divide-border-subtle` with hover row highlight (`hover:bg-card-hover/60`).
 
-- **Contrast Ratios:** All primary text against canvas meets WCAG AAA standards (> 7:1 contrast).
-- **Keyboard Navigation:** Full keyboard navigation (`Tab`, `Shift+Tab`, `Enter`, `Esc` for modals, `Ctrl+K` for global search).
-- **ARIA Compliance:** All interactive icons include `aria-label` or `aria-hidden="true"`.
-- **Zero Internet Leakage:** No CDN imports, Google Fonts, or remote analytics. All fonts and assets are embedded and cached locally.
+---
+
+### 6.7 Dual-Month Mission Operations Calendar
+The [`MissionCalendar`](file:///D:/istrac-fms/frontend/src/components/MissionCalendar.tsx) component renders:
+- Side-by-side dual-month navigation (Current Month + Next Month).
+- Color-coded day markers:
+  - Cyan: Satellite Tracking Pass
+  - Purple: Orbital Maneuver / Stationkeeping
+  - Amber: Ground Station Maintenance
+  - Green: Mission Milestone / Anniversary
+- Interactive Pass Detail modal with sub-system parameters (Doppler lock, AOS/LOS, elevation).
+
+---
+
+### 6.8 Modals, File Previews & Version Drawers
+- [`Modal`](file:///D:/istrac-fms/frontend/src/components/Modal.tsx): Centered dialog with backdrop blur (`backdrop-blur-md bg-black/70`), top close button, and escape key listener.
+- [`FilePreviewModal`](file:///D:/istrac-fms/frontend/src/components/FilePreviewModal.tsx): Dynamic preview resolver rendering images, streaming video with range seek, formatted PDF reader via PDF.js worker, and syntax-highlighted telemetry raw text.
+- [`VersionHistoryPanel`](file:///D:/istrac-fms/frontend/src/components/VersionHistoryPanel.tsx): Right-side slide-over sheet displaying timestamped version chains (v1, v2, v3...), author names, SHA-256 hashes, and download/restore triggers.
+
+---
+
+### 6.9 Toast Notification System
+The [`ToastContainer`](file:///D:/istrac-fms/frontend/src/components/ToastContainer.tsx) component binds to `useToastStore`:
+- **Position:** Bottom-right viewport (`fixed bottom-5 right-5 z-50`).
+- **Auto-Dismiss:** 4000ms duration per toast with hover-pause math.
+- **Tone Colors:** `nominal` (Green), `warning` (Amber), `critical` (Red), `info` (Cyan).
+
+---
+
+## 7. Iconography Guidelines
+
+- **Library:** `lucide-react` exclusively.
+- **Sizes:**
+  - `size={12}` or `size={13}`: Inline badge icons, table micro-actions.
+  - `size={14}` or `size={16}`: Standard button icons, form control indicators.
+  - `size={18}` or `size={20}`: Navigation sidebar icons, modal headers.
+  - `size={24}`+: Empty state illustrations, hero banners.
+- **Stroke Width:** `strokeWidth={1.8}` (or `1.5` for large icons) to maintain machine-drawn hairline precision.
+
+---
+
+## 8. Air-Gap, Performance & Accessibility Standards
+
+1. **Air-Gap Compliance (Zero External CDNs):**
+   - All fonts, icons, libraries (`pdfjs-dist`), and styles are compiled and bundled locally via Vite.
+   - Zero runtime requests to external font foundries (Google Fonts) or script CDNs.
+
+2. **Optical Contrast (WCAG 2.1 AAA Compliance):**
+   - Text color `#f1f5f9` against `#04070e` provides an optical contrast ratio exceeding **16:1** (well above the 7:1 AAA standard).
+   - Form inputs include clear focus outlines (`focus:border-accent`) and distinct error states.
+
+3. **Motion Reduction Support:**
+   - Interactive transitions are limited to `150ms` (`duration-150 ease-out`).
+   - Carousels and banners support pause-on-hover and reduced-motion user preferences.

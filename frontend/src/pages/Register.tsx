@@ -6,8 +6,6 @@ import { AxiosError } from "axios";
 import {
   Send,
   ArrowRight,
-  Eye,
-  EyeOff,
   CheckCircle2,
   Lock,
   User,
@@ -45,8 +43,6 @@ export function Register() {
   const [submitted, setSubmitted] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState("");
   const [serverError, setServerError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [departments, setDepartments] = useState<string[]>(FALLBACK_DEPARTMENTS);
 
   const {
@@ -317,48 +313,26 @@ export function Register() {
             <div className="p-4 rounded-xl border border-border-default bg-[#060c18] space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Password Input */}
-                <div className="relative">
-                  <Input
-                    id="password"
-                    label="Account Password *"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="At least 8 characters"
-                    autoComplete="new-password"
-                    error={errors.password?.message}
-                    {...register("password")}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((p) => !p)}
-                    className="absolute right-3 top-[34px] text-text-dim hover:text-white transition-colors"
-                    tabIndex={-1}
-                    title={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
-                </div>
+                <Input
+                  id="password"
+                  label="Account Password *"
+                  type="password"
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                  error={errors.password?.message}
+                  {...register("password")}
+                />
 
                 {/* Confirm Password Input */}
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    label="Confirm Password *"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Repeat password"
-                    autoComplete="new-password"
-                    error={errors.confirmPassword?.message}
-                    {...register("confirmPassword")}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword((p) => !p)}
-                    className="absolute right-3 top-[34px] text-text-dim hover:text-white transition-colors"
-                    tabIndex={-1}
-                    title={showConfirmPassword ? "Hide password" : "Show password"}
-                  >
-                    {showConfirmPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
-                </div>
+                <Input
+                  id="confirmPassword"
+                  label="Confirm Password *"
+                  type="password"
+                  placeholder="Repeat password"
+                  autoComplete="new-password"
+                  error={errors.confirmPassword?.message}
+                  {...register("confirmPassword")}
+                />
               </div>
 
               <p className="text-[11px] text-text-dim flex items-center gap-1.5 pt-1 border-t border-white/5">

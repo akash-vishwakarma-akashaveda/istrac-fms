@@ -1,5 +1,6 @@
 import * as path from 'node:path'
 import { prisma } from '../config/db.js'
+import { env } from '../config/env.js'
 import { hddService } from './hdd.service.js'
 import { auditService } from './audit.service.js'
 import { notificationService } from './notification.service.js'
@@ -16,7 +17,7 @@ export interface UploadFileParams {
   title?: string
   description?: string
   spacecraft?: string
-  category?: 'SPECIAL_OPERATIONS' | 'ANOMALY' | 'STUDY' | 'DAILY_REPORT' | 'OTHER'
+  category?: string
   classificationLevel?: string
   versionLabel?: string
   reportNumber?: string
@@ -58,10 +59,11 @@ export const fileService = {
       parentPath = parent.name
     }
 
-    // 3. Build physical destination path in hierarchy: Department / Spacecraft / Folder / File
+    // 3. Build physical destination path in hierarchy: Mount / Department / Spacecraft / Folder / File
     const sanitizedFilename = params.originalName.replace(/[^a-zA-Z0-9._-]/g, '_')
     const satFolder = (params.spacecraft || 'GENERAL').replace(/[^a-zA-Z0-9_-]/g, '_')
-    const destDir = path.join(dept.hddPath, satFolder, parentPath)
+    const deptFolder = dept.code || (dept.hddPath ? path.basename(dept.hddPath) : 'GENERAL')
+    const destDir = path.join(path.resolve(env.HDD_MOUNT_PATH), deptFolder, satFolder, parentPath)
     const destPath = path.join(destDir, sanitizedFilename)
 
     // Check if an active file already exists at this path
@@ -123,6 +125,25 @@ export const fileService = {
         })
         fileId = existingFile.id
       } else {
+        // Map category string to valid ReportCategory enum or OTHER + customCategory
+        let catEnum: any = 'DAILY_REPORT'
+        if (params.category) {
+          const upper = String(params.category).toUpperCase().replace(/\s+/g, '_')
+          if (['SPECIAL_OPERATIONS', 'ANOMALY', 'STUDY', 'DAILY_REPORT', 'OTHER'].includes(upper)) {
+            catEnum = upper
+          } else if (upper.includes('DAILY') || upper.includes('OPS')) {
+            catEnum = 'DAILY_REPORT'
+          } else if (upper.includes('SPECIAL')) {
+            catEnum = 'SPECIAL_OPERATIONS'
+          } else if (upper.includes('ANOMALY')) {
+            catEnum = 'ANOMALY'
+          } else if (upper.includes('STUDY')) {
+            catEnum = 'STUDY'
+          } else {
+            catEnum = 'OTHER'
+          }
+        }
+
         // Create report record if report metadata provided
         const created = await prisma.$transaction(async (tx: any) => {
           let rep: any = null
@@ -133,7 +154,8 @@ export const fileService = {
                 createdById: params.uploaderId,
                 title: params.title || sanitizedFilename,
                 description: params.description || null,
-                category: params.category || 'DAILY_REPORT',
+                category: catEnum,
+                customCategory: params.category || null,
                 status: 'ACTIVE',
                 spacecraft: params.spacecraft || null,
                 classificationLevel: params.classificationLevel || 'ISRO_LEVEL',

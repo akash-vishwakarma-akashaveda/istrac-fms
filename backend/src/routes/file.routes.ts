@@ -33,9 +33,9 @@ router.post(
   '/files/upload',
   authMiddleware,
   adminMiddleware,
+  upload.single('file'),
   deptAccessMiddleware,
   hddAvailabilityMiddleware,
-  upload.single('file'),
   async (req, res, next) => {
     try {
       if (!req.file) {
@@ -147,9 +147,9 @@ router.post(
   '/files/upload/chunk',
   authMiddleware,
   adminMiddleware,
+  chunkUpload.single('chunk'),
   deptAccessMiddleware,
   hddAvailabilityMiddleware,
-  chunkUpload.single('chunk'),
   async (req, res, next) => {
     try {
       if (!req.file) {
@@ -398,7 +398,8 @@ router.post('/files/folders', authMiddleware, deptAccessMiddleware, async (req, 
     }
 
     const safeName = name.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const folderPath = path.join(dept.hddPath, safeName)
+    const deptFolder = dept.code || (dept.hddPath ? path.basename(dept.hddPath) : 'GENERAL')
+    const folderPath = path.join(path.resolve(env.HDD_MOUNT_PATH), deptFolder, safeName)
 
     await fs.mkdir(folderPath, { recursive: true })
 
@@ -597,13 +598,32 @@ router.put('/admin/files/:fileId', authMiddleware, adminMiddleware, async (req, 
 
       // 2. Update Report if linked
       if (file.reportId) {
+        let catEnum: any = undefined
+        if (category) {
+          const upper = String(category).toUpperCase().replace(/\s+/g, '_')
+          if (['SPECIAL_OPERATIONS', 'ANOMALY', 'STUDY', 'DAILY_REPORT', 'OTHER'].includes(upper)) {
+            catEnum = upper
+          } else if (upper.includes('DAILY') || upper.includes('OPS')) {
+            catEnum = 'DAILY_REPORT'
+          } else if (upper.includes('SPECIAL')) {
+            catEnum = 'SPECIAL_OPERATIONS'
+          } else if (upper.includes('ANOMALY')) {
+            catEnum = 'ANOMALY'
+          } else if (upper.includes('STUDY')) {
+            catEnum = 'STUDY'
+          } else {
+            catEnum = 'OTHER'
+          }
+        }
+
         await tx.report.update({
           where: { id: file.reportId },
           data: {
             ...(title && { title: title.trim() }),
             ...(description !== undefined && { description: description?.trim() || null }),
             ...(spacecraft && { spacecraft: spacecraft.trim() }),
-            ...(category && { category }),
+            ...(catEnum && { category: catEnum }),
+            ...(category && { customCategory: category }),
             ...(classificationLevel && { classificationLevel }),
             updatedAt: new Date(),
           },

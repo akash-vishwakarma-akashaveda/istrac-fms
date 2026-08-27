@@ -368,6 +368,66 @@ router.post('/users/:userId/suspend', authMiddleware, adminMiddleware, suspendUs
 
 router.post('/users/:userId/force-logout', authMiddleware, adminMiddleware, forceLogoutHandler)
 
+// ============================================================
+// SELF PROFILE UPDATE (ANY AUTHENTICATED USER)
+// ============================================================
+const updateSelfProfileHandler = async (req: any, res: any, next: any) => {
+  try {
+    const { name, designation, phone } = req.body
+
+    if (name !== undefined && typeof name === 'string' && name.trim().length < 2) {
+      throw new AppError('invalid_name', 'Name must be at least 2 characters', 400)
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user!.id },
+      data: {
+        name: name !== undefined ? name.trim() : undefined,
+        designation: designation !== undefined ? (designation ? String(designation).trim() : null) : undefined,
+        phone: phone !== undefined ? (phone ? String(phone).trim() : null) : undefined,
+      },
+      select: {
+        id: true,
+        name: true,
+        designation: true,
+        email: true,
+        employeeId: true,
+        phone: true,
+        role: true,
+        status: true,
+        departmentPreference: true,
+        createdAt: true,
+        departmentAccess: {
+          where: { deletedAt: null },
+          include: {
+            department: {
+              select: { id: true, name: true, code: true, satellite: { select: { code: true } } },
+            },
+          },
+        },
+      },
+    })
+
+    auditService.log({
+      userId: req.user!.id,
+      action: 'PUT:/user/profile',
+      resourceType: 'user',
+      resourceId: updatedUser.id,
+      newValue: { name: updatedUser.name, designation: updatedUser.designation, phone: updatedUser.phone },
+    })
+
+    res.json({
+      data: updatedUser,
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+router.put('/user/profile', authMiddleware, updateSelfProfileHandler)
+router.put('/users/profile', authMiddleware, updateSelfProfileHandler)
+
 router.put('/admin/users/:userId', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     const rawUserId = req.params.userId
@@ -385,7 +445,7 @@ router.put('/admin/users/:userId', authMiddleware, adminMiddleware, async (req, 
       throw new AppError('root_protected', 'System Root Super Admin account is permanently locked from external modification.', 403)
     }
 
-    const { name, employeeId, role, status, departments } = req.body
+    const { name, designation, phone, employeeId, role, status, departments } = req.body
     const validRole = role === 'ADMIN' ? 'ADMIN' : role === 'MEMBER' ? 'MEMBER' : undefined
 
     const updated = await prisma.$transaction(async (tx: any) => {
@@ -393,6 +453,8 @@ router.put('/admin/users/:userId', authMiddleware, adminMiddleware, async (req, 
         where: { id: userId },
         data: {
           name: name !== undefined ? name : undefined,
+          designation: designation !== undefined ? (designation ? String(designation).trim() : null) : undefined,
+          phone: phone !== undefined ? (phone ? String(phone).trim() : null) : undefined,
           employeeId: employeeId !== undefined ? employeeId : undefined,
           role: validRole,
           status: status !== undefined ? status : undefined,
@@ -400,8 +462,10 @@ router.put('/admin/users/:userId', authMiddleware, adminMiddleware, async (req, 
         select: {
           id: true,
           name: true,
+          designation: true,
           email: true,
           employeeId: true,
+          phone: true,
           role: true,
           status: true,
         },

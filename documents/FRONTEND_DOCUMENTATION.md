@@ -1,392 +1,544 @@
-# ISTRAC-FMS Frontend Architecture & Technical Reference
+# ISTRAC-SIMS Frontend Architecture & Technical Reference
 
-> **Application:** Indian Space Research Auxiliary Centres — File Management System (ISTRAC-FMS Frontend)  
-> **Version:** 1.0.0 (V1 Production Baseline)  
-> **Target Environment:** Intranet Air-Gapped / Isolated Ground Station Network  
-> **Core Stack:** React 19 · Vite 8 · TypeScript 5 · Tailwind CSS v4 · TanStack Query v5 · Zustand v5 · Axios · Lucide React
+> **Application:** Indian Space Research Organisation — Satellite Information Management System (ISTRAC-SIMS Frontend)
+> **Version:** 1.1.0 (V1 Production Baseline)
+> **Core Stack:** React 19 · Vite 8 · TypeScript 5 · Tailwind CSS v4 · TanStack Query v5 · Zustand v5 · Axios · Lucide React · DOMPurify · PDF.js
+> **Build Time:** ~900ms (2154 modules, vendor-chunked)
 
 ---
 
 ## 📑 Table of Contents
 
-1. [Executive Summary & Design Philosophy](#1-executive-summary--design-philosophy)
-2. [Architectural Decisions — The "What & Why"](#2-architectural-decisions--the-what--why)
-   - [2.1 Modular API Client & Automated Token Rotation](#21-modular-api-client--automated-token-rotation)
-   - [2.2 State Division: Zustand (UI State) vs. TanStack Query (Server Cache)](#22-state-division-zustand-ui-state-vs-tanstack-query-server-cache)
-   - [2.3 Sequential Chunked File Upload Engine & Client-Side SHA-256](#23-sequential-chunked-file-upload-engine--client-side-sha-256)
-   - [2.4 Real-Time WebSocket Event Dispatching with Backoff](#24-real-time-websocket-event-dispatching-with-backoff)
-   - [2.5 Air-Gapped Zero-CDN Asset Architecture](#25-air-gapped-zero-cdn-asset-architecture)
-   - [2.6 Defense-in-Depth XSS & Traversal Sanitization](#26-defense-in-depth-xss--traversal-sanitization)
-3. [Complete Codebase Directory Map](#3-complete-codebase-directory-map)
-4. [Design System & UI Component Hierarchy](#4-design-system--ui-component-hierarchy)
-5. [Modular API Layer (`src/api/`) Reference](#5-modular-api-layer-srcapi-reference)
-6. [State Management Architecture (Zustand Stores)](#6-state-management-architecture-zustand-stores)
-7. [Server Data Caching & Invalidation Patterns](#7-server-data-caching--invalidation-patterns)
-8. [Real-Time WebSocket Protocol & Handler Registration](#8-real-time-websocket-protocol--handler-registration)
-9. [Frontend Security & Sanitization Protocols](#9-frontend-security--sanitization-protocols)
-10. [Routing, Navigation & Role-Based Guards](#10-routing-navigation--role-based-guards)
+1. [Application Entry Point & Provider Hierarchy](#1-application-entry-point--provider-hierarchy)
+2. [Routing Architecture — 3-Tier Guard System](#2-routing-architecture--3-tier-guard-system)
+3. [API Layer — Modular Service Clients (`src/api/`)](#3-api-layer--modular-service-clients-srcapi)
+4. [State Management — Zustand Stores (`src/store/`)](#4-state-management--zustand-stores-srcstore)
+5. [Server State — TanStack Query v5 & Custom Hooks (`src/hooks/`)](#5-server-state--tanstack-query-v5--custom-hooks-srchooks)
+6. [File Upload Engine — Chunked Streaming & SHA-256](#6-file-upload-engine--chunked-streaming--sha-256)
+7. [Real-Time WebSocket Client (`src/lib/ws.ts`)](#7-real-time-websocket-client-srclibwsts)
+8. [CMS Context — Live Editable Landing Page (`src/context/cmsContext.tsx`)](#8-cms-context--live-editable-landing-page-srccontextcmscontexttsx)
+9. [Security & Sanitization Utilities (`src/lib/`)](#9-security--sanitization-utilities-srclib)
+10. [Page Inventory — Admin vs Member vs Public](#10-page-inventory--admin-vs-member-vs-public)
+11. [Component Inventory — Full Catalogue](#11-component-inventory--full-catalogue)
+12. [Design System Tokens & CSS Architecture](#12-design-system-tokens--css-architecture)
 
 ---
 
-## 1. Executive Summary & Design Philosophy
+## 1. Application Entry Point & Provider Hierarchy
 
-The ISTRAC-FMS frontend is designed as a mission-critical **Mission Control File Operations Portal**. It provides ground station engineers, telemetry operators, and mission directors with sub-second file exploration, multi-gigabyte chunked file ingestion, real-time activity streaming, and departmental access controls.
-
-### Core Visual & Functional Directives:
-- **Mission Control Aesthetic:** High-density, dark-mode first user interface utilizing deep charcoal surfaces (`#0b0f17`, `#111827`), aerospace telemetry green (`#10b981`), amber warnings (`#f59e0b`), and clean ISRO blue accents (`#3b82f6`).
-- **Precision Readouts:** Monospace numerical telemetry readouts (UTC timestamp ticker, byte counters, SHA-256 hashes, file versions).
-- **Zero Internet / CDN Dependencies:** Built specifically for isolated, air-gapped intranet networks with local SVG icons and bundled fonts.
-- **Strict Role-Based Multi-Tenancy:** Dynamic feature gating for `ADMIN` and `MEMBER` roles with graceful state degradation.
-
----
-
-## 2. Architectural Decisions — The "What & Why"
-
-### 2.1 Modular API Client & Automated Token Rotation
-
-#### What:
-All backend communication is abstracted into specialized service modules inside [`src/api/`](file:///D:/istrac-fms/frontend/src/api) (`auth.api.ts`, `satellites.api.ts`, `departments.api.ts`, `users.api.ts`, `files.api.ts`, `browse.api.ts`, `notifications.api.ts`, `cms.api.ts`, `admin.api.ts`, `health.api.ts`). The underlying Axios instance ([`src/api/client.ts`](file:///D:/istrac-fms/frontend/src/api/client.ts)) features an automated request/response interceptor that transparently handles `401 Unauthorized` token expiry.
-
-#### Why:
-1. **Separation of Concerns:** Components and hooks never write raw `fetch` or `axios.post` URLs. Changing an API route only requires modifying a single file in `src/api/`.
-2. **Seamless Session Continuation (Stampede Prevention):** When an access token expires (15m TTL), multiple in-flight requests may fail simultaneously with `401`. The interceptor locks execution (`isRefreshing = true`), queues pending requests in `refreshQueue`, makes a single call to `/auth/refresh` using the secure `httpOnly` refresh cookie, updates the Zustand store with the new access token, and retries all queued requests with the new header without logging the user out.
-
----
-
-### 2.2 State Division: Zustand (UI State) vs. TanStack Query (Server Cache)
-
-#### What:
-The application strictly enforces a division between **Server State** and **Client UI State**:
-- **TanStack Query (`@tanstack/react-query`):** Manages all server data fetching, caching, deduplication, background refetching, and pagination (departments, file lists, user queues, audit logs, system stats).
-- **Zustand (`zustand`):** Manages strictly client-local transient UI state:
-  - `authStore`: User identity claims in `sessionStorage` & active memory JWT.
-  - `toastStore`: Interactive push notification toasts with timers.
-  - `notificationStore`: Real-time unread badge counter.
-  - `searchHistoryStore`: Local storage list of recent search queries.
-  - `uiStore`: Sidebar collapse toggles, modal open/close states.
-
-#### Why:
-Mixing server data into Redux/Zustand creates redundant cache synchronization bugs, stale data, and complex action reducers. TanStack Query automatically manages cache keys, garbage collection, and optimistic UI updates, while Zustand provides lightweight, boilerplate-free state for UI toggles.
-
----
-
-### 2.3 Sequential Chunked File Upload Engine & Client-Side SHA-256
-
-#### What:
-Files exceeding 10MB (`CHUNK_THRESHOLD`) are intercepted by [`useFileUpload.ts`](file:///D:/istrac-fms/frontend/src/hooks/useFileUpload.ts):
-1. **Client-Side SHA-256:** The browser reads the file chunks using `FileReader` and computes the exact SHA-256 hash using the Web Crypto API before transmitting.
-2. **Sequential Chunk Transmission:** The file is split into 10MB blobs (`CHUNK_SIZE`) and transmitted sequentially to `/files/upload/chunk`.
-3. **Commit Phase:** Upon the final chunk transmission, a completion payload is sent to `/files/upload/complete` containing the file name, total chunks, and calculated checksum.
-
-#### Why:
-1. **Network Stability on Satellite Links:** Large uploads over unstable satellite intranet links often drop mid-transfer. Chunking prevents re-uploading an entire multi-gigabyte archive from scratch.
-2. **Deterministic Progress:** Sequential chunking allows progress bars to accurately reflect bytes verified by the server rather than racing concurrent browser buffer requests.
-3. **Integrity Verification:** Pre-computing SHA-256 in the browser guarantees that any corruption between the client workstation and the ground station storage array is detected immediately upon completion.
-
----
-
-### 2.4 Real-Time WebSocket Event Dispatching with Backoff
-
-#### What:
-The [`WSClient`](file:///D:/istrac-fms/frontend/src/lib/ws.ts) establishes a persistent WebSocket connection to `ws://<host>:<port>/ws?token=<accessToken>`. It listens for server events (`CMS_UPDATE`, `NOTIFICATION`, `FILE_UPLOAD`, `FILE_DELETED`, `SYNC_COMPLETE`) and routes them to subscribed hooks and Zustand stores.
-
-#### Why:
-1. **Multi-Operator Synchronization:** When Operator A uploads telemetry data to the "Operations" department, Operator B's file browser instantly reflects the new file without requiring a manual page refresh.
-2. **Exponential Backoff:** If the ground station server restarts, the WebSocket client reconnects automatically (1s, 2s, 4s, 8s, 16s, max 60s) while respecting code `4401` to avoid spamming the server when an operator's session has expired.
-
----
-
-### 2.5 Air-Gapped Zero-CDN Asset Architecture
-
-#### What:
-All visual components, Lucide icons, fonts, and PDF rendering engines (`pdfjs-dist`) are bundled directly into the Vite build artifact.
-
-#### Why:
-In air-gapped ISRO/ISTRAC security enclosures, workstations have no internet gateway. Referencing external CDN links (e.g. Google Fonts, unpkg, cdnjs) causes network timeouts, broken typography, and failed component renders.
-
----
-
-### 2.6 Defense-in-Depth XSS & Traversal Sanitization
-
-#### What:
-[`src/lib/sanitize.ts`](file:///D:/istrac-fms/frontend/src/lib/sanitize.ts) integrates `DOMPurify` and custom sanitizers to scrub all data entering the DOM:
-- **`sanitizeHtml()`**: Strips scripts, iframes, and event handlers from CMS blocks.
-- **`sanitizeFilename()`**: Removes directory traversal patterns (`../`, `..\`) and control characters before uploads.
-- **`isSafeUrl()` / `safeHref()`**: Validates that all links use `http:`, `https:`, `mailto:`, or relative `/` paths, blocking `javascript:` and `data:` injection attacks.
-- **`sanitizeSearchQuery()`**: Caps queries at 200 characters and strips dangerous regex control sequences.
-
-#### Why:
-Prevents stored XSS attacks when displaying user-uploaded filenames, CMS portal articles, or system broadcast notifications created by other operators.
-
----
-
-## 3. Complete Codebase Directory Map
-
+### `src/main.tsx` — Root Render Tree
 ```
-frontend/
-├── package.json               # Dependencies (React 19, Vite 8, Tailwind v4, TanStack Query)
-├── vite.config.ts             # Vite configuration with API proxy and vendor chunk splitting
-├── tsconfig.json              # TypeScript project configurations
-├── public/                    # Static air-gapped assets (logos, favicon)
-└── src/
-    ├── main.tsx               # Application bootstrap with QueryClientProvider & BrowserRouter
-    ├── App.tsx                # Master route hierarchy and layout wrapper
-    ├── index.css              # Tailwind CSS v4 design tokens, color variables & mono utility classes
-    ├── api/                   # Centralized Modular API Client Layer
-    │   ├── client.ts          # Axios instance, token refresh interceptor & data unwrapper
-    │   ├── auth.api.ts        # Authentication & password management APIs
-    │   ├── satellites.api.ts  # Satellite station management APIs
-    │   ├── departments.api.ts # Department & user access APIs
-    │   ├── users.api.ts       # User management & pending approval queue APIs
-    │   ├── files.api.ts       # File upload (single/chunked), download, versioning APIs
-    │   ├── browse.api.ts      # Directory browsing, tree hierarchy & search APIs
-    │   ├── notifications.api.ts # User notifications & system broadcast APIs
-    │   ├── cms.api.ts         # Portal CMS content block APIs
-    │   ├── admin.api.ts       # Admin metrics, audit logs & system settings APIs
-    │   ├── health.api.ts      # System & storage hardware health probe APIs
-    │   └── index.ts           # Barrel export of all API services & DTO interfaces
-    ├── components/            # 52+ Modular UI Component Library
-    │   ├── Button.tsx         # Primary, secondary, danger, ghost action buttons
-    │   ├── Input.tsx          # Monospace-ready form input with validation errors
-    │   ├── Select.tsx         # Dropdown select control with custom theme styling
-    │   ├── Modal.tsx          # Accessible modal dialog with backdrop & escape key binding
-    │   ├── Table.tsx          # Mission control data table with sortable columns
-    │   ├── Card.tsx           # Elevated surface card container
-    │   ├── Badge.tsx          # Status indicator pills (Active, Pending, Suspended, Read-Only)
-    │   ├── Toast.tsx          # Push notification toasts with auto-dismiss timers
-    │   ├── ToastContainer.tsx # Fixed container rendering active toast stack
-    │   ├── FileBrowser.tsx    # Interactive file manager table with selection & context actions
-    │   ├── FolderTree.tsx     # Collapsible hierarchical folder tree
-    │   ├── UploadModal.tsx    # Drag-and-drop file upload dialog with chunk progress bars
-    │   ├── FilePreviewModal.tsx # Multi-format file viewer (PDF, image, text, hex)
-    │   ├── VersionHistoryPanel.tsx # Drawer showing historical file revisions & download buttons
-    │   ├── QuickSearchBar.tsx # Fast omnibox search with keyboard shortcuts (Ctrl+K)
-    │   ├── StatCard.tsx       # Metric cards displaying total files, storage, operators
-    │   ├── Navbar.tsx         # Top navigational bar with ground station status
-    │   └── cms-editor/        # WYSIWYG and structured JSON CMS block editors
-    ├── hooks/                 # Custom TanStack Query & Lifecycle Hooks
-    │   ├── useAdminStats.ts   # Real-time dashboard statistics
-    │   ├── useAuditLog.ts     # Cursor-paginated audit log feed
-    │   ├── useDepartments.ts  # Accessible user departments & admin CRUD
-    │   ├── useDeptFiles.ts    # Department file listings with sorting
-    │   ├── useFileUpload.ts   # Single-shot & sequential chunked upload engine
-    │   ├── useFileVersions.ts # File revision history
-    │   ├── useFolderTree.ts   # Hierarchical folder structure
-    │   ├── useInitAuth.ts     # App boot session validation & silent refresh
-    │   ├── useNotifications.ts # Inbox notifications & mark-as-read mutations
-    │   ├── usePendingUsers.ts # Approval queue queries & mutations
-    │   ├── useSearch.ts       # Full-text search queries
-    │   ├── useSystemConfig.ts # Global system configuration settings
-    │   ├── useUsers.ts        # User roster queries & account actions
-    │   └── useUserHome.ts     # Operator home dashboard metrics
-    ├── layouts/               # High-Level Page Layout Shells
-    │   ├── AdminLayout.tsx    # Administrator shell with navigation sidebar & topbar
-    │   ├── AppLayout.tsx      # Operator workstation shell
-    │   ├── AuthLayout.tsx     # Login/Register centered authentication card shell
-    │   ├── Sidebar.tsx        # Collapsible ground station navigational sidebar
-    │   └── Topbar.tsx         # Top telemetry bar (UTC ticker, user avatar, notifications bell)
-    ├── lib/                   # Utilities & Shared Infrastructure
-    │   ├── axios.ts           # Re-exported API client for backwards compatibility
-    │   ├── ws.ts              # Real-time WebSocket connection manager & event dispatcher
-    │   ├── sanitize.ts        # DOMPurify XSS, traversal, and URL validator utilities
-    │   ├── formatFileSize.ts  # Human-readable byte formatter (KB, MB, GB, TB)
-    │   ├── fileUpload.ts      # Web Crypto SHA-256 hasher & chunk splitting utilities
-    │   ├── previewType.ts     # File extension to MIME & previewer resolver
-    │   └── queryClient.ts     # Global TanStack QueryClient configuration
-    ├── pages/                 # Full Route Page Views (21 Pages)
-    │   ├── AdminHome.tsx      # Admin mission control dashboard with live metrics
-    │   ├── ApprovalQueue.tsx  # Operator registration review queue
-    │   ├── AuditLogViewer.tsx # Infinite-scrolling tamper-evident audit feed
-    │   ├── BroadcastNotification.tsx # System-wide emergency notification dispatcher
-    │   ├── CmsEditor.tsx      # Portal landing page content management
-    │   ├── DepartmentManager.tsx # Department & satellite mapping management
-    │   ├── DeptFileBrowser.tsx # Departmental file & folder workspace
-    │   ├── Files.tsx          # General files directory
-    │   ├── ForcePasswordChange.tsx # Forced password rotation interface
-    │   ├── ForgetPassword.tsx # Password reset request submission
-    │   ├── Landing.tsx        # Air-gapped public landing portal
-    │   ├── Login.tsx          # Operator login with credentials
-    │   ├── NotificationsPage.tsx # Full-page notification inbox with date grouping
-    │   ├── Register.tsx       # Operator account registration form
-    │   ├── SearchPage.tsx     # Global file search results view
-    │   ├── SystemConfigPanel.tsx # System parameter configuration panel
-    │   ├── UserHome.tsx       # Operator dashboard with department shortcuts
-    │   └── UserManagement.tsx # Operator roster & account status toggles
-    ├── store/                 # Zustand Transient Client State
-    │   ├── authStore.ts       # Active user claims & access token storage
-    │   ├── notificationStore.ts # Real-time unread notification count
-    │   ├── searchHistoryStore.ts # Local search history
-    │   ├── toastStore.ts      # Push notification toasts queue
-    │   └── uiStore.ts         # Sidebar & drawer open/close states
-    └── types/                 # Shared TypeScript Type Definitions
-        ├── file.ts            # FileNode, TreeNode, and Sort interfaces
-        └── upload.ts          # UploadItem, Chunk, and Status interfaces
+StrictMode
+  └── QueryClientProvider (TanStack Query global cache)
+        └── App
+              ├── ReactQueryDevtools (initialIsOpen=false, dev only)
+              └── [App routing tree]
+```
+**Why `StrictMode`?** In development, React 19 double-invokes effects and renders to surface side-effects in hooks early. Intentionally left enabled because it helps catch imperative cleanup bugs in the WebSocket client and upload engine.
+
+**Why `QueryClientProvider` at root?** Any component in the tree can call `useQuery` or `useQueryClient` without re-importing the client. Placing it above `App` (and outside `CmsProvider`) ensures the cache is available even for CMS initialization fetches.
+
+**Global `QueryClient` configuration** (in `src/lib/queryClient.ts`):
+```ts
+staleTime: 30_000          // Server data is considered fresh for 30 seconds
+retry: 1                   // One automatic retry on failure before showing error state
+refetchOnWindowFocus: false // Prevents API flood when user alt-tabs back to portal
+```
+**Why `refetchOnWindowFocus: false`?** Ground station operators keep many tabs open simultaneously. Aggressive refetching on focus would trigger dozens of parallel API calls against the backend, overwhelming bandwidth on low-speed intranet links.
+
+---
+
+### `src/App.tsx` — Session Bootstrap & Global Layout
+`App` calls `useInitAuth()` immediately on mount. If `isChecking = true`, it renders a full-screen "Establishing session" pulse indicator (class `graticule bg-page`) while the app silently posts `/auth/refresh` using the stored `httpOnly` cookie.
+
+**Why block rendering?** Rendering route content before auth is resolved causes:
+1. Protected pages flashing before redirect
+2. TanStack Query hooks executing with `null` user and fetching unauthorized data
+3. Race conditions in the WebSocket connection (which requires a valid access token)
+
+**Provider wrapping order:**
+```
+CmsProvider
+  └── BrowserRouter
+        └── ToastContainer   ← Rendered outside <Routes> so toasts persist across navigations
+              └── Routes
 ```
 
 ---
 
-## 4. Design System & UI Component Hierarchy
+## 2. Routing Architecture — 3-Tier Guard System
 
-### Tailwind Design Tokens ([`src/index.css`](file:///D:/istrac-fms/frontend/src/index.css))
+The app uses **three layered route guards** nested via React Router v6 `<Outlet>`.
 
-```css
-:root {
-  --bg-surface: #0b0f17;      /* Primary dark canvas background */
-  --bg-card: #111827;         /* Elevated card surface */
-  --bg-card-hover: #1f2937;   /* Interactive hover surface */
-  --border-subtle: #1e293b;   /* Subtle divider border */
-  --border-default: #334155;  /* Standard container border */
-  --text-primary: #f8fafc;    /* High-contrast primary text */
-  --text-secondary: #94a3b8;  /* Readable secondary label text */
-  --text-dim: #64748b;        /* Muted metadata / hint text */
-  --accent: #2563eb;          /* ISRO Mission Blue */
-  --accent-light: #3b82f6;    /* Interactive focus blue */
-  --nominal: #10b981;         /* Telemetry Nominal Green */
-  --critical: #ef4444;        /* Critical Warning / Trash Red */
-  --warning: #f59e0b;         /* Cautionary Alert Amber */
-}
-```
+### Tier 1 — Public Routes (no auth required)
+Rendered inside `<PublicLayout>` which provides `Navbar` + `Footer` and a `<Outlet>` for page content.
 
-### Key UI Components Overview
+| Path | Component | Purpose |
+| :--- | :--- | :--- |
+| `/` | `Landing` | CMS-driven public landing page with Hero, Divisions, Calendar |
+| `/departments` | `DepartmentsList` | Public operational division catalogue |
+| `/departments/:deptId` | `DepartmentDetail` | Division profile + file catalog (gated download) |
+| `/login` | `Login` | Email/password sign-in form |
+| `/register` | `Register` | 5-step access request form for new operators |
+| `/forgot-password` | `ForgotPassword` | Email-based password reset flow |
+| `/demo` | `ComponentDemo` | Internal UI component showcase |
 
-| Component | File Path | Description |
-|---|---|---|
-| **`FileBrowser`** | [`src/components/FileBrowser.tsx`](file:///D:/istrac-fms/frontend/src/components/FileBrowser.tsx) | Complete file directory table with bulk selection, sorting, contextual action buttons, and version tags. |
-| **`UploadModal`** | [`src/components/UploadModal.tsx`](file:///D:/istrac-fms/frontend/src/components/UploadModal.tsx) | Multi-file drag-and-drop modal showing real-time hashing, sequential chunk progress, and completion states. |
-| **`FilePreviewModal`** | [`src/components/FilePreviewModal.tsx`](file:///D:/istrac-fms/frontend/src/components/FilePreviewModal.tsx) | Sandboxed in-browser viewer supporting PDF (`pdfjs-dist`), image preview, text viewer, and raw hex inspections. |
-| **`FolderTree`** | [`src/components/FolderTree.tsx`](file:///D:/istrac-fms/frontend/src/components/FolderTree.tsx) | Hierarchical folder tree with expand/collapse nodes and active directory highlighting. |
-| **`VersionHistoryPanel`** | [`src/components/VersionHistoryPanel.tsx`](file:///D:/istrac-fms/frontend/src/components/VersionHistoryPanel.tsx) | Side drawer displaying file version history, uploader names, SHA-256 hashes, and download buttons. |
-| **`QuickSearchBar`** | [`src/components/QuickSearchBar.tsx`](file:///D:/istrac-fms/frontend/src/components/QuickSearchBar.tsx) | Omnibox search trigger with `Ctrl+K` keybinding. |
-| **`ToastContainer`** | [`src/components/ToastContainer.tsx`](file:///D:/istrac-fms/frontend/src/components/ToastContainer.tsx) | Fixed viewport stack rendering floating toast notifications with nominal/critical styling. |
+### Tier 2 — Authenticated Routes (`<ProtectedRoute>`)
+**`src/routes/ProtectedRoute.tsx`:** Reads `user` from `authStore`. If `null`, renders `<Navigate to="/login" replace />`. No other logic — pure binary authentication gate.
 
----
+Immediately inside, **`<ForcePasswordGuard>`** checks `user.tempPass`. If `true`, it redirects to `/force-password-change` and blocks all other protected pages until the temporary password is changed. This is triggered for new admin-created accounts where ISRO policy requires immediate password rotation.
 
-## 5. Modular API Layer (`src/api/`) Reference
+These routes are wrapped in `<AppShell>` which provides the collapsible sidebar, top navigation bar with notification bell, and the main content `<Outlet>`.
 
-### Centralized Invocation Pattern
+| Path | Component | Access |
+| :--- | :--- | :--- |
+| `/force-password-change` | `ForcePasswordChange` | `MEMBER` + `ADMIN` (temp pass only) |
+| `/dashboard` | `UserHome` | `MEMBER` + `ADMIN` |
+| `/dashboard/events` | `UserEvents` | `MEMBER` + `ADMIN` |
+| `/dashboard/files` | `Files` | `MEMBER` + `ADMIN` |
+| `/dashboard/files/:deptId` | `DeptFileBrowser` | `MEMBER` + `ADMIN` |
+| `/dashboard/search` | `SearchPage` | `MEMBER` + `ADMIN` |
+| `/notifications` | `NotificationsPage` | `MEMBER` + `ADMIN` |
 
-Every API module exports an async object that wraps endpoints and returns strongly-typed results:
+### Tier 3 — Admin-Only Routes (`<AdminRoute>`)
+**`src/routes/AdminRoute.tsx`:** Reads `user` from `authStore`. If `user.role !== 'ADMIN'`, redirects to `/dashboard`. This is a **client-side gate only** — all admin API endpoints also enforce role checking server-side via `adminMiddleware`.
 
-```typescript
-import { filesApi, departmentsApi } from '../api'
-
-// 1. Fetching user departments
-const depts = await departmentsApi.getUserDepartments()
-
-// 2. Initiating chunk upload
-await filesApi.uploadChunk(chunkBlob, fileName, chunkIndex, totalChunks, departmentId)
-
-// 3. Downloading file
-window.location.href = filesApi.getDownloadUrl(fileId)
-```
+| Path | Component | Purpose |
+| :--- | :--- | :--- |
+| `/admin` | `AdminHome` | Dashboard with live KPIs, file stats, recent activity |
+| `/admin/upload` | `UploadReport` | Full uploader with metadata, tags, naming presets |
+| `/admin/files` | `AdminFileManager` | Full file manager with delete, restore, orphan management |
+| `/admin/approvals` | `ApprovalQueue` | Pending operator registration review queue |
+| `/admin/users` | `UserManagement` | Full roster, role assignment, suspension controls |
+| `/admin/departments` | `DepartmentManager` | Create/edit divisions with CMS page fields |
+| `/admin/satellites` | `SatelliteManager` | ISTRAC station & satellite fleet registry |
+| `/admin/events` | `EventManager` | Schedule passes, maneuvers, maintenance windows |
+| `/admin/audit-logs` | `AuditLogViewer` | Cursor-paginated append-only activity logs |
+| `/admin/broadcast` | `BroadcastNotification` | Push system-wide notification to all users |
+| `/admin/cms` | `CmsEditor` | Live block editor for landing page content |
+| `/admin/settings` | `SystemConfigPanel` | Global system config key-value management |
 
 ---
 
-## 6. State Management Architecture (Zustand Stores)
+## 3. API Layer — Modular Service Clients (`src/api/`)
 
-### 1. `useAuthStore` ([`src/store/authStore.ts`](file:///D:/istrac-fms/frontend/src/store/authStore.ts))
-- **Stored Data:** `user: User | null`, `accessToken: string | null`
-- **Persistence:** Uses `sessionStorage` for the `user` object so closing the tab clears the session, while page refreshes preserve state. The `accessToken` is stored only in memory for security.
+### `src/api/client.ts` — Axios Instance & Interceptor System
 
-### 2. `useToastStore` ([`src/store/toastStore.ts`](file:///D:/istrac-fms/frontend/src/store/toastStore.ts))
-- **Stored Data:** Array of active toasts `{ id, title, message, variant: 'nominal' | 'critical' | 'warning' }`
-- **Helper Methods:** `toast.success(msg)`, `toast.error(msg)`, `toast.warn(msg)` with 5-second automatic dismissal.
+**Single Axios instance** `apiClient` is created with:
+- `baseURL: import.meta.env.VITE_API_URL || '/api'` — Falls back to `/api` (proxied by Vite dev server to `localhost:3000`) or uses an absolute URL in production (CloudFront/EC2 endpoint).
+- `withCredentials: true` — Critical: tells the browser to include the `httpOnly` `refreshToken` cookie on every request, including the token refresh call.
 
-### 3. `useNotificationStore` ([`src/store/notificationStore.ts`](file:///D:/istrac-fms/frontend/src/store/notificationStore.ts))
-- **Stored Data:** `unreadCount: number`
-- **Action:** Incremented in real-time by WebSocket `NOTIFICATION` events; reset when opening the notifications inbox.
+**Request Interceptor** — Before every request, reads `useAuthStore.getState().accessToken` and injects `Authorization: Bearer <token>` header. Uses `.getState()` (not React hook) because this runs outside React render.
 
----
+**Response Interceptor — Stampede-Safe Token Refresh:**
+- On any `401 Unauthorized`, marks `originalRequest._retry = true` to prevent infinite loops.
+- Sets `isRefreshing = true` lock so simultaneous 401s from multiple concurrent requests (e.g., a dashboard loading 5 API calls at once) only trigger one `/auth/refresh` call.
+- All subsequent 401s during refresh are queued in `refreshQueue[]` and resolved with the new token once refresh succeeds.
+- On refresh failure: clears auth store, empties `refreshQueue`, and only hard-redirects to `/login` if currently on a protected route (`/dashboard` or `/admin`) — avoids disruptive redirects on public pages.
 
-## 7. Server Data Caching & Invalidation Patterns
+**`extractData<T>()` helper** — Backend API responses are wrapped as `{ data: T, requestId: "..." }`. This helper unwraps the envelope so callers receive `T` directly without chaining `.data.data`.
 
-The application uses **TanStack Query** query keys to control server caching:
+### API Service Modules
 
-```typescript
-// Query Key Roster:
-['departments']                     // User accessible departments
-['admin-departments', satelliteId]  // Admin all departments listing
-['dept-files', deptId, parentId]    // Files inside a specific folder
-['folder-tree', deptId]             // Recursive folder hierarchy
-['users', page, search, status]     // Paginated user roster
-['pending-users']                   // Registration approval queue
-['admin-stats']                     // Mission control statistics
-['audit-log', filters]              // Paginated audit entries
-['notifications', category]         // User notifications inbox
-['file-versions', fileId]           // Historical versions for a file
-```
-
-### Invalidation Triggers:
-- **After File Upload / Delete:** Invalidates `['dept-files']` and `['admin-stats']`.
-- **After User Approval / Rejection:** Invalidates `['pending-users']` and `['users']`.
-- **After Department Creation / Archive:** Invalidates `['departments']` and `['admin-departments']`.
-- **On WebSocket `FILE_UPLOAD` / `FILE_DELETED`:** Automatically triggers `queryClient.invalidateQueries({ queryKey: ['dept-files'] })`.
+| Module | Endpoints Wrapped | Notes |
+| :--- | :--- | :--- |
+| `auth.api.ts` | `POST /auth/login`, `/register`, `/logout`, `/refresh`, `GET /auth/me`, `PUT /auth/change-password`, `POST /auth/forgot-password`, `/reset-password` | Full `UserProfile` & `LoginResponse` TypeScript interfaces |
+| `departments.api.ts` | `GET /departments/public`, `/departments/public/:id`, `/departments`, `GET+POST+PUT+DELETE /admin/departments`, `/admin/departments/:id/users` | `archived` field derived from `!isActive` on all responses |
+| `files.api.ts` | `POST /files/upload`, `/files/upload/chunk`, `/files/upload/complete`, `GET /files/:id/versions`, `DELETE /files/:id`, `PUT /files/:id/restore`, `POST /files/folders` | `getDownloadUrl()` returns absolute URL for `<a href>` download links |
+| `browse.api.ts` | `GET /departments/:id/files`, `/departments/:id/tree`, `/search` | Used by file browser, folder tree, and search page |
+| `satellites.api.ts` | `GET /satellites`, `GET+POST+PUT+DELETE /admin/satellites` | `Satellite` type shared by `departments.api.ts` |
+| `users.api.ts` | `GET /admin/users`, `/admin/users/pending`, `POST /admin/users/:id/approve`, `/reject`, `/suspend`, `/reset-password`, `GET /user/mission-overview` | Full user management including bulk actions |
+| `events.api.ts` | `GET /events`, `/events/active-banner`, `POST+PUT+DELETE /events` | `MissionEventItem` covers 6 event types and 3 urgency levels |
+| `notifications.api.ts` | `GET /notifications`, `PUT /notifications/:id/read`, `/notifications/read-all`, `DELETE /notifications/:id` | Paginated inbox with unread count |
+| `cms.api.ts` | `GET /cms/blocks`, `PUT /cms/blocks/:key` | Returns `Record<string, Record<string, unknown>>` keyed by block name |
+| `admin.api.ts` | `GET /admin/stats`, `/admin/audit-logs`, `/admin/settings`, `PUT /admin/settings/:key`, `POST /admin/notifications/broadcast` | Admin-only stat cards and system config |
+| `health.api.ts` | `GET /health` | Returns `{ status, db, redis, storage }` for system health probe |
+| `reportPresets.api.ts` | Report category and naming convention presets | Used in the upload workflow |
 
 ---
 
-## 8. Real-Time WebSocket Protocol & Handler Registration
+## 4. State Management — Zustand Stores (`src/store/`)
 
-### Subscribing to Events in Components
-```typescript
-import { useEffect } from 'react'
-import { wsClient } from '../lib/ws'
-import { useQueryClient } from '@tanstack/react-query'
+All Zustand stores use the **direct subscribe pattern** — components call `useXxxStore((s) => s.field)` for selector-based re-renders. Avoid calling `useXxxStore()` without a selector.
 
-export function useRealtimeFileSync(deptId: string) {
-  const queryClient = useQueryClient()
+### `authStore.ts` — Session Identity
+```ts
+{ user: User | null, accessToken: string | null }
+```
+- **`user`** is persisted to `sessionStorage` (via `zustand/middleware/persist`) so it survives page refreshes but NOT new browser tabs (sessionStorage is tab-scoped). This means each new tab requires a fresh `/auth/refresh` call.
+- **`accessToken`** is NOT persisted — it lives in memory only. On page reload, `useInitAuth` posts to `/auth/refresh` using the `httpOnly` cookie to obtain a new access token.
+- **Why `sessionStorage` not `localStorage`?** Ground station workstations are shared. `sessionStorage` automatically clears when the browser tab closes, preventing accidental session persistence after an operator walks away.
+- **`partialize`** option only persists `user`, never `accessToken`, so the token never touches disk storage.
 
-  useEffect(() => {
-    // Subscribe to FILE_UPLOAD events
-    const unsubscribe = wsClient.subscribe('FILE_UPLOAD', () => {
-      queryClient.invalidateQueries({ queryKey: ['dept-files', deptId] })
-    })
+### `toastStore.ts` — Push Notification Toasts
+```ts
+{ visible: Toast[], queue: Toast[] }
+```
+- Max `5` toasts visible simultaneously. Overflow is queued and promoted automatically when a slot opens.
+- Each `Toast` has: `id` (UUID), `message`, optional `title`, `variant` (`success|info|warning|error`), `duration` (ms), `remainingOnPause` (for hover-pause support), `isPaused`.
+- **Hover-pause:** `pauseToast(id)` calculates `remainingOnPause = duration - (Date.now() - createdAt)` — this prevents toasts from dismissing while the operator is reading them.
+- **Resume:** `resumeToast(id)` resets `createdAt = Date.now()` and sets `duration = remainingOnPause` so the countdown restarts from the remaining time.
 
-    return () => unsubscribe()
-  }, [deptId, queryClient])
-}
+### `uiStore.ts` — Layout Preferences
+```ts
+{ sidebarCollapsed: boolean, sidebarManuallySet: boolean, fileViewMode: string }
+```
+- Persisted to `localStorage` (key: `istrac-ui`). Survives tab closes.
+- `sidebarManuallySet` tracks whether the user explicitly toggled the sidebar vs auto-collapsed by `useAutoCollapseSidebar` hook (which collapses the sidebar on small viewports).
+- `fileViewMode` toggles between `'grid'` and `'list'` in the `FileBrowser` component.
+
+### `notificationStore.ts` — Unread Badge Counter
+```ts
+{ unreadCount: number }
+```
+- In-memory only (no persistence). Populated on login via `GET /notifications` response.
+- `incrementUnread()` is called by the WebSocket handler when a `NOTIFICATION` event arrives.
+- `resetUnread()` is called when the user opens the notification panel.
+
+### `searchHistoryStore.ts` — Recent Searches
+```ts
+{ history: string[] }
+```
+- Persisted to `localStorage` (key: `istrac-search-history`).
+- Stores up to the last **20 unique search queries**. Duplicate queries are de-duplicated and moved to the front (most recent first).
+- Displayed in the `SearchModal` as quick-access chips.
+
+---
+
+## 5. Server State — TanStack Query v5 & Custom Hooks (`src/hooks/`)
+
+Every server-state hook wraps a `useQuery` call with a typed `queryKey` and `queryFn`.
+
+### Complete Hook Inventory
+
+| Hook | Query Key | Endpoint | Cache Strategy |
+| :--- | :--- | :--- | :--- |
+| `useUserDepartments()` | `['user-departments']` | `GET /departments` | 30s stale, refetch on invalidate |
+| `useRecentFiles()` | `['recent-files']` | `GET /search` (empty query, limit 10) | 30s stale |
+| `useMissionOverview()` | `['mission-overview']` | `GET /user/mission-overview` | 30s stale |
+| `useDeptFiles(deptId, parentId?)` | `['dept-files', deptId, parentId]` | `GET /departments/:id/files` | Invalidated on upload complete |
+| `useFolderTree(deptId)` | `['folder-tree', deptId]` | `GET /departments/:id/tree` | 30s stale |
+| `useFileVersions(fileId)` | `['file-versions', fileId]` | `GET /files/:fileId/versions` | 30s stale |
+| `useSearch(query, type, page)` | `['search', query, type, page]` | `GET /search` | 30s stale |
+| `useNotifications(page)` | `['notifications', page]` | `GET /notifications` | Invalidated on WebSocket `NOTIFICATION` event |
+| `useAdminStats()` | `['admin-stats']` | `GET /admin/stats` | Invalidated on file upload/delete |
+| `useAuditLog(page, filters)` | `['audit-logs', page, filters]` | `GET /admin/audit-logs` | 30s stale |
+| `useRecentAuditLog()` | `['audit-logs-recent']` | `GET /admin/audit-logs?limit=5` | 30s stale |
+| `usePendingUsers(page)` | `['pending-users', page]` | `GET /admin/users/pending` | Invalidated on approve/reject |
+| `useUsers(page, filters)` | `['users', page, filters]` | `GET /admin/users` | 30s stale |
+| `useDepartments()` | `['departments']` | `GET /admin/departments` | Invalidated on create/update |
+| `useSystemConfig()` | `['system-config']` | `GET /admin/settings` | 30s stale |
+| `useUpdateCmsBlock()` | mutation only | `PUT /cms/blocks/:key` | Invalidates `['cms-blocks']` on success |
+| `useCustomRoles()` | `['custom-roles']` | `GET /admin/roles` | 30s stale |
+| `useBroadcast()` | mutation only | `POST /admin/notifications/broadcast` | No cache |
+| `useLogFileAccess()` | mutation only | `POST /files/:id/log-access` | No cache |
+
+**Cache Invalidation Strategy:** After any mutation (upload, approve, delete, update), the hook calls `queryClient.invalidateQueries({ queryKey: ['target-key'] })`. This marks the cached data stale and triggers background refetch — the UI stays responsive because it shows existing data while fresh data loads.
+
+---
+
+## 6. File Upload Engine — Chunked Streaming & SHA-256
+
+### Decision Tree in `useFileUpload.ts`
+```
+File selected by user
+  ↓
+addFiles(FileList) creates UploadItem[] with uuid IDs, status: 'queued'
+  ↓
+uploadFile(item) called immediately for each item
+  ↓
+file.size > 10MB (CHUNK_THRESHOLD)?
+  ├── YES → uploadChunked()
+  │     ├── splitIntoChunks(file, 5MB) → Blob[]
+  │     ├── sanitizeFilename(file.name) → strips path separators, control chars, '../' traversal
+  │     ├── Sequential for-loop: POST /files/upload/chunk (one at a time, not parallel)
+  │     │     → updates progress: Math.round(((i+1) / chunks.length) * 100)
+  │     └── POST /files/upload/complete { fileName, departmentId, parentId, totalChunks }
+  └── NO → uploadSingleShot()
+        └── POST /files/upload with FormData, onUploadProgress callback
+              → updates progress from Axios ProgressEvent
+  ↓
+On success: status = 'complete', invalidate ['dept-files'] and ['admin-stats'] queries
+On error: status = 'error', error = res.data.error.message || 'Upload failed'
+```
+
+**Why sequential chunks, not parallel?** The backend assembles chunks in sequence using `chunkIndex`. Parallel transmission could cause out-of-order arrival if network latency varies across chunks, resulting in a corrupted file assembly. Sequential transmission guarantees correct ordering on the backend without needing complex reordering logic.
+
+**`src/lib/fileUpload.ts` — SHA-256 & Chunk Splitter:**
+- `computeSHA256(file)`: Uses the native Web Crypto API (`crypto.subtle.digest('SHA-256', buffer)`) — no external library required, runs in the browser's native crypto engine at near-native speed.
+- `splitIntoChunks(file, 5MB)`: Uses `File.slice(offset, offset + chunkSize)` to create `Blob` references without reading the entire file into memory at once.
+
+**`src/lib/sanitize.ts` — `sanitizeFilename()`:** Before any filename is sent to the backend, it strips ASCII control characters (`\x00–\x1f`), replaces path separators (`/`, `\`) with `_`, and removes directory traversal sequences (`..`). This provides a client-side defense-in-depth layer (backend enforces this too via `guardPath()`).
+
+---
+
+## 7. Real-Time WebSocket Client (`src/lib/ws.ts`)
+
+The `WSClient` class is a **singleton** exported as `wsClient`. It is initialized once when the module loads and reused across all components.
+
+### Connection Lifecycle
+```
+wsClient.connect()
+  ↓
+Gets accessToken from authStore.getState() (NOT React hook — runs outside React)
+  ↓
+Constructs URL: VITE_WS_URL?token=<encoded_access_token>
+  ↓
+  onopen:  reconnectAttempt = 0, startHeartbeat (ping every 30s)
+  onclose: stopHeartbeat
+    → code 4401? (auth rejected) → do NOT retry (prevents token spam)
+    → any other code? → scheduleReconnect()
+  onerror: force close → triggers onclose → retry logic
+```
+
+### Exponential Backoff Reconnect
+```
+Attempt 0: wait 1s
+Attempt 1: wait 2s
+Attempt 2: wait 4s
+Attempt 3: wait 8s
+Attempt 4: wait 16s
+Attempt 5+: wait 60s (max)
+```
+This prevents flooding the backend during extended server downtime (e.g., EC2 restarts, maintenance).
+
+### Event Routing
+Messages arriving over the WebSocket are JSON-parsed and routed by `type` field:
+```ts
+this.handlers.get(eventType)?.forEach(h => h(eventType, payload))
+this.handlers.get('*')?.forEach(h => h(eventType, payload))  // wildcard handlers
+```
+Components subscribe with:
+```ts
+const unsub = wsClient.subscribe('NOTIFICATION', (event, payload) => { ... })
+// cleanup in useEffect return: unsub()
+```
+
+**Known WebSocket events dispatched by the backend:**
+| Event | Scope | Trigger |
+| :--- | :--- | :--- |
+| `NOTIFICATION` | Target user or broadcast | New notification created |
+| `CMS_UPDATE` | All connected clients | Admin edited a CMS block |
+| `FILE_UPLOAD` | Users in that department | File uploaded or version added |
+| `FILE_DELETED` | Users in that department | File soft-deleted |
+| `SYNC_COMPLETE` | Admin users only | HDD storage reconciliation finished |
+| `ping` | All | Server-side heartbeat every 30s |
+
+---
+
+## 8. CMS Context — Live Editable Landing Page (`src/context/cmsContext.tsx`)
+
+`CmsProvider` wraps the entire app and fetches `/cms/blocks` once on mount. It also subscribes to the WebSocket `CMS_UPDATE` event so admin edits propagate instantly to all connected browser sessions without a page reload.
+
+### `DEFAULT_CMS_BLOCKS` fallback
+When the database has no CMS blocks configured (fresh install or seeding error), the entire landing page renders from the hardcoded `DEFAULT_CMS_BLOCKS` object in `cmsContext.tsx`. This includes:
+- **`hero`**: 4 slide image URLs (IDSN dish, MOX control room, satellite constellation, Bengaluru gallery), title, subtitle, CTA text.
+- **`announcements`**: 5 pre-built ISTRAC ticker items (Aditya-L1, IDSN calibration, Cartosat-3 pass, Port Blair relays, NETRA debris screening).
+- Fallbacks for `about`, `contact`, `featured_reports`, `divisions` blocks.
+
+**Why hardcoded fallbacks?** In ISRO's air-gapped environment, a fresh server install must display a complete, mission-authentic landing page immediately without requiring manual CMS configuration. Operators should see a working portal, not an empty shell.
+
+### CMS Block Update Flow (Admin Edit → Live Propagation)
+```
+Admin opens CmsEditor page
+  ↓
+Edits a block (hero title, slide image URL, etc.)
+  ↓
+PUT /cms/blocks/:key via useUpdateCmsBlock() mutation
+  ↓
+Backend saves to DB and publishes 'cms.update' to Redis Pub/Sub
+  ↓
+Redis → wsServer.ts → sendToAll('CMS_UPDATE', { key, data })
+  ↓
+All browsers' wsClient receive 'CMS_UPDATE' event
+  ↓
+CmsProvider handler: await refetch() → re-fetches all blocks from API
+  ↓
+All CMS-consuming components re-render with new content immediately
 ```
 
 ---
 
-## 9. Frontend Security & Sanitization Protocols
+## 9. Security & Sanitization Utilities (`src/lib/`)
 
+### `sanitize.ts` — 5-Function XSS & Traversal Defense
+
+| Function | Input | What it does | Why it matters |
+| :--- | :--- | :--- | :--- |
+| `sanitizeHtml(dirty)` | Raw HTML string from CMS or API | Runs `DOMPurify.sanitize()` with allowlist of safe tags (p, b, i, a, ul, ol, li, h1-h6, code, pre, table, etc.) | Prevents stored XSS from CMS blocks rendered as `innerHTML` |
+| `sanitizeFilename(name)` | File name from File object | Strips control chars, replaces `/\` with `_`, collapses `..` sequences | Prevents path traversal in uploaded filenames |
+| `isSafeUrl(url)` | Href string from CMS or user input | Rejects `javascript:`, `vbscript:`, `data:`, `file:` schemes | Prevents script injection via `<a href>` links |
+| `safeHref(url, fallback)` | Href string | Returns safe URL or `'#'` fallback | Used in every CMS-sourced link rendering |
+| `sanitizeSearchQuery(q)` | Raw search input | Trims to 200 chars, collapses multiple whitespace | Prevents oversized query payloads hitting the backend |
+
+**Why DOMPurify?** It is the industry-standard browser-side HTML sanitizer used by Google and GitHub. Unlike a regex approach, it uses the browser's own DOM parser to understand HTML structure, making it immune to parser-differential attacks.
+
+### `previewType.ts` — MIME Type Resolution
+`resolvePreviewKind(mimeType)` maps a MIME type string to one of: `'pdf' | 'image' | 'video' | 'text' | 'office' | 'unsupported'`.
+
+Used in `FilePreviewModal` and `DepartmentDetail` to decide what renderer to load:
+- `pdf` → PDF.js viewer (bundled as `pdf.worker.min.mjs`)
+- `image` → `<img>` tag with signed streaming URL
+- `video` → `<video>` with `controls` attribute
+- `text` → `<pre>` with `fetch()` of the stream endpoint
+- `office` → download prompt (no in-browser rendering)
+- `unsupported` → download-only prompt
+
+### `formatFileSize.ts` — Byte Display
+```ts
+formatFileSize(1073741824) → "1.00 GB"
+formatFileSize(5242880)    → "5.0 MB"
+formatFileSize(2048)       → "2.0 KB"
+formatFileSize(512)        → "512 B"
+formatFileSize(null)       → "—"
 ```
-                      External Input
-             (CMS Content / File Names / URLs)
-                            │
-                            ▼
-               ┌──────────────────────────┐
-               │    src/lib/sanitize.ts   │
-               └────────────┬─────────────┘
-                            │
-       ┌────────────────────┼────────────────────┐
-       ▼                    ▼                    ▼
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│ sanitizeHtml │     │ sanitizeFile │     │  isSafeUrl   │
-│  (DOMPurify) │     │ (Traversal)  │     │ (Protocols)  │
-└──────┬───────┘     └──────┬───────┘     └──────┬───────┘
-       ▼                    ▼                    ▼
-Safe DOM Render      Safe API Upload      Safe Navigation
+Used in all file cards, table rows, and the `VersionHistoryPanel` to display human-readable sizes. `null` returns an em-dash for files where size is not yet calculated (e.g., directories).
+
+### `exportCsv.ts` — Client-Side CSV Export
+Used in `AuditLogViewer` and `UserManagement` to allow admins to download table data as CSV. Proper RFC 4180 CSV escaping: values containing commas or double-quotes are wrapped in double-quotes and internal double-quotes are doubled (`""`).
+
+### `searchOperators.ts` — Structured Search Parsing
+`parseSearchQuery("orbit type:pdf dept:mox")` returns:
+```ts
+{ freeText: "orbit", operators: [{key: "type", value: "pdf"}, {key: "dept", value: "mox"}] }
 ```
+Enables `SearchPage` and `SearchModal` to support operator-based filtering (`type:`, `dept:`, `ext:`) alongside free-text search.
 
 ---
 
-## 10. Routing, Navigation & Role-Based Guards
+## 10. Page Inventory — Admin vs Member vs Public
 
-All routes are defined in [`src/App.tsx`](file:///D:/istrac-fms/frontend/src/App.tsx) and guarded:
+### Public Pages
+- **`Landing.tsx`** — Thin shell (`923 bytes`) that renders component sections: `AnnouncementBar`, `Hero`, `QuickStatsBanner`, `OperationalDivisions`, `FeaturedReports`, `MissionCalendar`, `AboutSection`, `ContactSection`. All content driven from `CmsProvider`.
+- **`DepartmentsList.tsx`** — Public divisions hub showing all `isPageEnabled` divisions. Fetches `GET /departments/public`.
+- **`DepartmentDetail.tsx`** (`50.9 KB`) — Most complex public page. Shows division CMS profile, officer-in-charge, file catalog with card/table view toggle, file preview modal. **Unauthenticated users** see file metadata but Preview/Download replaced with `[🔒 Sign In to Access File]` buttons that open the `GuestAccessPanel`.
+- **`Login.tsx`** — Email/password form with rate-limit error handling and redirect logic (admin → `/admin`, member → `/dashboard`).
+- **`Register.tsx`** (`14.6 KB`) — Multi-step access request: personal info → employee ID → department preference → reason for access → confirmation. Includes `PasswordStrengthMeter`.
+- **`ForgetPassword.tsx`** — Email form sending `POST /auth/forgot-password`.
 
-1. **Public Routes:** `/`, `/login`, `/register`, `/forgot-password`, `/reset-password`
-2. **Authenticated Operator Routes (`MEMBER` & `ADMIN`):**
-   - `/home` ➔ Operator Dashboard
-   - `/departments/:deptId` ➔ Department File Browser
-   - `/search` ➔ Global Search Page
-   - `/notifications` ➔ Notification Inbox
-3. **Admin Guarded Routes (`ADMIN` only):**
-   - `/admin` ➔ Mission Control Stats Overview
-   - `/admin/approvals` ➔ Registration Approval Queue
-   - `/admin/users` ➔ User Account Administration
-   - `/admin/departments` ➔ Department & Satellite Manager
-   - `/admin/audit-logs` ➔ Tamper-Evident Audit Feed
-   - `/admin/broadcast` ➔ Emergency Notification Dispatcher
-   - `/admin/cms` ➔ Landing Page Content Editor
-   - `/admin/settings` ➔ System Parameters Configuration
+### Member Pages (Protected)
+- **`UserHome.tsx`** (`47 KB`) — Mission workspace: KPI stat cards (files, divisions, recent activity), assigned division accordion with file counts, recent telemetry catalog. Fetches from `useMissionOverview()`, `useUserDepartments()`, `useRecentFiles()`.
+- **`UserEvents.tsx`** (`18.9 KB`) — 3-view switcher: Overview cards, Dual-Month `MissionCalendar`, and tabular pass list. Fetches `GET /events`. Each event card shows satellite, type, urgency, AOS/LOS timing, and tracking location.
+- **`NotificationsPage.tsx`** (`7.3 KB`) — Categorized notification inbox with filter tabs: All / Unread / Passes / System / Broadcasts. Mark as read, dismiss, clear all.
+- **`Files.tsx`** — Entry point for file browsing. Renders department selector → `FileBrowser`.
+- **`DeptFileBrowser.tsx`** — Thin wrapper: extracts `:deptId` from URL, renders `FileBrowser` with it.
+- **`SearchPage.tsx`** — Full-page search with operator syntax, type filter, pagination.
+
+### Admin Pages
+- **`AdminHome.tsx`** (`28.9 KB`) — Command console: storage health, live user/file/department counts, recent audit log feed, pending approvals count, quick action links.
+- **`UploadReport.tsx`** (`36.3 KB`) — Full-featured uploader: drag-and-drop, file metadata form (report title, spacecraft, category, tags), naming convention presets, department + parent folder selector, SHA-256 verification display, progress bars.
+- **`AdminFileManager.tsx`** (`32.8 KB`) — Full file CRUD: search, filter by department/status, delete, restore, view orphaned files, version history drawer.
+- **`ApprovalQueue.tsx`** (`56.2 KB`) — Largest admin page. Pending user cards showing designation, department preference, reason for access. One-click approve (with department selector) or reject (with `RejectModal`).
+- **`UserManagement.tsx`** (`39 KB`) — Full roster: search, filter by role/status, inline role change, suspension toggle, password reset, department access management via `PermissionGrid`.
+- **`DepartmentManager.tsx`** — Create/edit divisions: all fields including CMS page fields (`pageTitle`, `pageLeadOfficer`, etc.), storage path, folder depth config.
+- **`SatelliteManager.tsx`** — Station registry: create/edit ISTRAC stations and satellite fleet entries.
+- **`EventManager.tsx`** (`22.5 KB`) — Full event CRUD for the mission calendar: type (MISSION_PASS/LAUNCH/ORBIT_MANEUVER/MAINTENANCE/SEMINAR/ANOMALY), urgency, status, banner visibility toggle.
+- **`AuditLogViewer.tsx`** (`22.5 KB`) — Cursor-paginated audit trail with JSON diff viewer (`AuditDiffView`), filter by action/resource type, CSV export.
+- **`BroadcastNotification.tsx`** (`19.2 KB`) — Compose and send system-wide notification to all users via Redis Pub/Sub → WebSocket broadcast.
+- **`CmsEditor.tsx`** — Block editor: select CMS key (hero, announcements, about, etc.), edit JSON fields, live preview panel (`LivePreviewPanel`), save.
+- **`SystemConfigPanel.tsx`** (`37.1 KB`) — Largest single-file page. Key-value config for system-wide settings (`max_upload_mb`, `maintenance_mode`, etc.) with type-specific renderers for boolean, number, and string.
+
+---
+
+## 11. Component Inventory — Full Catalogue
+
+### Navigation & Layout
+- **`Navbar.tsx`** (`10.2 KB`) — Sticky header with ISRO logo, divisions dropdown, global search trigger (`Ctrl+K` opens `SearchModal`), notification bell with unread count badge, user avatar dropdown (profile, logout). Role-aware: shows "Admin Console" link only for `ADMIN`.
+- **`AppShell`** (layout) — Collapsible sidebar + top nav + content area. `useAutoCollapseSidebar` hook automatically collapses on small viewports unless `sidebarManuallySet` is true.
+- **`Footer.tsx`** — ISRO mandate, copyright, ground station network links, colophon.
+- **`PageHeader.tsx`** — Reusable page title + subtitle + optional action button slot.
+
+### Landing Page Sections
+- **`AnnouncementBar.tsx`** (`8.3 KB`) — Horizontal scrolling ticker of mission alerts. Reads from `cmsBlocks.announcements.items`. Category color-coded: MISSION (blue), MAINTENANCE (amber), PASS (green), RELAY (purple), SECURITY (red).
+- **`Hero.tsx`** (`22.6 KB`) — Multi-slide carousel (manual + auto-advance). Reads `cmsBlocks.hero.slides[]`. Admin inline edit pencil icon triggers CMS update directly from the landing page.
+- **`QuickStatsBanner.tsx`** (`3.2 KB`) — 4 stat highlights: "5 Ground Stations", "10+ Spacecraft", "24/7 MOX Ops", "SHA-256 Checksums". Static component, no API call.
+- **`OperationalDivisions.tsx`** (`7.1 KB`) — 5-column card grid for MOX, FDD, NETRA, TTC, GSO. Each card: division name, lead officer, dataset count, brief mission description.
+- **`FeaturedReports.tsx`** (`17.1 KB`) — Report cards from `cmsBlocks.featured_reports`. Shows category badge, spacecraft, file format icon. Unauthenticated users see `GuestAccessPanel` modal on click.
+- **`MissionCalendar.tsx`** (`18.1 KB`) — Dual-month interactive calendar. Fetches `GET /events`. Day cells show colored dots per event urgency. Click day → details panel. Pass details: satellite name, AOS/LOS, frequency, ground station.
+- **`AboutSection.tsx`** — Ground station network readout, security assurances, ISRO mandate paragraph.
+- **`ContactSection.tsx`** — HQ address, SMTP desk, 24/7 EPABX mission hotline.
+
+### File Management
+- **`FileBrowser.tsx`** (`20 KB`) — Fully featured file browser: card/table view toggle (persisted in `uiStore`), breadcrumb navigation, folder tree sidebar (`FolderTree`), drag-and-drop upload trigger (admin only), search/filter bar, pagination, context menu (rename, move, delete, view versions). Invalidates TanStack Query on all mutations.
+- **`FolderTree.tsx`** (`3.4 KB`) — Recursive sidebar tree view of folder hierarchy. Fetches `GET /departments/:id/tree`.
+- **`UploadModal.tsx`** (`7 KB`) — Drag-and-drop upload modal, renders `useFileUpload` items with progress bars and status indicators.
+- **`VersionHistoryPanel.tsx`** (`6.1 KB`) — Right-side drawer showing file version chain. Each version: version number, size, SHA-256 hash (truncated), uploader name, timestamp, download link.
+- **`FilePreviewModal.tsx`** (`3.7 KB`) — Routes to correct renderer based on `resolvePreviewKind()`. Uses PDF.js for PDFs, native `<img>`/`<video>` for media, `<pre>` for text.
+- **`FileIcon.tsx`** — Returns appropriate Lucide icon + color based on file extension.
+- **`GuestAccessPanel.tsx`** (`8.3 KB`) — Auth-gate modal shown to unauthenticated users attempting to preview/download. Shows "🔒 Authentication Required" header, explains access policy, links to `/login` and `/register`.
+
+### Admin Modals & Forms
+- **`CreateDeptModal.tsx`** (`7.1 KB`) — Full department creation form with satellite selector, code, storage path, CMS fields.
+- **`UserProfileModal.tsx`** (`15 KB`) — Full user profile viewer/editor for admins: shows all fields, department access list, suspension status, last login.
+- **`SetupWizardModal.tsx`** (`30.3 KB`) — Largest component. First-run setup wizard covering: satellite creation, department creation, storage mount verification, admin account setup. Shown when `system_setup_complete` config key is false.
+- **`RejectModal.tsx`** — Rejection reason text input for declining operator registrations.
+- **`TagModal.tsx`** — Tag editor for file metadata.
+- **`ConfirmDialog.tsx`** — Generic "Are you sure?" confirmation dialog used before destructive operations.
+
+### Form Controls & UI Primitives
+- **`Button.tsx`** — Variants: `primary`, `secondary`, `ghost`, `danger`. Sizes: `sm`, `md`, `lg`. Loading spinner state.
+- **`Input.tsx`** — Labeled input with error state, optional prefix/suffix icons.
+- **`Select.tsx`** — Styled native `<select>` with option groups.
+- **`Textarea.tsx`** — Auto-grow textarea with char count.
+- **`Badge.tsx`** — Status/category badge: `success`, `warning`, `danger`, `info`, `default`.
+- **`Alert.tsx`** — Inline alert banner with close button.
+- **`Modal.tsx`** — Base modal wrapper with `<dialog>` semantics and overlay click-to-close.
+- **`Table.tsx`** — Sortable table with sticky headers, zebra rows, bulk select checkboxes.
+- **`StatCard.tsx`** — KPI card: number, label, optional trend indicator.
+- **`Toast.tsx`** / **`ToastContainer.tsx`** — Renders `useToastStore().visible` as stacked toast notifications.
+- **`SearchModal.tsx`** (`8.8 KB`) — Global `Ctrl+K` search overlay. Shows search history chips, live search results as user types, operator syntax hints.
+- **`PasswordStrengthMeter.tsx`** — Visual strength bar and criteria checklist (length, uppercase, number, special char).
+- **`AuditDiffView.tsx`** — Side-by-side JSON diff renderer for audit log old/new value comparison.
+- **`Space3DVisualizer.tsx`** (`15.4 KB`) — 3D orbital visualization using canvas rendering. Shown on `AdminHome` as an ambient background element.
+- **`DynamicAlertBanner.tsx`** — Full-width system alert banner that reads from `SystemConfig` `maintenance_mode` key.
+
+---
+
+## 12. Design System Tokens & CSS Architecture
+
+All design tokens are declared as CSS custom properties in `src/index.css` via Tailwind v4's `@theme` block, making them available as Tailwind utility classes.
+
+### Background Plane Tokens
+| CSS Variable | Hex | Tailwind Class | Use Case |
+| :--- | :--- | :--- | :--- |
+| `--color-page` | `#04070e` | `bg-page` | Master page canvas |
+| `--color-page-soft` | `#080d17` | `bg-page-soft` | Alternating section backgrounds |
+| `--color-surface` | `#0c121e` | `bg-surface` | Sidebar, top nav, sub-panels |
+| `--color-card` | `#101726` | `bg-card` | Cards, modals, table containers |
+| `--color-card-hover` | `#172033` | `bg-card-hover` | Card/row hover state |
+
+### Border Tokens
+| CSS Variable | Hex | Use Case |
+| :--- | :--- | :--- |
+| `--color-border-subtle` | `#192336` | Table row hairlines |
+| `--color-border-default` | `#223049` | Cards, inputs |
+| `--color-border-bright` | `#364b6e` | Focused/highlighted containers |
+
+### Text Tokens
+| CSS Variable | Hex | Tailwind Class | Use Case |
+| :--- | :--- | :--- | :--- |
+| `--color-text-primary` | `#f1f5f9` | `text-text-primary` | Headings, primary labels |
+| `--color-text-secondary` | `#94a3b8` | `text-text-secondary` | Body text, descriptions |
+| `--color-text-muted` | `#64748b` | `text-text-muted` | Meta info, column headers |
+| `--color-text-dim` | `#475569` | `text-text-dim` | Timestamps, disabled text |
+
+### Accent / Status Tokens
+| Token | Hex | Usage |
+| :--- | :--- | :--- |
+| `--color-accent` (ISRO Blue) | `#1d72fe` | Primary buttons, active states, links |
+| `--color-accent-light` (ISRO Cyan) | `#00f0ff` | Glow effects, telemetry readout highlights |
+| `--color-success` | `#10b981` | AOS, active, nominal, approved status |
+| `--color-warning` | `#f59e0b` | Pending, standby, acquisition delay |
+| `--color-danger` | `#ef4444` | LOS, suspended, error, delete |
+| `--color-purple` | `#a855f7` | Super admin badges, special ops |
+
+### Typography Rules
+- **Machine data** (SHA-256 hashes, file sizes, timestamps, station codes, employee IDs): `font-mono` class (`num` alias in custom utilities). Uses tabular numeral spacing.
+- **Human editorial** (headings, labels, descriptions): `font-sans` (Inter → Plus Jakarta Sans → system stack).
+- **HUD readouts** on Hero and AdminHome: Monospace, tracking `[0.14em]`, uppercase, `text-[11px]`.
+
+### Custom Utility Classes (defined in `index.css`)
+- `.graticule` — Subtle crosshatch background pattern for full-screen loading states.
+- `.num` — Shorthand for `font-mono tabular-nums`.
+- `.animate-pulse-slow` — 3s pulse animation for loading indicators.
+- `.hairline` — 1px `border-b border-border-subtle` horizontal divider.

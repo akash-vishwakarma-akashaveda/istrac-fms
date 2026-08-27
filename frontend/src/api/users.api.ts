@@ -65,6 +65,8 @@ export const usersApi = {
     id: string,
     payload: {
       name?: string
+      designation?: string
+      phone?: string
       employeeId?: string
       role?: string
       status?: string
@@ -72,6 +74,15 @@ export const usersApi = {
     },
   ): Promise<UserProfile> {
     const res = await apiClient.put(`/admin/users/${id}`, payload)
+    return extractData<UserProfile>(res)
+  },
+
+  async updateProfile(payload: {
+    name?: string
+    designation?: string
+    phone?: string
+  }): Promise<UserProfile> {
+    const res = await apiClient.put('/user/profile', payload)
     return extractData<UserProfile>(res)
   },
 
