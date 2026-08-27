@@ -161,17 +161,33 @@ router.post('/login', loginRateLimiter, async (req, res, next) => {
       userAgent: req.get('user-agent'),
     })
 
+    const fullUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        name: true,
+        designation: true,
+        email: true,
+        employeeId: true,
+        phone: true,
+        role: true,
+        status: true,
+        departmentPreference: true,
+        departmentAccess: {
+          where: { deletedAt: null },
+          include: {
+            department: {
+              select: { id: true, name: true, code: true, satellite: { select: { code: true } } },
+            },
+          },
+        },
+      },
+    })
+
     res.json({
       data: {
         accessToken,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          employeeId: user.employeeId,
-          role: user.role,
-          status: user.status,
-        },
+        user: fullUser,
       },
       requestId: req.requestId,
     })
@@ -291,12 +307,24 @@ router.get('/me', authMiddleware, async (req, res, next) => {
       select: {
         id: true,
         name: true,
+        designation: true,
         email: true,
         employeeId: true,
+        phone: true,
         role: true,
         status: true,
+        departmentPreference: true,
+        reasonForAccess: true,
         lastLogin: true,
         createdAt: true,
+        departmentAccess: {
+          where: { deletedAt: null },
+          include: {
+            department: {
+              select: { id: true, name: true, code: true, satellite: { select: { code: true } } },
+            },
+          },
+        },
       },
     })
 
