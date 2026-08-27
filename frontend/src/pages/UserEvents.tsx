@@ -15,7 +15,7 @@ import {
   LayoutGrid,
   CalendarDays,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { eventsApi, type MissionEventItem } from '../api/events.api'
 import { satellitesApi, type Satellite } from '../api/satellites.api'
 import { PageHeader } from '../components'
@@ -61,6 +61,9 @@ const EVENT_TYPE_MAP: Record<string, { label: string; icon: any; color: string; 
 }
 
 export function UserEvents() {
+  const [searchParams] = useSearchParams()
+  const targetEventId = searchParams.get('eventId')
+
   const [events, setEvents] = useState<MissionEventItem[]>([])
   const [satellites, setSatellites] = useState<Satellite[]>([])
   const [loading, setLoading] = useState(true)
@@ -88,6 +91,18 @@ export function UserEvents() {
     }
     loadData()
   }, [])
+
+  // Auto-scroll to target event if passed in query param
+  useEffect(() => {
+    if (targetEventId && !loading && events.length > 0) {
+      setTimeout(() => {
+        const el = document.getElementById(`event-card-${targetEventId}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      }, 200)
+    }
+  }, [targetEventId, loading, events])
 
   // Filter events
   const filteredEvents = useMemo(() => {
@@ -346,11 +361,17 @@ export function UserEvents() {
                 const Icon = meta.icon
                 const isCritical = ev.urgency === 'CRITICAL'
                 const isImportant = ev.urgency === 'IMPORTANT'
+                const isTarget = targetEventId === ev.id
 
                 return (
                   <div
                     key={ev.id}
-                    className="rounded-xl border border-border-default bg-card p-5 shadow-sm hover:border-accent/40 transition-all flex flex-col justify-between space-y-3 group"
+                    id={`event-card-${ev.id}`}
+                    className={`rounded-xl border p-5 shadow-sm transition-all flex flex-col justify-between space-y-3 group ${
+                      isTarget
+                        ? 'border-accent ring-2 ring-accent/60 bg-[#0a1738] shadow-lg shadow-accent/10 scale-[1.01]'
+                        : 'border-border-default bg-card hover:border-accent/40'
+                    }`}
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-2">
