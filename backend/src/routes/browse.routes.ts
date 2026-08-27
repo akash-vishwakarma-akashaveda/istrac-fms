@@ -140,6 +140,14 @@ router.get('/search', optionalAuthMiddleware, async (req, res, next) => {
   try {
     const q = (req.query.q as string) || ''
     const departmentId = req.query.departmentId as string | undefined
+    const satelliteId = req.query.satelliteId as string | undefined
+    const category = req.query.category as string | undefined
+    const extension = req.query.extension as string | undefined
+    const classificationLevel = req.query.classificationLevel as string | undefined
+    const startDate = req.query.startDate as string | undefined
+    const endDate = req.query.endDate as string | undefined
+    const sortBy = req.query.sortBy as any
+    const sortOrder = req.query.sortOrder as any
     const page = Number(req.query.page) || 1
     const limit = Number(req.query.limit) || 20
 
@@ -148,6 +156,14 @@ router.get('/search', optionalAuthMiddleware, async (req, res, next) => {
       userId: req.user?.id || '',
       isAdmin: req.user?.role === 'ADMIN',
       departmentId,
+      satelliteId,
+      category,
+      extension,
+      classificationLevel,
+      startDate,
+      endDate,
+      sortBy,
+      sortOrder,
       page,
       limit,
     })

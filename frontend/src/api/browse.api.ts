@@ -17,10 +17,34 @@ export interface SearchResultItem {
   sizeBytes?: string | null
   departmentId: string
   departmentName: string
+  departmentCode?: string
+  satelliteId?: string | null
   satelliteName: string
+  satelliteCode?: string | null
   hddPath: string
+  reportTitle?: string | null
+  reportAuthor?: string | null
+  reportCategory?: string | null
+  customCategory?: string | null
+  classificationLevel?: string | null
+  versionLabel?: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface SearchFilters {
+  q?: string
+  departmentId?: string
+  satelliteId?: string
+  category?: string
+  extension?: string
+  classificationLevel?: string
+  startDate?: string
+  endDate?: string
+  sortBy?: 'updatedAt' | 'createdAt' | 'name' | 'sizeBytes'
+  sortOrder?: 'asc' | 'desc'
+  page?: number
+  limit?: number
 }
 
 export interface BrowseFilesParams {
@@ -48,14 +72,18 @@ export const browseApi = {
     return extractData<TreeNode[]>(res)
   },
 
-  async search(query: string, departmentId?: string, page = 1, limit = 20): Promise<{
+  async search(params: string | SearchFilters, departmentId?: string, page = 1, limit = 20): Promise<{
     data: SearchResultItem[]
     total: number
     page: number
     limit: number
   }> {
+    const queryParams = typeof params === 'string'
+      ? { q: params, departmentId, page, limit }
+      : { ...params }
+
     const res = await apiClient.get('/search', {
-      params: { q: query, departmentId, page, limit },
+      params: queryParams,
     })
     return res.data
   },
