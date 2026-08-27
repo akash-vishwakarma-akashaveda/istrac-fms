@@ -5,9 +5,12 @@ import { hddService } from './hdd.service.js'
 import { auditService } from './audit.service.js'
 import { notificationService } from './notification.service.js'
 import { AppError } from '../lib/errors.js'
+import { createReadStream, createWriteStream } from 'node:fs'
+import { pipeline } from 'node:stream/promises'
 
 export interface UploadFileParams {
-  fileBuffer: Buffer
+    fileBuffer?: Buffer
+  filePath?: string
   originalName: string
   mimeType: string
   departmentId: string
@@ -22,6 +25,7 @@ export interface UploadFileParams {
   versionLabel?: string
   reportNumber?: string
 }
+
 
 export interface UploadFileResult {
   id: string
@@ -56,6 +60,13 @@ export const fileService = {
    */
   async uploadFile(params: UploadFileParams): Promise<UploadFileResult> {
 
+    if (!params.fileBuffer && !params.filePath) {
+  throw new AppError(
+    'missing_file_data',
+    'Either fileBuffer or filePath must be provided',
+    400,
+  )
+}
   // ============================================================
   // D1: Validate file extension against allowlist
   // ============================================================
@@ -104,7 +115,17 @@ if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
       : destPath
 
     // 4. Write to physical storage
-    await hddService.writeFile(versionedPath, params.fileBuffer)
+   if (params.filePath) {
+  await hddService.copyFile(
+    params.filePath,
+    versionedPath,
+  )
+} else {
+  await hddService.writeFile(
+    versionedPath,
+    params.fileBuffer!,
+  )
+}
 
     // 5. Compute checksum & size
     const sha256 = await hddService.computeChecksum(versionedPath)
@@ -317,4 +338,6 @@ if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
     }
     return file
   },
+
+
 }

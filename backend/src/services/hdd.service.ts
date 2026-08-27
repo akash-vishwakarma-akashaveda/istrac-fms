@@ -9,6 +9,19 @@ import { AppError } from '../lib/errors.js'
 const MOUNT_ROOT = path.resolve(env.HDD_MOUNT_PATH)
 
 export const hddService = {
+/**
+ * Appends a source file to a destination file using streams.
+ * Used for assembling chunked uploads without loading the
+ * complete file into memory.
+ */
+  async appendFile(sourcePath: string, destinationPath: string): Promise<void> {
+  const source = createReadStream(sourcePath)
+  const destination = createWriteStream(destinationPath, {
+    flags: 'a',
+  })
+
+  await pipeline(source, destination)
+},
   /**
    * Path Traversal Guard: Prevents directory traversal attacks.
    */
@@ -239,4 +252,20 @@ export const hddService = {
 
     return { filesCopied, bytesCopied }
   },
+
+
+async copyFile(
+  sourcePath: string,
+  destinationPath: string,
+): Promise<void> {
+
+  const safeDestination = this.guardPath(destinationPath)
+
+  await fs.mkdir(path.dirname(safeDestination), { recursive: true })
+
+  await pipeline(
+    createReadStream(sourcePath),
+    createWriteStream(safeDestination),
+  )
+},
 }

@@ -3,6 +3,7 @@
   import * as path from 'node:path'
   import * as os from 'node:os'
   import * as fs from 'node:fs/promises'
+  import { createReadStream, createWriteStream } from 'node:fs'
   import { prisma } from '../config/db.js'
   import { env } from '../config/env.js'
   import { authMiddleware } from '../middleware/auth.middleware.js'
@@ -17,6 +18,60 @@
   import express from 'express'
   const router = Router()
   router.use('/files', express.json({ limit: '50mb' }))
+
+
+  async function assembleChunks(
+  chunksDir: string,
+  totalChunks: number,
+  outputPath: string,
+): Promise<void> {
+  await fs.mkdir(path.dirname(outputPath), { recursive: true })
+
+  const output = createWriteStream(outputPath)
+
+  try {
+    for (let i = 0; i < totalChunks; i++) {
+      const chunkPath = path.join(
+        chunksDir,
+        `part_${String(i).padStart(5, '0')}`,
+      )
+
+      // Make sure the expected chunk exists
+      try {
+        await fs.access(chunkPath)
+      } catch {
+        throw new AppError(
+          'missing_chunk_file',
+          `Chunk ${i} is missing on server`,
+          400,
+        )
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        const input = createReadStream(chunkPath)
+
+        input.on('error', reject)
+        input.on('end', resolve)
+
+        input.pipe(output, { end: false })
+      })
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      output.once('error', reject)
+      output.once('finish', resolve)
+      output.end()
+    })
+  } catch (error) {
+    output.destroy()
+
+    await fs.rm(outputPath, {
+      force: true,
+    }).catch(() => {})
+
+    throw error
+  }
+}
   const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 50 * 1024 * 1024 }, // 50MB for single-shot
@@ -191,7 +246,9 @@
     deptAccessMiddleware,
     hddAvailabilityMiddleware,
     async (req, res, next) => {
+       let assembledPath: string | null = null
       try {
+           
         const { fileName, departmentId, parentId, totalChunks } = req.body
 
         if (!fileName || !departmentId || !totalChunks) {
@@ -205,39 +262,91 @@
         const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
         const chunksDir = path.join(os.tmpdir(), 'istrac-chunks', `${departmentId}_${safeName}`)
 
-        // Concatenate all chunks
+        // // Concatenate all chunks
 
-        const chunkBuffers: Buffer[] = []
-        for (let i = 0; i < totalChunksNum; i++) {
-          const chunkPath = path.join(chunksDir, `part_${String(i).padStart(5, '0')}`)
-          try {
-            const buf = await fs.readFile(chunkPath)
-            chunkBuffers.push(buf)
-          } catch {
-            throw new AppError('missing_chunk_file', `Chunk ${i} is missing on server`, 400)
-          }
-        }
+        // const chunkBuffers: Buffer[] = []
+        // for (let i = 0; i < totalChunksNum; i++) {
+        //   const chunkPath = path.join(chunksDir, `part_${String(i).padStart(5, '0')}`)
+        //   try {
+        //     const buf = await fs.readFile(chunkPath)
+        //     chunkBuffers.push(buf)
+        //   } catch {
+        //     throw new AppError('missing_chunk_file', `Chunk ${i} is missing on server`, 400)
+        //   }
+        // }
 
-        const fullBuffer = Buffer.concat(chunkBuffers)
+        // const fullBuffer = Buffer.concat(chunkBuffers)
+
+      // Temporary file used to assemble the upload.
+      const assembledDir = path.join(
+        os.tmpdir(),
+        'istrac-assembled',
+      )
+
+      assembledPath = path.join(
+        assembledDir,
+        `${departmentId}_${safeName}_${Date.now()}.uploading`,
+      )
+
+      // --------------------------------------------------------
+      // Assemble chunks using streams.
+      //
+      // IMPORTANT:
+      // We never use fs.readFile() or Buffer.concat().
+      // Therefore the complete file is never loaded into RAM.
+      // --------------------------------------------------------
+      await assembleChunks(
+        chunksDir,
+        totalChunksNum,
+        assembledPath,
+      )
+
+      // --------------------------------------------------------
+      // Get file information from the assembled file
+      // --------------------------------------------------------
+      const stats = await fs.stat(assembledPath)
+
+      if (stats.size === 0) {
+        throw new AppError(
+          'empty_file',
+          'Uploaded file is empty',
+          400,
+        )
+      }
+
+      // --------------------------------------------------------
+      // Read the assembled file only through the existing
+      // upload service.
+      //
+      // NOTE:
+      // Your current uploadFile() accepts Buffer, so we use
+      // a stream-based version below instead of Buffer.
+      // --------------------------------------------------------
+
+      const result = await fileService.uploadFile({
+        filePath: assembledPath,
+        originalName: fileName,
+        mimeType: 'application/octet-stream',
+        departmentId,
+        parentId: parentId || null,
+        uploaderId: req.user!.id,
+        uploaderName: req.user!.name,
+      })
+
 
         // Clean up temp chunks
         await fs.rm(chunksDir, { recursive: true, force: true }).catch(() => {})
-
-        const result = await fileService.uploadFile({
-          fileBuffer: fullBuffer,
-          originalName: fileName,
-          mimeType: 'application/octet-stream',
-          departmentId,
-          parentId: parentId || null,
-          uploaderId: req.user!.id,
-          uploaderName: req.user!.name,
-        })
+        await fs.rm(assembledPath, { force: true })
+   
 
         res.status(201).json({
           data: result,
           requestId: req.requestId,
         })
       } catch (err) {
+  if (assembledPath) {
+    await fs.rm(assembledPath, { force: true }).catch(() => {})
+  }
         next(err)
       }
     },
