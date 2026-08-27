@@ -61,22 +61,41 @@ export const searchService = {
       }
     }
 
+    let cleanTerm = term
+    let extractedExtension = params.extension
+
+    // Parse inline search operators like type:pdf or ext:csv or dept:FDD
+    if (cleanTerm.includes('type:') || cleanTerm.includes('ext:')) {
+      const match = cleanTerm.match(/(?:type|ext):([a-zA-Z0-9]+)/i)
+      if (match && match[1]) {
+        extractedExtension = match[1].toLowerCase()
+        cleanTerm = cleanTerm.replace(/(?:type|ext):[a-zA-Z0-9]+/gi, '').trim()
+      }
+    }
+
+    if (cleanTerm.includes('dept:')) {
+      const deptMatch = cleanTerm.match(/dept:([a-zA-Z0-9_-]+)/i)
+      if (deptMatch && deptMatch[1]) {
+        cleanTerm = cleanTerm.replace(/dept:[a-zA-Z0-9_-]+/gi, '').trim()
+      }
+    }
+
     const whereClause: any = {
       deletedAt: null,
     }
 
     // Text search condition
-    if (term) {
+    if (cleanTerm) {
       whereClause.OR = [
-        { name: { contains: term } },
-        { description: { contains: term } },
-        { extension: { contains: term } },
-        { hddPath: { contains: term } },
-        { report: { title: { contains: term } } },
-        { report: { spacecraft: { contains: term } } },
-        { report: { author: { contains: term } } },
-        { department: { name: { contains: term } } },
-        { department: { code: { contains: term } } },
+        { name: { contains: cleanTerm } },
+        { description: { contains: cleanTerm } },
+        { extension: { contains: cleanTerm } },
+        { hddPath: { contains: cleanTerm } },
+        { report: { title: { contains: cleanTerm } } },
+        { report: { spacecraft: { contains: cleanTerm } } },
+        { report: { createdBy: { name: { contains: cleanTerm } } } },
+        { department: { name: { contains: cleanTerm } } },
+        { department: { code: { contains: cleanTerm } } },
       ]
     }
 
@@ -96,8 +115,9 @@ export const searchService = {
     }
 
     // Extension / Format filtering
-    if (params.extension && params.extension !== 'ALL') {
-      const ext = params.extension.toLowerCase().replace(/^\./, '')
+    const effectiveExtension = extractedExtension && extractedExtension !== 'ALL' ? extractedExtension : undefined
+    if (effectiveExtension) {
+      const ext = effectiveExtension.toLowerCase().replace(/^\./, '')
       if (ext === 'data') {
         whereClause.extension = { in: ['csv', 'dat', 'raw', 'tsv', 'bin'] }
       } else if (ext === 'telemetry') {
@@ -154,7 +174,13 @@ export const searchService = {
         take: limit,
         orderBy,
         include: {
-          report: true,
+          report: {
+            include: {
+              createdBy: {
+                select: { name: true },
+              },
+            },
+          },
           department: {
             include: { satellite: true },
           },
@@ -177,7 +203,7 @@ export const searchService = {
       satelliteCode: f.department?.satellite?.code || null,
       hddPath: f.hddPath || '',
       reportTitle: f.report?.title || null,
-      reportAuthor: f.report?.author || null,
+      reportAuthor: f.report?.createdBy?.name || null,
       reportCategory: f.report?.category || null,
       customCategory: f.report?.customCategory || null,
       classificationLevel: f.report?.classificationLevel || 'ISRO_LEVEL',
