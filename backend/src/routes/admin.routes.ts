@@ -9,7 +9,11 @@ import { bootstrapService } from '../services/bootstrap.service.js'
 import { AppError } from '../lib/errors.js'
 
 const router = Router()
-
+const ALLOWED_CONFIG_KEYS = new Set([
+  'maxUploadSizeBytes', 'allowedExtensions', 'virusScanEnabled',
+  'guestAccessExpiryDays', 'hddSyncIntervalMinutes', 'downloadRateLimitPerHour',
+  'maintenance_mode', 'system_setup_complete',
+])
 // ============================================================
 // ADMIN STATS OVERVIEW
 // ============================================================
@@ -122,7 +126,7 @@ router.get('/admin/audit-logs', authMiddleware, adminMiddleware, async (req, res
       }),
       orderBy: { id: 'desc' },
       include: {
-        user: { select: { name: true, email: true } },
+        user: { select: { name: true } },
       },
     })
 
@@ -196,6 +200,9 @@ router.put('/admin/settings/:key', authMiddleware, adminMiddleware, async (req, 
   try {
     const rawKey = req.params.key
     const key = Array.isArray(rawKey) ? rawKey[0] : rawKey
+    if (!ALLOWED_CONFIG_KEYS.has(key)) {
+  throw new AppError('invalid_config_key', 'Unknown configuration key', 400)
+}
     const { value } = req.body
 
     if (value === undefined) {

@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
+import helmet from 'helmet'
 import { createServer } from 'node:http'
 import { env } from './config/env.js'
 import { corsOptions } from './config/cors.js'
@@ -34,18 +35,40 @@ import { startHddSyncService } from './services/hddSync.service.js'
 import { createWsServer } from './ws/wsServer.js'
 
 // Enable JSON.stringify for BigInt across all Prisma models
-;(BigInt.prototype as any).toJSON = function () {
+;import { globalRateLimiter } from './middleware/rateLimiter.middleware.js'
+(BigInt.prototype as any).toJSON = function () {
   return this.toString()
 }
 
 const app = express()
 const server = createServer(app)
 
+
+// F1: HTTP Security Headers
+app.use(helmet({
+  contentSecurityPolicy: false, // API-only server, CSP not relevant here
+  hsts: env.NODE_ENV === 'production'
+    ? { maxAge: 63072000, includeSubDomains: true, preload: true }
+    : false,
+  frameguard: { action: 'deny' },
+  noSniff: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // required for file streaming to Amplify/CloudFront
+  permittedCrossDomainPolicies: false,
+  dnsPrefetchControl: { allow: false },
+  ieNoOpen: true,
+}))
+
 // ============================================================
 // CORE MIDDLEWARE PIPELINE
 // ============================================================
+app.use((_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+  res.setHeader('Pragma', 'no-cache')
+  next()
+})
 app.use(cors(corsOptions))
-app.use(express.json({ limit: '50mb' }))
+app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 app.use(cookieParser())
 app.use(requestIdMiddleware)
@@ -55,18 +78,18 @@ app.use(auditMiddleware)
 // ============================================================
 // ROUTE REGISTRATION
 // ============================================================
-app.use('/auth', authRouter)
-app.use(satelliteRouter)
-app.use(departmentRouter)
-app.use(userRouter)
-app.use(fileRouter)
-app.use(browseRouter)
-app.use(notificationRouter)
-app.use(cmsRouter)
-app.use(adminRouter)
-app.use(reportPresetRouter)
-app.use(eventRouter)
-app.use(healthRouter)
+app.use('/auth', globalRateLimiter, authRouter)
+app.use(globalRateLimiter,satelliteRouter)
+app.use(globalRateLimiter, departmentRouter)
+app.use(globalRateLimiter, userRouter)
+app.use(globalRateLimiter, fileRouter)
+app.use(globalRateLimiter, browseRouter)
+app.use(globalRateLimiter, notificationRouter)
+app.use(globalRateLimiter, cmsRouter)
+app.use(globalRateLimiter, adminRouter)
+app.use(globalRateLimiter, reportPresetRouter)
+app.use(globalRateLimiter, eventRouter)
+app.use(globalRateLimiter, healthRouter)
 
 // ============================================================
 // GLOBAL ERROR HANDLER (MUST BE REGISTERED LAST)

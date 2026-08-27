@@ -30,9 +30,9 @@ export async function authMiddleware(req: Request, _res: Response, next: NextFun
 
     // Verify signature + expiry
     const payload = verifyAccessToken(token)
-
+ 
     // Check blacklist safely (handles Redis & in-memory fallback)
-    const blacklisted = await sessionStore.isBlacklisted(token)
+    const blacklisted = await sessionStore.isBlacklisted(payload.jti) 
     if (blacklisted) {
       throw new AppError('token_revoked', 'Token has been revoked', 401)
     }
@@ -75,7 +75,7 @@ export async function optionalAuthMiddleware(req: Request, _res: Response, next:
     const token = authHeader.slice(7)
     const payload = verifyAccessToken(token)
 
-    const blacklisted = await sessionStore.isBlacklisted(token)
+    const blacklisted = await sessionStore.isBlacklisted(payload.jti)
     if (blacklisted) {
       throw new AppError('token_revoked', 'Token has been revoked', 401)
     }

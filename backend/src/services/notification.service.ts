@@ -1,4 +1,5 @@
 import { prisma } from '../config/db.js'
+import { logger } from '../lib/logger.js'
 import { pubsub } from '../lib/pubsub.js'
 
 export interface SendNotificationOpts {
@@ -42,10 +43,10 @@ export const notificationService = {
               resourceId: opts.resourceId,
               timestamp: new Date().toISOString(),
             })
-            .catch((err: unknown) => console.error(`[NotificationService] PubSub failed for ${userId}:`, err))
+            .catch((err: unknown) =>logger.error('[NotificationService] Pubsub error for userId:', userId, err))
         })
       })
-      .catch((err: unknown) => console.error('[NotificationService] Batch insert failed:', err))
+      .catch((err: unknown) => logger.error('[NotificationService] Batch insert failed:', err))
   },
 
   async sendBroadcast(opts: Omit<SendNotificationOpts, 'recipientIds'>): Promise<void> {
@@ -66,9 +67,9 @@ export const notificationService = {
           message: opts.message,
           timestamp: new Date().toISOString(),
         })
-        .catch((err: unknown) => console.error('[NotificationService] Broadcast pubsub error:', err))
+        .catch((err: unknown) => logger.error('[NotificationService] Broadcast pubsub error:', err))
     } catch (err) {
-      console.error('[NotificationService] sendBroadcast failed:', err)
+      logger.error('[NotificationService] sendBroadcast failed:', err)
     }
   },
 }

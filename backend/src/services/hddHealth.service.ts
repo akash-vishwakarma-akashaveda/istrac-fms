@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import { env } from '../config/env.js'
 import { redis } from '../config/redis.js'
 import { emailService } from './email.service.js'
+import { logger } from '../lib/logger.js'
 
 const PROBE_FILE_NAME = '.health_probe'
 const HDD_DEGRADED_KEY = 'hdd:degraded'
@@ -40,7 +41,7 @@ async function runProbe(): Promise<void> {
       )
     }
   } catch (err: any) {
-    console.error('[HddHealthService] Storage probe check failed:', err.message)
+   logger.error('HddHealthService', `Storage probe failed on path: ${mountRoot}`, err)
 
     try {
       await redis.setex(HDD_DEGRADED_KEY, 120, '1')
@@ -60,7 +61,7 @@ export function startHddHealthService(): void {
   if (intervalTimer) return
   runProbe().catch(() => {})
   intervalTimer = setInterval(() => {
-    runProbe().catch((err) => console.error('[HddHealthService] Interval error:', err))
+    runProbe().catch((err) => logger.error('HddHealthService', 'Error during health probe:', err))
   }, 60000)
 }
 

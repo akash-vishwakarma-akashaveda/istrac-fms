@@ -9,6 +9,8 @@ import { notificationService } from '../services/notification.service.js'
 import { AppError } from '../lib/errors.js'
 
 const router = Router()
+const VALID_STATUSES = ['PENDING', 'ACTIVE', 'SUSPENDED', 'REJECTED'] as const
+const VALID_ROLES = ['ADMIN', 'MEMBER'] as const
 
 // ============================================================
 // HANDLERS
@@ -19,8 +21,8 @@ const listUsersHandler = async (req: any, res: any, next: any) => {
     const limit = Math.min(100, Math.max(1, Number(req.query.limit || req.query.pageSize) || 20))
     const skip = (page - 1) * limit
 
-    const status = req.query.status
-    const role = req.query.role
+const status = VALID_STATUSES.includes(req.query.status as any) ? req.query.status : undefined
+const role   = VALID_ROLES.includes(req.query.role as any) ? req.query.role : undefined
     const search = req.query.search as string | undefined
 
     const where: any = {
