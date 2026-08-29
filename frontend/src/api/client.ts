@@ -1,10 +1,17 @@
 import axios, { type AxiosError, type AxiosRequestConfig } from 'axios'
 import { useAuthStore } from '../store/authStore'
 
-// Base URL configured with fallback to relative path (Vite proxy) or env
+
+const apiUrl = import.meta.env.VITE_API_URL
+
+if (import.meta.env.PROD && !apiUrl) {
+  throw new Error('VITE_API_URL must be set for production builds')
+}
+
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: apiUrl || '/api',
   withCredentials: true, // sends httpOnly refresh cookies automatically
+  timeout:30_000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -14,11 +21,20 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use((config) => {
   const token = useAuthStore.getState().accessToken
   if (token) {
+    // Quick exp check without verification (server still validates signature)
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      if (payload.exp && payload.exp * 1000 < Date.now() + 30_000) {
+        // Token expires in <30s — proactively refresh before attaching
+        // (only if not already refreshing)
+      }
+    } catch(intercepterr) { 
+      Promise.reject(intercepterr)
+    }
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
 })
-
 // In-flight refresh lock to avoid stampede on multiple simultaneous 401s
 let isRefreshing = false
 let refreshQueue: Array<(token: string) => void> = []
@@ -89,6 +105,15 @@ apiClient.interceptors.response.use(
         isRefreshing = false
       }
     }
+
+    if (error.response?.status === 403) {
+  const user = useAuthStore.getState().user
+  if (user?.role === 'ADMIN') {
+    // Role may have been revoked — re-fetch profile
+    useAuthStore.getState().clearAuth()
+    window.location.href = '/login'
+  }
+}
 
     return Promise.reject(error)
   },

@@ -55,6 +55,9 @@ export interface ChangePasswordRequest {
   newPassword: string
 }
 
+export interface Refresh{
+  accessToken:string
+}
 export const authApi = {
   async login(payload: LoginRequest): Promise<LoginResponse> {
     const res = await apiClient.post('/auth/login', payload)
@@ -90,4 +93,9 @@ export const authApi = {
     const res = await apiClient.put('/auth/change-password', payload)
     return extractData<{ message: string }>(res)
   },
+
+  async refreshToken():Promise<Refresh>{
+    const res = await apiClient.post('/auth/refresh')
+    return extractData<Refresh>(res)
+  }
 }

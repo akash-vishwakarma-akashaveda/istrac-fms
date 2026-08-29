@@ -33,6 +33,7 @@ import { FilePreviewModal } from '../components/FilePreviewModal'
 import { ImageWithFallback } from '../components/ImageWithFallback'
 import { formatFileSize } from '../lib/formatFileSize'
 import type { FileNode } from '../types/file'
+import { isSafeUrl } from '../lib/sanitize'
 
 const EXT_CONFIG: Record<string, { label: string; badge: string; icon: typeof FileText }> = {
   BIN: { label: 'BIN', badge: 'bg-accent/15 text-accent-light border-accent/30', icon: FileCode },
@@ -286,7 +287,9 @@ export function DepartmentDetail() {
     if (!dept) return
 
     setSavingEdit(true)
-    const validSlides = editForm.slides.filter((s) => s.url.trim().length > 0)
+   const validSlides = editForm.slides.filter(
+  (s) => s.url.trim().length > 0 && isSafeUrl(s.url.trim())
+)
     const bannerUrlPayload = validSlides.length > 0 ? JSON.stringify(validSlides) : undefined
 
     try {
@@ -352,6 +355,10 @@ export function DepartmentDetail() {
   }
 
   const activeSlide = slides[currentSlideIndex] || slides[0]
+  const safeImageUrl =
+  activeSlide?.url && isSafeUrl(activeSlide.url)
+    ? activeSlide.url
+    : '/fallback-hero.jpg'
 
   return (
     <div className="min-h-screen bg-page text-text-primary antialiased">
@@ -473,7 +480,7 @@ export function DepartmentDetail() {
                 {/* Active Slide Image */}
                 <div className="relative h-full w-full">
                   <ImageWithFallback
-                    src={activeSlide?.url}
+                    src={safeImageUrl}
                     alt={activeSlide?.caption || `${dept.name} facility`}
                     className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />
