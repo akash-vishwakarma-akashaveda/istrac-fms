@@ -1,23 +1,61 @@
-import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { Menu, X, Search, ChevronDown, LogIn, UserCheck, Layers } from 'lucide-react'
-import { useAuthStore } from '../store/authStore'
-import { departmentsApi, type Department } from '../api/departments.api'
-import { Button } from '.'
-import { SearchModal } from './SearchModal'
+﻿import { useState, useEffect } from "react"
+import { Link } from "react-router-dom"
+import {
+  Menu,
+  X,
+  Search,
+  ChevronDown,
+  LogIn,
+  UserCheck,
+  Layers,
+  Home,
+  Calendar,
+  Info,
+  Headphones,
+  Radio,
+} from "lucide-react"
+import { useAuthStore } from "../store/authStore"
+import { departmentsApi, type Department } from "../api/departments.api"
+import { Button } from "."
+import { SearchModal } from "./SearchModal"
+import { useCms } from "../context/cmsContext"
 
-const NAV_LINKS = [
-  { href: '/#hero', label: 'Mission Home' },
-  { href: '/#calendar', label: 'Calendar & Passes' },
-  { href: '/#about', label: 'About ISTRAC' },
-  { href: '/#contact', label: 'Support & Contact' },
-]
+interface NavBlockContent {
+  brandTitle?: string
+  brandHighlight?: string
+  brandSubtitle?: string
+  homeLabel?: string
+  departmentsLabel?: string
+  calendarLabel?: string
+  aboutLabel?: string
+  contactLabel?: string
+  showSearchButton?: boolean
+  showAuthButton?: boolean
+}
 
 export function Navbar() {
   const user = useAuthStore((s) => s.user)
+  const { cmsBlocks } = useCms()
+
+  const navData =
+    (cmsBlocks["nav_header"] as NavBlockContent | undefined) ||
+    (cmsBlocks["nav_footer"] as NavBlockContent | undefined)
+
+  const brandTitle = navData?.brandTitle || "ISTRAC"
+  const brandHighlight = navData?.brandHighlight !== undefined ? navData.brandHighlight : "-SIMS"
+  const brandSubtitle = navData?.brandSubtitle || "ISRO Ground Network"
+  const homeLabel = navData?.homeLabel || "Home"
+  const departmentsLabel = navData?.departmentsLabel || "Departments"
+  const calendarLabel = navData?.calendarLabel || "Calendar & Passes"
+  const aboutLabel = navData?.aboutLabel || "About"
+  const contactLabel = navData?.contactLabel || "Contact"
+  const showSearchButton = navData?.showSearchButton !== false
+  const showAuthButton = navData?.showAuthButton !== false
+
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [deptOpen, setDeptOpen] = useState(false)
+  const [mobileDeptOpen, setMobileDeptOpen] = useState(false)
   const [departments, setDepartments] = useState<Department[]>([])
 
   useEffect(() => {
@@ -27,89 +65,118 @@ export function Navbar() {
       .catch(() => {})
   }, [])
 
+  // Lock background scroll when mobile drawer is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = ""
+    }
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [mobileOpen])
+
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-border-subtle bg-page/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-[100] border-b border-border-subtle bg-[#050811]/95 backdrop-blur-xl transition-all shadow-md">
         <nav
-          className="shell flex h-16 items-center justify-between gap-4"
+          className="shell flex h-16 items-center justify-between gap-3 px-4 sm:px-6"
           aria-label="Main navigation"
         >
           {/* Brand Identity */}
           <Link
             to="/"
-            className="group flex shrink-0 items-center gap-3 text-text-primary"
+            className="group flex shrink-0 items-center gap-2.5 sm:gap-3 text-text-primary"
             aria-label="ISTRAC-SIMS home"
           >
             <img
               src="/logo/isro_logo.svg"
               alt="ISRO Logo"
-              className="h-10 sm:h-11 w-auto object-contain shrink-0 transition-transform duration-200 group-hover:scale-105"
+              className="h-9 sm:h-11 w-auto object-contain shrink-0 transition-transform duration-200 group-hover:scale-105"
             />
 
             <div className="flex flex-col">
-              <span className="text-sm font-bold tracking-wider uppercase leading-tight">
-                ISTRAC<span className="text-accent-light">-SIMS</span>
+              <span className="text-sm font-bold tracking-wider uppercase leading-tight sm:text-base">
+                {brandTitle}
+                <span className="text-accent-light">{brandHighlight}</span>
               </span>
-              <span className="text-[10px] text-text-dim uppercase tracking-widest">
-                ISRO Ground Network
+              <span className="text-[9px] sm:text-[10px] text-text-dim uppercase tracking-widest truncate max-w-[140px] sm:max-w-none">
+                {brandSubtitle}
               </span>
             </div>
           </Link>
 
           {/* Desktop Navigation Links */}
           <div className="hidden h-full items-center gap-1 md:flex">
-            <Link
-              to="/#hero"
+            <a
+              href="/#hero"
               className="eyebrow flex h-full items-center px-3.5 text-text-muted transition-colors hover:text-text-primary"
             >
-              Home
-            </Link>
+              {homeLabel}
+            </a>
 
             {/* Departments Dropdown */}
-            <div className="relative h-full flex items-center" onMouseLeave={() => setDeptOpen(false)}>
+            <div
+              className="relative h-full flex items-center"
+              onMouseLeave={() => setDeptOpen(false)}
+            >
               <button
                 type="button"
                 onClick={() => setDeptOpen((prev) => !prev)}
                 onMouseEnter={() => setDeptOpen(true)}
-                className="eyebrow flex h-full items-center gap-1 px-3.5 text-text-muted transition-colors hover:text-text-primary"
+                className="eyebrow flex h-full items-center gap-1 px-3.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
               >
-                <span>Departments</span>
-                <ChevronDown size={12} className={`transition-transform duration-150 ${deptOpen ? 'rotate-180' : ''}`} />
+                <span>{departmentsLabel}</span>
+                <ChevronDown
+                  size={12}
+                  className={`transition-transform duration-150 ${
+                    deptOpen ? "rotate-180" : ""
+                  }`}
+                />
               </button>
 
               {deptOpen && (
-                <div className="absolute top-full left-0 w-64 rounded-xl border border-border-default bg-card shadow-2xl p-2 z-50 animate-rise">
-                  <div className="px-3 py-1.5 border-b border-border-subtle text-[10px] uppercase font-bold text-text-dim">
-                    ISTRAC Operational Divisions
+                <div className="absolute top-full left-0 w-72 rounded-xl border border-border-default bg-[#0b1220] shadow-2xl p-2 z-50 animate-rise backdrop-blur-xl">
+                  <div className="px-3 py-2 border-b border-border-subtle text-[10px] uppercase font-bold text-text-dim flex items-center justify-between">
+                    <span>ISTRAC Divisions</span>
+                    <span className="text-accent-light num">{departments.length} Units</span>
                   </div>
-                  <div className="py-1 max-h-60 overflow-y-auto">
+                  <div className="py-1 max-h-64 overflow-y-auto space-y-0.5">
                     {departments.map((dept) => (
                       <Link
                         key={dept.id}
                         to={`/departments/${dept.id}`}
                         onClick={() => setDeptOpen(false)}
-                        className="flex items-center justify-between rounded-lg px-3 py-2 text-xs text-text-secondary hover:bg-card-hover hover:text-text-primary transition-colors"
+                        className="flex items-center justify-between rounded-lg px-3 py-2 text-xs text-text-secondary hover:bg-accent/15 hover:text-white transition-all group"
                       >
-                        <span className="truncate font-medium">{dept.name}</span>
+                        <span className="truncate font-medium group-hover:translate-x-0.5 transition-transform">
+                          {dept.name}
+                        </span>
                         {dept.code && (
-                          <span className="num text-[10px] text-accent-light rounded bg-surface px-1.5 py-0.5 border border-border-subtle">
-                            {dept.code}
+                          <span className="num text-[10px] text-accent-light rounded bg-surface px-1.5 py-0.5 border border-border-subtle shrink-0">
+                            /{dept.code}
                           </span>
                         )}
                       </Link>
                     ))}
                     {departments.length === 0 && (
-                      <div className="px-3 py-2 text-xs text-text-dim">No departments listed.</div>
+                      <div className="px-3 py-3 text-xs text-text-dim text-center">
+                        No departments listed.
+                      </div>
                     )}
                   </div>
                   <div className="border-t border-border-subtle pt-1.5">
                     <Link
                       to="/departments"
                       onClick={() => setDeptOpen(false)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-accent-light hover:text-text-primary"
+                      className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-accent-light hover:bg-accent/10 hover:text-white transition-colors"
                     >
-                      <Layers size={13} />
-                      <span>View All Departments →</span>
+                      <span className="flex items-center gap-1.5">
+                        <Layers size={13} />
+                        <span>Explore All Divisions</span>
+                      </span>
+                      <span>→</span>
                     </Link>
                   </div>
                 </div>
@@ -120,127 +187,236 @@ export function Navbar() {
               href="/#calendar"
               className="eyebrow flex h-full items-center px-3.5 text-text-muted transition-colors hover:text-text-primary"
             >
-              Calendar & Passes
+              {calendarLabel}
             </a>
 
             <a
               href="/#about"
               className="eyebrow flex h-full items-center px-3.5 text-text-muted transition-colors hover:text-text-primary"
             >
-              About
+              {aboutLabel}
             </a>
 
             <a
               href="/#contact"
               className="eyebrow flex h-full items-center px-3.5 text-text-muted transition-colors hover:text-text-primary"
             >
-              Contact
+              {contactLabel}
             </a>
           </div>
 
-          {/* Search Trigger Bar & Auth Actions */}
-          <div className="flex items-center gap-3">
-            {/* Global Search Button */}
-            <button
-              type="button"
-              onClick={() => setSearchOpen(true)}
-              aria-label="Search telemetry files"
-              className="flex items-center gap-2.5 rounded-lg border border-border-default bg-surface/80 px-3 py-1.5 text-xs text-text-muted hover:border-border-bright hover:text-text-primary transition-colors shadow-sm"
-            >
-              <Search size={14} className="text-accent-light" />
-              <span className="hidden sm:inline">Search files...</span>
-              <kbd className="num hidden rounded bg-card px-1.5 py-0.5 text-[10px] text-text-dim border border-border-subtle sm:inline">
-                Ctrl K
-              </kbd>
-            </button>
-
-            {/* Auth Buttons */}
-            {user ? (
-              <Link to="/dashboard">
-                <Button variant="primary" size="sm" className="shadow-md shadow-accent/20">
-                  <UserCheck size={14} />
-                  <span>Dashboard</span>
-                </Button>
-              </Link>
-            ) : (
-              <div className="hidden sm:flex items-center gap-2">
-                <Link to="/login">
-                  <Button variant="outline" size="sm">
-                    <LogIn size={14} />
-                    <span>Log In</span>
-                  </Button>
-                </Link>
-
-                <Link to="/register">
-                  <Button variant="primary" size="sm" className="shadow-md shadow-accent/20">
-                    Request Access
-                  </Button>
-                </Link>
-              </div>
+          {/* Desktop Right Actions */}
+          <div className="hidden items-center gap-3 md:flex">
+            {showSearchButton && (
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                className="flex items-center gap-2 rounded-xl border border-border-default bg-[#070c18] px-3 py-1.5 text-xs text-text-muted hover:border-accent/50 hover:text-text-primary transition-all cursor-pointer shadow-inner"
+              >
+                <Search size={13} className="text-accent-light" />
+                <span>Search Repository</span>
+                <kbd className="num rounded bg-card px-1.5 py-0.5 text-[10px] text-text-dim border border-border-subtle font-mono">
+                  Ctrl K
+                </kbd>
+              </button>
             )}
 
-            {/* Mobile Hamburger Button */}
+            {showAuthButton && (
+              user ? (
+                <Link to="/app">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="gap-1.5 shadow-sm shadow-accent/20 font-semibold"
+                  >
+                    <UserCheck size={14} />
+                    <span>Mission Console</span>
+                  </Button>
+                </Link>
+              ) : (
+                <Link to="/login">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="gap-1.5 shadow-sm shadow-accent/20 font-semibold"
+                  >
+                    <LogIn size={14} />
+                    <span>Portal Sign In</span>
+                  </Button>
+                </Link>
+              )
+            )}
+          </div>
+
+          {/* Mobile Actions: Search Icon + Hamburger Toggle */}
+          <div className="flex items-center gap-1.5 md:hidden">
+            {showSearchButton && (
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-border-subtle bg-surface/80 text-text-secondary hover:border-accent/50 hover:text-white transition-colors cursor-pointer"
+                aria-label="Search"
+              >
+                <Search size={18} />
+              </button>
+            )}
+
             <button
               type="button"
-              className="rounded-md border border-border-default p-2 text-text-secondary hover:text-text-primary md:hidden"
-              onClick={() => setMobileOpen((prev) => !prev)}
-              aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
+              onClick={() => setMobileOpen(!mobileOpen)}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border-subtle bg-surface/80 text-text-secondary hover:border-accent/50 hover:text-white transition-colors cursor-pointer"
+              aria-label="Toggle navigation menu"
             >
-              {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+              {mobileOpen ? <X size={20} className="text-accent-light" /> : <Menu size={20} />}
             </button>
           </div>
         </nav>
+      </header>
 
-        {/* Mobile Dropdown Menu */}
-        {mobileOpen && (
-          <div className="border-t border-border-subtle bg-page md:hidden">
-            <div className="shell flex flex-col py-3 space-y-1">
-              {NAV_LINKS.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="px-3 py-2 text-xs font-semibold text-text-secondary hover:bg-card hover:text-text-primary rounded-lg transition-colors"
-                >
-                  {link.label}
-                </a>
-              ))}
-
-              <Link
-                to="/departments"
-                onClick={() => setMobileOpen(false)}
-                className="px-3 py-2 text-xs font-semibold text-accent-light hover:bg-card rounded-lg transition-colors flex items-center justify-between"
+      {/* Mobile Full-Screen Navigation Drawer (Outside Header to eliminate overflow & stacking context clipping) */}
+      {mobileOpen && (
+        <div className="fixed inset-0 top-16 z-[999] bg-[#040711]/98 backdrop-blur-2xl md:hidden overflow-y-auto animate-fade-in flex flex-col justify-between p-5 space-y-6">
+          <div className="space-y-4">
+            {/* Quick Search Bar in Mobile Menu */}
+            {showSearchButton && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false)
+                  setSearchOpen(true)
+                }}
+                className="flex w-full items-center justify-between rounded-xl border border-border-default bg-[#0b1220] p-3.5 text-xs text-text-muted hover:border-accent/50 hover:text-white transition-all shadow-inner cursor-pointer"
               >
-                <span>Browse All Departments</span>
-                <span>→</span>
-              </Link>
+                <span className="flex items-center gap-2.5">
+                  <Search size={16} className="text-accent-light" />
+                  <span>Search telemetry records & files…</span>
+                </span>
+                <span className="num text-[10px] text-text-dim bg-surface px-2 py-0.5 rounded border border-border-subtle">
+                  Search
+                </span>
+              </button>
+            )}
 
-              <div className="pt-3 border-t border-border-subtle flex flex-col gap-2">
+            {/* Navigation Items */}
+            <div className="space-y-1 rounded-2xl border border-border-default bg-[#070c18] p-2">
+              <a
+                href="/#hero"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold text-text-primary hover:bg-accent/15 hover:text-accent-light transition-all"
+              >
+                <Home size={16} className="text-accent-light shrink-0" />
+                <span>{homeLabel}</span>
+              </a>
+
+              {/* Mobile Expandable Departments Section */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setMobileDeptOpen(!mobileDeptOpen)}
+                  className="flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-sm font-semibold text-text-primary hover:bg-accent/15 hover:text-accent-light transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <Layers size={16} className="text-accent-light shrink-0" />
+                    <span>{departmentsLabel}</span>
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={`transition-transform duration-200 text-text-dim ${
+                      mobileDeptOpen ? "rotate-180 text-accent-light" : ""
+                    }`}
+                  />
+                </button>
+
+                {mobileDeptOpen && (
+                  <div className="mx-2 mb-2 rounded-xl border border-border-subtle bg-[#0b1220] p-2 space-y-1 animate-fade-in">
+                    {departments.map((dept) => (
+                      <Link
+                        key={dept.id}
+                        to={`/departments/${dept.id}`}
+                        onClick={() => setMobileOpen(false)}
+                        className="flex items-center justify-between rounded-lg px-3 py-2 text-xs text-text-secondary hover:bg-card-hover hover:text-white transition-colors"
+                      >
+                        <span className="truncate">{dept.name}</span>
+                        {dept.code && (
+                          <span className="num text-[10px] text-accent-light bg-surface px-1.5 py-0.5 rounded border border-border-subtle">
+                            /{dept.code}
+                          </span>
+                        )}
+                      </Link>
+                    ))}
+                    <Link
+                      to="/departments"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center justify-between rounded-lg px-3 py-2 text-xs font-bold text-accent-light hover:bg-accent/10 transition-colors pt-2 border-t border-border-subtle"
+                    >
+                      <span>View All Divisions Directory</span>
+                      <span>→</span>
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              <a
+                href="/#calendar"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold text-text-primary hover:bg-accent/15 hover:text-accent-light transition-all"
+              >
+                <Calendar size={16} className="text-accent-light shrink-0" />
+                <span>{calendarLabel}</span>
+              </a>
+
+              <a
+                href="/#about"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold text-text-primary hover:bg-accent/15 hover:text-accent-light transition-all"
+              >
+                <Info size={16} className="text-accent-light shrink-0" />
+                <span>{aboutLabel}</span>
+              </a>
+
+              <a
+                href="/#contact"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold text-text-primary hover:bg-accent/15 hover:text-accent-light transition-all"
+              >
+                <Headphones size={16} className="text-accent-light shrink-0" />
+                <span>{contactLabel}</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Mobile Footer & Auth Button */}
+          <div className="space-y-4 pt-4 border-t border-border-subtle">
+            {showAuthButton && (
+              <div>
                 {user ? (
-                  <Link to="/dashboard" onClick={() => setMobileOpen(false)}>
-                    <Button variant="primary" className="w-full">
-                      Mission Dashboard
+                  <Link to="/app" onClick={() => setMobileOpen(false)}>
+                    <Button variant="primary" size="lg" className="w-full justify-center gap-2 shadow-lg shadow-accent/20">
+                      <UserCheck size={16} />
+                      <span>Launch Mission Console</span>
                     </Button>
                   </Link>
                 ) : (
-                  <>
-                    <Link to="/login" onClick={() => setMobileOpen(false)}>
-                      <Button variant="outline" className="w-full">
-                        Log In
-                      </Button>
-                    </Link>
-                    <Link to="/register" onClick={() => setMobileOpen(false)}>
-                      <Button variant="primary" className="w-full">
-                        Request Access
-                      </Button>
-                    </Link>
-                  </>
+                  <Link to="/login" onClick={() => setMobileOpen(false)}>
+                    <Button variant="primary" size="lg" className="w-full justify-center gap-2 shadow-lg shadow-accent/20">
+                      <LogIn size={16} />
+                      <span>Sign In to Mission Portal</span>
+                    </Button>
+                  </Link>
                 )}
               </div>
+            )}
+
+            {/* Status pill in mobile drawer */}
+            <div className="flex items-center justify-between text-[11px] text-text-dim px-1">
+              <span className="flex items-center gap-1.5 text-nominal">
+                <Radio size={12} className="animate-pulse" /> 24/7 Ops Active
+              </span>
+              <span>MOX Bengaluru · ISRO</span>
             </div>
           </div>
-        )}
-      </header>
+        </div>
+      )}
 
       {/* Global Search Modal */}
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />

@@ -17,7 +17,7 @@ export function validate(
 
     if (!result.success) {
       const message = result.error.issues
-        .map((issue) => {
+        .map((issue: any) => {
           const path = issue.path.length
             ? issue.path.join('.')
             : source

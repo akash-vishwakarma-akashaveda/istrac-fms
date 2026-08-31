@@ -1,5 +1,5 @@
-import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
+﻿import { create } from "zustand"
+import { persist, createJSONStorage } from "zustand/middleware"
 
 export interface User {
   id: string
@@ -8,7 +8,7 @@ export interface User {
   email: string
   employeeId?: string | null
   phone?: string | null
-  role: 'ADMIN' | 'MEMBER'
+  role: "ADMIN" | "MEMBER"
   tempPass?: boolean
   departmentPreference?: string | null
   reasonForAccess?: string | null
@@ -44,9 +44,7 @@ export const useAuthStore = create<AuthState>()(
 
       updateUser: (patch) =>
         set((state) => ({
-          user: state.user
-            ? { ...state.user, ...patch }
-            : null,
+          user: state.user ? { ...state.user, ...patch } : null,
         })),
 
       clearAuth: () =>
@@ -56,14 +54,13 @@ export const useAuthStore = create<AuthState>()(
         }),
     }),
     {
-      name: 'istrac-auth',
-      storage: createJSONStorage(() => sessionStorage),
-
-      // IMPORTANT:
-      // accessToken is NOT persisted.
+      name: "istrac-auth-session",
+      storage: createJSONStorage(() => localStorage),
+      // Persist user and accessToken in localStorage so browser refreshes preserve active session & navigation route
       partialize: (state) => ({
         user: state.user,
+        accessToken: state.accessToken,
       }),
-    },
-  ),
+    }
+  )
 )

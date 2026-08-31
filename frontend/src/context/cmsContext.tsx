@@ -298,6 +298,16 @@ export const DEFAULT_CMS_BLOCKS: Record<string, Record<string, unknown>> = {
     contactPhone: '+91 80 2838 4000',
     address: 'ISTRAC Campus, Plot No. 12 & 13, 3rd Main, 2nd Phase, Peenya Industrial Area, Bengaluru, Karnataka - 560058, India',
   },
+  quick_stats: {
+    stat1Value: '5 Stations',
+    stat1Label: 'Global Ground Network',
+    stat2Value: '10+ Missions',
+    stat2Label: 'Deep Space & LEO',
+    stat3Value: '24/7 MOX Ops',
+    stat3Label: 'Continuous Telemetry',
+    stat4Value: 'SHA-256',
+    stat4Label: 'Cryptographic Integrity',
+  },
 }
 
 const CmsContext = createContext<CmsContextValue>({

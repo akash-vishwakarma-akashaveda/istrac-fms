@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo } from "react"
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -9,69 +9,72 @@ import {
   Sparkles,
   MapPin,
   Search,
-  Filter,
   CheckCircle2,
   Bell,
   LayoutGrid,
   CalendarDays,
-} from 'lucide-react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { eventsApi, type MissionEventItem } from '../api/events.api'
-import { satellitesApi, type Satellite } from '../api/satellites.api'
-import { PageHeader } from '../components'
-import { MissionCalendar } from '../components/MissionCalendar'
+  History,
+  Zap,
+} from "lucide-react"
+import { Link, useSearchParams } from "react-router-dom"
+import { eventsApi, type MissionEventItem } from "../api/events.api"
+import { satellitesApi, type Satellite } from "../api/satellites.api"
+import { PageHeader } from "../components"
+import { MissionCalendar } from "../components/MissionCalendar"
 
 const EVENT_TYPE_MAP: Record<string, { label: string; icon: any; color: string; badge: string }> = {
   MISSION_PASS: {
-    label: 'Spacecraft Tracking Pass',
+    label: "Spacecraft Tracking Pass",
     icon: Radio,
-    color: 'text-accent-light bg-accent/15 border-accent/30',
-    badge: 'PASS',
+    color: "text-accent-light bg-accent/15 border-accent/30",
+    badge: "PASS",
   },
   LAUNCH: {
-    label: 'Rocket Launch Window',
+    label: "Rocket Launch Window",
     icon: Flame,
-    color: 'text-[#FF6B00] bg-[#FF6B00]/15 border-[#FF6B00]/30',
-    badge: 'LAUNCH',
+    color: "text-[#FF6B00] bg-[#FF6B00]/15 border-[#FF6B00]/30",
+    badge: "LAUNCH",
   },
   ORBIT_MANEUVER: {
-    label: 'Orbit Correction Maneuver',
+    label: "Orbit Correction Maneuver",
     icon: Sparkles,
-    color: 'text-purple-400 bg-purple-400/15 border-purple-400/30',
-    badge: 'MANEUVER',
+    color: "text-purple-400 bg-purple-400/15 border-purple-400/30",
+    badge: "MANEUVER",
   },
   MAINTENANCE: {
-    label: 'Ground Station Maintenance',
+    label: "Ground Station Maintenance",
     icon: AlertTriangle,
-    color: 'text-yellow-400 bg-yellow-400/15 border-yellow-400/30',
-    badge: 'MAINTENANCE',
+    color: "text-yellow-400 bg-yellow-400/15 border-yellow-400/30",
+    badge: "MAINTENANCE",
   },
   SEMINAR: {
-    label: 'Operational Review',
+    label: "Operational Review",
     icon: Building2,
-    color: 'text-nominal bg-nominal/15 border-nominal/30',
-    badge: 'REVIEW',
+    color: "text-nominal bg-nominal/15 border-nominal/30",
+    badge: "REVIEW",
   },
   ANOMALY: {
-    label: 'Telemetry Anomaly Review',
+    label: "Telemetry Anomaly Review",
     icon: AlertTriangle,
-    color: 'text-red-400 bg-red-400/15 border-red-400/30',
-    badge: 'ANOMALY',
+    color: "text-red-400 bg-red-400/15 border-red-400/30",
+    badge: "ANOMALY",
   },
 }
 
+export type TimelineTab = "ACTIVE_UPCOMING" | "PAST"
+
 export function UserEvents() {
   const [searchParams] = useSearchParams()
-  const targetEventId = searchParams.get('eventId')
+  const targetEventId = searchParams.get("eventId")
 
   const [events, setEvents] = useState<MissionEventItem[]>([])
   const [satellites, setSatellites] = useState<Satellite[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('ALL')
-  const [typeFilter, setTypeFilter] = useState('ALL')
-  const [satelliteFilter, setSatelliteFilter] = useState('ALL')
-  const [viewMode, setViewMode] = useState<'calendar' | 'cards' | 'both'>('both')
+  const [search, setSearch] = useState("")
+  const [timelineTab, setTimelineTab] = useState<TimelineTab>("ACTIVE_UPCOMING")
+  const [typeFilter, setTypeFilter] = useState("ALL")
+  const [satelliteFilter, setSatelliteFilter] = useState("ALL")
+  const [viewMode, setViewMode] = useState<"calendar" | "cards" | "both">("both")
 
   useEffect(() => {
     async function loadData() {
@@ -84,7 +87,7 @@ export function UserEvents() {
         setEvents(evData || [])
         setSatellites(satData || [])
       } catch (err) {
-        console.error('Failed to fetch events:', err)
+        console.error("Failed to fetch events:", err)
       } finally {
         setLoading(false)
       }
@@ -98,44 +101,66 @@ export function UserEvents() {
       setTimeout(() => {
         const el = document.getElementById(`event-card-${targetEventId}`)
         if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          el.scrollIntoView({ behavior: "smooth", block: "center" })
         }
       }, 200)
     }
   }, [targetEventId, loading, events])
 
-  // Filter events
+  // Split into Active/Upcoming vs Past events
+  const { activeUpcomingEvents, pastEvents } = useMemo(() => {
+    const now = new Date()
+    const active: MissionEventItem[] = []
+    const past: MissionEventItem[] = []
+
+    events.forEach((ev) => {
+      const evDate = new Date(ev.eventDate)
+      const isPast = ev.status === "COMPLETED" || ev.status === "CANCELLED" || (ev.status !== "IN_PROGRESS" && evDate < now)
+
+      if (isPast) {
+        past.push(ev)
+      } else {
+        active.push(ev)
+      }
+    })
+
+    // Active sorted soonest first; Past sorted most recent first
+    active.sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())
+    past.sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime())
+
+    return { activeUpcomingEvents: active, pastEvents: past }
+  }, [events])
+
+  // Filter events based on active tab + search filters
+  const currentTabEvents = timelineTab === "ACTIVE_UPCOMING" ? activeUpcomingEvents : pastEvents
+
   const filteredEvents = useMemo(() => {
-    return events.filter((e) => {
-      if (statusFilter !== 'ALL' && e.status !== statusFilter) return false
-      if (typeFilter !== 'ALL' && e.eventType !== typeFilter) return false
-      if (satelliteFilter !== 'ALL' && e.satelliteId !== satelliteFilter) return false
+    return currentTabEvents.filter((e) => {
+      if (typeFilter !== "ALL" && e.eventType !== typeFilter) return false
+      if (satelliteFilter !== "ALL" && e.satelliteId !== satelliteFilter) return false
       if (search.trim()) {
         const q = search.toLowerCase()
         const matchTitle = e.title.toLowerCase().includes(q)
-        const matchDesc = (e.description || '').toLowerCase().includes(q)
-        const matchLoc = (e.location || '').toLowerCase().includes(q)
-        const matchSat = (e.satellite?.name || '').toLowerCase().includes(q)
+        const matchDesc = (e.description || "").toLowerCase().includes(q)
+        const matchLoc = (e.location || "").toLowerCase().includes(q)
+        const matchSat = (e.satellite?.name || "").toLowerCase().includes(q)
         if (!matchTitle && !matchDesc && !matchLoc && !matchSat) return false
       }
       return true
     })
-  }, [events, statusFilter, typeFilter, satelliteFilter, search])
+  }, [currentTabEvents, typeFilter, satelliteFilter, search])
 
   // Find next upcoming critical or in-progress event
-  const nextEvent = useMemo(() => {
-    const upcoming = events.filter((e) => e.status === 'UPCOMING' || e.status === 'IN_PROGRESS')
-    return upcoming.sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())[0]
-  }, [events])
+  const nextEvent = activeUpcomingEvents[0]
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-20 text-text-primary">
+    <div className="w-full space-y-6 pb-20 text-text-primary">
       <PageHeader
         eyebrow="Mission Operations"
         title="Tracking Passes & Flight Events"
         meta={
           <span className="num text-xs text-text-dim font-mono">
-            {events.length} Scheduled Events
+            {activeUpcomingEvents.length} Active / Upcoming · {pastEvents.length} Past Archived
           </span>
         }
         actions={
@@ -144,11 +169,11 @@ export function UserEvents() {
             <div className="flex items-center rounded-lg border border-border-default bg-[#060c18] p-0.5">
               <button
                 type="button"
-                onClick={() => setViewMode('both')}
+                onClick={() => setViewMode("both")}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === 'both'
-                    ? 'bg-accent text-white shadow-sm'
-                    : 'text-text-secondary hover:text-white'
+                  viewMode === "both"
+                    ? "bg-accent text-white shadow-sm"
+                    : "text-text-secondary hover:text-white"
                 }`}
                 title="All-in-one Calendar and Event Cards view"
               >
@@ -157,11 +182,11 @@ export function UserEvents() {
 
               <button
                 type="button"
-                onClick={() => setViewMode('calendar')}
+                onClick={() => setViewMode("calendar")}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === 'calendar'
-                    ? 'bg-accent text-white shadow-sm'
-                    : 'text-text-secondary hover:text-white'
+                  viewMode === "calendar"
+                    ? "bg-accent text-white shadow-sm"
+                    : "text-text-secondary hover:text-white"
                 }`}
                 title="Interactive Dual-Month Calendar"
               >
@@ -171,11 +196,11 @@ export function UserEvents() {
 
               <button
                 type="button"
-                onClick={() => setViewMode('cards')}
+                onClick={() => setViewMode("cards")}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === 'cards'
-                    ? 'bg-accent text-white shadow-sm'
-                    : 'text-text-secondary hover:text-white'
+                  viewMode === "cards"
+                    ? "bg-accent text-white shadow-sm"
+                    : "text-text-secondary hover:text-white"
                 }`}
                 title="Passes & Events List"
               >
@@ -205,7 +230,9 @@ export function UserEvents() {
                   <Radio size={12} />
                   <span>Next Operational Event</span>
                 </span>
-                <span className="rounded bg-surface border border-border-subtle px-2 py-0.5 text-[10px] font-mono text-text-dim">
+                <span className={`rounded px-2 py-0.5 text-[10px] font-mono font-bold ${
+                  nextEvent.status === "IN_PROGRESS" ? "bg-nominal/20 text-nominal border border-nominal/40 animate-pulse" : "bg-surface border border-border-subtle text-text-dim"
+                }`}>
                   {nextEvent.status}
                 </span>
               </div>
@@ -223,10 +250,10 @@ export function UserEvents() {
               <div className="flex flex-wrap items-center gap-4 text-xs text-text-dim pt-1 font-mono">
                 <span className="flex items-center gap-1 text-white font-bold">
                   <Clock size={13} className="text-accent-light" />
-                  {new Date(nextEvent.eventDate).toLocaleString('en-US', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  })}
+                  {new Date(nextEvent.eventDate).toLocaleString("en-US", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })} IST
                 </span>
                 {nextEvent.location && (
                   <span className="flex items-center gap-1">
@@ -255,7 +282,7 @@ export function UserEvents() {
       )}
 
       {/* DUAL-MONTH INTERACTIVE MISSION CALENDAR VIEW */}
-      {(viewMode === 'calendar' || viewMode === 'both') && (
+      {(viewMode === "calendar" || viewMode === "both") && (
         <div className="animate-in fade-in-50 duration-200">
           <MissionCalendar
             isEmbedded={true}
@@ -266,19 +293,52 @@ export function UserEvents() {
       )}
 
       {/* PASSES FILTER & EVENT CARDS GRID */}
-      {(viewMode === 'cards' || viewMode === 'both') && (
+      {(viewMode === "cards" || viewMode === "both") && (
         <div className="space-y-6 animate-in fade-in-50 duration-200">
-          {/* FILTER CONTROLS */}
-          <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm space-y-3">
-            <div className="flex items-center justify-between border-b border-border-subtle pb-2.5">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
-                <Filter size={13} className="text-accent-light" />
-                <span>Filter Passes & Operations Schedule</span>
-              </h3>
-              <span className="text-xs text-text-dim">{filteredEvents.length} Matched</span>
+          {/* TIMELINE TABS: ACTIVE / UPCOMING VS PAST ARCHIVED */}
+          <div className="flex items-center justify-between border-b border-border-subtle gap-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setTimelineTab("ACTIVE_UPCOMING")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                  timelineTab === "ACTIVE_UPCOMING"
+                    ? "border-accent text-accent-light bg-accent/10 rounded-t-lg"
+                    : "border-transparent text-text-dim hover:text-white"
+                }`}
+              >
+                <Zap size={14} className={timelineTab === "ACTIVE_UPCOMING" ? "animate-pulse text-accent-light" : ""} />
+                <span>Live & Future Events</span>
+                <span className="num rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent-light">
+                  {activeUpcomingEvents.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTimelineTab("PAST")}
+                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                  timelineTab === "PAST"
+                    ? "border-accent text-accent-light bg-accent/10 rounded-t-lg"
+                    : "border-transparent text-text-dim hover:text-white"
+                }`}
+              >
+                <History size={14} />
+                <span>Past & Completed Events</span>
+                <span className="num rounded-full bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim">
+                  {pastEvents.length}
+                </span>
+              </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            <span className="text-[11px] text-text-dim hidden sm:block">
+              {timelineTab === "ACTIVE_UPCOMING" ? "Showing real-time live and upcoming passes" : "Historical operations archive"}
+            </span>
+          </div>
+
+          {/* FILTER CONTROLS */}
+          <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div>
                 <label className="block text-[11px] font-bold text-text-dim uppercase mb-1">Event Type</label>
                 <select
@@ -287,27 +347,11 @@ export function UserEvents() {
                   className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-white outline-none focus:border-accent cursor-pointer"
                 >
                   <option value="ALL">All Event Types</option>
-                  <option value="MISSION_PASS">Spacecraft Tracking Pass</option>
-                  <option value="LAUNCH">Rocket Launch Window</option>
-                  <option value="ORBIT_MANEUVER">Orbit Correction Maneuver</option>
-                  <option value="MAINTENANCE">Ground Station Maintenance</option>
-                  <option value="SEMINAR">Operational Review</option>
-                  <option value="ANOMALY">Anomaly Investigation</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-text-dim uppercase mb-1">Status</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-white outline-none focus:border-accent cursor-pointer"
-                >
-                  <option value="ALL">All Statuses</option>
-                  <option value="UPCOMING">Upcoming</option>
-                  <option value="IN_PROGRESS">In Progress</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="CANCELLED">Cancelled</option>
+                  {Object.entries(EVENT_TYPE_MAP).map(([key, val]) => (
+                    <option key={key} value={key}>
+                      {val.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -351,17 +395,20 @@ export function UserEvents() {
           ) : filteredEvents.length === 0 ? (
             <div className="rounded-xl border border-border-subtle bg-card p-12 text-center space-y-2">
               <CalendarIcon size={32} className="mx-auto text-text-dim opacity-50" />
-              <p className="text-sm font-bold text-white">No Scheduled Events Found</p>
-              <p className="text-xs text-text-dim">No flight passes or operations match your active filters.</p>
+              <p className="text-sm font-bold text-white">
+                {timelineTab === "ACTIVE_UPCOMING" ? "No Active or Future Events Found" : "No Past Archived Events Found"}
+              </p>
+              <p className="text-xs text-text-dim">Try adjusting your filters or keyword search above.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredEvents.map((ev) => {
                 const meta = EVENT_TYPE_MAP[ev.eventType] || EVENT_TYPE_MAP.MISSION_PASS
                 const Icon = meta.icon
-                const isCritical = ev.urgency === 'CRITICAL'
-                const isImportant = ev.urgency === 'IMPORTANT'
+                const isCritical = ev.urgency === "CRITICAL"
+                const isImportant = ev.urgency === "IMPORTANT"
                 const isTarget = targetEventId === ev.id
+                const isPast = timelineTab === "PAST"
 
                 return (
                   <div
@@ -369,8 +416,10 @@ export function UserEvents() {
                     id={`event-card-${ev.id}`}
                     className={`rounded-xl border p-5 shadow-sm transition-all flex flex-col justify-between space-y-3 group ${
                       isTarget
-                        ? 'border-accent ring-2 ring-accent/60 bg-[#0a1738] shadow-lg shadow-accent/10 scale-[1.01]'
-                        : 'border-border-default bg-card hover:border-accent/40'
+                        ? "border-accent ring-2 ring-accent/60 bg-[#0a1738] shadow-lg shadow-accent/10 scale-[1.01]"
+                        : isPast
+                        ? "border-border-subtle bg-[#080e1a] opacity-80 hover:opacity-100 hover:border-border-default"
+                        : "border-border-default bg-card hover:border-accent/40"
                     }`}
                   >
                     <div className="space-y-2">
@@ -393,11 +442,11 @@ export function UserEvents() {
 
                         <span
                           className={`rounded-md px-2 py-0.5 text-[10px] font-bold font-mono ${
-                            ev.status === 'UPCOMING'
-                              ? 'bg-accent/15 text-accent-light border border-accent/30'
-                              : ev.status === 'IN_PROGRESS'
-                              ? 'bg-nominal/15 text-nominal border border-nominal/30 animate-pulse'
-                              : 'bg-surface text-text-dim border border-border-subtle'
+                            ev.status === "UPCOMING"
+                              ? "bg-accent/15 text-accent-light border border-accent/30"
+                              : ev.status === "IN_PROGRESS"
+                              ? "bg-nominal/15 text-nominal border border-nominal/30 animate-pulse"
+                              : "bg-surface text-text-dim border border-border-subtle"
                           }`}
                         >
                           {ev.status}
@@ -425,12 +474,12 @@ export function UserEvents() {
                     <div className="pt-2 border-t border-border-subtle flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-text-dim">
                       <span className="flex items-center gap-1.5 text-white font-semibold">
                         <Clock size={12} className="text-accent-light" />
-                        {new Date(ev.eventDate).toLocaleString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        {new Date(ev.eventDate).toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })} IST
                       </span>
 
                       {ev.location && (

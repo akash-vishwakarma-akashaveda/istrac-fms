@@ -1,8 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from "react"
 import {
   FileText,
   Lock,
-  Download,
   ShieldCheck,
   HardDrive,
   FileCode,
@@ -12,11 +11,14 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
-} from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuthStore } from '../store/authStore'
-import { useCms } from '../context/cmsContext'
-import { Button } from '.'
+  FolderOpen,
+} from "lucide-react"
+import { Link, useNavigate } from "react-router-dom"
+import { useAuthStore } from "../store/authStore"
+import { useCms } from "../context/cmsContext"
+import { Button } from "."
+import { apiClient } from "../api/client"
+import { formatFileSize } from "../lib/formatFileSize"
 
 export interface FeaturedReportItem {
   id: string
@@ -35,93 +37,66 @@ const EXT_CONFIG: Record<
   string,
   { label: string; badge: string; icon: typeof FileText }
 > = {
-  BIN: { label: 'BIN', badge: 'bg-accent/15 text-accent-light border-accent/30', icon: FileCode },
-  DAT: { label: 'DAT', badge: 'bg-nominal/15 text-nominal border-nominal/30', icon: FileCode },
-  PDF: { label: 'PDF', badge: 'bg-critical/15 text-critical border-critical/30', icon: FileText },
-  CSV: { label: 'CSV', badge: 'bg-warning/15 text-warning border-warning/30', icon: FileSpreadsheet },
-  LOG: { label: 'LOG', badge: 'bg-purple-400/15 text-purple-400 border-purple-400/30', icon: FileText },
+  BIN: { label: "BIN", badge: "bg-accent/15 text-accent-light border-accent/30", icon: FileCode },
+  DAT: { label: "DAT", badge: "bg-nominal/15 text-nominal border-nominal/30", icon: FileCode },
+  PDF: { label: "PDF", badge: "bg-critical/15 text-critical border-critical/30", icon: FileText },
+  CSV: { label: "CSV", badge: "bg-warning/15 text-warning border-warning/30", icon: FileSpreadsheet },
+  DOCX: { label: "DOCX", badge: "bg-blue-400/15 text-blue-400 border-blue-400/30", icon: FileText },
+  XLSX: { label: "XLSX", badge: "bg-emerald-400/15 text-emerald-400 border-emerald-400/30", icon: FileSpreadsheet },
+  ZIP: { label: "ZIP", badge: "bg-amber-400/15 text-amber-400 border-amber-400/30", icon: FileText },
+  LOG: { label: "LOG", badge: "bg-purple-400/15 text-purple-400 border-purple-400/30", icon: FileText },
 }
-
-const DEFAULT_REPORTS: FeaturedReportItem[] = [
-  {
-    id: 'rep-1',
-    title: 'Cartosat-3 S-Band Telemetry Ingestion Log',
-    filename: 'CARTOSAT3_SBAND_PASS_20260825.bin',
-    department: 'TTC',
-    satellite: 'Cartosat-3',
-    fileSize: '412.8 MB',
-    extension: 'BIN',
-    date: '2026-08-25',
-    classification: 'RESTRICTED / OP-4',
-    description: 'Raw high-rate telemetry downlink packets verified with frame sync lock and zero CRC dropouts.',
-  },
-  {
-    id: 'rep-2',
-    title: 'Aditya-L1 Halo Orbit Determination Ephemeris',
-    filename: 'ADITYA_L1_HALO_ORBIT_EPHEMERIS_V4.dat',
-    department: 'FDD',
-    satellite: 'Aditya-L1',
-    fileSize: '64.2 MB',
-    extension: 'DAT',
-    date: '2026-08-24',
-    classification: 'RESTRICTED / FDD-1',
-    description: 'Precision state vectors and Doppler ranging residuals computed via Byalalu 32m deep space tracking.',
-  },
-  {
-    id: 'rep-3',
-    title: 'NETRA Space Conjunction Screening Report',
-    filename: 'IS4OM_CONJUNCTION_ASSESSMENT_Q3.pdf',
-    department: 'NETRA',
-    satellite: 'Multi-Mission',
-    fileSize: '18.4 MB',
-    extension: 'PDF',
-    date: '2026-08-23',
-    classification: 'RESTRICTED / SSA-2',
-    description: '72-hour orbital debris proximity matrix and collision risk assessment for all active payloads.',
-  },
-  {
-    id: 'rep-4',
-    title: 'PSLV-C59 Stage-4 Telemetry & Separation Dump',
-    filename: 'PSLV_C59_PS4_TELEMETRY_DUMP.csv',
-    department: 'GSO',
-    satellite: 'Launch Vehicle',
-    fileSize: '128.5 MB',
-    extension: 'CSV',
-    date: '2026-08-21',
-    classification: 'RESTRICTED / LV-TRACK',
-    description: 'Downrange Port Blair and Mauritius telemetry relay packets for orbital injection stage.',
-  },
-  {
-    id: 'rep-5',
-    title: 'Gaganyaan TTC Readiness & Data Stream Report',
-    filename: 'GAGANYAAN_TTC_SIM_REPORT_2026.pdf',
-    department: 'MOX',
-    satellite: 'Gaganyaan',
-    fileSize: '45.8 MB',
-    extension: 'PDF',
-    date: '2026-08-20',
-    classification: 'RESTRICTED / MOX-1',
-    description: 'End-to-end telemetry pipeline dry run parameters across global ground stations.',
-  },
-]
 
 export function FeaturedReports() {
   const user = useAuthStore((s) => s.user)
   const navigate = useNavigate()
   const { cmsBlocks } = useCms()
 
-  const rawReports =
-    (cmsBlocks['featured_reports']?.items as FeaturedReportItem[]) ??
-    DEFAULT_REPORTS
-
-  const [selectedDept, setSelectedDept] = useState<string>('ALL')
+  const [dbFiles, setDbFiles] = useState<FeaturedReportItem[]>([])
+  const [selectedDept, setSelectedDept] = useState<string>("ALL")
   const [restrictedModalItem, setRestrictedModalItem] = useState<FeaturedReportItem | null>(null)
   const carouselRef = useRef<HTMLDivElement>(null)
 
-  const departments = ['ALL', ...Array.from(new Set(rawReports.map((r) => r.department)))]
+  // Fetch real uploaded files if CMS has not explicitly set any featured files yet
+  useEffect(() => {
+    const cmsItems = cmsBlocks["featured_reports"]?.items as FeaturedReportItem[] | undefined
+    if (cmsItems && cmsItems.length > 0) {
+      setDbFiles(cmsItems)
+    } else {
+      // Fetch latest real files directly from backend repository
+      apiClient
+        .get("/admin/files/repository-list")
+        .then((res) => {
+          if (res.data?.data && res.data.data.length > 0) {
+            const mapped: FeaturedReportItem[] = res.data.data.slice(0, 10).map((f: any) => ({
+              id: f.id,
+              title: f.name.replace(/\.[^/.]+$/, "").replace(/_/g, " "),
+              filename: f.name,
+              department: f.department || "TTC",
+              satellite: f.satellite || "Primary Fleet",
+              fileSize: formatFileSize(Number(f.sizeBytes) || 0),
+              extension: (f.extension || "DAT").toUpperCase(),
+              date: f.createdAt ? f.createdAt.split("T")[0] : new Date().toISOString().split("T")[0],
+              classification: "RESTRICTED",
+              description: `Official telemetry archive and observation report for ${f.satellite || f.department}.`,
+            }))
+            setDbFiles(mapped)
+          } else {
+            setDbFiles([])
+          }
+        })
+        .catch(() => {
+          setDbFiles([])
+        })
+    }
+  }, [cmsBlocks])
+
+  const rawReports = (cmsBlocks["featured_reports"]?.items as FeaturedReportItem[]) || dbFiles
+
+  const departments = ["ALL", ...Array.from(new Set(rawReports.map((r) => r.department)))]
 
   const filtered =
-    selectedDept === 'ALL'
+    selectedDept === "ALL"
       ? rawReports
       : rawReports.filter((r) => r.department.toUpperCase() === selectedDept.toUpperCase())
 
@@ -135,13 +110,13 @@ export function FeaturedReports() {
 
   const scrollLeft = () => {
     if (carouselRef.current) {
-      carouselRef.current.scrollBy({ left: -360, behavior: 'smooth' })
+      carouselRef.current.scrollBy({ left: -360, behavior: "smooth" })
     }
   }
 
   const scrollRight = () => {
     if (carouselRef.current) {
-      carouselRef.current.scrollBy({ left: 360, behavior: 'smooth' })
+      carouselRef.current.scrollBy({ left: 360, behavior: "smooth" })
     }
   }
 
@@ -174,251 +149,211 @@ export function FeaturedReports() {
             </div>
 
             {/* Right Controls: Department Filter Chips & Navigation Arrows */}
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Department Filters */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="eyebrow mr-1 text-text-dim flex items-center gap-1 text-[11px]">
-                  <Filter size={11} /> Dept:
-                </span>
-                {departments.map((dept) => (
-                  <button
-                    key={dept}
-                    type="button"
-                    onClick={() => setSelectedDept(dept)}
-                    className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors ${
-                      selectedDept === dept
-                        ? 'bg-accent text-white shadow-sm shadow-accent/30'
-                        : 'border border-border-subtle bg-surface text-text-muted hover:border-border-default hover:text-text-primary'
-                    }`}
-                  >
-                    {dept}
-                  </button>
-                ))}
-              </div>
+            {rawReports.length > 0 && (
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="eyebrow mr-1 text-text-dim flex items-center gap-1 text-[11px]">
+                    <Filter size={11} /> Dept:
+                  </span>
+                  {departments.map((dept) => (
+                    <button
+                      key={dept}
+                      type="button"
+                      onClick={() => setSelectedDept(dept)}
+                      className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors ${
+                        selectedDept === dept
+                          ? "bg-accent text-white shadow-sm shadow-accent/30"
+                          : "border border-border-subtle bg-surface text-text-muted hover:border-border-default hover:text-text-primary"
+                      }`}
+                    >
+                      {dept}
+                    </button>
+                  ))}
+                </div>
 
-              {/* Navigation Arrows for Single Row Carousel */}
-              <div className="flex items-center gap-1.5 pl-2 border-l border-border-subtle">
-                <button
-                  type="button"
-                  onClick={scrollLeft}
-                  aria-label="Previous reports"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-surface text-text-muted hover:border-accent hover:text-text-primary transition-colors shadow-sm"
-                >
-                  <ChevronLeft size={15} />
-                </button>
-                <button
-                  type="button"
-                  onClick={scrollRight}
-                  aria-label="Next reports"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-surface text-text-muted hover:border-accent hover:text-text-primary transition-colors shadow-sm"
-                >
-                  <ChevronRight size={15} />
-                </button>
+                <div className="flex items-center gap-1.5 pl-2 border-l border-border-subtle">
+                  <button
+                    type="button"
+                    onClick={scrollLeft}
+                    aria-label="Previous reports"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-surface text-text-muted hover:border-accent hover:text-text-primary transition-colors shadow-sm"
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={scrollRight}
+                    aria-label="Next reports"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-surface text-text-muted hover:border-accent hover:text-text-primary transition-colors shadow-sm"
+                  >
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Single Row Horizontal Scrolling Carousel */}
-          <div className="relative mt-8">
-            <div
-              ref={carouselRef}
-              className="flex items-stretch gap-4 overflow-x-auto pb-4 scrollbar-none snap-x"
-            >
-              {filtered.map((item) => {
-                const ext = (item.extension || 'DAT').toUpperCase()
-                const meta = EXT_CONFIG[ext] || EXT_CONFIG.DAT
-                const Icon = meta.icon
+          {/* Carousel / List */}
+          {filtered.length === 0 ? (
+            <div className="mt-8 rounded-2xl border border-dashed border-border-subtle bg-[#0d1629]/50 p-12 text-center">
+              <FolderOpen size={32} className="mx-auto text-text-dim mb-3" />
+              <h3 className="text-sm font-semibold text-white">No Featured Files Available</h3>
+              <p className="text-xs text-text-muted max-w-sm mx-auto mt-1">
+                Upload files in the File Repository or select files from the Portal CMS to feature them here.
+              </p>
+            </div>
+          ) : (
+            <div className="relative mt-8">
+              <div
+                ref={carouselRef}
+                className="flex items-stretch gap-4 overflow-x-auto pb-4 scrollbar-none snap-x"
+              >
+                {filtered.map((item) => {
+                  const ext = (item.extension || "DAT").toUpperCase()
+                  const meta = EXT_CONFIG[ext] || EXT_CONFIG.DAT
+                  const Icon = meta.icon
 
-                return (
-                  <div
-                    key={item.id}
-                    className="group relative flex w-[320px] sm:w-[350px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-2xl border border-border-default bg-[#0d1629] p-5 shadow-card transition-all duration-300 hover:border-accent/40 hover:bg-[#101c36] hover:shadow-2xl"
-                  >
-                    <div>
-                      {/* Top Row: Extension badge, Satellite tag, Date */}
-                      <div className="flex items-center justify-between border-b border-border-subtle/70 pb-3">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${meta.badge}`}
-                          >
-                            <Icon size={12} />
-                            {meta.label}
-                          </span>
+                  return (
+                    <div
+                      key={item.id}
+                      className="group relative flex w-[320px] sm:w-[350px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-2xl border border-border-default bg-[#0d1629] p-5 shadow-card transition-all duration-300 hover:border-accent/40 hover:bg-[#101c36] hover:shadow-2xl"
+                    >
+                      <div>
+                        {/* Top Row: Extension badge, Satellite tag, Date */}
+                        <div className="flex items-center justify-between border-b border-border-subtle/70 pb-3">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${meta.badge}`}
+                            >
+                              <Icon size={12} />
+                              {meta.label}
+                            </span>
 
-                          <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary border border-border-subtle">
-                            {item.satellite}
+                            <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary border border-border-subtle">
+                              {item.satellite}
+                            </span>
+                          </div>
+
+                          <span className="num text-[11px] font-medium text-text-dim">
+                            {item.date}
                           </span>
                         </div>
 
-                        <span className="num text-[11px] text-text-dim">{item.date}</span>
-                      </div>
+                        {/* Title & Filename */}
+                        <div className="mt-4">
+                          <h3 className="text-sm font-bold leading-snug text-white group-hover:text-accent-light transition-colors line-clamp-1">
+                            {item.title}
+                          </h3>
 
-                      {/* Title & Monospace Filename */}
-                      <div className="mt-3.5">
-                        <h3 className="text-sm font-bold text-text-primary group-hover:text-accent-light transition-colors line-clamp-1">
-                          {item.title}
-                        </h3>
+                          <p className="mt-1 font-mono text-[11px] text-text-dim truncate">
+                            {item.filename}
+                          </p>
+                        </div>
 
-                        <p className="num mt-1 truncate rounded bg-[#070c17] px-2.5 py-1 text-[11px] font-mono text-accent-light border border-border-subtle/60">
-                          {item.filename}
-                        </p>
-
+                        {/* Description */}
                         {item.description && (
-                          <p className="mt-2 text-xs leading-relaxed text-text-muted line-clamp-2">
+                          <p className="mt-3 text-xs leading-relaxed text-text-secondary line-clamp-2">
                             {item.description}
                           </p>
                         )}
                       </div>
-                    </div>
 
-                    {/* Footer Row: Department, Size & Action Button */}
-                    <div className="mt-5 flex items-center justify-between border-t border-border-subtle/70 pt-3.5">
-                      <div className="flex items-center gap-2.5 text-[11px] text-text-dim">
-                        <span className="num font-bold text-text-primary">{item.fileSize}</span>
-                        <span>·</span>
-                        <span className="rounded bg-surface px-1.5 py-0.5 num font-semibold text-accent-light border border-border-subtle">
-                          {item.department}
-                        </span>
+                      {/* Footer: Size, Dept, Action Button */}
+                      <div className="mt-5 flex items-center justify-between border-t border-border-subtle/70 pt-3">
+                        <div className="flex items-center gap-2">
+                          <span className="num text-xs font-bold text-white">
+                            {item.fileSize}
+                          </span>
+                          <span className="text-[10px] text-text-dim">·</span>
+                          <span className="rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-mono font-bold text-accent-light">
+                            {item.department}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleFileAction(item)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:border-accent hover:text-white transition-all shadow-sm group-hover:border-accent/60"
+                        >
+                          <Lock size={12} className="text-accent-light" />
+                          <span>Access File</span>
+                        </button>
                       </div>
-
-                      {/* Action Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleFileAction(item)}
-                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
-                          user
-                            ? 'border-accent bg-accent/15 text-accent-light hover:bg-accent hover:text-white'
-                            : 'border-border-default bg-surface text-text-secondary hover:border-warning/50 hover:bg-warning/10 hover:text-warning'
-                        }`}
-                      >
-                        {user ? (
-                          <>
-                            <Download size={13} />
-                            <span>Open File</span>
-                          </>
-                        ) : (
-                          <>
-                            <Lock size={12} className="text-warning" />
-                            <span>Access File</span>
-                          </>
-                        )}
-                      </button>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {filtered.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-border-default bg-[#0d1629] p-12 text-center text-text-muted">
-                <FileText size={32} className="mx-auto mb-2 opacity-30 text-accent-light" />
-                <p className="text-xs font-semibold text-text-primary">No files available for {selectedDept}</p>
-                <p className="num mt-1 text-[11px] text-text-dim">Additional datasets can be indexed in the Admin CMS.</p>
+                  )
+                })}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </section>
 
-      {/* Restricted File Access Modal for Unauthenticated Guests */}
+      {/* Restricted Access Modal */}
       {restrictedModalItem && (
-        <RestrictedFileModal
-          file={restrictedModalItem}
-          onClose={() => setRestrictedModalItem(null)}
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+          <div className="relative w-full max-w-md rounded-2xl border border-border-default bg-[#0c1426] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border-subtle pb-3">
+              <div className="flex items-center gap-2 text-accent-light">
+                <ShieldCheck size={18} />
+                <span className="text-xs font-bold uppercase tracking-wider">
+                  Restricted Mission Archive
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRestrictedModalItem(null)}
+                className="p-1 rounded-md text-text-dim hover:text-white transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="text-base font-bold text-white">
+                {restrictedModalItem.title}
+              </h4>
+              <p className="text-xs text-text-secondary leading-relaxed">
+                Direct access to telemetry records and engineering dumps requires an authenticated ISRO account with authorized department clearances.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-border-subtle bg-[#060c18] p-3 space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-text-dim">Filename:</span>
+                <span className="font-mono text-white text-[11px] truncate max-w-[240px]">
+                  {restrictedModalItem.filename}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-text-dim">Department:</span>
+                <span className="font-bold text-accent-light">
+                  {restrictedModalItem.department}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-text-dim">Security Tier:</span>
+                <span className="font-bold text-warning">
+                  {restrictedModalItem.classification || "RESTRICTED"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Link to="/login" className="flex-1">
+                <Button variant="primary" size="sm" className="w-full justify-center gap-1.5">
+                  <LogIn size={13} />
+                  <span>Log In to Access</span>
+                </Button>
+              </Link>
+              <Link to="/register" className="flex-1">
+                <Button variant="outline" size="sm" className="w-full justify-center">
+                  Request Access
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
       )}
     </>
-  )
-}
-
-function RestrictedFileModal({
-  file,
-  onClose,
-}: {
-  file: FeaturedReportItem
-  onClose: () => void
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-page/85 backdrop-blur-sm animate-rise">
-      <div
-        className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-border-default bg-[#0b1220] shadow-2xl"
-        role="dialog"
-        aria-modal="true"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border-subtle bg-[#101a2f] px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-warning/15 border border-warning/30 text-warning">
-              <Lock size={18} />
-            </div>
-            <div>
-              <span className="eyebrow text-warning block text-[10px]">
-                RESTRICTED FILE ACCESS
-              </span>
-              <h3 className="text-sm font-bold text-text-primary leading-tight">
-                Authentication Required
-              </h3>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close modal"
-            className="rounded-lg p-1.5 text-text-dim hover:bg-card hover:text-text-primary transition-colors"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Modal Body */}
-        <div className="p-6 space-y-5">
-          {/* Target File Card */}
-          <div className="rounded-xl border border-border-subtle bg-[#070c17] p-4 text-xs">
-            <p className="font-bold text-text-primary">{file.title}</p>
-            <p className="num mt-1 font-mono text-[11px] text-accent-light break-all">
-              {file.filename}
-            </p>
-
-            <div className="mt-3 flex items-center gap-4 text-[11px] text-text-muted border-t border-border-subtle/60 pt-2.5">
-              <span>Size: <strong className="num text-text-primary">{file.fileSize}</strong></span>
-              <span>·</span>
-              <span>Division: <strong className="text-text-primary">{file.department}</strong></span>
-              <span>·</span>
-              <span>Satellite: <strong className="text-text-primary">{file.satellite}</strong></span>
-            </div>
-          </div>
-
-          <p className="text-xs leading-relaxed text-text-muted">
-            Direct retrieval of raw telemetry dumps, flight trajectories, and mission logs is restricted to authorized ISTRAC users. Please log in with your credentials to download this file.
-          </p>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
-            <Link to="/login" onClick={onClose} className="w-full sm:w-auto flex-1">
-              <Button variant="primary" size="md" className="w-full shadow-lg shadow-accent/25">
-                <LogIn size={15} />
-                <span>Log In to Download</span>
-              </Button>
-            </Link>
-
-            <Link to="/register" onClick={onClose} className="w-full sm:w-auto flex-1">
-              <Button variant="outline" size="md" className="w-full">
-                Request Access
-              </Button>
-            </Link>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-border-subtle bg-[#101a2f] px-6 py-3 text-[11px] text-text-dim">
-          <span className="flex items-center gap-1.5">
-            <ShieldCheck size={13} className="text-nominal" />
-            ISTRAC Multi-RBAC Security Gate
-          </span>
-          <span className="num">SEC LEVEL 4</span>
-        </div>
-      </div>
-    </div>
   )
 }

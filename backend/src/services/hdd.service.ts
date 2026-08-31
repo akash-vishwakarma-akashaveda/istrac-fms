@@ -166,22 +166,33 @@ export const hddService = {
     ]
 
     const directoriesCreated: string[] = []
-    for (const d of dirsToCreate) {
-      await fs.mkdir(d, { recursive: true })
-      directoriesCreated.push(d)
-    }
+    try {
+      for (const d of dirsToCreate) {
+        await fs.mkdir(d, { recursive: true })
+        directoriesCreated.push(d)
+      }
 
-    // Test read/write permission probe
-    const probeFile = path.join(targetRoot, '.probe_write_test')
-    await fs.writeFile(probeFile, 'ISTRAC_STORAGE_PROBE_OK')
-    const readContent = await fs.readFile(probeFile, 'utf8')
-    await fs.unlink(probeFile)
+      // Test read/write permission probe
+      const probeFile = path.join(targetRoot, '.probe_write_test')
+      await fs.writeFile(probeFile, 'ISTRAC_STORAGE_PROBE_OK')
+      const readContent = await fs.readFile(probeFile, 'utf8')
+      await fs.unlink(probeFile)
 
-    return {
-      path: targetRoot,
-      exists: true,
-      writable: readContent === 'ISTRAC_STORAGE_PROBE_OK',
-      directoriesCreated,
+      return {
+        path: targetRoot,
+        exists: true,
+        writable: readContent === 'ISTRAC_STORAGE_PROBE_OK',
+        directoriesCreated,
+      }
+    } catch (err: any) {
+      if (err.code === 'EACCES') {
+        throw new AppError(
+          'storage_permission_denied',
+          `Permission denied (EACCES) accessing storage path "${targetRoot}". The backend process user does not have write permissions to create or access this directory. Run: "sudo mkdir -p ${targetRoot} && sudo chown -R $USER:$USER ${targetRoot} && sudo chmod -R 775 ${targetRoot}", or specify a user-writable path such as "/home/ec2-user/istrac_storage".`,
+          403,
+        )
+      }
+      throw err
     }
   },
 

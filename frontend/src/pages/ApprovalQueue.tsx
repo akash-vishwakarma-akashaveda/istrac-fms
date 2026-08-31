@@ -351,7 +351,7 @@ export function ApprovalQueue() {
   const pendingDocCount = docRequests.filter((r) => r.status === 'PENDING').length
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-16">
+    <div className="w-full space-y-6 pb-16">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border-subtle pb-5">
         <PageHeader

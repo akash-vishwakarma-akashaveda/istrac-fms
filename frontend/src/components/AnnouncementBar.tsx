@@ -1,121 +1,147 @@
-import { useState, useEffect } from 'react'
-import { Bell, ChevronLeft, ChevronRight, ArrowRight, Radio } from 'lucide-react'
-import { useCms } from '../context/cmsContext'
-import { notificationsApi } from '../api/notifications.api'
-import { NotificationsModal, type NotificationModalItem } from './NotificationsModal'
+﻿import { useState, useEffect, useCallback } from "react"
+import { Bell, ChevronLeft, ChevronRight, ArrowRight, Radio, Zap } from "lucide-react"
+import { eventsApi } from "../api/events.api"
+import { notificationsApi } from "../api/notifications.api"
+import { NotificationsModal, type NotificationModalItem } from "./NotificationsModal"
 
-interface AnnouncementItem {
+interface BannerItem {
   id: string
   title?: string
   message: string
-  category?: string
+  category: string
+  urgency?: "NORMAL" | "IMPORTANT" | "CRITICAL"
   timestamp?: string
 }
 
-interface AnnouncementsBlock {
-  visible?: boolean
-  backgroundColor?: string
-  text?: string
-  items?: AnnouncementItem[]
+const URGENCY_STYLES: Record<string, string> = {
+  CRITICAL: "border-y-critical/60 from-[#1a0505] via-[#2a0808] to-[#1a0505] shadow-critical/20",
+  IMPORTANT: "border-y-warning/50 from-[#1a1005] via-[#2a1c05] to-[#1a1005] shadow-warning/15",
+  NORMAL: "border-y-accent/40 from-[#0b1733] via-[#10234a] to-[#0b1733] shadow-accent/15",
 }
 
-const DEFAULT_NOTIFICATIONS: AnnouncementItem[] = [
-  {
-    id: 'n-1',
-    title: 'MISSION UPDATE: Aditya-L1 Halo Orbit Stationkeeping',
-    message: 'Doppler lock confirmed on 2.2 GHz S-Band. Chandrayaan-3 Telemetry Sync Verified · All Tracking Stations Nominal.',
-    category: 'MISSION',
-    timestamp: '10 Mins Ago',
-  },
-  {
-    id: 'n-2',
-    title: 'IDSN 32-Meter Deep Space Dish Calibration Complete',
-    message: 'Byalalu IDSN 32m dish completed autotrack calibration; cryo-receiver noise temperature measured at nominal 12.4K.',
-    category: 'MAINTENANCE',
-    timestamp: '35 Mins Ago',
-  },
-  {
-    id: 'n-3',
-    title: 'Cartosat-3 S-Band Pass Acquisition Scheduled',
-    message: 'Downlink window configured for 14:30 UTC over Bengaluru MOX-1 primary ground terminal.',
-    category: 'PASS',
-    timestamp: '1 Hour Ago',
-  },
-  {
-    id: 'n-4',
-    title: 'Downrange Ground Relays Synchronized',
-    message: 'Port Blair & Mauritius telemetry relays synchronized for upcoming launch vehicle trajectory tracking.',
-    category: 'RELAY',
-    timestamp: '3 Hours Ago',
-  },
-  {
-    id: 'n-5',
-    title: 'NETRA IS4OM Space Debris Conjunction Screen Passed',
-    message: 'Zero high-risk orbital conjunction events identified for operational Indian spacecraft in 72-hour screening.',
-    category: 'SECURITY',
-    timestamp: 'Today 08:00 UTC',
-  },
-]
+const URGENCY_BADGE: Record<string, string> = {
+  CRITICAL: "bg-critical text-white shadow-critical/50",
+  IMPORTANT: "bg-warning text-black shadow-warning/40",
+  NORMAL: "bg-accent text-white shadow-accent/50",
+}
 
+const EVENT_TYPE_CATEGORY: Record<string, string> = {
+  MISSION_PASS: "PASS",
+  LAUNCH: "LAUNCH",
+  ORBIT_MANEUVER: "MANEUVER",
+  MAINTENANCE: "MAINTENANCE",
+  SEMINAR: "SEMINAR",
+  ANOMALY: "ANOMALY",
+}
+
+/**
+ * Live notice bar — powered directly by Events (showOnBanner=true) +
+ * Broadcast Alerts from the backend. No CMS dependency.
+ * Polls every 60 seconds for fresh data.
+ */
 export function AnnouncementBar() {
-  const { cmsBlocks } = useCms()
-  const block = cmsBlocks['announcements'] as AnnouncementsBlock | undefined
-
-  const [notifications, setNotifications] = useState<NotificationModalItem[]>(DEFAULT_NOTIFICATIONS)
+  const [items, setItems] = useState<BannerItem[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  const [allNotifications, setAllNotifications] = useState<NotificationModalItem[]>([])
+  const [topUrgency, setTopUrgency] = useState<"NORMAL" | "IMPORTANT" | "CRITICAL">("NORMAL")
 
-  // Load notifications from CMS or public backend API
-  useEffect(() => {
-    if (block?.items && block.items.length > 0) {
-      setNotifications(block.items)
-    } else if (block?.text) {
-      setNotifications([
-        {
-          id: 'cms-default',
-          message: block.text,
-          category: 'NOTICE',
-          timestamp: 'Live',
-        },
-        ...DEFAULT_NOTIFICATIONS.slice(1),
+  const fetchLiveData = useCallback(async () => {
+    try {
+      // Fetch active banner events + broadcasts in parallel
+      const [bannerData, publicNotifs] = await Promise.allSettled([
+        eventsApi.getActiveBanner(),
+        notificationsApi.getPublicNotifications(),
       ])
-    }
 
-    // Try fetching public broadcast alerts from backend
-    notificationsApi
-      .getPublicNotifications()
-      .then((serverItems) => {
-        if (serverItems && serverItems.length > 0) {
-          const mapped: NotificationModalItem[] = serverItems.map((n) => ({
+      const bannerItems: BannerItem[] = []
+
+      // Map active events (showOnBanner: true)
+      if (bannerData.status === "fulfilled" && bannerData.value) {
+        const { events, broadcasts } = bannerData.value
+
+        events?.forEach((ev) => {
+          bannerItems.push({
+            id: ev.id,
+            title: ev.title,
+            message: ev.description ?? `${ev.location ?? ""} · ${new Date(ev.eventDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })} IST`,
+            category: EVENT_TYPE_CATEGORY[ev.eventType] ?? ev.eventType,
+            urgency: ev.urgency,
+          })
+        })
+
+        broadcasts?.forEach((bc) => {
+          bannerItems.push({
+            id: bc.id,
+            message: bc.message,
+            category: "BROADCAST",
+            urgency: "IMPORTANT",
+            timestamp: new Date(bc.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+          })
+        })
+      }
+
+      // Map public notifications as fallback / supplement
+      const notifItems: NotificationModalItem[] = []
+      if (publicNotifs.status === "fulfilled" && publicNotifs.value?.length) {
+        publicNotifs.value.forEach((n) => {
+          notifItems.push({
             id: n.id,
             message: n.message,
-            category: n.category || n.type || 'NOTICE',
+            category: n.category || n.type || "NOTICE",
             createdAt: n.createdAt,
-          }))
-          setNotifications(mapped.slice(0, 20))
-        }
-      })
-      .catch(() => {})
-  }, [block])
+          })
+          if (bannerItems.length === 0) {
+            bannerItems.push({
+              id: n.id,
+              message: n.message,
+              category: n.category || n.type || "NOTICE",
+              urgency: "NORMAL",
+              timestamp: new Date(n.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+            })
+          }
+        })
+        setAllNotifications(notifItems)
+      }
 
-  // Get top 5 notifications for the banner ticker
-  const bannerItems = notifications.slice(0, 5)
+      if (bannerItems.length > 0) {
+        const urgency = bannerItems.some((i) => i.urgency === "CRITICAL")
+          ? "CRITICAL"
+          : bannerItems.some((i) => i.urgency === "IMPORTANT")
+            ? "IMPORTANT"
+            : "NORMAL"
+        setTopUrgency(urgency)
+        setItems(bannerItems.slice(0, 8))
+        setCurrentIndex(0)
+      }
+    } catch {
+      // Keep last known state on fetch error
+    }
+  }, [])
 
-  // Auto-rotate every 5 seconds
   useEffect(() => {
-    if (isPaused || bannerItems.length <= 1) return
+    fetchLiveData()
+  }, [fetchLiveData])
 
+  useEffect(() => {
+    const timer = setInterval(fetchLiveData, 60_000)
+    return () => clearInterval(timer)
+  }, [fetchLiveData])
+
+  useEffect(() => {
+    if (isPaused || items.length <= 1) return
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % bannerItems.length)
+      setCurrentIndex((prev) => (prev + 1) % items.length)
     }, 5000)
-
     return () => clearInterval(interval)
-  }, [isPaused, bannerItems.length])
+  }, [isPaused, items.length])
 
-  if (block?.visible === false || bannerItems.length === 0) return null
+  if (items.length === 0) return null
 
-  const currentItem = bannerItems[currentIndex] || bannerItems[0]
+  const currentItem = items[currentIndex] || items[0]
+  const barStyle = URGENCY_STYLES[topUrgency] ?? URGENCY_STYLES.NORMAL
+  const badgeStyle = URGENCY_BADGE[currentItem.urgency ?? "NORMAL"] ?? URGENCY_BADGE.NORMAL
 
   return (
     <>
@@ -124,21 +150,27 @@ export function AnnouncementBar() {
         aria-live="polite"
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
-        className="relative z-30 border-y border-accent/40 bg-gradient-to-r from-[#0b1733] via-[#10234a] to-[#0b1733] shadow-md shadow-accent/15 transition-all"
+        className={`relative z-30 border-y bg-gradient-to-r shadow-md transition-all ${barStyle}`}
       >
-        {/* Left Edge Accent Bar */}
-        <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1 bg-accent-light shadow-sm shadow-accent-light" />
+        <span
+          aria-hidden="true"
+          className={`absolute inset-y-0 left-0 w-1 ${
+            topUrgency === "CRITICAL" ? "bg-critical" :
+            topUrgency === "IMPORTANT" ? "bg-warning" : "bg-accent-light"
+          } shadow-sm`}
+        />
 
         <div className="shell flex flex-col gap-2.5 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-          {/* Left: Glowing Badge, Notice Content */}
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            {/* Highly Highlighted Badge */}
-            <div className="flex items-center gap-1.5 shrink-0 rounded-full bg-accent px-2.5 py-1 text-[11px] font-bold text-white shadow-sm shadow-accent/50 tracking-wide uppercase">
-              <Radio size={12} className="animate-pulse text-white" />
-              <span>LIVE NOTICE</span>
+            <div className={`flex items-center gap-1.5 shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide uppercase shadow-sm ${badgeStyle}`}>
+              {topUrgency === "CRITICAL" ? (
+                <Zap size={11} className="animate-pulse" />
+              ) : (
+                <Radio size={12} className="animate-pulse" />
+              )}
+              <span>{topUrgency === "CRITICAL" ? "CRITICAL" : "LIVE NOTICE"}</span>
             </div>
 
-            {/* Category Tag */}
             {currentItem.category && (
               <span className="hidden sm:inline-flex rounded border border-accent/40 bg-accent/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent-light">
                 {currentItem.category}
@@ -147,38 +179,35 @@ export function AnnouncementBar() {
 
             <span aria-hidden="true" className="hidden h-3.5 w-px bg-accent/30 sm:block" />
 
-            {/* Notification Text with Smooth Fade Transition */}
             <div className="min-w-0 flex-1 overflow-hidden">
               <p
-                key={currentItem.id || currentIndex}
+                key={currentItem.id + currentIndex}
                 className="truncate text-xs font-medium text-white animate-fadeIn tracking-wide"
               >
-                {currentItem.title ? (
+                {currentItem.title && (
                   <strong className="font-bold text-accent-light mr-1.5">
                     {currentItem.title}:
                   </strong>
-                ) : null}
+                )}
                 <span className="text-slate-100">{currentItem.message}</span>
+                {currentItem.timestamp && (
+                  <span className="ml-2 num text-[10px] text-slate-400">· {currentItem.timestamp}</span>
+                )}
               </p>
             </div>
           </div>
 
-          {/* Right: Counter, Nav Controls & "View All Notifications" Button */}
           <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-            {/* 1 of 5 Counter & Arrows */}
-            {bannerItems.length > 1 && (
+            {items.length > 1 && (
               <div className="flex items-center gap-1.5 border-r border-accent/25 pr-3">
                 <span className="num text-[11px] font-bold text-accent-light">
-                  {currentIndex + 1} / {bannerItems.length}
+                  {currentIndex + 1} / {items.length}
                 </span>
-
                 <div className="flex items-center gap-0.5">
                   <button
                     type="button"
                     aria-label="Previous notice"
-                    onClick={() =>
-                      setCurrentIndex((prev) => (prev === 0 ? bannerItems.length - 1 : prev - 1))
-                    }
+                    onClick={() => setCurrentIndex((prev) => (prev === 0 ? items.length - 1 : prev - 1))}
                     className="rounded p-1 text-slate-300 hover:bg-accent/20 hover:text-white transition-colors"
                   >
                     <ChevronLeft size={14} />
@@ -186,7 +215,7 @@ export function AnnouncementBar() {
                   <button
                     type="button"
                     aria-label="Next notice"
-                    onClick={() => setCurrentIndex((prev) => (prev + 1) % bannerItems.length)}
+                    onClick={() => setCurrentIndex((prev) => (prev + 1) % items.length)}
                     className="rounded p-1 text-slate-300 hover:bg-accent/20 hover:text-white transition-colors"
                   >
                     <ChevronRight size={14} />
@@ -195,7 +224,6 @@ export function AnnouncementBar() {
               </div>
             )}
 
-            {/* Prominently Styled "View All" Button */}
             <button
               type="button"
               onClick={() => setModalOpen(true)}
@@ -203,17 +231,20 @@ export function AnnouncementBar() {
             >
               <Bell size={12} />
               <span>All Notices</span>
-              <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
+              <ArrowRight size={12} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* All Notifications Modal with Search */}
       <NotificationsModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        notifications={notifications}
+        notifications={allNotifications.length > 0 ? allNotifications : items.map((i) => ({
+          id: i.id,
+          message: i.message,
+          category: i.category,
+        }))}
       />
     </>
   )

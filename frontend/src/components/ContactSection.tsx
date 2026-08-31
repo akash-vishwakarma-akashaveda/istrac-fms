@@ -1,24 +1,48 @@
-import { ArrowUpRight, Mail, Phone, MapPin, Headphones } from 'lucide-react'
-import { useCms, DEFAULT_CMS_BLOCKS } from '../context/cmsContext'
+﻿import { ArrowUpRight, Mail, Phone, MapPin, Headphones } from "lucide-react"
+import { useCms, DEFAULT_CMS_BLOCKS } from "../context/cmsContext"
+
+interface ContactBlockContent {
+  sectionEyebrow?: string
+  sectionTitle?: string
+  sectionSubtitle?: string
+  email?: string
+  phone?: string
+  address?: string
+  deskBadge?: string
+  facilityName?: string
+}
 
 export function ContactSection() {
   const { cmsBlocks } = useCms()
-  const info = cmsBlocks['info'] as Record<string, string> | undefined
-  const contactInfo = cmsBlocks['contact_info'] as Record<string, string> | undefined
+  const info = cmsBlocks["info"] as Record<string, string> | undefined
+  const contactInfo = cmsBlocks["contact_info"] as ContactBlockContent | undefined
+
+  const sectionEyebrow = contactInfo?.sectionEyebrow || "Support & Helpdesk"
+  const sectionTitle = contactInfo?.sectionTitle || "Need Help with ISTRAC-SIMS?"
+  const sectionSubtitle =
+    contactInfo?.sectionSubtitle ||
+    "Reach the ground station support engineering team for departmental access authorization, satellite uplink feeds, and telemetry pipeline queries."
 
   const email =
     contactInfo?.email ||
     info?.contactEmail ||
-    (DEFAULT_CMS_BLOCKS['info'].contactEmail as string)
+    (DEFAULT_CMS_BLOCKS["info"].contactEmail as string) ||
+    "support@istrac.isro.gov.in"
 
   const phone =
     contactInfo?.phone ||
     info?.contactPhone ||
-    (DEFAULT_CMS_BLOCKS['info'].contactPhone as string)
+    (DEFAULT_CMS_BLOCKS["info"].contactPhone as string) ||
+    "+91 80 2838 4000"
 
   const address =
+    contactInfo?.address ||
     info?.address ||
-    (DEFAULT_CMS_BLOCKS['info'].address as string)
+    (DEFAULT_CMS_BLOCKS["info"].address as string) ||
+    "ISTRAC Campus, Plot No. 12 & 13, 3rd Main, 2nd Phase, Peenya Industrial Area, Bengaluru, Karnataka 560058"
+
+  const deskBadge = contactInfo?.deskBadge || "● 24/7 MISSION DESK"
+  const facilityName = contactInfo?.facilityName || "Ground Facility Headquarters"
 
   return (
     <section id="contact" className="border-b border-border-subtle bg-page py-20 sm:py-24" aria-labelledby="contact-title">
@@ -28,18 +52,18 @@ export function ContactSection() {
           <div>
             <p className="eyebrow flex items-center gap-2.5 text-accent-light">
               <span aria-hidden="true" className="h-2.5 w-px bg-accent-light" />
-              Support & Helpdesk
+              {sectionEyebrow}
             </p>
 
             <h2
               id="contact-title"
               className="display mt-4 text-3xl font-bold tracking-tight text-text-primary sm:text-4xl"
             >
-              Need Help with ISTRAC-SIMS?
+              {sectionTitle}
             </h2>
 
             <p className="mt-4 text-base leading-relaxed text-text-secondary">
-              Reach the ground station support engineering team for departmental access authorization, satellite uplink feeds, and telemetry pipeline queries.
+              {sectionSubtitle}
             </p>
           </div>
 
@@ -48,7 +72,7 @@ export function ContactSection() {
               <MapPin size={20} />
             </div>
             <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-text-primary">Ground Facility Headquarters</h4>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-text-primary">{facilityName}</h4>
               <p className="num mt-1 text-xs leading-relaxed text-text-muted">{address}</p>
             </div>
           </div>
@@ -61,7 +85,7 @@ export function ContactSection() {
               <Headphones size={16} className="text-accent-light" />
               <span className="eyebrow text-text-muted">Direct Support Channels</span>
             </div>
-            <span className="num text-[11px] text-nominal font-medium">● 24/7 MISSION DESK</span>
+            <span className="num text-[11px] text-nominal font-medium">{deskBadge}</span>
           </div>
 
           <div className="divide-y divide-border-subtle flex-1 flex flex-col justify-around">
@@ -99,14 +123,14 @@ export function ContactSection() {
 
                 <div className="min-w-0 flex-1">
                   <span className="eyebrow block text-[10px] text-text-dim">OPERATIONS EPABX LINE</span>
-                  <span className="num mt-1 block truncate text-sm font-semibold text-text-primary group-hover:text-nominal">
+                  <span className="num mt-1 block truncate text-sm font-semibold text-text-primary group-hover:text-accent-light">
                     {phone}
                   </span>
                 </div>
 
                 <ArrowUpRight
                   size={18}
-                  className="shrink-0 text-text-dim transition-colors duration-150 group-hover:text-nominal"
+                  className="shrink-0 text-text-dim transition-colors duration-150 group-hover:text-accent-light"
                 />
               </a>
             )}

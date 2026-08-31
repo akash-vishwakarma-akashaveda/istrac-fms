@@ -175,7 +175,7 @@ export function UserHome() {
   }, [overview?.spacecraftBreakdown])
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-20 text-text-primary">
+    <div className="w-full space-y-6 pb-20 text-text-primary">
       {/* 1. ADMIN FAST-SWITCH NOTIFICATION BANNER */}
       {isAdmin && (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-accent/40 bg-gradient-to-r from-accent/15 via-[#0b1730] to-accent/15 p-4 shadow-md">

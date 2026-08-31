@@ -317,7 +317,9 @@ router.post('/logout', authMiddleware, async (req, res, next) => {
     
       const remainingTtl = Math.ceil(decoded.exp! - Date.now() / 1000)
       if (remainingTtl > 0) {
-        await redis.setex(`blacklist:${decoded.jti}`, remainingTtl, '1')
+        try {
+          await redis.setex(`blacklist:${decoded.jti}`, remainingTtl, '1')
+        } catch {}
       }
     }
 
@@ -509,10 +511,12 @@ router.put('/change-password', authMiddleware, async (req, res, next) => {
     ])
 
     const decoded = verifyAccessToken(req.headers.authorization!.slice(7))
-const remainingTtl = Math.ceil(decoded.exp! - Date.now() / 1000)
-if (remainingTtl > 0) {
-  await redis.setex(`blacklist:${decoded.jti}`, remainingTtl, '1')
-}
+    const remainingTtl = Math.ceil(decoded.exp! - Date.now() / 1000)
+    if (remainingTtl > 0) {
+      try {
+        await redis.setex(`blacklist:${decoded.jti}`, remainingTtl, '1')
+      } catch {}
+    }
 
     res.json({
       data: { message: 'Password updated successfully' },
