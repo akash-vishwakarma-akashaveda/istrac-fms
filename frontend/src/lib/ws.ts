@@ -1,8 +1,36 @@
-import { api } from "../lib/axios";
-import { useAuthStore } from '../store/authStore'
+﻿import { useAuthStore } from "../store/authStore"
 
 type MessageHandler = (event: string, payload: unknown) => void
-const EXPECTED_EVENTS = new Set(['ping', 'pong', 'CMS_UPDATE', 'NOTIFICATION', 'FILE_UPLOAD', 'FILE_DELETED', 'SYNC_COMPLETE'])
+const EXPECTED_EVENTS = new Set([
+  "ping",
+  "pong",
+  "CMS_UPDATE",
+  "cms.update",
+  "cms",
+  "NOTIFICATION",
+  "FILE_UPLOAD",
+  "FILE_DELETED",
+  "SYNC_COMPLETE",
+])
+
+function getSecureWsUrl(): string {
+  const envUrl = import.meta.env.VITE_WS_URL
+  if (envUrl) {
+    // If the browser page is loaded over HTTPS (like AWS Amplify), force wss://
+    if (typeof window !== "undefined" && window.location.protocol === "https:") {
+      return envUrl.replace(/^ws:\/\//i, "wss://")
+    }
+    return envUrl
+  }
+
+  if (typeof window !== "undefined") {
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:"
+    return `${proto}//${window.location.host}/ws`
+  }
+
+  return "wss://d2qycovk79gx2n.cloudfront.net/"
+}
+
 class WSClient {
   private socket: WebSocket | null = null
   private handlers = new Map<string, MessageHandler[]>()
@@ -14,11 +42,10 @@ class WSClient {
     const token = useAuthStore.getState().accessToken
     if (!token) return
 
-    const baseWsUrl = import.meta.env.VITE_WS_URL!
-    // const wsUrl = `${baseWsUrl}?token=${encodeURIComponent(token)}`
+    const wsUrl = getSecureWsUrl()
 
     try {
-      this.socket = new WebSocket(baseWsUrl, [`Bearer.${token}`])
+      this.socket = new WebSocket(wsUrl, [`Bearer.${token}`])
 
       this.socket.onopen = () => {
         this.reconnectAttempt = 0
@@ -28,18 +55,17 @@ class WSClient {
       this.socket.onmessage = (event) => {
         try {
           const parsed = JSON.parse(event.data)
-          const eventType = parsed.type || parsed.channel || 'message'
+          const eventType = parsed.type || parsed.channel || "message"
           if (!EXPECTED_EVENTS.has(eventType)) {
-  console.warn('[WS] Unexpected event type ignored:', eventType)
-  return
-}
+            return
+          }
           const payload = parsed.payload !== undefined ? parsed.payload : parsed
 
           const eventHandlers = this.handlers.get(eventType) || []
           eventHandlers.forEach((h) => h(eventType, payload))
 
           // Also notify wildcard handlers
-          const wildcardHandlers = this.handlers.get('*') || []
+          const wildcardHandlers = this.handlers.get("*") || []
           wildcardHandlers.forEach((h) => h(eventType, payload))
         } catch {
           // ignore malformed frame
@@ -62,52 +88,55 @@ class WSClient {
     }
   }
 
-  private scheduleReconnect() {
-    const delays = [1000, 2000, 4000, 8000, 16000]
-    const delay = delays[this.reconnectAttempt] ?? 60000
-    this.reconnectAttempt++
+  disconnect() {
+    this.stopHeartbeat()
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+    if (this.socket) {
+      this.socket.close()
+      this.socket = null
+    }
+  }
 
-      this.reconnectTimer = setTimeout(async () => {
-    // Ensure token is valid before reconnecting
-    try {
-      const { data } =  await api.post("/auth/refresh");
-      const newToken = data?.data?.accessToken || data.accessToken
-      if (newToken) {
-        const user = useAuthStore.getState().user
-        if (user) useAuthStore.getState().setAuth(user, newToken)
-      }
-    } catch { return }
-    this.connect()
-  }, delay)
+  subscribe(event: string, handler: MessageHandler): () => void {
+    const list = this.handlers.get(event) || []
+    list.push(handler)
+    this.handlers.set(event, list)
+
+    return () => {
+      const current = this.handlers.get(event) || []
+      this.handlers.set(
+        event,
+        current.filter((h) => h !== handler)
+      )
+    }
   }
 
   private startHeartbeat() {
     this.heartbeatTimer = setInterval(() => {
-      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-        this.socket.send(JSON.stringify({ type: 'ping' }))
+      if (this.socket?.readyState === WebSocket.OPEN) {
+        this.socket.send(JSON.stringify({ type: "ping" }))
       }
-    }, 30000)
+    }, 30_000)
   }
 
   private stopHeartbeat() {
-    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer)
-  }
-
-  subscribe(eventOrChannel: string, handler: MessageHandler) {
-    if (!this.handlers.has(eventOrChannel)) this.handlers.set(eventOrChannel, [])
-    this.handlers.get(eventOrChannel)!.push(handler)
-
-    return () => {
-      const list = this.handlers.get(eventOrChannel) || []
-      this.handlers.set(eventOrChannel, list.filter((h) => h !== handler))
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = null
     }
   }
 
-  disconnect() {
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
-    this.stopHeartbeat()
-    this.socket?.close()
-    this.socket = null
+  private scheduleReconnect() {
+    if (this.reconnectTimer) return
+    const delay = Math.min(1000 * 2 ** this.reconnectAttempt, 30_000)
+    this.reconnectAttempt++
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null
+      this.connect()
+    }, delay)
   }
 }
 
