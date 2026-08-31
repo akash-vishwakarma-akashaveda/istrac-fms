@@ -12,35 +12,47 @@ export function useInitAuth() {
 
     const currentUser = useAuthStore.getState().user
     const currentToken = useAuthStore.getState().accessToken
+    const currentRefreshToken = useAuthStore.getState().refreshToken
 
     // If we have an active user and accessToken in localStorage, we are already authenticated!
     if (currentUser && currentToken) {
       setIsChecking(false)
 
-      // Silent background validation (do NOT log out if refresh fails due to cross-origin or network hiccup,
-      // as long as access token is valid)
-      apiClient
-        .post("/auth/refresh")
-        .then((res) => {
-          const token = res.data?.data?.accessToken || res.data?.accessToken
-          if (token) {
-            useAuthStore.getState().setAuth(currentUser, token)
-          }
-        })
-        .catch(() => {
-          // Keep current token; 401 interceptor will handle expired token when actual API requests are made
-        })
+      // Silent background validation using both cookie and stored refresh token
+      if (currentRefreshToken) {
+        apiClient
+          .post(
+            "/auth/refresh",
+            { refreshToken: currentRefreshToken },
+            { headers: { "x-refresh-token": currentRefreshToken } }
+          )
+          .then((res) => {
+            const token = res.data?.data?.accessToken || res.data?.accessToken
+            const newRefresh = res.data?.data?.refreshToken || res.data?.refreshToken
+            if (token) {
+              useAuthStore.getState().setAuth(currentUser, token, newRefresh)
+            }
+          })
+          .catch(() => {
+            // Keep current token; 401 interceptor will handle expired token when actual API requests are made
+          })
+      }
       return
     }
 
-    // If user exists without accessToken, attempt session restoration via cookie
-    if (currentUser && !currentToken) {
+    // If user exists without accessToken, attempt session restoration via refresh token / cookie
+    if (currentUser && !currentToken && currentRefreshToken) {
       apiClient
-        .post("/auth/refresh")
+        .post(
+          "/auth/refresh",
+          { refreshToken: currentRefreshToken },
+          { headers: { "x-refresh-token": currentRefreshToken } }
+        )
         .then((res) => {
           const token = res.data?.data?.accessToken || res.data?.accessToken
+          const newRefresh = res.data?.data?.refreshToken || res.data?.refreshToken
           if (token) {
-            useAuthStore.getState().setAuth(currentUser, token)
+            useAuthStore.getState().setAuth(currentUser, token, newRefresh)
           } else {
             useAuthStore.getState().clearAuth()
           }

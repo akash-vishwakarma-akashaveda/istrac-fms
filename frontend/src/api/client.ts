@@ -65,14 +65,25 @@ apiClient.interceptors.response.use(
 
       try {
         const refreshUrl = `${import.meta.env.VITE_API_URL || "/api"}/auth/refresh`
-        const { data: refreshRes } = await axios.post(refreshUrl, {}, { withCredentials: true })
+        const storedRefreshToken = useAuthStore.getState().refreshToken
+
+        // Send refresh token both via body and via cookie (cross-origin compatibility)
+        const { data: refreshRes } = await axios.post(
+          refreshUrl,
+          { refreshToken: storedRefreshToken },
+          {
+            withCredentials: true,
+            headers: storedRefreshToken ? { "x-refresh-token": storedRefreshToken } : {},
+          }
+        )
 
         const newToken = refreshRes?.data?.accessToken || refreshRes?.accessToken
+        const newRefreshToken = refreshRes?.data?.refreshToken || refreshRes?.refreshToken || storedRefreshToken
 
         if (newToken) {
           const currentUser = useAuthStore.getState().user
           if (currentUser) {
-            useAuthStore.getState().setAuth(currentUser, newToken)
+            useAuthStore.getState().setAuth(currentUser, newToken, newRefreshToken)
           }
 
           refreshQueue.forEach((cb) => cb(newToken))
@@ -89,7 +100,7 @@ apiClient.interceptors.response.use(
         refreshQueue.forEach((cb) => cb(""))
         refreshQueue = []
 
-        // Only clear and redirect if we are on a protected app/admin/dashboard route
+        // If refresh token is genuinely revoked or expired, clear session and redirect to login
         if (
           typeof window !== "undefined" &&
           (window.location.pathname.startsWith("/dashboard") ||

@@ -218,6 +218,7 @@ if (activeSessionCount >= 3) {
     res.json({
       data: {
         accessToken,
+        refreshToken: rawRefreshToken,
         user: fullUser,
       },
       requestId: req.requestId,
@@ -232,7 +233,10 @@ if (activeSessionCount >= 3) {
 // ============================================================
 router.post('/refresh',refreshRateLimiter, async (req, res, next) => {
   try {
-    const rawRefreshToken = req.cookies?.refreshToken
+    const rawRefreshToken =
+      req.cookies?.refreshToken ||
+      req.body?.refreshToken ||
+      (req.headers['x-refresh-token'] as string | undefined)
 
     if (!rawRefreshToken) {
       throw new AppError('missing_refresh_token', 'No refresh token provided', 401)
@@ -289,7 +293,10 @@ router.post('/refresh',refreshRateLimiter, async (req, res, next) => {
     })
 
     res.json({
-      data: { accessToken: newAccessToken },
+      data: {
+        accessToken: newAccessToken,
+        refreshToken: newRawRefreshToken,
+      },
       requestId: req.requestId,
     })
   } catch (err) {
