@@ -64,6 +64,11 @@ export function SystemConfigPanel() {
   const [copyExistingData, setCopyExistingData] = useState(true)
   const [migrating, setMigrating] = useState(false)
 
+  // Double Check Confirmation Modal States
+  const [isConfirmSaveOpen, setIsConfirmSaveOpen] = useState(false)
+  const [isConfirmSecondaryOpen, setIsConfirmSecondaryOpen] = useState(false)
+  const [pendingSecondaryDrive, setPendingSecondaryDrive] = useState<DriveItem | null>(null)
+
   // Compute if redundancy settings have unsaved changes
   const isRedundancyDirty =
     primaryPath !== savedRedundancy.primaryPath ||
@@ -153,7 +158,7 @@ export function SystemConfigPanel() {
     }
   }
 
-  const handleSaveRedundancy = async () => {
+  const handleExecuteSaveRedundancy = async () => {
     setSavingRedundancy(true)
     try {
       await apiClient.put("/admin/storage/redundancy", {
@@ -174,6 +179,7 @@ export function SystemConfigPanel() {
         message: "Storage redundancy & failover architecture updated",
         variant: "success",
       })
+      setIsConfirmSaveOpen(false)
       fetchStorageData()
     } catch (err: any) {
       addToast({
@@ -191,11 +197,20 @@ export function SystemConfigPanel() {
     setIsMigrationModalOpen(true)
   }
 
-  const handleSetSecondaryDrive = (drive: DriveItem) => {
+  const handleInitiateSecondary = (drive: DriveItem) => {
+    setPendingSecondaryDrive(drive)
+    setIsConfirmSecondaryOpen(true)
+  }
+
+  const handleConfirmSecondary = () => {
+    if (!pendingSecondaryDrive) return
+    const drive = pendingSecondaryDrive
     const targetPath = drive.mountPoint === "/" ? "/istrac_backup_storage" : `${drive.mountPoint}/istrac_backup_storage`
     setSecondaryPath(targetPath)
+    setIsConfirmSecondaryOpen(false)
+    setPendingSecondaryDrive(null)
     addToast({
-      message: `Assigned secondary backup mount target: ${targetPath}. Click "Save Architecture" below to apply.`,
+      message: `Assigned secondary backup mount target: ${targetPath}. Click "SAVE ARCHITECTURE" to commit.`,
       variant: "info",
     })
   }
@@ -379,7 +394,7 @@ export function SystemConfigPanel() {
                   {!isSecondary && !isPrimary && (
                     <button
                       type="button"
-                      onClick={() => handleSetSecondaryDrive(d)}
+                      onClick={() => handleInitiateSecondary(d)}
                       className="flex-1 py-1.5 px-2 rounded-lg border border-border-default bg-[#0c1424] text-xs font-semibold text-purple-300 hover:border-purple-400 hover:text-white hover:bg-card-hover transition-all text-center cursor-pointer"
                     >
                       🛡 Set Secondary
@@ -441,7 +456,7 @@ export function SystemConfigPanel() {
             <Button
               variant="primary"
               size="sm"
-              onClick={handleSaveRedundancy}
+              onClick={() => setIsConfirmSaveOpen(true)}
               disabled={savingRedundancy || !isRedundancyDirty}
               className="gap-1.5"
             >
@@ -549,6 +564,123 @@ export function SystemConfigPanel() {
           </div>
         </div>
       </div>
+
+      {/* CONFIRMATION MODAL 1: SAVE ARCHITECTURE DOUBLE-CHECK */}
+      {isConfirmSaveOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-page/85 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md rounded-2xl border border-border-default bg-card p-6 shadow-2xl space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/30">
+                <Shield size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">Confirm Storage Architecture</h3>
+                <p className="text-xs text-text-dim">Verify primary and secondary ingest parameters</p>
+              </div>
+            </div>
+
+            <div className="space-y-2 p-3.5 rounded-xl border border-border-subtle bg-[#060c18] text-xs">
+              <div className="flex justify-between items-center py-1 border-b border-border-subtle/60">
+                <span className="text-text-dim">Primary Ingest Mount:</span>
+                <span className="font-mono text-white font-bold">{primaryPath}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-border-subtle/60">
+                <span className="text-text-dim">Secondary Mirror Mount:</span>
+                <span className="font-mono text-purple-300 font-bold">{secondaryPath || "None (Single Array)"}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-border-subtle/60">
+                <span className="text-text-dim">Auto-Failover Mode:</span>
+                <span className="font-bold text-white">{failoverEnabled ? "Enabled (Automatic)" : "Disabled"}</span>
+              </div>
+              <div className="flex justify-between items-center py-1">
+                <span className="text-text-dim">RAID-1 Dual Write:</span>
+                <span className="font-bold text-white">{autoMirrorEnabled ? "Enabled" : "Disabled"}</span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-text-secondary leading-relaxed">
+              Applying these settings will update real-time file upload targets across the entire ground network. Are you sure you want to commit these changes?
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsConfirmSaveOpen(false)}
+                disabled={savingRedundancy}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleExecuteSaveRedundancy}
+                disabled={savingRedundancy}
+                className="gap-1.5 shadow-lg shadow-accent/20"
+              >
+                <CheckCircle size={13} />
+                <span>{savingRedundancy ? "Applying..." : "Confirm & Save"}</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRMATION MODAL 2: SECONDARY DRIVE ASSIGNMENT DOUBLE-CHECK */}
+      {isConfirmSecondaryOpen && pendingSecondaryDrive && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-page/85 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md rounded-2xl border border-border-default bg-card p-6 shadow-2xl space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-400/15 text-purple-300 border border-purple-400/30">
+                <Shield size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">Assign Secondary Mirror Target</h3>
+                <p className="text-xs text-text-dim">Designate disaster recovery backup volume</p>
+              </div>
+            </div>
+
+            <div className="space-y-2 p-3.5 rounded-xl border border-border-subtle bg-[#060c18] text-xs">
+              <div className="flex justify-between items-center py-1 border-b border-border-subtle/60">
+                <span className="text-text-dim">Selected Volume:</span>
+                <span className="font-mono text-white font-bold">{pendingSecondaryDrive.mountPoint}</span>
+              </div>
+              <div className="flex justify-between items-center py-1">
+                <span className="text-text-dim">Assigned Backup Path:</span>
+                <span className="font-mono text-purple-300 font-bold">
+                  {pendingSecondaryDrive.mountPoint === "/" ? "/istrac_backup_storage" : `${pendingSecondaryDrive.mountPoint}/istrac_backup_storage`}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-text-secondary leading-relaxed">
+              When RAID-1 mirroring or failover is enabled, all mission telemetry files and daily reports will be redundantly written to this volume.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setIsConfirmSecondaryOpen(false)
+                  setPendingSecondaryDrive(null)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleConfirmSecondary}
+                className="gap-1.5 shadow-lg shadow-accent/20"
+              >
+                <CheckCircle size={13} />
+                <span>Confirm Assignment</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MIGRATION MODAL */}
       {isMigrationModalOpen && (
