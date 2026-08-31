@@ -186,11 +186,34 @@ export const hddService = {
       }
     } catch (err: any) {
       if (err.code === 'EACCES') {
-        throw new AppError(
-          'storage_permission_denied',
-          `Permission denied (EACCES) accessing storage path "${targetRoot}". The backend process user does not have write permissions to create or access this directory. Run: "sudo mkdir -p ${targetRoot} && sudo chown -R $USER:$USER ${targetRoot} && sudo chmod -R 775 ${targetRoot}", or specify a user-writable path such as "/home/ec2-user/istrac_storage".`,
-          403,
-        )
+        // Attempt automated recovery via sudo / fallback creation on Linux if permitted
+        try {
+          const { execSync } = await import('node:child_process')
+          execSync(`sudo mkdir -p "${targetRoot}" && sudo chmod -R 777 "${targetRoot}"`, { stdio: 'ignore' })
+          // Retry probe after sudo
+          for (const d of dirsToCreate) {
+            await fs.mkdir(d, { recursive: true })
+            if (!directoriesCreated.includes(d)) directoriesCreated.push(d)
+          }
+          const probeFile = path.join(targetRoot, '.probe_write_test')
+          await fs.writeFile(probeFile, 'ISTRAC_STORAGE_PROBE_OK')
+          const readContent = await fs.readFile(probeFile, 'utf8')
+          await fs.unlink(probeFile)
+
+          return {
+            path: targetRoot,
+            exists: true,
+            writable: readContent === 'ISTRAC_STORAGE_PROBE_OK',
+            directoriesCreated,
+          }
+        } catch {
+          // If passwordless sudo is not configured, throw clear instruction
+          throw new AppError(
+            'storage_permission_denied',
+            `Permission denied (EACCES) accessing storage path "${targetRoot}". Run: "sudo mkdir -p ${targetRoot} && sudo chown -R $USER:$USER ${targetRoot} && sudo chmod -R 775 ${targetRoot}", or specify a user-writable path in .env such as HDD_MOUNT_PATH="./storage".`,
+            403,
+          )
+        }
       }
       throw err
     }

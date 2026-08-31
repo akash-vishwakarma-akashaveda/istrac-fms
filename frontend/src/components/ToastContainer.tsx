@@ -1,16 +1,15 @@
-import { useToastStore } from '../store/toastStore'
-import { Toast } from './Toast'
+﻿import { useToastStore } from "../store/toastStore"
+import { Toast } from "./Toast"
 
 /**
- * Toasts sit top-right so they never collide with the bulk-action bar that
- * floats along the bottom edge. The stack itself is click-through; each toast
- * re-enables pointer events for its own hover-to-pause and dismiss.
+ * Toast container is given maximum z-index (z-[99999]) so notifications
+ * always render on top of modals, dropdowns, headers, and full-screen drawers.
  */
 export function ToastContainer() {
   const visible = useToastStore((s) => s.visible)
 
   return (
-    <div className="pointer-events-none fixed top-4 right-4 z-50 flex flex-col gap-2">
+    <div className="pointer-events-none fixed top-5 right-5 z-[99999] flex flex-col gap-2.5 max-w-sm w-full">
       {visible.map((toast) => (
         <Toast
           key={toast.id}
