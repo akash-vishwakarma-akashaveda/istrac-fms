@@ -175,10 +175,11 @@ if (activeSessionCount >= 3) {
       data: { lastLogin: new Date() },
     })
 
+    const isProd = env.NODE_ENV === 'production'
     res.cookie('refreshToken', rawRefreshToken, {
       httpOnly: true,
-      sameSite: 'strict',
-      secure: env.NODE_ENV === 'production',
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     })
 
@@ -279,10 +280,11 @@ router.post('/refresh',refreshRateLimiter, async (req, res, next) => {
       },
     })
 
+    const isProdRefresh = env.NODE_ENV === 'production'
     res.cookie('refreshToken', newRawRefreshToken, {
       httpOnly: true,
-      sameSite: 'strict',
-      secure: env.NODE_ENV === 'production',
+      sameSite: isProdRefresh ? 'none' : 'lax',
+      secure: isProdRefresh,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     })
 
@@ -323,7 +325,12 @@ router.post('/logout', authMiddleware, async (req, res, next) => {
       }
     }
 
-    res.clearCookie('refreshToken')
+    const isProdLogout = env.NODE_ENV === 'production'
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      sameSite: isProdLogout ? 'none' : 'lax',
+      secure: isProdLogout,
+    })
 
     res.json({
       data: { message: 'Logged out successfully' },
