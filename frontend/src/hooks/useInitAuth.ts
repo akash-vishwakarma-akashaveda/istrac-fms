@@ -13,12 +13,12 @@ export function useInitAuth() {
     const currentUser = useAuthStore.getState().user
     const currentToken = useAuthStore.getState().accessToken
 
-    // If we already have user and a valid token in localStorage, we can immediately show the authenticated app
-    // while silently refreshing in the background
+    // If we have an active user and accessToken in localStorage, we are already authenticated!
     if (currentUser && currentToken) {
       setIsChecking(false)
 
-      // Background silent refresh check using httpOnly cookie
+      // Silent background validation (do NOT log out if refresh fails due to cross-origin or network hiccup,
+      // as long as access token is valid)
       apiClient
         .post("/auth/refresh")
         .then((res) => {
@@ -27,16 +27,13 @@ export function useInitAuth() {
             useAuthStore.getState().setAuth(currentUser, token)
           }
         })
-        .catch((err) => {
-          // If the refresh cookie expired or was invalid (401), clear auth
-          if (err.response?.status === 401) {
-            useAuthStore.getState().clearAuth()
-          }
+        .catch(() => {
+          // Keep current token; 401 interceptor will handle expired token when actual API requests are made
         })
       return
     }
 
-    // If user exists without accessToken or first load, try cookie refresh
+    // If user exists without accessToken, attempt session restoration via cookie
     if (currentUser && !currentToken) {
       apiClient
         .post("/auth/refresh")
@@ -57,7 +54,7 @@ export function useInitAuth() {
       return
     }
 
-    // Guest / Public visitor
+    // Guest visitor
     setIsChecking(false)
   }, [])
 
