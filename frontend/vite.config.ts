@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import type { MinifyOptions } from 'terser'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
@@ -21,6 +22,13 @@ export default defineConfig({
     },
   },
   build: {
+    minify:'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    } satisfies MinifyOptions,
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {

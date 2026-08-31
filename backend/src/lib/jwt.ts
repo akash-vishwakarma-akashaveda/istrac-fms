@@ -8,12 +8,16 @@ import { AppError } from './errors.js'
 // TOKEN PAYLOAD INTERFACES
 // ============================================================
 
-export interface AccessTokenPayload extends AuthUser {}
+export interface AccessTokenPayload extends AuthUser {
+  jti: string
+  exp?: number // optional because jwt.verify() may not include it in the decoded payload
+}
 
 export interface RefreshTokenPayload {
   /** userId */
   sub: string
   jti?: string
+  
 }
 
 // ============================================================

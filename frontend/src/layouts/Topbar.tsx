@@ -14,6 +14,9 @@ import { useAuthStore } from '../store/authStore'
 import { useNotificationStore } from '../store/notificationStore'
 import { Avatar, UserProfileModal } from '../components'
 import { useNotifications } from '../hooks/useNotifications'
+import { wsClient } from '../lib/ws'
+import { useToastStore } from '../store/toastStore'
+import { authApi } from '../api'
 
 /** Vertical hairline between readout fields. */
 function FieldDivider() {
@@ -26,7 +29,7 @@ export function Topbar() {
   const user = useAuthStore((state) => state.user)
   const clearAuth = useAuthStore((state) => state.clearAuth)
   const unreadCount = useNotificationStore((state) => state.unreadCount)
-
+ const {addToast } =  useToastStore()
   const [menuOpen, setMenuOpen] = useState(false)
   const [bellMenuOpen, setBellMenuOpen] = useState(false)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
@@ -46,11 +49,19 @@ export function Topbar() {
     return () => clearInterval(interval)
   }, [])
 
-  function handleLogout() {
+async function handleLogout() {
+  try {
+    await authApi.logout()
+  } catch (error) {
+    addToast({message:"failed to logout",title:"error",variant:"warning"})
+    console.error('Logout API error:', error)
+  } finally {
     clearAuth()
+    wsClient.disconnect()
     setMenuOpen(false)
     navigate('/login')
   }
+}
 
   function handleNotifications() {
     navigate('/notifications')

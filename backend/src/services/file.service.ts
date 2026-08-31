@@ -5,9 +5,12 @@ import { hddService } from './hdd.service.js'
 import { auditService } from './audit.service.js'
 import { notificationService } from './notification.service.js'
 import { AppError } from '../lib/errors.js'
+import { createReadStream, createWriteStream } from 'node:fs'
+import { pipeline } from 'node:stream/promises'
 
 export interface UploadFileParams {
-  fileBuffer: Buffer
+    fileBuffer?: Buffer
+  filePath?: string
   originalName: string
   mimeType: string
   departmentId: string
@@ -23,6 +26,7 @@ export interface UploadFileParams {
   reportNumber?: string
 }
 
+
 export interface UploadFileResult {
   id: string
   name: string
@@ -33,13 +37,46 @@ export interface UploadFileResult {
   reportId?: string | null
 }
 
+const ALLOWED_EXTENSIONS = new Set([
+  // Document formats
+  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp',
+  // Text / data
+  'txt', 'csv', 'json', 'xml', 'md', 'log', 'dat', 'tsv',
+  // Images
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'tiff', 'bmp', 'svg',
+  // Video
+  'mp4', 'mov', 'avi', 'mkv', 'webm',
+  // Scientific / Telemetry formats
+  'fits', 'fit', 'hdf', 'hdf5', 'h5', 'nc', 'cdf', 'sav', 'mat',
+  // Archive
+  'zip', 'tar', 'gz', 'bz2', '7z', 'rar',
+])
+
+
 export const fileService = {
   /**
    * Orchestrates the complete file upload pipeline:
    * validation → disk write → sha256 checksum → DB insert (transaction) → compensation on failure
    */
   async uploadFile(params: UploadFileParams): Promise<UploadFileResult> {
+
+    if (!params.fileBuffer && !params.filePath) {
+  throw new AppError(
+    'missing_file_data',
+    'Either fileBuffer or filePath must be provided',
+    400,
+  )
+}
+  // ============================================================
+  // D1: Validate file extension against allowlist
+  // ============================================================
+const ext = path.extname(params.originalName).replace('.', '').toLowerCase()
+if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
+  throw new AppError('unsupported_file_type', `File type .${ext} is not permitted. Contact your administrator to add support for this format.`, 415)
+}
+
     // 1. Validate department
+    
     const dept = await prisma.department.findFirst({
       where: { id: params.departmentId, deletedAt: null, isActive: true },
     })
@@ -78,7 +115,17 @@ export const fileService = {
       : destPath
 
     // 4. Write to physical storage
-    await hddService.writeFile(versionedPath, params.fileBuffer)
+   if (params.filePath) {
+  await hddService.copyFile(
+    params.filePath,
+    versionedPath,
+  )
+} else {
+  await hddService.writeFile(
+    versionedPath,
+    params.fileBuffer!,
+  )
+}
 
     // 5. Compute checksum & size
     const sha256 = await hddService.computeChecksum(versionedPath)
@@ -291,4 +338,6 @@ export const fileService = {
     }
     return file
   },
+
+
 }

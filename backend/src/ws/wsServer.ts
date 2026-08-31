@@ -75,16 +75,34 @@ export function createWsServer(server: Server): WebSocketServer {
     let client: ConnectedClient | null = null
 
     try {
-      const fullUrl = `http://localhost${req.url || ''}`
-      const parsedUrl = new URL(fullUrl)
-      const token = parsedUrl.searchParams.get('token')
+      const protocolHeader = req.headers['sec-websocket-protocol']
 
-      if (!token) {
-        ws.close(4401, 'Unauthorized: Missing token')
-        return
-      }
+    if (!protocolHeader) {
+      ws.close(4401, 'Unauthorized: Missing authentication')
+      return
+    }
 
-      const payload = verifyAccessToken(token)
+    const protocols = protocolHeader
+      .split(',')
+      .map((protocol) => protocol.trim())
+
+    const bearerProtocol = protocols.find((protocol) =>
+      protocol.startsWith('Bearer.')
+    )
+
+    if (!bearerProtocol) {
+      ws.close(4401, 'Unauthorized: Missing authentication')
+      return
+    }
+
+    const token = bearerProtocol.slice('Bearer.'.length)
+
+    if (!token) {
+      ws.close(4401, 'Unauthorized: Missing token')
+      return
+    }
+
+    const payload = verifyAccessToken(token)
 
       // Fetch user's active department memberships
       const accessRows = await prisma.userDepartmentAccess.findMany({

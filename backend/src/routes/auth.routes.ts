@@ -5,18 +5,26 @@ import { prisma } from '../config/db.js'
 import { redis } from '../config/redis.js'
 import { env } from '../config/env.js'
 import { authMiddleware } from '../middleware/auth.middleware.js'
-import { loginRateLimiter } from '../middleware/rateLimiter.middleware.js'
-import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../lib/jwt.js'
+import { loginRateLimiter,refreshRateLimiter,registerRateLimiter } from '../middleware/rateLimiter.middleware.js'
+import { signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken } from '../lib/jwt.js'
 import { emailService } from '../services/email.service.js'
 import { auditService } from '../services/audit.service.js'
 import { AppError } from '../lib/errors.js'
 
+import { validate } from '../lib/validate.js'
+import { LoginSchema, RegisterSchema } from '../lib/schema.js'
 const router = Router()
 
+function validatePassword(password: string): void {
+  if (password.length < 10) throw new AppError('weak_password', 'Password must be at least 10 characters', 400)
+  if (!/[A-Z]/.test(password)) throw new AppError('weak_password', 'Password must contain an uppercase letter', 400)
+  if (!/[0-9]/.test(password)) throw new AppError('weak_password', 'Password must contain a number', 400)
+  if (!/[^A-Za-z0-9]/.test(password)) throw new AppError('weak_password', 'Password must contain a special character', 400)
+}
 // ============================================================
 // REGISTER (PUBLIC)
 // ============================================================
-router.post('/register', loginRateLimiter, async (req, res, next) => {
+router.post('/register', registerRateLimiter, validate(RegisterSchema), async (req, res, next) => {
   try {
     const { name, designation, email, employeeId, password, phone, departmentPreference, reasonForAccess } = req.body
 
@@ -86,7 +94,7 @@ router.post('/register', loginRateLimiter, async (req, res, next) => {
 // ============================================================
 // LOGIN (PUBLIC)
 // ============================================================
-router.post('/login', loginRateLimiter, async (req, res, next) => {
+router.post('/login', loginRateLimiter, validate(LoginSchema), async (req, res, next) => {
   try {
     const { email, password } = req.body
 
@@ -98,9 +106,21 @@ router.post('/login', loginRateLimiter, async (req, res, next) => {
       where: { email, deletedAt: null },
     })
 
-    if (!user || !user.passwordHash) {
+
+
+   
+   
+    if (!user || !user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+       auditService.log({
+    action: 'AUTH:LOGIN_FAILED',
+    resourceType: 'user',
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+    newValue: { email: email.toLowerCase(), reason: !user ? 'user_not_found' : 'bad_password' },
+  })
       throw new AppError('invalid_credentials', 'Invalid email or password', 401)
     }
+
 
     if (user.status === 'PENDING') {
       throw new AppError('account_pending', 'Your account is pending administrator approval', 403)
@@ -114,10 +134,20 @@ router.post('/login', loginRateLimiter, async (req, res, next) => {
       throw new AppError('account_rejected', 'Your registration was rejected', 403)
     }
 
-    const passwordValid = await bcrypt.compare(password, user.passwordHash)
-    if (!passwordValid) {
-      throw new AppError('invalid_credentials', 'Invalid email or password', 401)
-    }
+    const activeSessionCount = await prisma.refreshToken.count({
+  where: { userId: user.id, revoked: false, expiresAt: { gt: new Date() } },
+})
+if (activeSessionCount >= 3) {
+  // Revoke oldest session to enforce limit
+  const oldest = await prisma.refreshToken.findFirst({
+    where: { userId: user.id, revoked: false },
+    orderBy: { createdAt: 'asc' },
+  })
+  if (oldest) {
+    await prisma.refreshToken.update({ where: { id: oldest.id }, data: { revoked: true, revokedAt: new Date() } })
+  }
+}
+
 
     const authUser = {
       id: user.id,
@@ -199,7 +229,7 @@ router.post('/login', loginRateLimiter, async (req, res, next) => {
 // ============================================================
 // REFRESH TOKEN (PUBLIC)
 // ============================================================
-router.post('/refresh', async (req, res, next) => {
+router.post('/refresh',refreshRateLimiter, async (req, res, next) => {
   try {
     const rawRefreshToken = req.cookies?.refreshToken
 
@@ -282,8 +312,13 @@ router.post('/logout', authMiddleware, async (req, res, next) => {
     const authHeader = req.headers.authorization
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.slice(7)
-      // Blacklist token in Redis for 15 minutes (900 seconds)
-      await redis.setex(`blacklist:${token}`, 900, 'revoked')
+     
+      const decoded = verifyAccessToken(token) // already verified by authMiddleware
+    
+      const remainingTtl = Math.ceil(decoded.exp! - Date.now() / 1000)
+      if (remainingTtl > 0) {
+        await redis.setex(`blacklist:${decoded.jti}`, remainingTtl, '1')
+      }
     }
 
     res.clearCookie('refreshToken')
@@ -344,12 +379,15 @@ router.get('/me', authMiddleware, async (req, res, next) => {
 // ============================================================
 // FORGOT PASSWORD
 // ============================================================
-router.post('/forgot-password', loginRateLimiter, async (req, res, next) => {
+router.post('/forgot-password', loginRateLimiter,async (req, res, next) => {
   try {
     const { email } = req.body
     if (!email) {
       throw new AppError('missing_email', 'Email is required', 400)
     }
+
+    const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/
+if (!emailRegex.test(email)) throw new AppError('invalid_email', 'Invalid email format', 400)
 
     const user = await prisma.user.findUnique({
       where: { email, deletedAt: null },
@@ -384,7 +422,7 @@ router.post('/forgot-password', loginRateLimiter, async (req, res, next) => {
 // ============================================================
 // RESET PASSWORD
 // ============================================================
-router.post('/reset-password', async (req, res, next) => {
+router.post('/reset-password',async (req, res, next) => {
   try {
     const { token, newPassword } = req.body
 
@@ -392,6 +430,7 @@ router.post('/reset-password', async (req, res, next) => {
       throw new AppError('missing_fields', 'Token and newPassword are required', 400)
     }
 
+    validatePassword(newPassword)  
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
 
     const resetToken = await prisma.passwordResetToken.findUnique({
@@ -435,10 +474,12 @@ router.put('/change-password', authMiddleware, async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body
 
-    if (!currentPassword || !newPassword) {
+    if (!currentPassword || !newPassword ) {
       throw new AppError('missing_fields', 'Current and new password are required', 400)
     }
 
+    validatePassword(currentPassword)
+    validatePassword(newPassword)
     const user = await prisma.user.findUnique({
       where: { id: req.user!.id },
     })
@@ -454,6 +495,8 @@ router.put('/change-password', authMiddleware, async (req, res, next) => {
 
     const passwordHash = await bcrypt.hash(newPassword, 12)
 
+
+
     await prisma.$transaction([
       prisma.user.update({
         where: { id: user.id },
@@ -464,6 +507,12 @@ router.put('/change-password', authMiddleware, async (req, res, next) => {
         data: { revoked: true, revokedAt: new Date() },
       }),
     ])
+
+    const decoded = verifyAccessToken(req.headers.authorization!.slice(7))
+const remainingTtl = Math.ceil(decoded.exp! - Date.now() / 1000)
+if (remainingTtl > 0) {
+  await redis.setex(`blacklist:${decoded.jti}`, remainingTtl, '1')
+}
 
     res.json({
       data: { message: 'Password updated successfully' },

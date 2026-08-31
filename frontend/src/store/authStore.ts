@@ -13,7 +13,11 @@ export interface User {
   departmentPreference?: string | null
   reasonForAccess?: string | null
   departmentAccess?: Array<{
-    department?: { id: string; name: string; code?: string }
+    department?: {
+      id: string
+      name: string
+      code?: string
+    }
     accessLevel?: string
   }>
 }
@@ -31,17 +35,35 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       accessToken: null,
-      setAuth: (user, accessToken) => set({ user, accessToken }),
+
+      setAuth: (user, accessToken) =>
+        set({
+          user,
+          accessToken,
+        }),
+
       updateUser: (patch) =>
         set((state) => ({
-          user: state.user ? { ...state.user, ...patch } : null,
+          user: state.user
+            ? { ...state.user, ...patch }
+            : null,
         })),
-      clearAuth: () => set({ user: null, accessToken: null }),
+
+      clearAuth: () =>
+        set({
+          user: null,
+          accessToken: null,
+        }),
     }),
     {
       name: 'istrac-auth',
       storage: createJSONStorage(() => sessionStorage),
-      partialize: (state) => ({ user: state.user }),
-    }
-  )
+
+      // IMPORTANT:
+      // accessToken is NOT persisted.
+      partialize: (state) => ({
+        user: state.user,
+      }),
+    },
+  ),
 )

@@ -1,7 +1,8 @@
 import type { Request, Response, NextFunction } from 'express'
 import { env } from '../config/env.js'
 import { logger } from './logger.js'
-
+import * as crypto from 'node:crypto'
+import { securityMonitorService } from '../services/securityMonitor.service.js'
 // ============================================================
 // APP ERROR CLASS
 // ============================================================
@@ -66,6 +67,7 @@ export function globalErrorHandler(
   _next: NextFunction,
 ): void {
   const requestId = req.requestId ?? 'unknown'
+  const internalRequestId = crypto.randomUUID()
   const isDev = env.NODE_ENV === 'development'
 
   // ----------------------------------------------------------
@@ -73,9 +75,9 @@ export function globalErrorHandler(
   // ----------------------------------------------------------
   if (err instanceof AppError) {
     if (err.statusCode >= 500) {
-      logger.error('APP_ERROR', `[Req: ${requestId}] ${err.code}: ${err.message}`, err.stack)
+      logger.error('APP_ERROR', `[InternalReq: ${internalRequestId}] ${err.code}: ${err.message}`, err.stack)
     } else {
-      logger.warn('APP_WARN', `[Req: ${requestId}] ${err.code}: ${err.message}`)
+      logger.warn('APP_WARN', `[InternalReq: ${internalRequestId}] ${err.code}: ${err.message}`)
     }
 
     res.status(err.statusCode).json({
@@ -93,7 +95,7 @@ export function globalErrorHandler(
   // 2. Prisma known request errors
   // ----------------------------------------------------------
   if (isPrismaKnownError(err)) {
-    logger.error('DATABASE_ERROR', `[Req: ${requestId}] Prisma Code: ${err.code}`, err)
+    logger.error('DATABASE_ERROR', `[InternalReq: ${internalRequestId}] Prisma Code: ${err.code}`, err)
 
     if (err.code === 'P2002') {
       res.status(409).json({
@@ -121,22 +123,30 @@ export function globalErrorHandler(
   // ----------------------------------------------------------
   // 3. Unknown / programmer errors
   // ----------------------------------------------------------
-  logger.error('UNHANDLED_EXCEPTION', `[Req: ${requestId}]`, err)
+  logger.error('UNHANDLED_EXCEPTION', `[InternalReq: ${internalRequestId}]`, err)
 
   if (isDev) {
     const message = err instanceof Error ? err.message : String(err)
-    const stack = err instanceof Error ? err.stack : undefined
 
     res.status(500).json({
       error: {
         code: 'internal_error',
         message,
-        details: stack,
+    
       },
       requestId,
     })
     return
   }
+
+
+  if (
+  err instanceof AppError &&
+  (err.statusCode === 401 || err.statusCode === 403)
+) {
+    void securityMonitorService.recordAuthFailure(req.ip!)
+}
+ 
 
   // Production — never leak internals
   res.status(500).json({

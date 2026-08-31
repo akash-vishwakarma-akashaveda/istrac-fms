@@ -7,7 +7,7 @@ export interface EnvConfig {
   PORT: number
   NODE_ENV: 'development' | 'production' | 'test'
   ALLOWED_ORIGINS: string[]
-  MYSQL_ROOT_PASSWORD: string
+  // MYSQL_ROOT_PASSWORD: string
   MYSQL_DATABASE: string
   MYSQL_USER: string
   MYSQL_PASSWORD: string

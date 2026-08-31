@@ -6,6 +6,7 @@ import { useUpdateCmsBlock } from '../../hooks/useUpdateCmsBlock'
 import { useToastStore } from '../../store/toastStore'
 import { Input, Panel, Button } from '..'
 import { SaveBar } from './SaveBar'
+import { isSafeUrl } from '../../lib/sanitize'
 
 interface HeroSlide {
   url: string
@@ -30,6 +31,9 @@ export function HeroTab() {
   const { triggerRefresh } = usePreviewRefresh()
 
   const existing = cmsBlocks['hero'] as HeroContent | undefined
+  const safeImageUrl = isSafeUrl(existing?.imageUrl as string) 
+  ? cmsBlocks.hero.imageUrl as string 
+  : '/fallback-hero.jpg'
 
   const [title, setTitle] = useState('')
   const [subtitle, setSubtitle] = useState('')
@@ -45,10 +49,10 @@ export function HeroTab() {
 
     if (existing?.slides && existing.slides.length > 0) {
       setSlides(existing.slides)
-    } else if (existing?.imageUrl) {
+    } else if (safeImageUrl && existing) {
       setSlides([
         {
-          url: existing.imageUrl,
+          url: safeImageUrl,
           caption: existing.imageAlt || 'Indian Deep Space Network (IDSN) 32-Meter Antenna Dish',
           alt: existing.imageAlt || 'IDSN Antenna',
         },

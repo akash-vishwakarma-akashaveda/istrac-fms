@@ -25,6 +25,7 @@ import { type HeroContent, type HeroSlide } from '../types/cms'
 import { Button, Modal, Input, Textarea } from '.'
 import { SearchModal } from './SearchModal'
 import { ImageWithFallback } from './ImageWithFallback'
+import { isSafeUrl } from '../lib/sanitize'
 
 interface ExtendedHeroContent extends HeroContent {
   badgeText?: string
@@ -161,7 +162,9 @@ export function Hero() {
     e.preventDefault()
     setSavingCms(true)
 
-    const validSlides = editForm.slides.filter((s) => s.url.trim().length > 0)
+   const validSlides = slides.filter(
+  (slide) => slide.url.trim().length > 0 && isSafeUrl(slide.url.trim())
+)
     const primaryImg = validSlides[0]?.url || DEFAULT_LANDING_SLIDES[0].url
     const primaryAlt = validSlides[0]?.caption || DEFAULT_LANDING_SLIDES[0].caption
 

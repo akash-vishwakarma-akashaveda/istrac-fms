@@ -12,8 +12,6 @@ import {
   Building,
   BadgeCheck,
 } from "lucide-react";
-
-import { api } from "../lib/axios";
 import { departmentsApi, type Department } from "../api/departments.api";
 import {
   Alert,
@@ -28,6 +26,7 @@ import {
   registerSchema,
   type RegisterFormData,
 } from "../../schemas/authSchemas";
+import { authApi } from "../api";
 
 const FALLBACK_DEPARTMENTS = [
   "Telemetry, Tracking & Command (TTC)",
@@ -36,6 +35,13 @@ const FALLBACK_DEPARTMENTS = [
   "IS4OM / NETRA Space Situational Awareness",
   "Ground Station Operations (GSO)",
 ];
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid_credentials: 'Invalid email or password.',
+  account_pending: 'Your account is pending administrator approval.',
+  account_suspended: 'Your account has been suspended. Contact your administrator.',
+  rate_limit_exceeded: 'Too many attempts. Please wait 15 minutes.',
+  user_exists: 'An account with this email or employee ID already exists.',
+}
 
 export function Register() {
   const navigate = useNavigate();
@@ -68,22 +74,20 @@ export function Register() {
     setServerError(null);
 
     try {
-      await api.post("/auth/register", data);
+     await authApi.register(data)
       setRegisteredEmail(data.email);
       setSubmitted(true);
     } catch (err) {
       const error = err as AxiosError<{
         error?: {
+          code?: string;
           message?: string;
         };
         message?: string;
       }>;
 
-      setServerError(
-        error.response?.data?.error?.message ??
-          error.response?.data?.message ??
-          "Registration request failed. Please check your details and try again.",
-      );
+      const code = error.response?.data?.error?.code
+setServerError(ERROR_MESSAGES[code!] ?? 'An unexpected error occurred. Please try again.')
     }
   }
 

@@ -28,7 +28,7 @@ export const env: EnvConfig = {
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim().replace(/\/+$/, '')).filter(Boolean)
     : ['http://localhost:5173', 'http://localhost:3000'],
-  MYSQL_ROOT_PASSWORD: required('MYSQL_ROOT_PASSWORD'),
+  // MYSQL_ROOT_PASSWORD: required('MYSQL_ROOT_PASSWORD'),
   MYSQL_DATABASE: required('MYSQL_DATABASE'),
   MYSQL_USER: required('MYSQL_USER'),
   MYSQL_PASSWORD: required('MYSQL_PASSWORD'),
