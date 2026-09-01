@@ -33,7 +33,7 @@ export function Files() {
   const isReadWrite = isAdmin || userDeptAccess?.accessLevel === 'READ_WRITE'
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 w-full pb-16">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border-subtle pb-5">
         <PageHeader

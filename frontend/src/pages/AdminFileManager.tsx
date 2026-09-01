@@ -255,7 +255,7 @@ export function AdminFileManager() {
   const totalVersions = files.reduce((acc, f) => acc + (f.versionCount || 1), 0)
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-16">
+    <div className="w-full space-y-6 pb-16">
       {/* Top Header Row */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border-subtle pb-5">
         <PageHeader

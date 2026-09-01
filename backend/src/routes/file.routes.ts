@@ -150,7 +150,6 @@
       const where: any = {
         deletedAt: null,
         nodeType: 'FILE',
-        status: 'ACTIVE',
         ...(departmentId && { departmentId: String(departmentId) }),
         ...(extension && { extension: String(extension).toUpperCase() }),
         ...(search && {
@@ -163,7 +162,7 @@
 
       const files = await prisma.file.findMany({
         where,
-        take: 100,
+        take: 200,
         orderBy: { createdAt: 'desc' },
         include: {
           department: {
@@ -172,6 +171,15 @@
               name: true,
               code: true,
               satellite: { select: { id: true, name: true, code: true } },
+            },
+          },
+          report: {
+            select: {
+              id: true,
+              title: true,
+              spacecraft: true,
+              category: true,
+              classificationLevel: true,
             },
           },
           uploader: { select: { id: true, name: true } },
@@ -186,7 +194,7 @@
           sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
           department: f.department?.code || f.department?.name || 'TTC',
           departmentId: f.departmentId,
-          satellite: f.department?.satellite?.name || 'Primary Fleet',
+          satellite: f.report?.spacecraft || f.department?.satellite?.name || 'Primary Fleet',
           uploader: f.uploader?.name || 'Operator',
           createdAt: f.createdAt,
         })),

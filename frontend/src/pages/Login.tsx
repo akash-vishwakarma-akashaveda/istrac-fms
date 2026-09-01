@@ -62,8 +62,9 @@ const idleLogout = searchParams.get('reason') === 'idle'
     try {
       const response = await authApi.login(data);
       const user = response?.user;
-      const token =response?.accessToken;
-      setAuth(user, token);
+      const token = response?.accessToken;
+      const refreshToken = response?.refreshToken;
+      setAuth(user, token, refreshToken);
 
       if (user?.role === 'ADMIN') {
         navigate("/admin");

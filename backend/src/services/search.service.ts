@@ -1,4 +1,4 @@
-import { prisma } from '../config/db.js'
+﻿import { prisma } from "../config/db.js"
 
 export interface SearchParams {
   query?: string
@@ -11,8 +11,8 @@ export interface SearchParams {
   classificationLevel?: string
   startDate?: string
   endDate?: string
-  sortBy?: 'updatedAt' | 'createdAt' | 'name' | 'sizeBytes'
-  sortOrder?: 'asc' | 'desc'
+  sortBy?: "updatedAt" | "createdAt" | "name" | "sizeBytes"
+  sortOrder?: "asc" | "desc"
   page?: number
   limit?: number
 }
@@ -46,18 +46,47 @@ export const searchService = {
     const page = Math.max(1, params.page || 1)
     const limit = Math.min(100, Math.max(1, params.limit || 20))
     const skip = (page - 1) * limit
-    const term = (params.query || '').trim()
+    const term = (params.query || "").trim()
 
     let allowedDeptIds: string[] | undefined
 
-    // If logged in as non-admin and has explicit department ACL restrictions
+    // ACCESS CONTROL:
+    // If not admin and user is logged in, restrict search strictly to the user's assigned departments (or preferred department)
     if (params.userId && !params.isAdmin) {
       const userAccess = await prisma.userDepartmentAccess.findMany({
         where: { userId: params.userId, deletedAt: null },
         select: { departmentId: true },
       })
+
       if (userAccess.length > 0) {
         allowedDeptIds = userAccess.map((a: any) => a.departmentId)
+      } else {
+        // Fallback to user's assigned department preference if any
+        const user = await prisma.user.findUnique({
+          where: { id: params.userId },
+          select: { departmentPreference: true },
+        })
+        if (user?.departmentPreference) {
+          const dept = await prisma.department.findFirst({
+            where: {
+              OR: [
+                { id: user.departmentPreference },
+                { code: user.departmentPreference },
+                { name: user.departmentPreference },
+              ],
+              deletedAt: null,
+            },
+            select: { id: true },
+          })
+          if (dept) {
+            allowedDeptIds = [dept.id]
+          }
+        }
+      }
+
+      // If member has no assigned department access at all, return empty results
+      if (!allowedDeptIds || allowedDeptIds.length === 0) {
+        return { results: [], total: 0, page, limit }
       }
     }
 
@@ -65,23 +94,24 @@ export const searchService = {
     let extractedExtension = params.extension
 
     // Parse inline search operators like type:pdf or ext:csv or dept:FDD
-    if (cleanTerm.includes('type:') || cleanTerm.includes('ext:')) {
+    if (cleanTerm.includes("type:") || cleanTerm.includes("ext:")) {
       const match = cleanTerm.match(/(?:type|ext):([a-zA-Z0-9]+)/i)
       if (match && match[1]) {
         extractedExtension = match[1].toLowerCase()
-        cleanTerm = cleanTerm.replace(/(?:type|ext):[a-zA-Z0-9]+/gi, '').trim()
+        cleanTerm = cleanTerm.replace(/(?:type|ext):[a-zA-Z0-9]+/gi, "").trim()
       }
     }
 
-    if (cleanTerm.includes('dept:')) {
+    if (cleanTerm.includes("dept:")) {
       const deptMatch = cleanTerm.match(/dept:([a-zA-Z0-9_-]+)/i)
       if (deptMatch && deptMatch[1]) {
-        cleanTerm = cleanTerm.replace(/dept:[a-zA-Z0-9_-]+/gi, '').trim()
+        cleanTerm = cleanTerm.replace(/dept:[a-zA-Z0-9_-]+/gi, "").trim()
       }
     }
 
     const whereClause: any = {
       deletedAt: null,
+      status: "ACTIVE",
     }
 
     // Text search condition
@@ -99,15 +129,19 @@ export const searchService = {
       ]
     }
 
-    // Department filtering
-    if (params.departmentId && params.departmentId !== 'ALL') {
+    // Department filtering (Admin can choose ANY department; Member is constrained by their allowedDeptIds)
+    if (params.departmentId && params.departmentId !== "ALL") {
+      if (allowedDeptIds && !allowedDeptIds.includes(params.departmentId)) {
+        // User requested a department they don't have access to
+        return { results: [], total: 0, page, limit }
+      }
       whereClause.departmentId = params.departmentId
     } else if (allowedDeptIds && allowedDeptIds.length > 0) {
       whereClause.departmentId = { in: allowedDeptIds }
     }
 
     // Satellite / Spacecraft filtering
-    if (params.satelliteId && params.satelliteId !== 'ALL') {
+    if (params.satelliteId && params.satelliteId !== "ALL") {
       whereClause.department = {
         ...whereClause.department,
         satelliteId: params.satelliteId,
@@ -115,22 +149,22 @@ export const searchService = {
     }
 
     // Extension / Format filtering
-    const effectiveExtension = extractedExtension && extractedExtension !== 'ALL' ? extractedExtension : undefined
+    const effectiveExtension = extractedExtension && extractedExtension !== "ALL" ? extractedExtension : undefined
     if (effectiveExtension) {
-      const ext = effectiveExtension.toLowerCase().replace(/^\./, '')
-      if (ext === 'data') {
-        whereClause.extension = { in: ['csv', 'dat', 'raw', 'tsv', 'bin'] }
-      } else if (ext === 'telemetry') {
-        whereClause.extension = { in: ['json', 'xml', 'log', 'yaml', 'yml'] }
-      } else if (ext === 'document') {
-        whereClause.extension = { in: ['pdf', 'doc', 'docx', 'txt', 'rtf'] }
+      const ext = effectiveExtension.toLowerCase().replace(/^\./, "")
+      if (ext === "data") {
+        whereClause.extension = { in: ["csv", "dat", "raw", "tsv", "bin"] }
+      } else if (ext === "telemetry") {
+        whereClause.extension = { in: ["json", "xml", "log", "yaml", "yml"] }
+      } else if (ext === "document") {
+        whereClause.extension = { in: ["pdf", "doc", "docx", "txt", "rtf"] }
       } else {
         whereClause.extension = ext
       }
     }
 
     // Report Category filtering
-    if (params.category && params.category !== 'ALL') {
+    if (params.category && params.category !== "ALL") {
       whereClause.report = {
         ...whereClause.report,
         OR: [
@@ -141,7 +175,7 @@ export const searchService = {
     }
 
     // Classification Level filtering
-    if (params.classificationLevel && params.classificationLevel !== 'ALL') {
+    if (params.classificationLevel && params.classificationLevel !== "ALL") {
       whereClause.report = {
         ...whereClause.report,
         classificationLevel: params.classificationLevel as any,
@@ -162,8 +196,8 @@ export const searchService = {
     }
 
     // Sorting
-    const sortBy = params.sortBy || 'updatedAt'
-    const sortOrder = params.sortOrder || 'desc'
+    const sortBy = params.sortBy || "updatedAt"
+    const sortOrder = params.sortOrder || "desc"
     const orderBy: any = { [sortBy]: sortOrder }
 
     const [total, files] = await Promise.all([
@@ -194,20 +228,20 @@ export const searchService = {
       nodeType: f.nodeType,
       mimeType: f.mimeType,
       extension: f.extension,
-      sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
+      sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : "0",
       departmentId: f.departmentId,
-      departmentName: f.department?.name || 'TTC Operations Division',
-      departmentCode: f.department?.code || 'OPS',
+      departmentName: f.department?.name || "TTC Operations Division",
+      departmentCode: f.department?.code || "OPS",
       satelliteId: f.department?.satelliteId || null,
-      satelliteName: f.report?.spacecraft || f.department?.satellite?.name || 'ISRO Primary Fleet',
+      satelliteName: f.report?.spacecraft || f.department?.satellite?.name || "ISRO Primary Fleet",
       satelliteCode: f.department?.satellite?.code || null,
-      hddPath: f.hddPath || '',
+      hddPath: f.hddPath || "",
       reportTitle: f.report?.title || null,
       reportAuthor: f.report?.createdBy?.name || null,
       reportCategory: f.report?.category || null,
       customCategory: f.report?.customCategory || null,
-      classificationLevel: f.report?.classificationLevel || 'ISRO_LEVEL',
-      versionLabel: f.report?.versionLabel || 'V1.0',
+      classificationLevel: f.report?.classificationLevel || "ISRO_LEVEL",
+      versionLabel: f.report?.versionLabel || "V1.0",
       createdAt: f.createdAt ? f.createdAt.toISOString() : new Date().toISOString(),
       updatedAt: f.updatedAt ? f.updatedAt.toISOString() : new Date().toISOString(),
     }))

@@ -231,17 +231,15 @@ body {
 
 .shell-wide {
   width: 100%;
-  max-width: 96rem;
-  margin-left: auto;
-  margin-right: auto;
+  max-width: 100%;
   padding-left: 1rem;
   padding-right: 1rem;
 }
 
 @media (min-width: 640px) {
   .shell-wide {
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
+    padding-left: 1.75rem;
+    padding-right: 1.75rem;
   }
 }
 

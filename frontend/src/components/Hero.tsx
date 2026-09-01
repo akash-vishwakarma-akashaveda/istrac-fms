@@ -32,6 +32,14 @@ interface ExtendedHeroContent extends HeroContent {
   imageUrl?: string
   imageAlt?: string
   slides?: HeroSlide[]
+  showBadge?: boolean
+  showLoginBtn?: boolean
+  showRegisterBtn?: boolean
+  showSearchBtn?: boolean
+  showDashboardBtn?: boolean
+  showFileRepoBtn?: boolean
+  carouselAutoplay?: boolean
+  carouselIntervalMs?: number
 }
 
 const DEFAULT_LANDING_SLIDES: HeroSlide[] = [
@@ -104,15 +112,16 @@ export function Hero() {
 
   // Auto-play rotation timer
   useEffect(() => {
-    if (isPlaying && slides.length > 1) {
+    const shouldPlay = isPlaying && slides.length > 1 && (hero?.carouselAutoplay ?? true)
+    if (shouldPlay) {
       autoPlayTimerRef.current = setInterval(() => {
         setCurrentSlideIndex((prev) => (prev + 1) % slides.length)
-      }, 4500)
+      }, hero?.carouselIntervalMs ?? 4500)
     }
     return () => {
       if (autoPlayTimerRef.current) clearInterval(autoPlayTimerRef.current)
     }
-  }, [isPlaying, slides.length])
+  }, [isPlaying, slides.length, hero?.carouselAutoplay, hero?.carouselIntervalMs])
 
   const handleNextSlide = () => {
     setCurrentSlideIndex((prev) => (prev + 1) % slides.length)
@@ -162,9 +171,9 @@ export function Hero() {
     e.preventDefault()
     setSavingCms(true)
 
-   const validSlides = slides.filter(
-  (slide) => slide.url.trim().length > 0 && isSafeUrl(slide.url.trim())
-)
+    const validSlides = editForm.slides.filter(
+      (slide) => slide.url.trim().length > 0 && isSafeUrl(slide.url.trim())
+    )
     const primaryImg = validSlides[0]?.url || DEFAULT_LANDING_SLIDES[0].url
     const primaryAlt = validSlides[0]?.caption || DEFAULT_LANDING_SLIDES[0].caption
 
@@ -232,13 +241,14 @@ export function Hero() {
         </div>
 
         <div className="shell grid items-center gap-10 lg:grid-cols-12 lg:gap-14">
-          {/* Left Column: Mission Control Content (7 cols) */}
-          <div className="lg:col-span-7">
+        <div className="lg:col-span-7">
             {/* Status Pill */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3.5 py-1 text-xs font-semibold text-accent-light shadow-sm shadow-accent/20">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-nominal" />
-              <span>{hero?.badgeText ?? 'Telemetry & Tracking Network Active · 24/7 MOX Ops'}</span>
-            </div>
+            {(hero?.showBadge ?? true) && (
+              <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3.5 py-1 text-xs font-semibold text-accent-light shadow-sm shadow-accent/20">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-nominal" />
+                <span>{hero?.badgeText ?? 'Telemetry & Tracking Network Active · 24/7 MOX Ops'}</span>
+              </div>
+            )}
 
             {/* Main Headline */}
             <h1
@@ -258,49 +268,57 @@ export function Hero() {
             <div className="mt-8 flex flex-wrap items-center gap-3">
               {user ? (
                 <>
-                  <Link to={user.role === 'ADMIN' ? '/admin' : '/dashboard'}>
-                    <Button variant="primary" size="md" className="shadow-lg shadow-accent/25 px-5 flex items-center gap-2">
-                      <LayoutDashboard size={15} strokeWidth={2.2} />
-                      <span>Go To Dashboard</span>
-                      <ArrowRight size={14} />
-                    </Button>
-                  </Link>
-
-                  <Link to="/dashboard/files">
-                    <Button variant="outline" size="md" className="px-5">
-                      <span>File Repositories</span>
-                    </Button>
-                  </Link>
+                  {(hero?.showDashboardBtn ?? true) && (
+                    <Link to={user.role === 'ADMIN' ? '/admin' : '/dashboard'}>
+                      <Button variant="primary" size="md" className="shadow-lg shadow-accent/25 px-5 flex items-center gap-2">
+                        <LayoutDashboard size={15} strokeWidth={2.2} />
+                        <span>Go To Dashboard</span>
+                        <ArrowRight size={14} />
+                      </Button>
+                    </Link>
+                  )}
+                  {(hero?.showFileRepoBtn ?? true) && (
+                    <Link to="/dashboard/files">
+                      <Button variant="outline" size="md" className="px-5">
+                        <span>File Repositories</span>
+                      </Button>
+                    </Link>
+                  )}
                 </>
               ) : (
                 <>
-                  <Link to="/login">
-                    <Button variant="primary" size="md" className="shadow-lg shadow-accent/25 px-5">
-                      <LogIn size={15} strokeWidth={2.2} />
-                      <span>Log In</span>
-                    </Button>
-                  </Link>
-
-                  <Link to="/register">
-                    <Button variant="outline" size="md" className="px-5">
-                      <UserPlus size={15} strokeWidth={1.8} />
-                      <span>Request Access</span>
-                    </Button>
-                  </Link>
+                  {(hero?.showLoginBtn ?? true) && (
+                    <Link to="/login">
+                      <Button variant="primary" size="md" className="shadow-lg shadow-accent/25 px-5">
+                        <LogIn size={15} strokeWidth={2.2} />
+                        <span>{hero?.ctaText || 'Log In'}</span>
+                      </Button>
+                    </Link>
+                  )}
+                  {(hero?.showRegisterBtn ?? true) && (
+                    <Link to="/register">
+                      <Button variant="outline" size="md" className="px-5">
+                        <UserPlus size={15} strokeWidth={1.8} />
+                        <span>Request Access</span>
+                      </Button>
+                    </Link>
+                  )}
                 </>
               )}
 
-              <button
-                type="button"
-                onClick={() => setSearchOpen(true)}
-                className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-surface/80 px-4 py-2.5 text-xs font-semibold text-text-muted hover:border-border-bright hover:text-text-primary transition-colors shadow-sm"
-              >
-                <Search size={14} className="text-accent-light" />
-                <span>Search Files</span>
-                <kbd className="num ml-1 rounded bg-card px-1.5 py-0.5 text-[10px] text-text-dim border border-border-subtle">
-                  Ctrl K
-                </kbd>
-              </button>
+              {(hero?.showSearchBtn ?? true) && (
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-surface/80 px-4 py-2.5 text-xs font-semibold text-text-muted hover:border-border-bright hover:text-text-primary transition-colors shadow-sm"
+                >
+                  <Search size={14} className="text-accent-light" />
+                  <span>Search Files</span>
+                  <kbd className="num ml-1 rounded bg-card px-1.5 py-0.5 text-[10px] text-text-dim border border-border-subtle">
+                    Ctrl K
+                  </kbd>
+                </button>
+              )}
 
               {isAdmin && (
                 <Button

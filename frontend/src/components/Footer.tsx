@@ -1,9 +1,51 @@
-import { ArrowUp, Radio, ShieldCheck } from 'lucide-react'
-import { Link } from 'react-router-dom'
+﻿import { ArrowUp, Radio, ShieldCheck } from "lucide-react"
+import { Link } from "react-router-dom"
+import { useCms } from "../context/cmsContext"
+
+interface FooterBlockContent {
+  brandTitle?: string
+  brandHighlight?: string
+  brandDescription?: string
+  groundStations?: string
+  copyrightText?: string
+  quickLinks?: string
+  statusText?: string
+  portalBadge?: string
+}
 
 export function Footer() {
+  const { cmsBlocks } = useCms()
+  const footerData = (cmsBlocks["footer_custom"] as FooterBlockContent | undefined) ||
+    (cmsBlocks["nav_footer"] as FooterBlockContent | undefined)
+
+  const brandTitle = footerData?.brandTitle || "ISRO ·"
+  const brandHighlight = footerData?.brandHighlight || "ISTRAC"
+  const brandDescription =
+    footerData?.brandDescription ||
+    "ISRO Telemetry, Tracking and Command Network · Department of Space, Government of India."
+  const groundStations =
+    footerData?.groundStations ||
+    "BLR · SHAR · PBL · MAU · BIK · BYALALU"
+  const copyrightText =
+    footerData?.copyrightText ||
+    "© 2026 ISTRAC · Indian Space Research Organisation (ISRO)."
+  const statusText = footerData?.statusText || "24/7 Operations Live"
+  const portalBadge = footerData?.portalBadge || "Official Intranet Portal"
+
+  const rawLinks = footerData?.quickLinks || "Home, Reports, Calendar, Departments, About, Support"
+  const linksList = rawLinks.split(",").map((s) => s.trim()).filter(Boolean)
+
+  const linkHrefMap: Record<string, string> = {
+    Home: "#hero",
+    Reports: "#featured-files",
+    Calendar: "#calendar",
+    Departments: "/departments",
+    About: "#about",
+    Support: "#contact",
+  }
+
   return (
-    <footer className="border-t border-border-subtle bg-[#050811]">
+    <footer id="footer" className="border-t border-border-subtle bg-[#050811]">
       <div className="shell py-10 sm:py-12">
         <div className="flex flex-col justify-between gap-8 pb-8 border-b border-border-subtle sm:flex-row sm:items-center">
           {/* Brand & Mandate */}
@@ -20,44 +62,42 @@ export function Footer() {
               />
 
               <span className="text-xs font-bold tracking-wider uppercase">
-                ISRO · <span className="text-accent-light">ISTRAC</span>
+                {brandTitle} <span className="text-accent-light">{brandHighlight}</span>
               </span>
             </Link>
 
             <p className="mt-2 text-xs text-text-muted max-w-md">
-              ISRO Telemetry, Tracking and Command Network · Department of Space, Government of India.
+              {brandDescription}
             </p>
 
             <div className="mt-3 flex items-center gap-4 text-[11px] text-text-dim">
               <span className="flex items-center gap-1.5 text-nominal">
-                <Radio size={12} /> 24/7 Operations Live
+                <Radio size={12} /> {statusText}
               </span>
               <span className="flex items-center gap-1.5 text-accent-light">
-                <ShieldCheck size={12} /> Official Intranet Portal
+                <ShieldCheck size={12} /> {portalBadge}
               </span>
             </div>
           </div>
 
           {/* Clean Functional Links */}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-text-muted">
-            <a href="#hero" className="hover:text-text-primary transition-colors">
-              Home
-            </a>
-            <a href="#featured-files" className="hover:text-text-primary transition-colors">
-              Reports
-            </a>
-            <a href="#calendar" className="hover:text-text-primary transition-colors">
-              Calendar
-            </a>
-            <Link to="/departments" className="hover:text-text-primary transition-colors">
-              Departments
-            </Link>
-            <a href="#about" className="hover:text-text-primary transition-colors">
-              About
-            </a>
-            <a href="#contact" className="hover:text-text-primary transition-colors">
-              Support
-            </a>
+            {linksList.map((label) => {
+              const href = linkHrefMap[label] || `/#${label.toLowerCase()}`
+              const isInternalRoute = href.startsWith("/")
+              if (isInternalRoute) {
+                return (
+                  <Link key={label} to={href} className="hover:text-text-primary transition-colors">
+                    {label}
+                  </Link>
+                )
+              }
+              return (
+                <a key={label} href={href} className="hover:text-text-primary transition-colors">
+                  {label}
+                </a>
+              )
+            })}
             <span className="text-border-default">|</span>
             <Link to="/login" className="font-semibold text-accent-light hover:text-white transition-colors">
               Log In →
@@ -67,13 +107,11 @@ export function Footer() {
 
         {/* Bottom Colophon & Station Network */}
         <div className="flex flex-col justify-between gap-4 pt-6 sm:flex-row sm:items-center text-[11px] text-text-dim">
-          <p>
-            © 2026 ISTRAC · Indian Space Research Organisation (ISRO).
-          </p>
+          <p>{copyrightText}</p>
 
           <div className="flex items-center gap-4">
             <span className="num text-[10px]">
-              BLR · SHAR · PBL · MAU · BIK · BYALALU
+              {groundStations}
             </span>
 
             <a

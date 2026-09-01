@@ -112,40 +112,108 @@ export async function downloadRateLimiter(req: Request, res: Response, next: Nex
   }
 }
 
-const GLOBAL_LIMIT = 200  // requests per minute per IP
+const GLOBAL_LIMIT = env.NODE_ENV === 'development' ? 1000 : 200 // requests per minute per IP
 const GLOBAL_WINDOW = 60
 
 export async function globalRateLimiter(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const ip = req.ip || 'unknown'
+  const ip = req.ip || req.socket.remoteAddress || 'unknown'
   const key = `rate:global:${ip}`
-  const count = await redis.incr(key)
-  if (count === 1) await redis.expire(key, GLOBAL_WINDOW)
-  if (count > GLOBAL_LIMIT) {
-    res.setHeader('Retry-After', String(GLOBAL_WINDOW))
-    return next(new AppError('rate_limit_exceeded', 'Too many requests', 429))
+
+  try {
+    const count = await redis.incr(key)
+    if (count === 1) await redis.expire(key, GLOBAL_WINDOW)
+    if (count > GLOBAL_LIMIT) {
+      res.setHeader('Retry-After', String(GLOBAL_WINDOW))
+      return next(new AppError('rate_limit_exceeded', 'Too many requests', 429))
+    }
+    return next()
+  } catch (err) {
+    if (err instanceof AppError) return next(err)
+
+    // Fallback to in-memory store if Redis is unavailable
+    const now = Date.now()
+    const record = memoryRateLimit.get(key)
+    if (!record || record.expiresAt < now) {
+      memoryRateLimit.set(key, { count: 1, expiresAt: now + GLOBAL_WINDOW * 1000 })
+      return next()
+    }
+
+    record.count += 1
+    if (record.count > GLOBAL_LIMIT) {
+      const retryAfter = Math.ceil((record.expiresAt - now) / 1000)
+      res.setHeader('Retry-After', String(retryAfter > 0 ? retryAfter : GLOBAL_WINDOW))
+      return next(new AppError('rate_limit_exceeded', 'Too many requests', 429))
+    }
+    next()
   }
-  next()
 }
 
-
-const REGISTER_MAX = 5    // 5 registrations per hour per IP
+const REGISTER_MAX = 5 // 5 registrations per hour per IP
 const REGISTER_WINDOW = 3600
+
 export async function registerRateLimiter(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const key = `rate:register:${req.ip}`
-  const count = await redis.incr(key)
-  if (count === 1) await redis.expire(key, REGISTER_WINDOW)
-  if (count > REGISTER_MAX) throw new AppError('rate_limit_exceeded', 'Too many registration attempts', 429)
-  next()
+  const ip = req.ip || req.socket.remoteAddress || 'unknown'
+  const key = `rate:register:${ip}`
+
+  try {
+    const count = await redis.incr(key)
+    if (count === 1) await redis.expire(key, REGISTER_WINDOW)
+    if (count > REGISTER_MAX) {
+      res.setHeader('Retry-After', String(REGISTER_WINDOW))
+      throw new AppError('rate_limit_exceeded', 'Too many registration attempts', 429)
+    }
+    next()
+  } catch (err) {
+    if (err instanceof AppError) return next(err)
+
+    const now = Date.now()
+    const record = memoryRateLimit.get(key)
+    if (!record || record.expiresAt < now) {
+      memoryRateLimit.set(key, { count: 1, expiresAt: now + REGISTER_WINDOW * 1000 })
+      return next()
+    }
+
+    record.count += 1
+    if (record.count > REGISTER_MAX) {
+      const retryAfter = Math.ceil((record.expiresAt - now) / 1000)
+      res.setHeader('Retry-After', String(retryAfter > 0 ? retryAfter : REGISTER_WINDOW))
+      return next(new AppError('rate_limit_exceeded', 'Too many registration attempts', 429))
+    }
+    next()
+  }
 }
 
-const REFRESH_MAX = 20  
+const REFRESH_MAX = 20
 const REFRESH_WINDOW = 3600
-export async function refreshRateLimiter(req:Request,res:Response,next:NextFunction):Promise<void>{
-  const key= `rate:refresh:${req.ip}`
-  const count = await redis.incr(key)
-   if (count === 1) await redis.expire(key, REFRESH_WINDOW)
-  if (count > REFRESH_MAX) throw new AppError('rate_limit_exceeded', 'Too many refresh attempts', 429)
-  next()
 
+export async function refreshRateLimiter(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown'
+  const key = `rate:refresh:${ip}`
 
+  try {
+    const count = await redis.incr(key)
+    if (count === 1) await redis.expire(key, REFRESH_WINDOW)
+    if (count > REFRESH_MAX) {
+      res.setHeader('Retry-After', String(REFRESH_WINDOW))
+      throw new AppError('rate_limit_exceeded', 'Too many refresh attempts', 429)
+    }
+    next()
+  } catch (err) {
+    if (err instanceof AppError) return next(err)
+
+    const now = Date.now()
+    const record = memoryRateLimit.get(key)
+    if (!record || record.expiresAt < now) {
+      memoryRateLimit.set(key, { count: 1, expiresAt: now + REFRESH_WINDOW * 1000 })
+      return next()
+    }
+
+    record.count += 1
+    if (record.count > REFRESH_MAX) {
+      const retryAfter = Math.ceil((record.expiresAt - now) / 1000)
+      res.setHeader('Retry-After', String(retryAfter > 0 ? retryAfter : REFRESH_WINDOW))
+      return next(new AppError('rate_limit_exceeded', 'Too many refresh attempts', 429))
+    }
+    next()
+  }
 }

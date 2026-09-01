@@ -344,7 +344,7 @@ export function UploadReport() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+    <div className="w-full space-y-6 pb-12">
       <div className="border-b border-border-subtle pb-5">
         <PageHeader
           eyebrow="SPOA Repository Architecture"

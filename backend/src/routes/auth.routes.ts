@@ -175,10 +175,11 @@ if (activeSessionCount >= 3) {
       data: { lastLogin: new Date() },
     })
 
+    const isProd = env.NODE_ENV === 'production'
     res.cookie('refreshToken', rawRefreshToken, {
       httpOnly: true,
-      sameSite: 'strict',
-      secure: env.NODE_ENV === 'production',
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     })
 
@@ -217,6 +218,7 @@ if (activeSessionCount >= 3) {
     res.json({
       data: {
         accessToken,
+        refreshToken: rawRefreshToken,
         user: fullUser,
       },
       requestId: req.requestId,
@@ -231,7 +233,10 @@ if (activeSessionCount >= 3) {
 // ============================================================
 router.post('/refresh',refreshRateLimiter, async (req, res, next) => {
   try {
-    const rawRefreshToken = req.cookies?.refreshToken
+    const rawRefreshToken =
+      req.cookies?.refreshToken ||
+      req.body?.refreshToken ||
+      (req.headers['x-refresh-token'] as string | undefined)
 
     if (!rawRefreshToken) {
       throw new AppError('missing_refresh_token', 'No refresh token provided', 401)
@@ -279,15 +284,19 @@ router.post('/refresh',refreshRateLimiter, async (req, res, next) => {
       },
     })
 
+    const isProdRefresh = env.NODE_ENV === 'production'
     res.cookie('refreshToken', newRawRefreshToken, {
       httpOnly: true,
-      sameSite: 'strict',
-      secure: env.NODE_ENV === 'production',
+      sameSite: isProdRefresh ? 'none' : 'lax',
+      secure: isProdRefresh,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     })
 
     res.json({
-      data: { accessToken: newAccessToken },
+      data: {
+        accessToken: newAccessToken,
+        refreshToken: newRawRefreshToken,
+      },
       requestId: req.requestId,
     })
   } catch (err) {
@@ -317,11 +326,18 @@ router.post('/logout', authMiddleware, async (req, res, next) => {
     
       const remainingTtl = Math.ceil(decoded.exp! - Date.now() / 1000)
       if (remainingTtl > 0) {
-        await redis.setex(`blacklist:${decoded.jti}`, remainingTtl, '1')
+        try {
+          await redis.setex(`blacklist:${decoded.jti}`, remainingTtl, '1')
+        } catch {}
       }
     }
 
-    res.clearCookie('refreshToken')
+    const isProdLogout = env.NODE_ENV === 'production'
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      sameSite: isProdLogout ? 'none' : 'lax',
+      secure: isProdLogout,
+    })
 
     res.json({
       data: { message: 'Logged out successfully' },
@@ -509,10 +525,12 @@ router.put('/change-password', authMiddleware, async (req, res, next) => {
     ])
 
     const decoded = verifyAccessToken(req.headers.authorization!.slice(7))
-const remainingTtl = Math.ceil(decoded.exp! - Date.now() / 1000)
-if (remainingTtl > 0) {
-  await redis.setex(`blacklist:${decoded.jti}`, remainingTtl, '1')
-}
+    const remainingTtl = Math.ceil(decoded.exp! - Date.now() / 1000)
+    if (remainingTtl > 0) {
+      try {
+        await redis.setex(`blacklist:${decoded.jti}`, remainingTtl, '1')
+      } catch {}
+    }
 
     res.json({
       data: { message: 'Password updated successfully' },

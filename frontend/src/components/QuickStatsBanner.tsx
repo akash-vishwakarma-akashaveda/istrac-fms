@@ -1,6 +1,21 @@
 import { Radio, ShieldCheck, Globe, Activity } from 'lucide-react'
+import { useCms } from '../context/cmsContext'
+
+interface QuickStatsBlock {
+  stat1Value?: string
+  stat1Label?: string
+  stat2Value?: string
+  stat2Label?: string
+  stat3Value?: string
+  stat3Label?: string
+  stat4Value?: string
+  stat4Label?: string
+}
 
 export function QuickStatsBanner() {
+  const { cmsBlocks } = useCms()
+  const stats = cmsBlocks['quick_stats'] as QuickStatsBlock | undefined
+
   return (
     <div className="border-b border-border-subtle bg-[#060b17] py-6 relative overflow-hidden">
       <div className="shell">
@@ -12,10 +27,10 @@ export function QuickStatsBanner() {
             </div>
             <div>
               <span className="num text-xl sm:text-2xl font-black text-white block leading-tight">
-                5 Stations
+                {stats?.stat1Value || '5 Stations'}
               </span>
               <span className="text-[11px] text-text-dim block uppercase font-bold tracking-wider">
-                Global Ground Network
+                {stats?.stat1Label || 'Global Ground Network'}
               </span>
             </div>
           </div>
@@ -27,10 +42,10 @@ export function QuickStatsBanner() {
             </div>
             <div>
               <span className="num text-xl sm:text-2xl font-black text-white block leading-tight">
-                10+ Missions
+                {stats?.stat2Value || '10+ Missions'}
               </span>
               <span className="text-[11px] text-text-dim block uppercase font-bold tracking-wider">
-                Deep Space & LEO
+                {stats?.stat2Label || 'Deep Space & LEO'}
               </span>
             </div>
           </div>
@@ -42,10 +57,10 @@ export function QuickStatsBanner() {
             </div>
             <div>
               <span className="num text-xl sm:text-2xl font-black text-white block leading-tight">
-                24/7 MOX Ops
+                {stats?.stat3Value || '24/7 MOX Ops'}
               </span>
               <span className="text-[11px] text-text-dim block uppercase font-bold tracking-wider">
-                Continuous Telemetry
+                {stats?.stat3Label || 'Continuous Telemetry'}
               </span>
             </div>
           </div>
@@ -57,10 +72,10 @@ export function QuickStatsBanner() {
             </div>
             <div>
               <span className="num text-xl sm:text-2xl font-black text-white block leading-tight">
-                SHA-256
+                {stats?.stat4Value || 'SHA-256'}
               </span>
               <span className="text-[11px] text-text-dim block uppercase font-bold tracking-wider">
-                Cryptographic Integrity
+                {stats?.stat4Label || 'Cryptographic Integrity'}
               </span>
             </div>
           </div>
