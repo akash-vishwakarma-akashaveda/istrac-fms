@@ -88,9 +88,14 @@
   router.post(
     '/files/upload',
     authMiddleware,
-    adminMiddleware,
     upload.single('file'),
     deptAccessMiddleware,
+    (req, _res, next) => {
+      if (req.user?.role !== 'ADMIN' && req.deptAccessLevel !== 'READ_WRITE') {
+        throw new AppError('dept_write_denied', 'Write clearance required to upload files to this department', 403)
+      }
+      next()
+    },
     hddAvailabilityMiddleware,
     async (req, res, next) => {
       try {
@@ -264,9 +269,14 @@
   router.post(
     '/files/upload/chunk',
     authMiddleware,
-    adminMiddleware,
     chunkUpload.single('chunk'),
     deptAccessMiddleware,
+    (req, _res, next) => {
+      if (req.user?.role !== 'ADMIN' && req.deptAccessLevel !== 'READ_WRITE') {
+        throw new AppError('dept_write_denied', 'Write clearance required to upload files to this department', 403)
+      }
+      next()
+    },
     hddAvailabilityMiddleware,
     async (req, res, next) => {
       try {
@@ -303,8 +313,13 @@
   router.post(
     '/files/upload/complete',
     authMiddleware,
-    adminMiddleware,
     deptAccessMiddleware,
+    (req, _res, next) => {
+      if (req.user?.role !== 'ADMIN' && req.deptAccessLevel !== 'READ_WRITE') {
+        throw new AppError('dept_write_denied', 'Write clearance required to upload files to this department', 403)
+      }
+      next()
+    },
     hddAvailabilityMiddleware,
     async (req, res, next) => {
        let assembledPath: string | null = null
