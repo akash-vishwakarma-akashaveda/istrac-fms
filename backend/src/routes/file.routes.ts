@@ -141,6 +141,59 @@
   )
 
   // ============================================================
+  // PUBLIC FEATURED DATASETS (FOR PUBLIC LANDING PAGE)
+  // ============================================================
+  router.get('/files/featured-list', async (_req, res, next) => {
+    try {
+      const files = await prisma.file.findMany({
+        where: {
+          deletedAt: null,
+          nodeType: 'FILE',
+          status: 'ACTIVE',
+        },
+        take: 20,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          department: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              satellite: { select: { id: true, name: true, code: true } },
+            },
+          },
+          report: {
+            select: {
+              id: true,
+              title: true,
+              spacecraft: true,
+              category: true,
+              classificationLevel: true,
+            },
+          },
+          uploader: { select: { id: true, name: true } },
+        },
+      })
+
+      res.json({
+        data: files.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          extension: (f.extension || 'DAT').toUpperCase(),
+          sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
+          department: f.department?.code || f.department?.name || 'TTC',
+          departmentId: f.departmentId,
+          satellite: f.report?.spacecraft || f.department?.satellite?.name || 'Primary Fleet',
+          uploader: f.uploader?.name || 'Operator',
+          createdAt: f.createdAt,
+        })),
+      })
+    } catch (err) {
+      next(err)
+    }
+  })
+
+  // ============================================================
   // ALL REPOSITORY FILES & DATASETS (FOR CMS & FEATURED SELECTOR)
   // ============================================================
   router.get('/admin/files/repository-list', authMiddleware, adminMiddleware, async (req, res, next) => {

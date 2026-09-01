@@ -13,8 +13,9 @@ import {
   ChevronRight,
   FolderOpen,
 } from "lucide-react"
-import { Link, useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "../store/authStore"
+import { useAuthModalStore } from "../store/authModalStore"
 import { useCms } from "../context/cmsContext"
 import { Button } from "."
 import { apiClient } from "../api/client"
@@ -49,6 +50,7 @@ const EXT_CONFIG: Record<
 
 export function FeaturedReports() {
   const user = useAuthStore((s) => s.user)
+  const { openLogin, openRegister } = useAuthModalStore()
   const navigate = useNavigate()
   const { cmsBlocks } = useCms()
 
@@ -63,9 +65,9 @@ export function FeaturedReports() {
     if (cmsItems && cmsItems.length > 0) {
       setDbFiles(cmsItems)
     } else {
-      // Fetch latest real files directly from backend repository
+      // Fetch latest real files from public endpoint
       apiClient
-        .get("/admin/files/repository-list")
+        .get("/files/featured-list")
         .then((res) => {
           if (res.data?.data && res.data.data.length > 0) {
             const mapped: FeaturedReportItem[] = res.data.data.slice(0, 10).map((f: any) => ({
@@ -339,17 +341,29 @@ export function FeaturedReports() {
             </div>
 
             <div className="flex gap-2 pt-2">
-              <Link to="/login" className="flex-1">
-                <Button variant="primary" size="sm" className="w-full justify-center gap-1.5">
-                  <LogIn size={13} />
-                  <span>Log In to Access</span>
-                </Button>
-              </Link>
-              <Link to="/register" className="flex-1">
-                <Button variant="outline" size="sm" className="w-full justify-center">
-                  Request Access
-                </Button>
-              </Link>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setRestrictedModalItem(null)
+                  openLogin()
+                }}
+                className="flex-1 justify-center gap-1.5 cursor-pointer"
+              >
+                <LogIn size={13} />
+                <span>Log In to Access</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setRestrictedModalItem(null)
+                  openRegister()
+                }}
+                className="flex-1 justify-center cursor-pointer"
+              >
+                Request Access
+              </Button>
             </div>
           </div>
         </div>
