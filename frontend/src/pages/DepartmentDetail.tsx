@@ -203,7 +203,7 @@ export function DepartmentDetail() {
             throw new Error('Department not found')
           })
         ),
-        satellitesApi.getAllAdminSatellites().catch(() => []),
+        satellitesApi.getActiveSatellites().catch(() => []),
       ])
 
       setDept(deptData)
