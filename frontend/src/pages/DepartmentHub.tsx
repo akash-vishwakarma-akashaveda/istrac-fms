@@ -235,17 +235,29 @@ export function DepartmentHub() {
             </p>
 
             <div className="flex flex-wrap items-center gap-4 pt-2 text-xs text-text-dim num">
-              <div className="flex items-center gap-1.5">
-                <HardDrive size={14} className="text-accent-light" />
-                <span>Physical Disk Root:</span>
-                <code className="text-white font-bold">{department.hddPath}</code>
-              </div>
+              {isAdmin && (
+                <div className="flex items-center gap-1.5">
+                  <HardDrive size={14} className="text-accent-light" />
+                  <span>Physical Storage Mount:</span>
+                  <code className="text-white font-mono text-[11px] bg-[#070d18] px-1.5 py-0.5 rounded border border-border-subtle">
+                    {department.hddPath}
+                  </code>
+                </div>
+              )}
 
               <div className="flex items-center gap-1.5">
                 <FileText size={14} className="text-nominal" />
-                <span>Active Files:</span>
-                <span className="text-white font-bold">{department.fileCount} items</span>
+                <span>Active Datasets:</span>
+                <span className="text-white font-bold">{department.fileCount} files</span>
               </div>
+
+              {department.satellite && (
+                <div className="flex items-center gap-1.5">
+                  <Radio size={14} className="text-accent-light" />
+                  <span>Spacecraft Fleet:</span>
+                  <span className="text-white font-bold">{department.satellite.name}</span>
+                </div>
+              )}
             </div>
           </div>
 

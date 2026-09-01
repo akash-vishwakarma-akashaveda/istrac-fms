@@ -22,12 +22,14 @@ import {
   Plus,
   Trash2,
   Lock,
+  Maximize2,
 } from 'lucide-react'
 import { departmentsApi, type Department } from '../api/departments.api'
 import { satellitesApi, type Satellite as SatelliteType } from '../api/satellites.api'
 import { useAuthStore } from '../store/authStore'
+import { useAuthModalStore } from '../store/authModalStore'
 import { useToastStore } from '../store/toastStore'
-import { Navbar, Footer, Button, Modal, Textarea } from '../components'
+import { Navbar, Footer, Button, Modal, Textarea, ImageLightboxModal } from '../components'
 import { VersionHistoryPanel } from '../components/VersionHistoryPanel'
 import { FilePreviewModal } from '../components/FilePreviewModal'
 import { ImageWithFallback } from '../components/ImageWithFallback'
@@ -128,6 +130,8 @@ export function DepartmentDetail() {
   // Modals & Preview
   const [previewFile, setPreviewFile] = useState<FileNode | null>(null)
   const [versionPanelFile, setVersionPanelFile] = useState<{ id: string; name: string } | null>(null)
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
+  const openLogin = useAuthModalStore((s) => s.openLogin)
 
   // Department CMS Edit Modal State
   const [loginModalOpen, setLoginModalOpen] = useState(false)
@@ -474,17 +478,45 @@ export function DepartmentDetail() {
                     >
                       {isPlaying ? <Pause size={10} /> : <Play size={10} />}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsLightboxOpen(true)}
+                      className="p-1 rounded text-text-dim hover:text-white hover:bg-white/10 transition-colors"
+                      title="Enlarge telemetry image"
+                      aria-label="Enlarge image in fullscreen preview"
+                    >
+                      <Maximize2 size={11} />
+                    </button>
                   </div>
                 </div>
 
-                {/* Active Slide Image */}
-                <div className="relative h-full w-full">
+                {/* Active Slide Image (Clickable to Enlarge) */}
+                <div
+                  className="relative h-full w-full cursor-pointer group/img"
+                  onClick={() => setIsLightboxOpen(true)}
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Click to enlarge image"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setIsLightboxOpen(true)
+                    }
+                  }}
+                >
                   <ImageWithFallback
                     src={safeImageUrl}
                     alt={activeSlide?.caption || `${dept.name} facility`}
                     className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#060b16] via-[#060b16]/30 to-transparent" />
+
+                  {/* Hover Click to Enlarge Icon */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity duration-200 bg-black/25 pointer-events-none">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black/80 border border-white/25 text-white shadow-2xl backdrop-blur-md">
+                      <Maximize2 size={18} className="text-accent-light" />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Slide Navigation Arrows */}
@@ -720,7 +752,7 @@ export function DepartmentDetail() {
                           <button
                             type="button"
                             onClick={() => {
-                              if (!user) setLoginModalOpen(true)
+                              if (!user) openLogin()
                               else setVersionPanelFile({ id: file.id, name: file.name })
                             }}
                             className="text-purple-300 font-bold hover:underline cursor-pointer"
@@ -742,7 +774,7 @@ export function DepartmentDetail() {
                       {!user ? (
                         <button
                           type="button"
-                          onClick={() => setLoginModalOpen(true)}
+                          onClick={openLogin}
                           className="w-full py-2 px-3 rounded-lg border border-accent/40 bg-accent/15 text-accent-light hover:bg-accent hover:text-white transition-all text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                         >
                           <Lock size={13} />
@@ -807,7 +839,7 @@ export function DepartmentDetail() {
                               <div className="min-w-0">
                                 <p
                                   onClick={() => {
-                                    if (!user) setLoginModalOpen(true)
+                                    if (!user) openLogin()
                                     else setPreviewFile(file as unknown as FileNode)
                                   }}
                                   className="font-bold text-white hover:text-accent-light cursor-pointer truncate max-w-xs transition-colors"
@@ -815,8 +847,8 @@ export function DepartmentDetail() {
                                 >
                                   {file.name}
                                 </p>
-                                <p className="text-[10px] text-text-dim truncate max-w-xs font-mono">
-                                  {file.hddPath}
+                                <p className="text-[10px] text-text-dim truncate max-w-xs">
+                                  {file.report?.category || file.extension || 'TELEMETRY'}
                                 </p>
                               </div>
                             </div>
@@ -1104,15 +1136,36 @@ export function DepartmentDetail() {
             <Button variant="outline" size="sm" onClick={() => setLoginModalOpen(false)}>
               Cancel
             </Button>
-            <Link to="/login">
-              <Button variant="primary" size="sm" className="shadow-md shadow-accent/25">
-                <span>Sign In to Continue</span>
-                <ChevronRight size={14} />
-              </Button>
-            </Link>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                setLoginModalOpen(false)
+                openLogin()
+              }}
+              className="shadow-md shadow-accent/25 cursor-pointer"
+            >
+              <span>Sign In to Continue</span>
+              <ChevronRight size={14} />
+            </Button>
           </div>
         </div>
       </Modal>
+
+      {/* Enlarged Image Preview Lightbox */}
+      <ImageLightboxModal
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+        images={slides.map((s, idx) => ({
+          url: s.url,
+          title: dept?.name || 'ISTRAC Division Operations',
+          caption: s.caption || `${dept?.name} Telemetry Node Slide 0${idx + 1}`,
+          alt: s.caption || `${dept?.name} Facility`,
+          tag: `/${dept?.code || 'OPS'} · SLIDE 0${idx + 1}`,
+          station: `${dept?.name} (${dept?.code || 'OPS'}) · Global Ground Station Network`,
+        }))}
+        initialIndex={currentSlideIndex}
+      />
 
       <Footer />
     </div>

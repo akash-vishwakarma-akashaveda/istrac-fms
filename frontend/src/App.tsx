@@ -1,4 +1,4 @@
-﻿import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { PublicLayout } from "./layouts/PublicLayout"
 import { AppShell } from "./layouts/AppShell"
 import { ProtectedRoute } from "./routes/ProtectedRoute"
@@ -13,6 +13,7 @@ import { ForcePasswordChange } from "./pages/ForcePasswordChange"
 import { ForgotPassword } from "./pages/ForgetPassword"
 import { AdminHome } from "./pages/AdminHome"
 import { ToastContainer } from "./components/ToastContainer"
+import { AuthModal } from "./components/AuthModal"
 import { ApprovalQueue } from "./pages/ApprovalQueue"
 import { UserManagement } from "./pages/UserManagement"
 import { DepartmentManager } from "./pages/DepartmentManager"
@@ -65,6 +66,7 @@ export default function App() {
     <CmsProvider>
       <BrowserRouter>
         <ToastContainer />
+        <AuthModal />
         <Routes>
           <Route path="/dev" element={<DevIndex />} />
 

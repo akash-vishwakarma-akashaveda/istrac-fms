@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Satellite, ArrowRight, HardDrive } from 'lucide-react'
+import { Satellite, ArrowRight, HardDrive, Maximize2 } from 'lucide-react'
 import { departmentsApi, type Department } from '../api/departments.api'
-import { Navbar, Footer, Input } from '../components'
+import { Navbar, Footer, Input, ImageLightboxModal } from '../components'
 import { ImageWithFallback } from '../components/ImageWithFallback'
 
 function getDeptBanner(dept: Department): string {
@@ -28,6 +28,7 @@ export function DepartmentsList() {
   const [departments, setDepartments] = useState<Department[]>([])
   const [query, setQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+  const [previewDept, setPreviewDept] = useState<Department | null>(null)
 
   useEffect(() => {
     departmentsApi
@@ -111,6 +112,21 @@ export function DepartmentsList() {
                         </span>
                       )}
 
+                      {/* Enlarge Image Preview Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setPreviewDept(dept)
+                        }}
+                        className="absolute top-3 left-3 flex h-7 w-7 items-center justify-center rounded-lg border border-white/20 bg-black/60 text-white/80 hover:text-white hover:bg-accent hover:border-accent backdrop-blur-md transition-all shadow-md cursor-pointer"
+                        title="Enlarge facility image"
+                        aria-label={`Enlarge image for ${dept.name}`}
+                      >
+                        <Maximize2 size={13} />
+                      </button>
+
                       {/* Telemetry Indicator */}
                       <div className="absolute bottom-2.5 left-3 flex items-center gap-1.5 text-[10px] font-mono font-bold text-nominal bg-[#060b16]/80 px-2 py-0.5 rounded-full border border-nominal/30 backdrop-blur-sm">
                         <span className="h-1.5 w-1.5 rounded-full bg-nominal animate-pulse" />
@@ -153,6 +169,29 @@ export function DepartmentsList() {
           )}
         </div>
       </main>
+
+      {/* Enlarged Image Preview Lightbox */}
+      <ImageLightboxModal
+        isOpen={previewDept !== null}
+        onClose={() => setPreviewDept(null)}
+        images={
+          previewDept
+            ? [
+                {
+                  url: getDeptBanner(previewDept),
+                  title: previewDept.name,
+                  caption:
+                    previewDept.pageAbout ||
+                    previewDept.description ||
+                    `${previewDept.name} (${previewDept.code || 'OPS'}) Ground Station Operations Directorate`,
+                  alt: previewDept.name,
+                  tag: `/${previewDept.code || 'OPS'}`,
+                  station: `${previewDept.name} · ISTRAC Global Ground Station Network`,
+                },
+              ]
+            : []
+        }
+      />
 
       <Footer />
     </div>
