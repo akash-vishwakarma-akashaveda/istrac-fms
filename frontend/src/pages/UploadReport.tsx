@@ -313,7 +313,6 @@ export function UploadReport() {
       setUploadProgress(40)
 
       await apiClient.post('/files/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (progressEvent: any) => {
           if (progressEvent.total) {
             const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total)

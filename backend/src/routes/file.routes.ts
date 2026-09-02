@@ -6,7 +6,7 @@
   import { createReadStream, createWriteStream } from 'node:fs'
   import { prisma } from '../config/db.js'
   import { env } from '../config/env.js'
-  import { authMiddleware } from '../middleware/auth.middleware.js'
+  import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.middleware.js'
   import { adminMiddleware } from '../middleware/admin.middleware.js'
   import { deptAccessMiddleware } from '../middleware/deptAccess.middleware.js'
   import { downloadRateLimiter } from '../middleware/rateLimiter.middleware.js'
@@ -429,6 +429,39 @@
   )
 
   // ============================================================
+  // LOG FILE ACCESS (PREVIEW / AUDIT)
+  // ============================================================
+  router.post(
+    '/files/:fileId/log-access',
+    optionalAuthMiddleware,
+    async (req, res, next) => {
+      try {
+        const rawId = req.params.fileId
+        const fileId = Array.isArray(rawId) ? rawId[0] : rawId
+        const action = req.body?.action || 'PREVIEW'
+
+        if (req.user) {
+          auditService.log({
+            userId: req.user.id,
+            action: `FILE:${action.toUpperCase()}`,
+            resourceType: 'file',
+            resourceId: fileId,
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent'),
+          })
+        }
+
+        res.json({
+          data: { success: true, fileId },
+          requestId: req.requestId,
+        })
+      } catch (err) {
+        next(err)
+      }
+    },
+  )
+
+  // ============================================================
   // DOWNLOAD FILE (STREAM)
   // ============================================================
   router.get(
@@ -442,9 +475,8 @@
         const fileId = Array.isArray(rawId) ? rawId[0] : rawId
 
         const file = await prisma.file.findUnique({
-          where: { id: fileId, deletedAt: null,status: 'ACTIVE' },
+          where: { id: fileId, deletedAt: null },
         })
-        
 
         if (!file || file.nodeType === 'FOLDER') {
           throw new AppError('file_not_found', 'File not found', 404)
