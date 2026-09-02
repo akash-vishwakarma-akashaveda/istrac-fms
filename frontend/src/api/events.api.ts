@@ -13,7 +13,7 @@ export interface MissionEventItem {
   endDate?: string | null
   location?: string | null
   urgency: 'NORMAL' | 'IMPORTANT' | 'CRITICAL'
-  status: 'UPCOMING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+  status: 'UPCOMING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'TIMED_OUT'
   showOnBanner: boolean
   createdAt: string
   updatedAt: string

@@ -26,7 +26,7 @@ const ALLOWED_INTERVALS = [
 // ============================================================
 
 router.get(
-  '/mission-events',
+  '/admin/scheduler/mission-events',
   authMiddleware,
   adminMiddleware,
   async (req, res, next) => {
@@ -56,7 +56,7 @@ router.get(
 // ============================================================
 
 router.put(
-  '/mission-events',
+  '/admin/scheduler/mission-events',
   authMiddleware,
   adminMiddleware,
   async (req, res, next) => {

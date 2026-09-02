@@ -16,6 +16,9 @@ export function Landing() {
   const queryClient = useQueryClient()
   const { refetch } = useCms()
 
+  console.log("🔄 LandingPage re-rendered at", Date.now())
+  // ...
+
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (event.origin !== window.location.origin) return
