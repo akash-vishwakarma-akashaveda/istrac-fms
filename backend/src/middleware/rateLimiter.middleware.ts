@@ -120,8 +120,16 @@ export async function globalRateLimiter(req: Request, res: Response, next: NextF
   const key = `rate:global:${ip}`
 
   try {
-    const count = await redis.incr(key)
-    if (count === 1) await redis.expire(key, GLOBAL_WINDOW)
+ const count = await redis.incr(key)
+if (count === 1) {
+  await redis.expire(key, GLOBAL_WINDOW)
+} else {
+  // Safety check: if key got stuck without an expiry, attach one
+  const ttl = await redis.ttl(key)
+  if (ttl === -1) {
+    await redis.expire(key, GLOBAL_WINDOW)
+  }
+}
     if (count > GLOBAL_LIMIT) {
       res.setHeader('Retry-After', String(GLOBAL_WINDOW))
       return next(new AppError('rate_limit_exceeded', 'Too many requests', 429))

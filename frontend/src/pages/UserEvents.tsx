@@ -15,6 +15,7 @@ import {
   CalendarDays,
   History,
   Zap,
+  Globe,
 } from "lucide-react"
 import { Link, useSearchParams } from "react-router-dom"
 import { eventsApi, type MissionEventItem } from "../api/events.api"
@@ -62,6 +63,7 @@ const EVENT_TYPE_MAP: Record<string, { label: string; icon: any; color: string; 
 }
 
 export type TimelineTab = "ACTIVE_UPCOMING" | "PAST"
+export type TimeFormatMode = "BOTH" | "IST" | "UTC"
 
 export function UserEvents() {
   const [searchParams] = useSearchParams()
@@ -75,6 +77,7 @@ export function UserEvents() {
   const [typeFilter, setTypeFilter] = useState("ALL")
   const [satelliteFilter, setSatelliteFilter] = useState("ALL")
   const [viewMode, setViewMode] = useState<"calendar" | "cards" | "both">("both")
+  const [timeMode, setTimeMode] = useState<TimeFormatMode>("BOTH")
 
   useEffect(() => {
     async function loadData() {
@@ -95,7 +98,6 @@ export function UserEvents() {
     loadData()
   }, [])
 
-  // Auto-scroll to target event if passed in query param
   useEffect(() => {
     if (targetEventId && !loading && events.length > 0) {
       setTimeout(() => {
@@ -107,7 +109,6 @@ export function UserEvents() {
     }
   }, [targetEventId, loading, events])
 
-  // Split into Active/Upcoming vs Past events
   const { activeUpcomingEvents, pastEvents } = useMemo(() => {
     const now = new Date()
     const active: MissionEventItem[] = []
@@ -115,23 +116,29 @@ export function UserEvents() {
 
     events.forEach((ev) => {
       const evDate = new Date(ev.eventDate)
-      const isPast = ev.status === "COMPLETED" || ev.status === "CANCELLED" || (ev.status !== "IN_PROGRESS" && evDate < now)
+      const endDate = ev.endDate ? new Date(ev.endDate) : null
+      const status = ev.status as string
 
-      if (isPast) {
+      const isTerminal =
+        status === "COMPLETED" ||
+        status === "CANCELLED" ||
+        status === "TIMED_OUT"
+
+      const isDateExpired = endDate ? endDate < now : evDate < now
+
+      if (isTerminal || (status !== "IN_PROGRESS" && isDateExpired)) {
         past.push(ev)
       } else {
         active.push(ev)
       }
     })
 
-    // Active sorted soonest first; Past sorted most recent first
     active.sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())
     past.sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime())
 
     return { activeUpcomingEvents: active, pastEvents: past }
   }, [events])
 
-  // Filter events based on active tab + search filters
   const currentTabEvents = timelineTab === "ACTIVE_UPCOMING" ? activeUpcomingEvents : pastEvents
 
   const filteredEvents = useMemo(() => {
@@ -150,7 +157,6 @@ export function UserEvents() {
     })
   }, [currentTabEvents, typeFilter, satelliteFilter, search])
 
-  // Find next upcoming critical or in-progress event
   const nextEvent = activeUpcomingEvents[0]
 
   return (
@@ -165,6 +171,47 @@ export function UserEvents() {
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {/* Dual Time Toggle */}
+            <div className="flex items-center rounded-lg border border-border-default bg-[#060c18] p-0.5">
+              <button
+                type="button"
+                onClick={() => setTimeMode("BOTH")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                  timeMode === "BOTH"
+                    ? "bg-accent/20 text-accent-light border border-accent/40"
+                    : "text-text-secondary hover:text-white"
+                }`}
+                title="Show both IST and UTC"
+              >
+                <Globe size={12} />
+                <span>IST + UTC</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTimeMode("IST")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                  timeMode === "IST"
+                    ? "bg-accent/20 text-accent-light border border-accent/40"
+                    : "text-text-secondary hover:text-white"
+                }`}
+              >
+                <span>IST Only</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTimeMode("UTC")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                  timeMode === "UTC"
+                    ? "bg-accent/20 text-accent-light border border-accent/40"
+                    : "text-text-secondary hover:text-white"
+                }`}
+              >
+                <span>UTC (Z)</span>
+              </button>
+            </div>
+
             {/* View Mode Toggle */}
             <div className="flex items-center rounded-lg border border-border-default bg-[#060c18] p-0.5">
               <button
@@ -175,7 +222,6 @@ export function UserEvents() {
                     ? "bg-accent text-white shadow-sm"
                     : "text-text-secondary hover:text-white"
                 }`}
-                title="All-in-one Calendar and Event Cards view"
               >
                 <span>Dashboard</span>
               </button>
@@ -188,7 +234,6 @@ export function UserEvents() {
                     ? "bg-accent text-white shadow-sm"
                     : "text-text-secondary hover:text-white"
                 }`}
-                title="Interactive Dual-Month Calendar"
               >
                 <CalendarDays size={13} />
                 <span>Calendar</span>
@@ -202,7 +247,6 @@ export function UserEvents() {
                     ? "bg-accent text-white shadow-sm"
                     : "text-text-secondary hover:text-white"
                 }`}
-                title="Passes & Events List"
               >
                 <LayoutGrid size={13} />
                 <span>Passes</span>
@@ -230,9 +274,15 @@ export function UserEvents() {
                   <Radio size={12} />
                   <span>Next Operational Event</span>
                 </span>
-                <span className={`rounded px-2 py-0.5 text-[10px] font-mono font-bold ${
-                  nextEvent.status === "IN_PROGRESS" ? "bg-nominal/20 text-nominal border border-nominal/40 animate-pulse" : "bg-surface border border-border-subtle text-text-dim"
-                }`}>
+                <span
+                  className={`rounded px-2 py-0.5 text-[10px] font-mono font-bold ${
+                    (nextEvent.status as string) === "IN_PROGRESS"
+                      ? "bg-nominal/20 text-nominal border border-nominal/40 animate-pulse"
+                      : (nextEvent.status as string) === "TIMED_OUT"
+                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                      : "bg-surface border border-border-subtle text-text-dim"
+                  }`}
+                >
                   {nextEvent.status}
                 </span>
               </div>
@@ -247,14 +297,33 @@ export function UserEvents() {
                 </p>
               )}
 
+              {/* Hero Time Display */}
               <div className="flex flex-wrap items-center gap-4 text-xs text-text-dim pt-1 font-mono">
-                <span className="flex items-center gap-1 text-white font-bold">
-                  <Clock size={13} className="text-accent-light" />
-                  {new Date(nextEvent.eventDate).toLocaleString("en-US", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })} IST
-                </span>
+                {(timeMode === "BOTH" || timeMode === "IST") && (
+                  <span className="flex items-center gap-1 text-white font-bold">
+                    <Clock size={13} className="text-accent-light" />
+                    {new Date(nextEvent.eventDate).toLocaleString("en-IN", {
+                      timeZone: "Asia/Kolkata",
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}{" "}
+                    <span className="text-accent-light">IST</span>
+                  </span>
+                )}
+
+                {(timeMode === "BOTH" || timeMode === "UTC") && (
+                  <span className="flex items-center gap-1 text-text-dim bg-surface/70 border border-border-subtle px-2 py-0.5 rounded">
+                    <Globe size={12} className="text-text-dim" />
+                    {new Date(nextEvent.eventDate).toLocaleString("en-US", {
+                      timeZone: "UTC",
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                      hour12: false,
+                    })}{" "}
+                    UTC
+                  </span>
+                )}
+
                 {nextEvent.location && (
                   <span className="flex items-center gap-1">
                     <MapPin size={13} className="text-text-dim" />
@@ -295,7 +364,7 @@ export function UserEvents() {
       {/* PASSES FILTER & EVENT CARDS GRID */}
       {(viewMode === "cards" || viewMode === "both") && (
         <div className="space-y-6 animate-in fade-in-50 duration-200">
-          {/* TIMELINE TABS: ACTIVE / UPCOMING VS PAST ARCHIVED */}
+          {/* Timeline Tabs */}
           <div className="flex items-center justify-between border-b border-border-subtle gap-2">
             <div className="flex items-center gap-2">
               <button
@@ -336,7 +405,7 @@ export function UserEvents() {
             </span>
           </div>
 
-          {/* FILTER CONTROLS */}
+          {/* Filter Controls */}
           <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div>
@@ -387,7 +456,7 @@ export function UserEvents() {
             </div>
           </div>
 
-          {/* EVENT SCHEDULE GRID */}
+          {/* Event Schedule Grid */}
           {loading ? (
             <div className="p-16 text-center text-xs text-text-dim">
               Loading mission events schedule…
@@ -409,6 +478,12 @@ export function UserEvents() {
                 const isImportant = ev.urgency === "IMPORTANT"
                 const isTarget = targetEventId === ev.id
                 const isPast = timelineTab === "PAST"
+                const status = ev.status as string
+
+                const d = new Date(ev.eventDate)
+                const dateStrIST = d.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "short", day: "numeric" })
+                const timeStrIST = d.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" })
+                const timeStrUTC = d.toLocaleTimeString("en-US", { timeZone: "UTC", hour: "2-digit", minute: "2-digit", hour12: false })
 
                 return (
                   <div
@@ -442,14 +517,16 @@ export function UserEvents() {
 
                         <span
                           className={`rounded-md px-2 py-0.5 text-[10px] font-bold font-mono ${
-                            ev.status === "UPCOMING"
+                            status === "UPCOMING"
                               ? "bg-accent/15 text-accent-light border border-accent/30"
-                              : ev.status === "IN_PROGRESS"
+                              : status === "IN_PROGRESS"
                               ? "bg-nominal/15 text-nominal border border-nominal/30 animate-pulse"
+                              : status === "TIMED_OUT"
+                              ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
                               : "bg-surface text-text-dim border border-border-subtle"
                           }`}
                         >
-                          {ev.status}
+                          {status}
                         </span>
                       </div>
 
@@ -471,19 +548,25 @@ export function UserEvents() {
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-border-subtle flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-text-dim">
-                      <span className="flex items-center gap-1.5 text-white font-semibold">
-                        <Clock size={12} className="text-accent-light" />
-                        {new Date(ev.eventDate).toLocaleString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })} IST
-                      </span>
+                    {/* Card Time Display: Both IST and UTC */}
+                    <div className="pt-2.5 border-t border-border-subtle flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+                      <div className="flex items-center gap-2">
+                        {(timeMode === "BOTH" || timeMode === "IST") && (
+                          <span className="flex items-center gap-1 text-white font-semibold">
+                            <Clock size={12} className="text-accent-light" />
+                            {dateStrIST}, {timeStrIST} <span className="text-accent-light font-bold">IST</span>
+                          </span>
+                        )}
+
+                        {(timeMode === "BOTH" || timeMode === "UTC") && (
+                          <span className="text-[10px] font-bold text-text-dim bg-surface px-1.5 py-0.5 rounded border border-border-subtle">
+                            {timeStrUTC} UTC
+                          </span>
+                        )}
+                      </div>
 
                       {ev.location && (
-                        <span className="flex items-center gap-1 text-[11px]">
+                        <span className="flex items-center gap-1 text-[11px] text-text-dim">
                           <MapPin size={11} />
                           {ev.location}
                         </span>

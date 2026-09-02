@@ -14,6 +14,7 @@ import {
   MapPin,
   History,
   Zap,
+  Globe,
 } from "lucide-react"
 import { eventsApi, type MissionEventItem } from "../api/events.api"
 import { satellitesApi, type Satellite } from "../api/satellites.api"
@@ -32,6 +33,28 @@ const EVENT_TYPES = [
 ]
 
 export type EventTabMode = "LIVE_FUTURE" | "PAST"
+type InputTz = "IST" | "UTC"
+
+/** Pads number to 2 digits */
+const pad = (n: number) => String(n).padStart(2, "0")
+
+/** Formats a Date object into YYYY-MM-DDTHH:mm based on target timezone */
+const formatForInput = (d: Date, tz: InputTz): string => {
+  if (tz === "UTC") {
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
+  }
+  // Local/IST
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/** Parses the input value based on selected input timezone and returns ISO UTC string */
+const parseInputToUTC = (inputStr: string, tz: InputTz): string => {
+  if (!inputStr) return ""
+  if (tz === "UTC") {
+    return new Date(`${inputStr}:00.000Z`).toISOString()
+  }
+  return new Date(inputStr).toISOString()
+}
 
 export function EventManager() {
   const addToast = useToastStore((s) => s.addToast)
@@ -45,9 +68,10 @@ export function EventManager() {
   const [statusFilter, setStatusFilter] = useState("ALL")
   const [typeFilter, setTypeFilter] = useState("ALL")
 
-  // Create / Edit Modal
+  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<MissionEventItem | null>(null)
+  const [inputTz, setInputTz] = useState<InputTz>("IST")
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -66,20 +90,21 @@ export function EventManager() {
   // Delete Modal
   const [deletingEvent, setDeletingEvent] = useState<MissionEventItem | null>(null)
   const [schedulerInterval, setSchedulerInterval] = useState(10)
-const [schedulerSaving, setSchedulerSaving] = useState(false)
+  const [schedulerSaving, setSchedulerSaving] = useState(false)
+
   const loadData = async () => {
     setLoading(true)
     try {
-      const [eventsData, satsData,schedulerData] = await Promise.all([
+      const [eventsData, satsData, schedulerData] = await Promise.all([
         eventsApi.getEvents(),
         satellitesApi.getAllAdminSatellites().catch(() => []),
-         schedulerApi.getMissionEventScheduler().catch(() => null),
+        schedulerApi.getMissionEventScheduler().catch(() => null),
       ])
       setEvents(eventsData || [])
       setSatellites(satsData || [])
-        if (schedulerData) {
-      setSchedulerInterval(schedulerData.interval)
-    }
+      if (schedulerData) {
+        setSchedulerInterval(schedulerData.interval)
+      }
     } catch {
       addToast({ title: "Error", message: "Failed to load mission events", variant: "error" })
     } finally {
@@ -91,40 +116,29 @@ const [schedulerSaving, setSchedulerSaving] = useState(false)
     loadData()
   }, [])
 
-//cron job handler 
-const handleSchedulerChange = async (
-  e: React.ChangeEvent<HTMLSelectElement>
-) => {
-  const interval = Number(e.target.value)
+  const handleSchedulerChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const interval = Number(e.target.value)
+    setSchedulerSaving(true)
 
-  setSchedulerSaving(true)
-
-  try {
-    const updated = await schedulerApi.updateMissionEventScheduler({
-      interval,
-    })
-
-    setSchedulerInterval(updated.interval)
-
-    addToast({
-      title: "Scheduler Updated",
-      message: `Event status checks will now run every ${updated.interval} minutes.`,
-      variant: "success",
-    })
-  } catch (err: any) {
-    addToast({
-      title: "Update Failed",
-      message:
-        err.response?.data?.error?.message ||
-        "Could not update scheduler interval",
-      variant: "error",
-    })
-  } finally {
-    setSchedulerSaving(false)
+    try {
+      const updated = await schedulerApi.updateMissionEventScheduler({ interval })
+      setSchedulerInterval(updated.interval)
+      addToast({
+        title: "Scheduler Updated",
+        message: `Event status checks will now run every ${updated.interval} minutes.`,
+        variant: "success",
+      })
+    } catch (err: any) {
+      addToast({
+        title: "Update Failed",
+        message: err.response?.data?.error?.message || "Could not update scheduler interval",
+        variant: "error",
+      })
+    } finally {
+      setSchedulerSaving(false)
+    }
   }
-}
 
-  // Partition events into Live/Future vs Past Archived
   const { liveFutureEvents, pastEvents } = useMemo(() => {
     const now = new Date()
     const live: MissionEventItem[] = []
@@ -132,9 +146,17 @@ const handleSchedulerChange = async (
 
     events.forEach((ev) => {
       const evDate = new Date(ev.eventDate)
-      const isPast = ev.status === "COMPLETED" || ev.status === "CANCELLED" || (ev.status !== "IN_PROGRESS" && evDate < now)
+      const endDate = ev.endDate ? new Date(ev.endDate) : null
+      const status = ev.status as string
 
-      if (isPast) {
+      const isTerminal =
+        status === "COMPLETED" ||
+        status === "CANCELLED" ||
+        status === "TIMED_OUT"
+
+      const isDateExpired = endDate ? endDate < now : evDate < now
+
+      if (isTerminal || (status !== "IN_PROGRESS" && isDateExpired)) {
         past.push(ev)
       } else {
         live.push(ev)
@@ -149,7 +171,6 @@ const handleSchedulerChange = async (
 
   const currentTabList = tabMode === "LIVE_FUTURE" ? liveFutureEvents : pastEvents
 
-  // Filtered Events
   const filteredEvents = useMemo(() => {
     return currentTabList.filter((ev) => {
       const matchesSearch =
@@ -167,17 +188,14 @@ const handleSchedulerChange = async (
 
   const openCreateModal = () => {
     setEditingEvent(null)
-    const now = new Date()
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset())
-    const defaultDate = now.toISOString().slice(0, 16)
-
+    setInputTz("IST")
     setFormData({
       title: "",
       description: "",
       eventType: "MISSION_PASS",
       satelliteId: satellites[0]?.id || "",
       departmentId: departments?.[0]?.id || "",
-      eventDate: defaultDate,
+      eventDate: formatForInput(new Date(), "IST"),
       endDate: "",
       location: "ISTRAC MOX Bengaluru",
       urgency: "NORMAL",
@@ -189,14 +207,15 @@ const handleSchedulerChange = async (
 
   const openEditModal = (ev: MissionEventItem) => {
     setEditingEvent(ev)
+    setInputTz("IST")
     setFormData({
       title: ev.title,
       description: ev.description || "",
       eventType: ev.eventType,
       satelliteId: ev.satelliteId || "",
       departmentId: ev.departmentId || "",
-      eventDate: ev.eventDate ? new Date(ev.eventDate).toISOString().slice(0, 16) : "",
-      endDate: ev.endDate ? new Date(ev.endDate).toISOString().slice(0, 16) : "",
+      eventDate: ev.eventDate ? formatForInput(new Date(ev.eventDate), "IST") : "",
+      endDate: ev.endDate ? formatForInput(new Date(ev.endDate), "IST") : "",
       location: ev.location || "ISTRAC MOX Bengaluru",
       urgency: ev.urgency,
       status: ev.status,
@@ -214,11 +233,17 @@ const handleSchedulerChange = async (
 
     setSubmitting(true)
     try {
+      const payload = {
+        ...formData,
+        eventDate: parseInputToUTC(formData.eventDate, inputTz),
+        endDate: formData.endDate ? parseInputToUTC(formData.endDate, inputTz) : null,
+      }
+
       if (editingEvent) {
-        await eventsApi.updateEvent(editingEvent.id, formData)
+        await eventsApi.updateEvent(editingEvent.id, payload)
         addToast({ title: "Event Updated", message: `Updated "${formData.title}"`, variant: "success" })
       } else {
-        await eventsApi.createEvent(formData)
+        await eventsApi.createEvent(payload)
         addToast({ title: "Event Scheduled", message: `Scheduled "${formData.title}"`, variant: "success" })
       }
       setIsModalOpen(false)
@@ -267,7 +292,7 @@ const handleSchedulerChange = async (
         </Button>
       </div>
 
-      {/* Tabs: Live & Future vs Past Archived */}
+      {/* Tabs */}
       <div className="flex items-center justify-between border-b border-border-subtle gap-2">
         <div className="flex items-center gap-2">
           <button
@@ -303,35 +328,27 @@ const handleSchedulerChange = async (
           </button>
         </div>
 
-      <div className="flex items-center gap-3">
-  <span className="text-xs text-text-dim hidden lg:block">
-    {tabMode === "LIVE_FUTURE"
-      ? "Showing active operations and upcoming windows"
-      : "Historical operations archive"}
-  </span>
-
-  <div className="flex items-center gap-2">
-    <Clock size={13} className="text-accent-light" />
-
-    <span className="text-[11px] font-semibold text-text-dim whitespace-nowrap">
-      Status Check
-    </span>
-
-    <select
-      value={schedulerInterval}
-      onChange={handleSchedulerChange}
-      disabled={schedulerSaving}
-      className="rounded-lg border border-border-default bg-[#060c18] px-2.5 py-2 text-[11px] font-semibold text-white outline-none focus:border-accent cursor-pointer disabled:opacity-50"
-    >
-      <option value={1}>Every 1 min</option>
-      <option value={5}>Every 5 min</option>
-      <option value={10}>Every 10 min</option>
-      <option value={15}>Every 15 min</option>
-      <option value={30}>Every 30 min</option>
-      <option value={60}>Every 1 hour</option>
-    </select>
-  </div>
-</div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Clock size={13} className="text-accent-light" />
+            <span className="text-[11px] font-semibold text-text-dim whitespace-nowrap">
+              Status Check
+            </span>
+            <select
+              value={schedulerInterval}
+              onChange={handleSchedulerChange}
+              disabled={schedulerSaving}
+              className="rounded-lg border border-border-default bg-[#060c18] px-2.5 py-2 text-[11px] font-semibold text-white outline-none focus:border-accent cursor-pointer disabled:opacity-50"
+            >
+              <option value={1}>Every 1 min</option>
+              <option value={5}>Every 5 min</option>
+              <option value={10}>Every 10 min</option>
+              <option value={15}>Every 15 min</option>
+              <option value={30}>Every 30 min</option>
+              <option value={60}>Every 1 hour</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Filter & Search Toolbar */}
@@ -357,6 +374,7 @@ const handleSchedulerChange = async (
             <option value="UPCOMING">Upcoming Schedule</option>
             <option value="IN_PROGRESS">In Progress (Active Now)</option>
             <option value="COMPLETED">Completed Passes</option>
+            <option value="TIMED_OUT">Timed Out</option>
             <option value="CANCELLED">Cancelled</option>
           </select>
         </div>
@@ -396,6 +414,12 @@ const handleSchedulerChange = async (
             const meta = EVENT_TYPES.find((t) => t.id === ev.eventType) || EVENT_TYPES[0]
             const Icon = meta.icon
             const isPast = tabMode === "PAST"
+            const status = ev.status as string
+
+            const d = new Date(ev.eventDate)
+            const dateStrIST = d.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "short", day: "numeric" })
+            const timeStrIST = d.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" })
+            const timeStrUTC = d.toLocaleTimeString("en-US", { timeZone: "UTC", hour: "2-digit", minute: "2-digit", hour12: false })
 
             return (
               <div
@@ -415,14 +439,16 @@ const handleSchedulerChange = async (
 
                     <span
                       className={`rounded px-2 py-0.5 text-[10px] font-bold font-mono ${
-                        ev.status === "UPCOMING"
+                        status === "UPCOMING"
                           ? "bg-accent/10 text-accent-light border border-accent/30"
-                          : ev.status === "IN_PROGRESS"
+                          : status === "IN_PROGRESS"
                           ? "bg-nominal/15 text-nominal border border-nominal/30 animate-pulse"
+                          : status === "TIMED_OUT"
+                          ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
                           : "bg-surface text-text-dim border border-border-subtle"
                       }`}
                     >
-                      {ev.status}
+                      {status}
                     </span>
                   </div>
 
@@ -436,24 +462,23 @@ const handleSchedulerChange = async (
                   </div>
                 </div>
 
-                <div className="space-y-3 pt-3 border-t border-border-subtle text-xs">
-                  <div className="grid grid-cols-2 gap-2 text-text-dim num text-[11px]">
-                    <div className="flex items-center gap-1.5 truncate">
+                {/* Card Timestamps: Dual IST and UTC */}
+                <div className="space-y-2 pt-3 border-t border-border-subtle text-xs">
+                  <div className="flex items-center justify-between text-[11px] font-mono">
+                    <div className="flex items-center gap-1.5 text-white">
                       <Clock size={12} className="text-accent-light shrink-0" />
-                      <span className="truncate">
-                        {new Date(ev.eventDate).toLocaleDateString([], { month: "short", day: "numeric" })} · {new Date(ev.eventDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </span>
+                      <span>{dateStrIST}, {timeStrIST} <span className="text-accent-light font-bold">IST</span></span>
                     </div>
-                    <div className="flex items-center gap-1.5 truncate">
-                      <MapPin size={12} className="text-text-dim shrink-0" />
-                      <span className="truncate">{ev.location || "ISTRAC MOX"}</span>
-                    </div>
+                    <span className="text-text-dim bg-surface px-1.5 py-0.5 rounded border border-border-subtle">
+                      {timeStrUTC} UTC
+                    </span>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-[11px] font-mono text-accent-light">
-                      /{ev.department?.code || "TTC"}
-                    </span>
+                  <div className="flex items-center justify-between pt-1 text-[11px]">
+                    <div className="flex items-center gap-1 text-text-dim truncate max-w-[150px]">
+                      <MapPin size={12} className="shrink-0" />
+                      <span className="truncate">{ev.location || "ISTRAC MOX"}</span>
+                    </div>
 
                     <div className="flex items-center gap-1">
                       <button
@@ -535,26 +560,60 @@ const handleSchedulerChange = async (
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-text-dim uppercase mb-1">Event Start Time *</label>
-                <input
-                  type="datetime-local"
-                  required
-                  value={formData.eventDate}
-                  onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
-                  className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-white outline-none focus:border-accent num"
-                />
+            {/* Time Frame Selector */}
+            <div className="rounded-lg border border-border-subtle bg-surface/50 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Globe size={13} className="text-accent-light" />
+                  Time Reference Selection
+                </span>
+                <div className="flex items-center gap-1 bg-[#060c18] p-0.5 rounded border border-border-default">
+                  <button
+                    type="button"
+                    onClick={() => setInputTz("IST")}
+                    className={`px-2.5 py-0.5 text-[10px] font-bold rounded ${
+                      inputTz === "IST" ? "bg-accent text-white" : "text-text-dim hover:text-white"
+                    }`}
+                  >
+                    IST (UTC+5:30)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInputTz("UTC")}
+                    className={`px-2.5 py-0.5 text-[10px] font-bold rounded ${
+                      inputTz === "UTC" ? "bg-accent text-white" : "text-text-dim hover:text-white"
+                    }`}
+                  >
+                    UTC (Zulu)
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-text-dim uppercase mb-1">Event End Time (Optional)</label>
-                <input
-                  type="datetime-local"
-                  value={formData.endDate}
-                  onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                  className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-white outline-none focus:border-accent num"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-text-dim mb-1">
+                    Event Start Time ({inputTz}) *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={formData.eventDate}
+                    onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
+                    className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-white outline-none focus:border-accent num"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-text-dim mb-1">
+                    Event End Time ({inputTz})
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={formData.endDate}
+                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                    className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-white outline-none focus:border-accent num"
+                  />
+                </div>
               </div>
             </div>
 
@@ -570,20 +629,22 @@ const handleSchedulerChange = async (
                 />
               </div>
 
-            {editingEvent &&  <div>
-                <label className="block text-xs font-bold text-text-dim uppercase mb-1">Status</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                  className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-white outline-none focus:border-accent"
-                >
-                  <option value="UPCOMING">Upcoming</option>
-                  <option value="IN_PROGRESS">In Progress</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="TIMED_OUT">Timed Out</option>
-                  <option value="CANCELLED">Cancelled</option>
-                </select>
-              </div>}
+              {editingEvent && (
+                <div>
+                  <label className="block text-xs font-bold text-text-dim uppercase mb-1">Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                    className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                  >
+                    <option value="UPCOMING">Upcoming</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="TIMED_OUT">Timed Out</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-text-dim uppercase mb-1">Urgency</label>
@@ -649,7 +710,10 @@ const handleSchedulerChange = async (
 
             <div className="p-3 rounded-lg border border-critical/30 bg-critical/10 text-xs text-white space-y-1">
               <p className="font-bold">{deletingEvent.title}</p>
-              <p className="text-text-dim num">Scheduled Date: {new Date(deletingEvent.eventDate).toLocaleString()}</p>
+              <p className="text-text-dim num">
+                IST: {new Date(deletingEvent.eventDate).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} | 
+                UTC: {new Date(deletingEvent.eventDate).toLocaleString("en-US", { timeZone: "UTC" })}
+              </p>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">

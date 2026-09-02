@@ -14,7 +14,7 @@ const redisOptions = {
     }
     return false
   },
-  enableOfflineQueue: false,
+  enableOfflineQueue: true,
   lazyConnect: false,
 }
 

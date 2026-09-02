@@ -79,20 +79,20 @@ app.use(auditMiddleware)
 // ============================================================
 // ROUTE REGISTRATION
 // ============================================================
-app.use('/auth', globalRateLimiter, authRouter)
-app.use(globalRateLimiter,satelliteRouter)
-app.use(globalRateLimiter, departmentRouter)
-app.use(globalRateLimiter, userRouter)
-app.use(globalRateLimiter, fileRouter)
-app.use(globalRateLimiter, browseRouter)
-app.use(globalRateLimiter, notificationRouter)
-app.use(globalRateLimiter, cmsRouter)
-app.use(globalRateLimiter, adminRouter)
-app.use(globalRateLimiter, reportPresetRouter)
-app.use(globalRateLimiter, eventRouter)
-app.use(globalRateLimiter, healthRouter)
-app.use(globalRateLimiter,schedulerRouter)
-
+app.use('/auth',  authRouter)
+app.use(satelliteRouter)
+app.use( departmentRouter)
+app.use( userRouter)
+app.use( fileRouter)
+app.use(browseRouter)
+app.use(notificationRouter)
+app.use(cmsRouter)
+app.use(adminRouter)
+app.use(reportPresetRouter)
+app.use( eventRouter)
+app.use( healthRouter)
+app.use(schedulerRouter)
+app.use(globalRateLimiter) // Apply global rate limiter after all routes to catch any unhandled requests
 // ============================================================
 // GLOBAL ERROR HANDLER (MUST BE REGISTERED LAST)
 // ============================================================
