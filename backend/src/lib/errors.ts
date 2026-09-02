@@ -92,6 +92,21 @@ export function globalErrorHandler(
   }
 
   // ----------------------------------------------------------
+  // 1b. JSON Syntax / Body-Parser Errors (Malformed JSON payload from client)
+  // ----------------------------------------------------------
+  if (err instanceof SyntaxError && 'status' in err && (err as any).status === 400) {
+    logger.warn('BAD_REQUEST', `[InternalReq: ${internalRequestId}] Malformed JSON received from client`)
+    res.status(400).json({
+      error: {
+        code: 'malformed_json',
+        message: 'Invalid JSON payload received in request body',
+      },
+      requestId,
+    })
+    return
+  }
+
+  // ----------------------------------------------------------
   // 2. Prisma known request errors
   // ----------------------------------------------------------
   if (isPrismaKnownError(err)) {
