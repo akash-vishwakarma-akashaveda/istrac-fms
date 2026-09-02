@@ -1,6 +1,8 @@
-import { ArrowUpRight, Check, Compass, Radio } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowUpRight, Check, Compass, Radio, Maximize2 } from 'lucide-react'
 import { useCms, DEFAULT_CMS_BLOCKS } from '../context/cmsContext'
 import { ImageWithFallback } from './ImageWithFallback'
+import { ImageLightboxModal } from './ImageLightboxModal'
 
 const ASSURANCES = [
   'Permission-aware departmental access controls (RBAC)',
@@ -10,6 +12,7 @@ const ASSURANCES = [
 ]
 
 export function AboutSection() {
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
   const { cmsBlocks } = useCms()
   const info = cmsBlocks['info'] as
     | {
@@ -47,17 +50,43 @@ export function AboutSection() {
     >
       <div className="shell grid items-center gap-10 lg:grid-cols-12 lg:gap-14">
         {/* Left Column: CMS-Managed Ground Complex Image (5 Cols) */}
-        <div className="relative aspect-[4/3] w-full max-w-[460px] mx-auto overflow-hidden rounded-2xl border border-border-default bg-[#070c17] shadow-2xl transition-all duration-300 hover:border-accent/40 lg:col-span-5 group">
+        <div
+          className="relative aspect-[4/3] w-full max-w-[460px] mx-auto overflow-hidden rounded-2xl border border-border-default bg-[#070c17] shadow-2xl transition-all duration-300 hover:border-accent/40 lg:col-span-5 group cursor-pointer"
+          onClick={() => setIsLightboxOpen(true)}
+          role="button"
+          tabIndex={0}
+          aria-label="Click to enlarge ground complex image"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setIsLightboxOpen(true)
+            }
+          }}
+        >
           {/* Top Tag Header */}
           <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between border-b border-border-subtle/80 bg-[#0b1220]/80 px-4 py-2.5 backdrop-blur-md text-[11px]">
             <span className="eyebrow flex items-center gap-1.5 text-accent-light">
               <Compass size={13} />
               ISTRAC HEADQUARTERS
             </span>
-            <span className="num text-nominal font-bold flex items-center gap-1">
-              <Radio size={12} />
-              AOS 2.2 GHz
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="num text-nominal font-bold flex items-center gap-1">
+                <Radio size={12} />
+                AOS 2.2 GHz
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsLightboxOpen(true)
+                }}
+                className="p-1 rounded text-text-dim hover:text-white hover:bg-white/10 transition-colors"
+                title="Enlarge facility image"
+                aria-label="Enlarge image in fullscreen preview"
+              >
+                <Maximize2 size={12} />
+              </button>
+            </div>
           </div>
 
           {/* Image Component with Fallback */}
@@ -70,6 +99,13 @@ export function AboutSection() {
             fallbackTitle={aboutImageAlt}
             fallbackSubtitle="Mission Operations Complex (MOX-2)"
           />
+
+          {/* Hover Click to Enlarge Icon */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/25 pointer-events-none z-10">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black/80 border border-white/25 text-white shadow-2xl backdrop-blur-md">
+              <Maximize2 size={18} className="text-accent-light" />
+            </div>
+          </div>
 
           {/* Bottom Station Node Strip */}
           <div className="absolute bottom-0 inset-x-0 z-20 flex items-center justify-between border-t border-border-subtle/80 bg-[#0b1220]/85 px-4 py-2.5 backdrop-blur-md">
@@ -125,6 +161,22 @@ export function AboutSection() {
           </a>
         </div>
       </div>
+
+      {/* Enlarged Image Preview Lightbox */}
+      <ImageLightboxModal
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+        images={[
+          {
+            url: aboutImageUrl,
+            title: aboutImageAlt || 'ISTRAC Headquarters Complex',
+            caption: `${aboutTitle} — ${aboutImageAlt}`,
+            alt: aboutImageAlt,
+            tag: 'ISTRAC HQ COMPLEX',
+            station: 'Bengaluru MOX-2 Complex (BLR) · Primary Control Node',
+          },
+        ]}
+      />
     </section>
   )
 }

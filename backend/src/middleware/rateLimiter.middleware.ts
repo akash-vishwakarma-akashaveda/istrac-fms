@@ -183,8 +183,8 @@ export async function registerRateLimiter(req: Request, res: Response, next: Nex
   }
 }
 
-const REFRESH_MAX = 20
-const REFRESH_WINDOW = 3600
+const REFRESH_MAX = env.NODE_ENV === 'development' ? 1000 : 200
+const REFRESH_WINDOW = 900 // 15 minutes
 
 export async function refreshRateLimiter(req: Request, res: Response, next: NextFunction): Promise<void> {
   const ip = req.ip || req.socket.remoteAddress || 'unknown'

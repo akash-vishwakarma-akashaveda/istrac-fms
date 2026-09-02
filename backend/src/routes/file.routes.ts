@@ -88,9 +88,14 @@
   router.post(
     '/files/upload',
     authMiddleware,
-    adminMiddleware,
     upload.single('file'),
     deptAccessMiddleware,
+    (req, _res, next) => {
+      if (req.user?.role !== 'ADMIN' && req.deptAccessLevel !== 'READ_WRITE') {
+        throw new AppError('dept_write_denied', 'Write clearance required to upload files to this department', 403)
+      }
+      next()
+    },
     hddAvailabilityMiddleware,
     async (req, res, next) => {
       try {
@@ -139,6 +144,59 @@
       }
     },
   )
+
+  // ============================================================
+  // PUBLIC FEATURED DATASETS (FOR PUBLIC LANDING PAGE)
+  // ============================================================
+  router.get('/files/featured-list', async (_req, res, next) => {
+    try {
+      const files = await prisma.file.findMany({
+        where: {
+          deletedAt: null,
+          nodeType: 'FILE',
+          status: 'ACTIVE',
+        },
+        take: 20,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          department: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              satellite: { select: { id: true, name: true, code: true } },
+            },
+          },
+          report: {
+            select: {
+              id: true,
+              title: true,
+              spacecraft: true,
+              category: true,
+              classificationLevel: true,
+            },
+          },
+          uploader: { select: { id: true, name: true } },
+        },
+      })
+
+      res.json({
+        data: files.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          extension: (f.extension || 'DAT').toUpperCase(),
+          sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
+          department: f.department?.code || f.department?.name || 'TTC',
+          departmentId: f.departmentId,
+          satellite: f.report?.spacecraft || f.department?.satellite?.name || 'Primary Fleet',
+          uploader: f.uploader?.name || 'Operator',
+          createdAt: f.createdAt,
+        })),
+      })
+    } catch (err) {
+      next(err)
+    }
+  })
 
   // ============================================================
   // ALL REPOSITORY FILES & DATASETS (FOR CMS & FEATURED SELECTOR)
@@ -211,9 +269,14 @@
   router.post(
     '/files/upload/chunk',
     authMiddleware,
-    adminMiddleware,
     chunkUpload.single('chunk'),
     deptAccessMiddleware,
+    (req, _res, next) => {
+      if (req.user?.role !== 'ADMIN' && req.deptAccessLevel !== 'READ_WRITE') {
+        throw new AppError('dept_write_denied', 'Write clearance required to upload files to this department', 403)
+      }
+      next()
+    },
     hddAvailabilityMiddleware,
     async (req, res, next) => {
       try {
@@ -250,8 +313,13 @@
   router.post(
     '/files/upload/complete',
     authMiddleware,
-    adminMiddleware,
     deptAccessMiddleware,
+    (req, _res, next) => {
+      if (req.user?.role !== 'ADMIN' && req.deptAccessLevel !== 'READ_WRITE') {
+        throw new AppError('dept_write_denied', 'Write clearance required to upload files to this department', 403)
+      }
+      next()
+    },
     hddAvailabilityMiddleware,
     async (req, res, next) => {
        let assembledPath: string | null = null
