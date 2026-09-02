@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import {
   X,
   ChevronLeft,
@@ -9,6 +9,7 @@ import {
   ExternalLink,
   Compass,
   Image as ImageIcon,
+  RefreshCw,
 } from "lucide-react"
 import { isSafeUrl } from "../lib/sanitize"
 
@@ -28,6 +29,9 @@ interface ImageLightboxModalProps {
   initialIndex?: number
 }
 
+const DEFAULT_FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1517976487544-7832263ca7b9?auto=format&fit=crop&w=1200&q=80"
+
 export function ImageLightboxModal({
   isOpen,
   onClose,
@@ -38,26 +42,94 @@ export function ImageLightboxModal({
   const [zoom, setZoom] = useState(1)
   const [imgLoaded, setImgLoaded] = useState(false)
   const [hasError, setHasError] = useState(false)
+  const [activeSrc, setActiveSrc] = useState<string>("")
+  const imgRef = useRef<HTMLImageElement | null>(null)
+
+  const total = images.length
+  const current = images[currentIndex] || images[0]
 
   // Sync initial index when modal opens
   useEffect(() => {
     if (isOpen) {
-      setCurrentIndex(Math.max(0, Math.min(initialIndex, images.length - 1)))
+      const targetIdx = Math.max(0, Math.min(initialIndex, images.length - 1))
+      setCurrentIndex(targetIdx)
       setZoom(1)
-      setImgLoaded(false)
-      setHasError(false)
     }
   }, [isOpen, initialIndex, images.length])
 
-  // Reset zoom & loading when slide changes
+  // Preload & verify image on slide change
   useEffect(() => {
+    if (!isOpen || !current) return
+
+    const rawUrl = current.url && isSafeUrl(current.url) ? current.url : ""
+    const initialUrl = rawUrl || DEFAULT_FALLBACK_IMAGE
+
+    setActiveSrc(initialUrl)
     setZoom(1)
     setImgLoaded(false)
     setHasError(false)
-  }, [currentIndex])
 
-  const total = images.length
-  const current = images[currentIndex] || images[0]
+    let isMounted = true
+
+    // Create an in-memory Image object to verify load status (works even if cached)
+    const testImg = new window.Image()
+    testImg.src = initialUrl
+
+    // 1. Check if browser already has it cached
+    if (testImg.complete) {
+      if (testImg.naturalWidth > 0) {
+        setImgLoaded(true)
+      } else {
+        // First url failed, try default space fallback
+        if (initialUrl !== DEFAULT_FALLBACK_IMAGE) {
+          setActiveSrc(DEFAULT_FALLBACK_IMAGE)
+          setImgLoaded(true)
+        } else {
+          setHasError(true)
+        }
+      }
+      return
+    }
+
+    // 2. Event listeners for asynchronous load
+    testImg.onload = () => {
+      if (isMounted) {
+        setImgLoaded(true)
+        setHasError(false)
+      }
+    }
+
+    testImg.onerror = () => {
+      if (isMounted) {
+        if (initialUrl !== DEFAULT_FALLBACK_IMAGE) {
+          setActiveSrc(DEFAULT_FALLBACK_IMAGE)
+          setImgLoaded(true)
+        } else {
+          setHasError(true)
+          setImgLoaded(true)
+        }
+      }
+    }
+
+    // 3. Fallback timeout: If image hangs for more than 3.5s, switch to fallback
+    const timer = setTimeout(() => {
+      if (isMounted && !testImg.complete) {
+        if (initialUrl !== DEFAULT_FALLBACK_IMAGE) {
+          setActiveSrc(DEFAULT_FALLBACK_IMAGE)
+          setImgLoaded(true)
+        } else {
+          setImgLoaded(true)
+        }
+      }
+    }, 3500)
+
+    return () => {
+      isMounted = false
+      clearTimeout(timer)
+      testImg.onload = null
+      testImg.onerror = null
+    }
+  }, [isOpen, current, currentIndex])
 
   const handlePrev = useCallback(() => {
     if (total <= 1) return
@@ -100,8 +172,6 @@ export function ImageLightboxModal({
   }, [isOpen, onClose, handlePrev, handleNext])
 
   if (!isOpen || !current) return null
-
-  const safeUrl = current.url && isSafeUrl(current.url) ? current.url : ""
 
   const handleZoomIn = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -204,9 +274,9 @@ export function ImageLightboxModal({
           )}
 
           {/* Open in New Tab */}
-          {safeUrl && (
+          {activeSrc && (
             <a
-              href={safeUrl}
+              href={activeSrc}
               target="_blank"
               rel="noopener noreferrer"
               className="p-2 rounded-lg border border-white/10 bg-white/5 text-text-muted hover:text-white hover:border-white/25 transition-all"
@@ -277,8 +347,8 @@ export function ImageLightboxModal({
           {/* Loading Indicator */}
           {!imgLoaded && !hasError && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-12 text-center text-text-dim bg-[#0a0f1d]/90 backdrop-blur-sm z-10">
-              <div className="h-7 w-7 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-              <p className="text-xs text-text-dim font-mono">Loading image asset...</p>
+              <RefreshCw size={24} className="animate-spin text-accent-light" />
+              <p className="text-xs text-text-dim font-mono">Loading telemetry asset…</p>
             </div>
           )}
 
@@ -295,19 +365,28 @@ export function ImageLightboxModal({
             </div>
           ) : (
             <img
-              src={safeUrl}
+              ref={imgRef}
+              src={activeSrc}
               alt={current.alt || current.caption || current.title || "Telemetry Image"}
-              onLoad={() => setImgLoaded(true)}
-              onError={() => {
+              onLoad={() => {
                 setImgLoaded(true)
-                setHasError(true)
+                setHasError(false)
+              }}
+              onError={() => {
+                if (activeSrc !== DEFAULT_FALLBACK_IMAGE) {
+                  setActiveSrc(DEFAULT_FALLBACK_IMAGE)
+                  setImgLoaded(true)
+                } else {
+                  setImgLoaded(true)
+                  setHasError(true)
+                }
               }}
               style={{
                 transform: `scale(${zoom})`,
                 transformOrigin: "center center",
                 transition: "transform 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
               }}
-              className={`max-h-[75vh] max-w-[90vw] object-contain select-none rounded-xl ${
+              className={`max-h-[75vh] max-w-[90vw] object-contain select-none rounded-xl transition-opacity duration-300 ${
                 imgLoaded ? "opacity-100" : "opacity-0"
               }`}
             />
@@ -355,9 +434,13 @@ export function ImageLightboxModal({
                   aria-label={`Jump to slide ${idx + 1}`}
                 >
                   <img
-                    src={img.url}
+                    src={img.url || DEFAULT_FALLBACK_IMAGE}
                     alt={img.caption || `Thumbnail ${idx + 1}`}
                     className="h-full w-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement
+                      target.src = DEFAULT_FALLBACK_IMAGE
+                    }}
                   />
                 </button>
               ))}
