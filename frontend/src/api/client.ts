@@ -120,14 +120,6 @@ apiClient.interceptors.response.use(
       }
     }
 
-    if (error.response?.status === 403) {
-      const user = useAuthStore.getState().user
-      if (user?.role === "ADMIN") {
-        useAuthStore.getState().clearAuth()
-        window.location.href = "/login"
-      }
-    }
-
     return Promise.reject(error)
   }
 )
