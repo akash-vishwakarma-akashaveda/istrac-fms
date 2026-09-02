@@ -2,42 +2,49 @@ import type { CorsOptions } from 'cors'
 import { env } from './env.js'
 import { logger } from '../lib/logger.js'
 
+// ============================================================
+// STRICT TRUSTED ORIGIN WHITELIST
+// Multi-tenant wildcards (*.amplifyapp.com, *.cloudfront.net)
+// are strictly forbidden with credentials: true to prevent
+// cross-tenant account takeover and token theft.
+// ============================================================
+const TRUSTED_PRODUCTION_ORIGINS = [
+  'https://protov1.dlkt5x6pmnb2e.amplifyapp.com', // Official ISTRAC Amplify Frontend
+  'https://d2qycovk79gx2n.cloudfront.net',         // ISTRAC CloudFront Gateway
+  'http://localhost:5173',                          // Local Vite development
+  'http://localhost:3000',                          // Local development server
+]
+
 export const corsOptions: CorsOptions = {
   origin: (origin, callback) => {
-    // Allow server-to-server, mobile app, postman, and curl requests without an Origin header
+    // Allow non-browser requests (server-to-server, curl, mobile, daemons) without an Origin header
     if (!origin) return callback(null, true)
 
     const normalizedOrigin = origin.trim().replace(/\/+$/, '')
 
-    // 1. Explicitly configured origins or wildcard '*'
-    const isExplicitlyAllowed =
-      env.ALLOWED_ORIGINS.includes('*') ||
-      env.ALLOWED_ORIGINS.some((allowed) => {
-        const normAllowed = allowed.trim().replace(/\/+$/, '')
-        return normAllowed === normalizedOrigin
-      })
-
-    // 2. AWS Amplify Preview & Production URLs (*.amplifyapp.com)
-    let isAmplifyApp = false
-    try {
-      isAmplifyApp = /\.amplifyapp\.com$/i.test(new URL(origin).hostname)
-    } catch {}
-
-    // 3. AWS CloudFront Distribution URLs (*.cloudfront.net)
-    let isCloudFront = false
-    try {
-      isCloudFront = /\.cloudfront\.net$/i.test(new URL(origin).hostname)
-    } catch {}
-
-    // 4. Localhost development environments
-    const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
-
-    if (isExplicitlyAllowed || isAmplifyApp || isCloudFront || isLocalhost) {
+    // 1. Exact match against trusted production origins
+    if (TRUSTED_PRODUCTION_ORIGINS.includes(normalizedOrigin)) {
       return callback(null, true)
     }
 
+    // 2. Explicitly configured custom origins from .env (e.g., https://fms.istrac.gov.in)
+    const isEnvAllowed = env.ALLOWED_ORIGINS.some((allowed) => {
+      const normAllowed = allowed.trim().replace(/\/+$/, '')
+      return normAllowed !== '*' && normAllowed === normalizedOrigin
+    })
+
+    if (isEnvAllowed) {
+      return callback(null, true)
+    }
+
+    // 3. Localhost in development mode only
+    if (env.NODE_ENV === 'development') {
+      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(normalizedOrigin)
+      if (isLocalhost) return callback(null, true)
+    }
+
     logger.warn('CORS', `Blocked unauthorized origin: ${origin}`)
-    // Return null, false to reject properly rather than throwing 500
+    // Return null, false to reject properly rather than throwing an unhandled 500
     return callback(null, false)
   },
   credentials: true,

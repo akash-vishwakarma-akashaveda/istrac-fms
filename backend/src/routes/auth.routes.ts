@@ -250,15 +250,29 @@ router.post('/refresh',refreshRateLimiter, async (req, res, next) => {
       include: { user: true },
     })
 
-    if (!tokenRecord || tokenRecord.revoked || tokenRecord.expiresAt < new Date()) {
+    if (!tokenRecord || tokenRecord.expiresAt < new Date()) {
       throw new AppError('refresh_token_invalid', 'Invalid or expired session', 401)
     }
 
-    // Revoke old token
-    await prisma.refreshToken.update({
-      where: { id: tokenRecord.id },
-      data: { revoked: true, revokedAt: new Date() },
-    })
+    // Grace period for concurrent requests:
+    // If the token was revoked within the last 30 seconds (due to network race or multi-tab refresh),
+    // do NOT fail the request. Re-issue an access token for the active user session!
+    const isWithinGracePeriod =
+      tokenRecord.revoked &&
+      tokenRecord.revokedAt &&
+      Date.now() - new Date(tokenRecord.revokedAt).getTime() < 30_000
+
+    if (tokenRecord.revoked && !isWithinGracePeriod) {
+      throw new AppError('refresh_token_invalid', 'Invalid or expired session', 401)
+    }
+
+    if (!tokenRecord.revoked) {
+      // Revoke old token
+      await prisma.refreshToken.update({
+        where: { id: tokenRecord.id },
+        data: { revoked: true, revokedAt: new Date() },
+      })
+    }
 
     const user = tokenRecord.user
     if (!user || user.deletedAt || user.status !== 'ACTIVE') {

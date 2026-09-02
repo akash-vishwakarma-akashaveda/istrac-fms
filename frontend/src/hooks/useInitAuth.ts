@@ -17,27 +17,6 @@ export function useInitAuth() {
     // If we have an active user and accessToken in localStorage, we are already authenticated!
     if (currentUser && currentToken) {
       setIsChecking(false)
-
-      // Silent background validation using both cookie and stored refresh token
-      if (currentRefreshToken) {
-        apiClient
-          .post(
-            "/auth/refresh",
-            { refreshToken: currentRefreshToken },
-            { headers: { "x-refresh-token": currentRefreshToken } }
-          )
-          .then((res) => {
-            const token = res.data?.data?.accessToken || res.data?.accessToken
-            const newRefresh = res.data?.data?.refreshToken || res.data?.refreshToken
-            const refreshedUser = res.data?.data?.user || res.data?.user || currentUser
-            if (token) {
-              useAuthStore.getState().setAuth(refreshedUser, token, newRefresh)
-            }
-          })
-          .catch(() => {
-            // Keep current token; 401 interceptor will handle expired token when actual API requests are made
-          })
-      }
       return
     }
 
