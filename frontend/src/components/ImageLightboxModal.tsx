@@ -42,7 +42,9 @@ export function ImageLightboxModal({
   const [zoom, setZoom] = useState(1)
   const [imgLoaded, setImgLoaded] = useState(false)
   const [hasError, setHasError] = useState(false)
-  const [activeSrc, setActiveSrc] = useState<string>("")
+  const [activeSrc, setActiveSrc] = useState<string>(
+    images[initialIndex]?.url || DEFAULT_FALLBACK_IMAGE
+  )
   const imgRef = useRef<HTMLImageElement | null>(null)
 
   const total = images.length
@@ -363,11 +365,11 @@ export function ImageLightboxModal({
                 The requested telemetry asset could not be loaded from the storage server.
               </p>
             </div>
-          ) : (
+          ) : activeSrc ? (
             <img
               ref={imgRef}
               src={activeSrc}
-              alt={current.alt || current.caption || current.title || "Telemetry Image"}
+              alt={current?.alt || current?.caption || current?.title || "Telemetry Image"}
               onLoad={() => {
                 setImgLoaded(true)
                 setHasError(false)
@@ -390,7 +392,7 @@ export function ImageLightboxModal({
                 imgLoaded ? "opacity-100" : "opacity-0"
               }`}
             />
-          )}
+          ) : null}
         </div>
       </div>
 

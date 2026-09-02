@@ -74,12 +74,12 @@
 }
   const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB for single-shot
+    limits: { fileSize: 1024 * 1024 * 1024 }, // 1GB hardware ceiling; dynamic limit enforced via systemConfig
   })
 
   const chunkUpload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB per chunk
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB per chunk
   })
 
   // ============================================================
@@ -102,7 +102,22 @@
         if (!req.file) {
           throw new AppError('missing_file', 'No file uploaded in form-data', 400)
         }
-        
+
+        // Validate file size against dynamic systemConfig limit
+        const configRow = await prisma.systemConfig.findUnique({
+          where: { configKey: 'maxUploadSizeBytes' },
+        })
+        const maxBytes = configRow
+          ? Number(JSON.parse(configRow.configValue))
+          : 524288000 // default 500MB
+        if (req.file.size > maxBytes) {
+          const limitMb = Math.round(maxBytes / (1024 * 1024))
+          throw new AppError(
+            'file_too_large',
+            `Uploaded file (${(req.file.size / (1024 * 1024)).toFixed(1)} MB) exceeds configured system limit of ${limitMb} MB`,
+            413,
+          )
+        }
 
         const {
           departmentId: bodyDeptId,

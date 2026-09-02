@@ -54,7 +54,7 @@ export function FilePreviewModal({ file, onClose }: FilePreviewModalProps) {
   const ext = file ? getFileExtension(file.name) : 'DAT'
   const isPdf = file ? ext === 'PDF' || file.mimeType === 'application/pdf' : false
   const isImage = file ? file.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(file.name) : false
-  const fileUrl = file ? `${import.meta.env.VITE_API_URL}/files/${file.id}/download` : ''
+  const fileUrl = file ? `/files/${file.id}/download` : ''
 
   useEffect(() => {
     if (file) {
@@ -117,7 +117,7 @@ export function FilePreviewModal({ file, onClose }: FilePreviewModalProps) {
           {/* Interactive Viewer vs Non-PDF Download Card */}
           {isPdf ? (
             <div className="space-y-3">
-              <PdfPreview fileUrl={fileUrl} fileName={file.name} />
+              <PdfPreview fileUrl={fileUrl} fileName={file.name} onDownload={handleDownload} />
             </div>
           ) : isImage ? (
             <div className="space-y-3">

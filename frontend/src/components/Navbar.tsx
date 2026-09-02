@@ -14,8 +14,10 @@ import {
   Info,
   Headphones,
   Radio,
+  Bell,
 } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
+import { useNotificationStore } from "../store/notificationStore"
 import { useAuthModalStore } from "../store/authModalStore"
 import { departmentsApi, type Department } from "../api/departments.api"
 import { Button } from "."
@@ -55,6 +57,7 @@ export function Navbar() {
   const showSearchButton = navData?.showSearchButton !== false
   const showAuthButton = navData?.showAuthButton !== false
 
+  const unreadCount = useNotificationStore((s) => s.unreadCount)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [deptOpen, setDeptOpen] = useState(false)
@@ -226,16 +229,31 @@ export function Navbar() {
 
             {showAuthButton && (
               user ? (
-                <Link to="/app">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    className="gap-1.5 shadow-sm shadow-accent/20 font-semibold"
+                <div className="flex items-center gap-2">
+                  <Link
+                    to="/notifications"
+                    className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-border-default bg-[#070c18] text-text-muted hover:border-accent/50 hover:text-white transition-all shadow-inner"
+                    title="Mission Notifications & Alerts"
                   >
-                    <UserCheck size={14} />
-                    <span>Mission Console</span>
-                  </Button>
-                </Link>
+                    <Bell size={14} className={unreadCount > 0 ? "text-accent-light animate-pulse" : ""} />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#050811]">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                  </Link>
+
+                  <Link to="/app">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="gap-1.5 shadow-sm shadow-accent/20 font-semibold"
+                    >
+                      <UserCheck size={14} />
+                      <span>Mission Console</span>
+                    </Button>
+                  </Link>
+                </div>
               ) : (
                 <div className="flex items-center gap-2">
                   <Button

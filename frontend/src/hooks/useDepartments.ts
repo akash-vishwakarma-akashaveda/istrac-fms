@@ -44,6 +44,9 @@ export function useArchiveDepartment() {
   return useMutation({
     mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
       departmentsApi.updateDepartment(id, { archived }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['departments'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['departments'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-departments'] })
+    },
   })
 }

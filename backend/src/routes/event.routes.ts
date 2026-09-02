@@ -3,6 +3,7 @@ import { prisma } from '../config/db.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.middleware.js'
 import { adminMiddleware } from '../middleware/admin.middleware.js'
 import { auditService } from '../services/audit.service.js'
+import { notificationService } from '../services/notification.service.js'
 import { AppError } from '../lib/errors.js'
 
 const router = Router()
@@ -67,18 +68,20 @@ router.get('/events/active-banner', optionalAuthMiddleware, async (req, res, nex
       },
     })
 
-    // 2. Fetch latest broadcast notifications
+    // 2. Fetch latest broadcast notifications across all priority types
     const recentBroadcasts = await prisma.notification.findMany({
       where: {
-        type: 'BROADCAST',
+        type: { in: ['BROADCAST', 'CRITICAL', 'SYSTEM', 'MAINTENANCE', 'NOTICE', 'PASS', 'FILE_UPLOAD', 'TELEMETRY'] },
         deletedAt: null,
-        createdAt: { gte: prev24h },
       },
-      take: 3,
+      take: 6,
       orderBy: { createdAt: 'desc' },
+      distinct: ['message'],
       select: {
         id: true,
         message: true,
+        type: true,
+        category: true,
         createdAt: true,
         metadata: true,
       },
@@ -152,6 +155,16 @@ router.post('/events', authMiddleware, adminMiddleware, async (req, res, next) =
       resourceId: event.id,
       newValue: event as unknown as Record<string, unknown>,
     })
+
+    // Broadcast live event notification across all connected operators and banners
+    notificationService.sendBroadcast({
+      type: 'PASS',
+      category: 'event',
+      actorId: req.user!.id,
+      message: `New Mission Event: ${event.title} (${event.location})`,
+      resourceType: 'mission_event',
+      resourceId: event.id,
+    }).catch(() => {})
 
     res.status(201).json({
       data: event,

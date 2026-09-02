@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import {
   Search as SearchIcon,
   History,
@@ -14,7 +14,12 @@ import {
   ExternalLink,
   Database,
   Filter,
+  ShieldAlert,
+  Lock,
+  Building2,
+  ArrowRight,
 } from 'lucide-react'
+import { useAuthStore } from '../store/authStore'
 import { browseApi, type SearchResultItem } from '../api/browse.api'
 import { satellitesApi, type Satellite } from '../api/satellites.api'
 import { departmentsApi, type Department } from '../api/departments.api'
@@ -24,15 +29,6 @@ import { formatFileSize } from '../lib/formatFileSize'
 import { PageHeader, Button } from '../components'
 import { FilePreviewModal } from '../components/FilePreviewModal'
 import { apiClient } from '../api/client'
-
-const PRESET_CHIPS = [
-  { label: '🛰️ Aditya-L1', query: 'Aditya-L1' },
-  { label: '🌕 Chandrayaan-3', query: 'Chandrayaan-3' },
-  { label: '📊 Daily Ops', query: 'DAILYOPS' },
-  { label: '⚡ Telemetry Data', query: 'telemetry' },
-  { label: '⚠️ Anomaly Reviews', query: 'ANOMALY' },
-  { label: '📑 PDF Archives', query: 'type:pdf' },
-]
 
 export function SearchPage() {
   const [searchParams] = useSearchParams()
@@ -59,30 +55,42 @@ export function SearchPage() {
   const [results, setResults] = useState<SearchResultItem[]>([])
   const [totalMatches, setTotalMatches] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadingMeta, setLoadingMeta] = useState(true)
   const [satellites, setSatellites] = useState<Satellite[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
+
+  const user = useAuthStore((s) => s.user)
+  const isAdmin = user?.role === 'ADMIN'
 
   const { history, addSearch, clearHistory } = useSearchHistoryStore()
 
   // Fetch Satellites & Departments for dropdown filters
   useEffect(() => {
     async function loadMeta() {
+      setLoadingMeta(true)
       try {
         const [sats, depts] = await Promise.all([
           satellitesApi.getActiveSatellites().catch(() => []),
-          departmentsApi.getPublicDepartments().catch(() => []),
+          isAdmin
+            ? departmentsApi.getPublicDepartments().catch(() => [])
+            : departmentsApi.getUserDepartments().catch(() => []),
         ])
         setSatellites(sats || [])
         setDepartments(depts || [])
       } catch {
         // silent fallback
+      } finally {
+        setLoadingMeta(false)
       }
     }
     loadMeta()
-  }, [])
+  }, [isAdmin])
+
+  const hasNoDeptAccess = !isAdmin && user && !loadingMeta && departments.length === 0
 
   // Execute Search whenever query or filters change
   useEffect(() => {
+    if (hasNoDeptAccess) return
     let active = true
 
     async function executeSearch() {
@@ -156,11 +164,6 @@ export function SearchPage() {
     setShowHistory(false)
   }
 
-  function handleSelectChip(chipQuery: string) {
-    setQuery(chipQuery)
-    addSearch(chipQuery)
-  }
-
   function resetAllFilters() {
     setQuery('')
     setSatelliteFilter('ALL')
@@ -222,9 +225,66 @@ export function SearchPage() {
         }
       />
 
-      {/* ============================================================ */}
-      {/* 1. HERO SEARCH BAR & PRESET CHIPS */}
-      {/* ============================================================ */}
+      {/* No Clearance State for Members */}
+      {hasNoDeptAccess ? (
+        <div className="rounded-2xl border border-amber-500/40 bg-[#070e1c] p-8 sm:p-12 text-center shadow-2xl max-w-xl mx-auto space-y-5 my-8">
+          <div className="h-16 w-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400 shadow-inner">
+            <ShieldAlert size={32} />
+          </div>
+
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-3 py-0.5 text-[11px] font-mono font-bold text-amber-300 uppercase">
+              <Lock size={11} />
+              Access Restricted
+            </div>
+            <h3 className="text-lg font-bold text-white tracking-tight">
+              No Division Security Clearances Assigned
+            </h3>
+            <p className="text-xs text-text-secondary leading-relaxed max-w-md mx-auto">
+              Under ISRO operational security protocols, all mission archives, flight telemetry, and documents are strictly compartmentalized by division. Your member account currently has no active department clearances assigned.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-border-default bg-[#050b16] p-4 text-left space-y-2.5 text-xs">
+            <p className="text-text-primary font-bold flex items-center gap-1.5">
+              <span>Next Steps to Unlock Archives:</span>
+            </p>
+            <div className="space-y-2 text-text-dim text-[11px] leading-relaxed">
+              <div className="flex items-start gap-2">
+                <span className="text-amber-400 font-bold">•</span>
+                <p>Contact your Division Lead Officer or MOX Flight Director for operational clearance.</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-amber-400 font-bold">•</span>
+                <p>A System Administrator can assign your clearances under User Accounts & Approvals.</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-emerald-400 font-bold">•</span>
+                <p>Once granted, your assigned division repositories will immediately unlock here.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link to="/departments" className="w-full sm:w-auto">
+              <Button variant="outline" size="sm" className="w-full text-xs font-bold">
+                <Building2 size={13} />
+                <span>View Public Divisions</span>
+              </Button>
+            </Link>
+            <Link to="/dashboard" className="w-full sm:w-auto">
+              <Button variant="primary" size="sm" className="w-full text-xs font-bold">
+                <span>Go to Mission Overview</span>
+                <ArrowRight size={13} />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* ============================================================ */}
+          {/* 1. HERO SEARCH BAR & PRESET CHIPS */}
+          {/* ============================================================ */}
       <div className="space-y-3">
         <form onSubmit={handleSearchSubmit} className="group relative">
           <div className="relative flex items-center">
@@ -292,23 +352,29 @@ export function SearchPage() {
           )}
         </form>
 
-        {/* Preset Search Chips */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-bold uppercase text-text-dim shrink-0 flex items-center gap-1">
-            <Sparkles size={12} className="text-accent-light" />
-            <span>Presets:</span>
-          </span>
-          {PRESET_CHIPS.map((chip) => (
-            <button
-              key={chip.label}
-              type="button"
-              onClick={() => handleSelectChip(chip.query)}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-surface border border-border-default hover:border-accent/40 hover:text-accent-light text-text-secondary transition-all cursor-pointer"
-            >
-              {chip.label}
-            </button>
-          ))}
-        </div>
+        {/* Dynamic Spacecraft Quick Filter Chips from Real DB */}
+        {satellites.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-bold uppercase text-text-dim shrink-0 flex items-center gap-1">
+              <Sparkles size={12} className="text-accent-light" />
+              <span>Spacecraft:</span>
+            </span>
+            {satellites.map((sat) => (
+              <button
+                key={sat.id}
+                type="button"
+                onClick={() => setSatelliteFilter(satelliteFilter === sat.id ? 'ALL' : sat.id)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                  satelliteFilter === sat.id
+                    ? 'bg-accent text-white border-accent shadow-sm'
+                    : 'bg-surface border-border-default hover:border-accent/40 hover:text-accent-light text-text-secondary'
+                }`}
+              >
+                🛰️ {sat.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ============================================================ */}
@@ -375,6 +441,7 @@ export function SearchPage() {
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name} {d.code ? `(${d.code})` : ''}
+                    {d.archived || !d.isActive ? ' ⚠️ (Archived - Admin Only)' : ''}
                   </option>
                 ))}
               </select>
@@ -460,41 +527,44 @@ export function SearchPage() {
             {loading ? 'Searching archive database…' : `${totalMatches} Results Matched`}
           </span>
           {hasActiveFilters && (
-            <span className="text-[11px] text-text-dim font-mono">
-              (filtered view)
+            <span className="text-[11px] font-semibold text-accent-light bg-accent/10 border border-accent/20 px-2 py-0.5 rounded-full">
+              Filtered View
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Sort Selector */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-bold text-text-dim uppercase">Sort:</span>
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          {/* Sorting */}
+          <div className="flex items-center gap-1.5 bg-card border border-border-default rounded-lg px-2.5 py-1">
+            <span className="text-[10px] font-bold text-text-dim uppercase">Sort:</span>
             <select
-              value={`${sortBy}:${sortOrder}`}
-              onChange={(e) => {
-                const [sb, so] = e.target.value.split(':')
-                setSortBy(sb as any)
-                setSortOrder(so as any)
-              }}
-              className="rounded-lg border border-border-default bg-surface px-2.5 py-1 text-xs text-white outline-none focus:border-accent cursor-pointer"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="bg-transparent text-xs text-white outline-none cursor-pointer"
             >
-              <option value="updatedAt:desc">Latest Ingestion</option>
-              <option value="createdAt:asc">Oldest First</option>
-              <option value="name:asc">File Name (A-Z)</option>
-              <option value="sizeBytes:desc">File Size (Largest)</option>
+              <option value="updatedAt" className="bg-[#060c18]">Recent Update</option>
+              <option value="createdAt" className="bg-[#060c18]">Ingestion Date</option>
+              <option value="name" className="bg-[#060c18]">File Name</option>
+              <option value="sizeBytes" className="bg-[#060c18]">Payload Size</option>
             </select>
+            <button
+              type="button"
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="text-[10px] font-mono text-accent-light font-bold hover:underline ml-1"
+            >
+              {sortOrder.toUpperCase()}
+            </button>
           </div>
 
           {/* View Mode Toggle */}
-          <div className="flex items-center rounded-lg border border-border-default bg-surface p-0.5">
+          <div className="flex items-center bg-card border border-border-default rounded-lg p-0.5">
             <button
               type="button"
               onClick={() => setViewMode('grid')}
               className={`p-1.5 rounded-md transition-colors ${
                 viewMode === 'grid' ? 'bg-accent text-white shadow-sm' : 'text-text-dim hover:text-white'
               }`}
-              title="Grid Cards View"
+              title="Grid Card View"
             >
               <LayoutGrid size={14} />
             </button>
@@ -558,25 +628,36 @@ export function SearchPage() {
                   {/* Top Tags */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="rounded bg-accent/15 border border-accent/30 text-accent-light px-1.5 py-0.5 text-[9px] font-bold uppercase num">
-                        {file.satelliteName || 'ISRO SATELLITE'}
-                      </span>
-                      <span className="rounded bg-surface border border-border-subtle text-text-dim px-1.5 py-0.5 text-[9px] font-bold uppercase">
-                        {file.departmentCode || file.departmentName}
-                      </span>
+                      {file.satelliteName ? (
+                        <span className="rounded bg-accent/15 border border-accent/30 text-accent-light px-1.5 py-0.5 text-[9px] font-bold uppercase num">
+                          {file.satelliteName}
+                        </span>
+                      ) : null}
+                      {(file.departmentCode || file.departmentName) ? (
+                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border ${
+                          file.departmentIsActive === false
+                            ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+                            : 'bg-surface border-border-subtle text-text-dim'
+                        }`}>
+                          {file.departmentCode ? `/${file.departmentCode}` : file.departmentName}
+                          {file.departmentIsActive === false ? ' ⚠️ ARCHIVED' : ''}
+                        </span>
+                      ) : null}
                     </div>
 
-                    <span
-                      className={`text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded border ${
-                        file.classificationLevel === 'SECRET_MISSION'
-                          ? 'bg-red-500/15 border-red-500/30 text-red-400'
-                          : file.classificationLevel === 'INTERNAL_ONLY'
-                            ? 'bg-yellow-500/15 border-yellow-500/30 text-yellow-400'
-                            : 'bg-nominal/15 border-nominal/30 text-nominal'
-                      }`}
-                    >
-                      {file.classificationLevel || 'ISRO LEVEL'}
-                    </span>
+                    {file.classificationLevel ? (
+                      <span
+                        className={`text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded border ${
+                          file.classificationLevel === 'SECRET_MISSION'
+                            ? 'bg-red-500/15 border-red-500/30 text-red-400'
+                            : file.classificationLevel === 'INTERNAL_ONLY'
+                              ? 'bg-yellow-500/15 border-yellow-500/30 text-yellow-400'
+                              : 'bg-nominal/15 border-nominal/30 text-nominal'
+                        }`}
+                      >
+                        {file.classificationLevel}
+                      </span>
+                    ) : null}
                   </div>
 
                   {/* File Title & Icon */}
@@ -711,7 +792,14 @@ export function SearchPage() {
                     <td className="px-4 py-3">
                       <div className="space-y-0.5">
                         <p className="font-bold text-accent-light text-[11px]">{file.satelliteName}</p>
-                        <p className="text-[10px] text-text-dim">{file.departmentName}</p>
+                        <p className="text-[10px] text-text-dim flex items-center gap-1.5">
+                          <span>{file.departmentName}</span>
+                          {file.departmentIsActive === false && (
+                            <span className="rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 px-1 py-0.2 text-[8px] font-bold uppercase">
+                              Archived
+                            </span>
+                          )}
+                        </p>
                       </div>
                     </td>
 
@@ -722,9 +810,13 @@ export function SearchPage() {
                     </td>
 
                     <td className="px-4 py-3">
-                      <span className="text-[10px] font-bold uppercase text-nominal">
-                        {file.classificationLevel || 'ISRO LEVEL'}
-                      </span>
+                      {file.classificationLevel ? (
+                        <span className="text-[10px] font-bold uppercase text-nominal">
+                          {file.classificationLevel}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-text-dim">—</span>
+                      )}
                     </td>
 
                     <td className="px-4 py-3 num font-mono text-[11px]">
@@ -768,6 +860,8 @@ export function SearchPage() {
             </table>
           </div>
         </div>
+      )}
+      </>
       )}
 
       {/* Embedded File Preview Modal */}

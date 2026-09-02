@@ -107,15 +107,13 @@ apiClient.interceptors.response.use(
         refreshQueue.forEach((cb) => cb(""))
         refreshQueue = []
 
-        // If refresh token is genuinely revoked or expired, clear session and redirect to login
-        if (
-          typeof window !== "undefined" &&
-          (window.location.pathname.startsWith("/dashboard") ||
-            window.location.pathname.startsWith("/admin") ||
-            window.location.pathname.startsWith("/notifications"))
-        ) {
+        // If refresh token is genuinely revoked or expired, clear session and log out
+        const wasAuthenticated = !!useAuthStore.getState().user
+        if (wasAuthenticated) {
           useAuthStore.getState().clearAuth()
-          window.location.href = "/login"
+          if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+            window.location.href = "/login?session_expired=true"
+          }
         }
         return Promise.reject(refreshErr)
       } finally {

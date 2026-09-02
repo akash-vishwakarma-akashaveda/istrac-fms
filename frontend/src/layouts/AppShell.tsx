@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
-import { DynamicAlertBanner } from '../components/DynamicAlertBanner'
+import { AnnouncementBar } from '../components/AnnouncementBar'
 import { useAutoCollapseSidebar } from '../hooks/useAutoCollapseSidebar'
 
 export function AppShell() {
@@ -15,7 +15,7 @@ export function AppShell() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
-        <DynamicAlertBanner />
+        <AnnouncementBar />
 
         <main className="flex-1 overflow-y-auto">
           <div className="shell-wide py-6">

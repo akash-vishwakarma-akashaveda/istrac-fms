@@ -14,7 +14,7 @@ router.get('/notifications/public', async (_req, res, next) => {
   try {
     const broadcasts = await prisma.notification.findMany({
       where: {
-        type: { in: ['BROADCAST', 'SYSTEM', 'MAINTENANCE', 'PASS'] },
+        type: { in: ['BROADCAST', 'SYSTEM', 'MAINTENANCE', 'PASS', 'CRITICAL', 'NOTICE', 'FILE_UPLOAD', 'TELEMETRY'] },
         deletedAt: null,
       },
       take: 20,

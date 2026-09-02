@@ -1,4 +1,4 @@
-﻿import { prisma } from "../config/db.js"
+import { prisma } from "../config/db.js"
 
 export interface SearchParams {
   query?: string
@@ -27,6 +27,7 @@ export interface SearchResultItem {
   departmentId: string
   departmentName: string
   departmentCode: string
+  departmentIsActive: boolean
   satelliteId: string | null
   satelliteName: string
   satelliteCode: string | null
@@ -54,7 +55,14 @@ export const searchService = {
     // If not admin and user is logged in, restrict search strictly to the user's assigned departments (or preferred department)
     if (params.userId && !params.isAdmin) {
       const userAccess = await prisma.userDepartmentAccess.findMany({
-        where: { userId: params.userId, deletedAt: null },
+        where: {
+          userId: params.userId,
+          deletedAt: null,
+          department: {
+            isActive: true,
+            deletedAt: null,
+          },
+        },
         select: { departmentId: true },
       })
 
@@ -74,6 +82,7 @@ export const searchService = {
                 { code: user.departmentPreference },
                 { name: user.departmentPreference },
               ],
+              isActive: true,
               deletedAt: null,
             },
             select: { id: true },
@@ -111,7 +120,8 @@ export const searchService = {
 
     const whereClause: any = {
       deletedAt: null,
-      status: "ACTIVE",
+      status: { in: ["ACTIVE", "ORPHANED"] },
+      nodeType: "FILE",
     }
 
     // Text search condition
@@ -208,6 +218,9 @@ export const searchService = {
         take: limit,
         orderBy,
         include: {
+          uploader: {
+            select: { id: true, name: true },
+          },
           report: {
             include: {
               createdBy: {
@@ -230,18 +243,19 @@ export const searchService = {
       extension: f.extension,
       sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : "0",
       departmentId: f.departmentId,
-      departmentName: f.department?.name || "TTC Operations Division",
-      departmentCode: f.department?.code || "OPS",
-      satelliteId: f.department?.satelliteId || null,
-      satelliteName: f.report?.spacecraft || f.department?.satellite?.name || "ISRO Primary Fleet",
+      departmentName: f.department?.name || "",
+      departmentCode: f.department?.code || "",
+      departmentIsActive: f.department?.isActive ?? true,
+      satelliteId: f.department?.satelliteId || f.department?.satellite?.id || null,
+      satelliteName: f.report?.spacecraft || f.department?.satellite?.name || "",
       satelliteCode: f.department?.satellite?.code || null,
       hddPath: f.hddPath || "",
-      reportTitle: f.report?.title || null,
-      reportAuthor: f.report?.createdBy?.name || null,
+      reportTitle: f.report?.title || f.name.replace(/\.[^/.]+$/, "").replace(/_/g, " "),
+      reportAuthor: f.report?.createdBy?.name || f.uploader?.name || null,
       reportCategory: f.report?.category || null,
       customCategory: f.report?.customCategory || null,
-      classificationLevel: f.report?.classificationLevel || "ISRO_LEVEL",
-      versionLabel: f.report?.versionLabel || "V1.0",
+      classificationLevel: f.report?.classificationLevel || null,
+      versionLabel: f.report?.versionLabel || null,
       createdAt: f.createdAt ? f.createdAt.toISOString() : new Date().toISOString(),
       updatedAt: f.updatedAt ? f.updatedAt.toISOString() : new Date().toISOString(),
     }))

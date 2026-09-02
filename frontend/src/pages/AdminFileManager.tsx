@@ -18,9 +18,9 @@ import {
   Copy,
   Check,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { apiClient } from '../api/client'
-import { useDepartments } from '../hooks/useDepartments'
+import { useAdminDepartments } from '../hooks/useDepartments'
 import { satellitesApi, type Satellite } from '../api/satellites.api'
 import { useToastStore } from '../store/toastStore'
 import { PageHeader, Button, Modal, Textarea } from '../components'
@@ -79,15 +79,24 @@ const EXT_CONFIG: Record<string, { label: string; badge: string; icon: typeof Fi
 
 export function AdminFileManager() {
   const addToast = useToastStore((s) => s.addToast)
-  const { data: departments } = useDepartments()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const deptIdParam = searchParams.get('deptId')
+
+  const { data: departments } = useAdminDepartments()
 
   const [files, setFiles] = useState<AdminFileRecord[]>([])
   const [satellites, setSatellites] = useState<Satellite[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [selectedDept, setSelectedDept] = useState('ALL')
+  const [selectedDept, setSelectedDept] = useState(deptIdParam || 'ALL')
   const [selectedExt, setSelectedExt] = useState('ALL')
   const [selectedSat, setSelectedSat] = useState('ALL')
+
+  useEffect(() => {
+    if (deptIdParam && deptIdParam !== selectedDept) {
+      setSelectedDept(deptIdParam)
+    }
+  }, [deptIdParam])
 
   // Modals
   const [versionPanelFile, setVersionPanelFile] = useState<{ id: string; name: string } | null>(null)
@@ -253,6 +262,7 @@ export function AdminFileManager() {
   // Calculate Total Bytes
   const totalSizeBytes = files.reduce((acc, f) => acc + (Number(f.sizeBytes) || 0), 0)
   const totalVersions = files.reduce((acc, f) => acc + (f.versionCount || 1), 0)
+  const selectedDeptRecord = departments?.find((d) => d.id === selectedDept)
 
   return (
     <div className="w-full space-y-6 pb-16">
@@ -329,13 +339,21 @@ export function AdminFileManager() {
         <div>
           <select
             value={selectedDept}
-            onChange={(e) => setSelectedDept(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value
+              setSelectedDept(val)
+              if (val !== 'ALL') {
+                setSearchParams({ deptId: val })
+              } else {
+                setSearchParams({})
+              }
+            }}
             className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
           >
             <option value="ALL">All Departments & Divisions</option>
             {departments?.map((d) => (
               <option key={d.id} value={d.id}>
-                /{d.code || d.name} — {d.name}
+                /{d.code || d.name} — {d.name} {d.archived ? '⚠️ (Archived - Admin Only)' : ''}
               </option>
             ))}
           </select>
@@ -371,6 +389,26 @@ export function AdminFileManager() {
           </select>
         </div>
       </div>
+
+      {/* Archived Department Warning Banner */}
+      {selectedDeptRecord?.archived && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-white shadow-md">
+          <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-amber-300 uppercase tracking-wider">
+                Archived Division — Admin-Only Restricted Archive
+              </span>
+              <span className="rounded bg-amber-400/20 px-2 py-0.5 text-[10px] font-mono font-bold text-amber-300">
+                MEMBER ACCESS REVOKED
+              </span>
+            </div>
+            <p className="text-slate-300 leading-relaxed">
+              <strong>{selectedDeptRecord.name}</strong> ({selectedDeptRecord.code || 'DIVISION'}) has been decommissioned. Regular members cannot view, browse, or upload to this repository. All historical telemetry streams, flight datasets, and checksums are preserved in physical RAID storage (<code className="font-mono text-amber-300/80">{selectedDeptRecord.hddPath}</code>) and accessible strictly to System Administrators.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* MASTER FILES TABLE */}
       {loading ? (

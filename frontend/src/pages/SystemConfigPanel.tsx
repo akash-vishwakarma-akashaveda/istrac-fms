@@ -9,6 +9,11 @@ import {
   Shield,
   HelpCircle,
   Zap,
+  UploadCloud,
+  FileCode,
+  Sliders,
+  Plus,
+  X,
 } from "lucide-react"
 import { apiClient } from "../api/client"
 import { PageHeader, Button } from "../components"
@@ -69,6 +74,16 @@ export function SystemConfigPanel() {
   const [isConfirmSecondaryOpen, setIsConfirmSecondaryOpen] = useState(false)
   const [pendingSecondaryDrive, setPendingSecondaryDrive] = useState<DriveItem | null>(null)
 
+  // Operational Ingest & Size Limits State
+  const [maxUploadMB, setMaxUploadMB] = useState(500)
+  const [allowedExtensions, setAllowedExtensions] = useState<string[]>([
+    'pdf', 'docx', 'xlsx', 'pptx', 'csv', 'txt', 'png', 'jpg', 'zip', 'bin', 'dat', 'fits', 'h5',
+  ])
+  const [downloadRateLimit, setDownloadRateLimit] = useState(100)
+  const [virusScanEnabled, setVirusScanEnabled] = useState(false)
+  const [savingIngestSettings, setSavingIngestSettings] = useState(false)
+  const [newExtInput, setNewExtInput] = useState('')
+
   // Compute if redundancy settings have unsaved changes
   const isRedundancyDirty =
     primaryPath !== savedRedundancy.primaryPath ||
@@ -80,11 +95,28 @@ export function SystemConfigPanel() {
   const fetchStorageData = async () => {
     setCheckingStorage(true)
     try {
-      const [statusRes, drivesRes, redundancyRes] = await Promise.all([
+      const [statusRes, drivesRes, redundancyRes, settingsRes] = await Promise.all([
         apiClient.get("/admin/storage/status").catch(() => null),
         apiClient.get("/admin/storage/drives").catch(() => null),
         apiClient.get("/admin/storage/redundancy").catch(() => null),
+        apiClient.get("/admin/settings").catch(() => null),
       ])
+
+      if (settingsRes?.data?.data) {
+        const s = settingsRes.data.data
+        if (s.maxUploadSizeBytes) {
+          setMaxUploadMB(Math.round(s.maxUploadSizeBytes / (1024 * 1024)))
+        }
+        if (Array.isArray(s.allowedExtensions) && s.allowedExtensions.length > 0) {
+          setAllowedExtensions(s.allowedExtensions)
+        }
+        if (s.downloadRateLimitPerHour) {
+          setDownloadRateLimit(s.downloadRateLimitPerHour)
+        }
+        if (s.virusScanEnabled !== undefined) {
+          setVirusScanEnabled(Boolean(s.virusScanEnabled))
+        }
+      }
 
       if (statusRes?.data?.data) {
         setStorageStatus(statusRes.data.data)
@@ -189,6 +221,44 @@ export function SystemConfigPanel() {
     } finally {
       setSavingRedundancy(false)
     }
+  }
+
+  const handleSaveIngestSettings = async () => {
+    setSavingIngestSettings(true)
+    try {
+      const bytes = maxUploadMB * 1024 * 1024
+      await Promise.all([
+        apiClient.put("/admin/settings/maxUploadSizeBytes", { value: bytes }),
+        apiClient.put("/admin/settings/allowedExtensions", { value: allowedExtensions }),
+        apiClient.put("/admin/settings/downloadRateLimitPerHour", { value: Number(downloadRateLimit) }),
+        apiClient.put("/admin/settings/virusScanEnabled", { value: virusScanEnabled }),
+      ])
+      addToast({
+        title: "Ingest Policy Saved",
+        message: `Max upload size updated to ${maxUploadMB} MB (${bytes.toLocaleString()} bytes). Enforced across all upload channels.`,
+        variant: "success",
+      })
+    } catch (err: any) {
+      addToast({
+        title: "Save Failed",
+        message: err.response?.data?.error?.message || "Could not save ingest settings",
+        variant: "error",
+      })
+    } finally {
+      setSavingIngestSettings(false)
+    }
+  }
+
+  const handleAddExtension = () => {
+    const clean = newExtInput.trim().replace(/^\./, "").toLowerCase()
+    if (clean && !allowedExtensions.includes(clean)) {
+      setAllowedExtensions((prev) => [...prev, clean])
+      setNewExtInput("")
+    }
+  }
+
+  const handleRemoveExtension = (ext: string) => {
+    setAllowedExtensions((prev) => prev.filter((e) => e !== ext))
   }
 
   const handleInitiatePrimarySwitch = (drive: DriveItem) => {
@@ -296,6 +366,192 @@ export function SystemConfigPanel() {
           </div>
         }
       />
+
+      {/* ============================================================ */}
+      {/* SECTION: OPERATIONAL FILE INGEST & SIZE LIMITS */}
+      {/* ============================================================ */}
+      <div className="rounded-2xl border border-accent/40 bg-gradient-to-br from-[#091326] via-[#070e1c] to-[#050a14] p-6 shadow-2xl space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent/20 text-accent-light border border-accent/40 shadow-inner">
+              <UploadCloud size={22} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  Operational File Ingest & Size Limits
+                </h3>
+                <span className="rounded-full bg-accent/20 px-2.5 py-0.5 text-[10px] font-bold text-accent-light border border-accent/30 font-mono">
+                  ACTIVE POLICY
+                </span>
+              </div>
+              <p className="text-xs text-text-dim mt-0.5">
+                Configure global upload file size ceilings, allowed telemetry extensions, and throughput limits. Changes take effect immediately without restarting servers.
+              </p>
+            </div>
+          </div>
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleSaveIngestSettings}
+            disabled={savingIngestSettings}
+            className="gap-2 shadow-lg shadow-accent/25 self-start sm:self-auto cursor-pointer"
+          >
+            <CheckCircle size={14} className={savingIngestSettings ? "animate-spin" : ""} />
+            <span>{savingIngestSettings ? "Saving Settings…" : "Save Ingest Policy"}</span>
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Col 1: Max Upload File Size */}
+          <div className="lg:col-span-2 space-y-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <Sliders size={13} className="text-accent-light" />
+                Maximum Upload File Size (Per Payload)
+              </label>
+              <span className="font-mono text-xs font-bold text-accent-light bg-accent/15 px-2.5 py-1 rounded-lg border border-accent/30">
+                {maxUploadMB} MB ({(maxUploadMB * 1024 * 1024).toLocaleString()} bytes)
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative w-44">
+                <input
+                  type="number"
+                  min="1"
+                  max="10240"
+                  value={maxUploadMB}
+                  onChange={(e) => setMaxUploadMB(Math.max(1, Number(e.target.value) || 1))}
+                  className="w-full rounded-xl border border-border-default bg-[#070c18] px-4 py-2.5 text-sm font-mono font-bold text-white focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+                <span className="absolute right-3.5 top-2.5 font-mono text-xs text-text-dim">MB</span>
+              </div>
+
+              {/* Quick Presets */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[50, 100, 250, 500, 1024, 2048].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setMaxUploadMB(preset)}
+                    className={`rounded-lg px-2.5 py-1.5 text-xs font-mono font-semibold transition-all cursor-pointer ${
+                      maxUploadMB === preset
+                        ? "bg-accent text-white shadow-md shadow-accent/30 border border-accent"
+                        : "bg-white/5 text-text-secondary hover:bg-white/10 hover:text-white border border-white/10"
+                    }`}
+                  >
+                    {preset >= 1024 ? `${preset / 1024} GB` : `${preset} MB`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <p className="text-[11px] text-text-dim leading-relaxed">
+              Enforced on single-shot multipart uploads and multi-chunk telemetry ingests. Files exceeding this ceiling are rejected with a clear operational error before entering RAID storage.
+            </p>
+          </div>
+
+          {/* Col 2: Download Rate Limit & Virus Scanning */}
+          <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.02] p-4 flex flex-col justify-between">
+            <div>
+              <label className="text-xs font-bold text-slate-200 uppercase tracking-wider block mb-2">
+                Download Rate Limit
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="10"
+                  max="5000"
+                  value={downloadRateLimit}
+                  onChange={(e) => setDownloadRateLimit(Number(e.target.value) || 100)}
+                  className="w-full rounded-xl border border-border-default bg-[#070c18] px-4 py-2 text-sm font-mono font-bold text-white focus:border-accent focus:outline-none"
+                />
+                <span className="absolute right-3.5 top-2 font-mono text-xs text-text-dim">req / hr</span>
+              </div>
+              <p className="text-[10px] text-text-dim mt-1.5">
+                Throttles excessive burst downloads to protect station bandwidth.
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-white/10">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={virusScanEnabled}
+                  onChange={(e) => setVirusScanEnabled(e.target.checked)}
+                  className="h-4 w-4 rounded border-border-default bg-card text-accent focus:ring-accent"
+                />
+                <span className="text-xs font-semibold text-white">Cryptographic Virus Scanning</span>
+              </label>
+              <p className="text-[10px] text-text-dim mt-0.5 pl-6.5">
+                Scans uploaded binary payloads with ClamAV daemon.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Allowed Telemetry File Formats */}
+        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <FileCode size={13} className="text-nominal" />
+                Permitted File Extensions & Telemetry Formats
+              </h4>
+              <p className="text-[11px] text-text-dim">
+                Only files matching these formats will be admitted through the ingest pipeline.
+              </p>
+            </div>
+
+            {/* Add Extension Inline Input */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="e.g. hdf5"
+                value={newExtInput}
+                onChange={(e) => setNewExtInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    handleAddExtension()
+                  }
+                }}
+                className="w-28 rounded-lg border border-border-default bg-[#070c18] px-2.5 py-1 text-xs font-mono text-white focus:border-accent focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleAddExtension}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium cursor-pointer transition-colors"
+              >
+                <Plus size={12} />
+                <span>Add</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Active Chips */}
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {allowedExtensions.map((ext) => (
+              <span
+                key={ext}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-mono font-semibold text-slate-300"
+              >
+                <span>.{ext}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveExtension(ext)}
+                  className="text-text-dim hover:text-critical transition-colors cursor-pointer"
+                  title={`Remove .${ext}`}
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* SECTION 1: DETECTED HOST VOLUMES & PHYSICAL DISKS */}
       <div className="rounded-xl border border-border-default bg-card p-5 space-y-4 shadow-sm">

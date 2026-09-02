@@ -4,6 +4,8 @@ import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 export function ImagePreview({ fileUrl, fileName }: { fileUrl: string; fileName: string }) {
   const [zoom, setZoom] = useState(1)
 
+  if (!fileUrl) return null
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex max-h-[60vh] items-center justify-center overflow-auto rounded-lg border border-border-subtle bg-page">

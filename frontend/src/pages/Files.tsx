@@ -4,6 +4,7 @@ import {
   Lock,
   CheckCircle2,
   Upload,
+  ArrowRight,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
@@ -132,13 +133,47 @@ export function Files() {
         <p className="num text-xs text-text-dim">Loading division repositories…</p>
       )}
 
-      {/* Empty state */}
+      {/* No Clearance Empty State */}
       {!isLoading && activeDepartments.length === 0 && (
-        <div className="rounded-xl border border-border-subtle bg-card p-10 text-center shadow-card">
-          <p className="num text-sm text-text-dim">—</p>
-          <p className="mt-2 text-[13px] text-text-muted">
-            No active departments available.
-          </p>
+        <div className="rounded-2xl border border-amber-500/40 bg-[#070e1c] p-8 sm:p-12 text-center shadow-2xl max-w-xl mx-auto space-y-5 my-6">
+          <div className="h-16 w-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400 shadow-inner">
+            <Lock size={32} />
+          </div>
+
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-3 py-0.5 text-[11px] font-mono font-bold text-amber-300 uppercase">
+              Clearance Required
+            </div>
+            <h3 className="text-lg font-bold text-white tracking-tight">
+              No Division Repositories Assigned
+            </h3>
+            <p className="text-xs text-text-secondary leading-relaxed max-w-md mx-auto">
+              You are logged in with member privileges, but your account currently has no department clearances assigned. Telemetry files and flight datasets are strictly compartmentalized by division.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-border-default bg-[#050b16] p-4 text-left space-y-2.5 text-xs">
+            <p className="text-text-primary font-bold">How to obtain division file access:</p>
+            <div className="space-y-1.5 text-text-dim text-[11px] leading-relaxed">
+              <p>• Contact your Lead Officer or System Administrator to request division clearance.</p>
+              <p>• Once an Administrator approves clearance in User Accounts, your assigned folders will unlock here automatically.</p>
+            </div>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link to="/departments" className="w-full sm:w-auto">
+              <Button variant="outline" size="sm" className="w-full text-xs font-bold">
+                <Building2 size={13} />
+                <span>Explore Operational Divisions</span>
+              </Button>
+            </Link>
+            <Link to="/dashboard" className="w-full sm:w-auto">
+              <Button variant="primary" size="sm" className="w-full text-xs font-bold">
+                <span>Go to Mission Overview</span>
+                <ArrowRight size={13} />
+              </Button>
+            </Link>
+          </div>
         </div>
       )}
 

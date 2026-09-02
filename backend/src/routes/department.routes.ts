@@ -50,6 +50,32 @@ router.get('/departments/public', async (_req, res, next) => {
 })
 
 // ============================================================
+// PUBLIC: GET LIVE SYSTEM COUNTS (FOR LANDING & PUBLIC STATS)
+// ============================================================
+router.get('/public/stats', async (_req, res, next) => {
+  try {
+    const [satellitesCount, deptsCount, filesCount, passesCount] = await Promise.all([
+      prisma.satellite.count({ where: { deletedAt: null } }),
+      prisma.department.count({ where: { deletedAt: null, isActive: true } }),
+      prisma.file.count({ where: { deletedAt: null, nodeType: 'FILE' } }),
+      prisma.missionEvent.count({ where: { deletedAt: null } }),
+    ])
+
+    res.json({
+      data: {
+        satellitesCount,
+        departmentsCount: deptsCount,
+        filesCount,
+        passesCount,
+        stationsCount: 5,
+      },
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ============================================================
 // PUBLIC: GET SINGLE DEPARTMENT PUBLIC PROFILE
 // ============================================================
 router.get('/departments/public/:deptId', async (req, res, next) => {
@@ -439,6 +465,7 @@ router.get('/admin/departments', authMiddleware, adminMiddleware, async (req, re
         description: d.description,
         hddPath: d.hddPath,
         isActive: d.isActive,
+        archived: !d.isActive,
         allowUserFolderCreation: d.allowUserFolderCreation,
         maxFolderDepth: d.maxFolderDepth,
         satellite: d.satellite,

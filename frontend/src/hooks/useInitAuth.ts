@@ -40,6 +40,9 @@ export function useInitAuth() {
         })
         .catch(() => {
           useAuthStore.getState().clearAuth()
+          if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login") && window.location.pathname !== "/") {
+            window.location.href = "/login?session_expired=true"
+          }
         })
         .finally(() => {
           setIsChecking(false)

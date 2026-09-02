@@ -27,10 +27,26 @@ export async function deptAccessMiddleware(req: Request, _res: Response, next: N
     }
 
     const userId = req.user.id
+    // ----------------------------------------------------------
+    // 1. Department active status check (Non-admins cannot access archived depts)
+    // ----------------------------------------------------------
+    const dept = await prisma.department.findUnique({
+      where: { id: deptId, deletedAt: null },
+      select: { id: true, isActive: true },
+    })
+
+    if (!dept || !dept.isActive) {
+      throw new AppError(
+        'dept_archived',
+        'This department has been decommissioned / archived and is accessible strictly to system administrators.',
+        403
+      )
+    }
+
     const cacheKey = `dept-access:${userId}:${deptId}`
 
     // ----------------------------------------------------------
-    // Cache read (safe fallback if Redis offline)
+    // 2. Cache read (safe fallback if Redis offline)
     // ----------------------------------------------------------
     try {
       const cached = await redis.get(cacheKey)

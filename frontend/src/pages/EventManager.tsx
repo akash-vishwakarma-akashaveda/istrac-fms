@@ -19,6 +19,7 @@ import { eventsApi, type MissionEventItem } from "../api/events.api"
 import { satellitesApi, type Satellite } from "../api/satellites.api"
 import { useDepartments } from "../hooks/useDepartments"
 import { useToastStore } from "../store/toastStore"
+import { useQueryClient } from "@tanstack/react-query"
 import { PageHeader, Button, Modal, Textarea } from "../components"
 import { schedulerApi } from "../api/schedule.api"
 
@@ -44,6 +45,7 @@ export function EventManager() {
   const [tabMode, setTabMode] = useState<EventTabMode>("LIVE_FUTURE")
   const [statusFilter, setStatusFilter] = useState("ALL")
   const [typeFilter, setTypeFilter] = useState("ALL")
+  const queryClient = useQueryClient()
 
   // Create / Edit Modal
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -223,6 +225,9 @@ const handleSchedulerChange = async (
       }
       setIsModalOpen(false)
       loadData()
+      queryClient.invalidateQueries({ queryKey: ["events"] })
+      queryClient.invalidateQueries({ queryKey: ["active-banner"] })
+      queryClient.invalidateQueries({ queryKey: ["notifications"] })
     } catch (err: any) {
       addToast({
         title: "Save Failed",
@@ -241,6 +246,9 @@ const handleSchedulerChange = async (
       addToast({ title: "Event Deleted", message: `Removed "${deletingEvent.title}"`, variant: "info" })
       setDeletingEvent(null)
       loadData()
+      queryClient.invalidateQueries({ queryKey: ["events"] })
+      queryClient.invalidateQueries({ queryKey: ["active-banner"] })
+      queryClient.invalidateQueries({ queryKey: ["notifications"] })
     } catch {
       addToast({ title: "Error", message: "Failed to delete event", variant: "error" })
     }

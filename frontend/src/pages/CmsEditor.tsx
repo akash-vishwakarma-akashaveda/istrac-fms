@@ -1,7 +1,7 @@
-﻿import { useState } from "react"
+import { useState } from "react"
 import {
   Sparkles, FileText, Calendar, Building2,
-  Headphones, Info, Radio, ExternalLink, BarChart3, Compass, MapPin, RefreshCw,
+  Headphones, Info, Radio, ExternalLink, BarChart3, Compass, MapPin, RefreshCw, Megaphone,
 } from "lucide-react"
 import { PreviewRefreshProvider, usePreviewRefresh } from "../context/PreviewRefreshContext"
 import { LivePreviewPanel } from "../components/LivePreviewPanel"
@@ -14,6 +14,7 @@ import { InfoTab } from "../components/cms-editor/InfoTab"
 import { QuickStatsTab } from "../components/cms-editor/QuickStatsTab"
 import { NavTab } from "../components/cms-editor/NavTab"
 import { FooterTab } from "../components/cms-editor/FooterTab"
+import { AnnouncementTab } from "../components/cms-editor/AnnouncementTab"
 
 const TABS = [
   {
@@ -24,6 +25,15 @@ const TABS = [
     component: NavTab,
     section: "global" as const,
     description: "Brand logo text, subtitle, menu link titles, and quick action CTAs",
+  },
+  {
+    key: "announcements",
+    label: "Notice Ticker & Banner",
+    shortLabel: "Notice Ticker",
+    icon: Megaphone,
+    component: AnnouncementTab,
+    section: "global" as const,
+    description: "Multi-notice cycling ticker limits (max 10), cycle speed, modal drawer, and static bulletins",
   },
   {
     key: "hero",

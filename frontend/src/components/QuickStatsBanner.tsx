@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react'
 import { Radio, ShieldCheck, Globe, Activity } from 'lucide-react'
 import { useCms } from '../context/cmsContext'
+import { apiClient } from '../api/client'
 
 interface QuickStatsBlock {
   stat1Value?: string
@@ -16,6 +18,30 @@ export function QuickStatsBanner() {
   const { cmsBlocks } = useCms()
   const stats = cmsBlocks['quick_stats'] as QuickStatsBlock | undefined
 
+  const [dbStats, setDbStats] = useState<{
+    satellitesCount: number
+    departmentsCount: number
+    filesCount: number
+    passesCount: number
+    stationsCount: number
+  } | null>(null)
+
+  useEffect(() => {
+    apiClient
+      .get('/public/stats')
+      .then((res) => {
+        if (res.data?.data) {
+          setDbStats(res.data.data)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  const stat1Val = stats?.stat1Value || `${dbStats?.stationsCount ?? 5} Stations`
+  const stat2Val = stats?.stat2Value || `${dbStats?.satellitesCount ? `${dbStats.satellitesCount}+ Missions` : '10+ Missions'}`
+  const stat3Val = stats?.stat3Value || `${dbStats?.departmentsCount ? `${dbStats.departmentsCount} Operational Divisions` : '24/7 MOX Ops'}`
+  const stat4Val = stats?.stat4Value || `${dbStats?.filesCount ? `${dbStats.filesCount}+ Telemetry Files` : 'SHA-256'}`
+
   return (
     <div className="border-b border-border-subtle bg-[#060b17] py-6 relative overflow-hidden">
       <div className="shell">
@@ -27,7 +53,7 @@ export function QuickStatsBanner() {
             </div>
             <div>
               <span className="num text-xl sm:text-2xl font-black text-white block leading-tight">
-                {stats?.stat1Value || '5 Stations'}
+                {stat1Val}
               </span>
               <span className="text-[11px] text-text-dim block uppercase font-bold tracking-wider">
                 {stats?.stat1Label || 'Global Ground Network'}
@@ -42,7 +68,7 @@ export function QuickStatsBanner() {
             </div>
             <div>
               <span className="num text-xl sm:text-2xl font-black text-white block leading-tight">
-                {stats?.stat2Value || '10+ Missions'}
+                {stat2Val}
               </span>
               <span className="text-[11px] text-text-dim block uppercase font-bold tracking-wider">
                 {stats?.stat2Label || 'Deep Space & LEO'}
@@ -57,7 +83,7 @@ export function QuickStatsBanner() {
             </div>
             <div>
               <span className="num text-xl sm:text-2xl font-black text-white block leading-tight">
-                {stats?.stat3Value || '24/7 MOX Ops'}
+                {stat3Val}
               </span>
               <span className="text-[11px] text-text-dim block uppercase font-bold tracking-wider">
                 {stats?.stat3Label || 'Continuous Telemetry'}
@@ -72,7 +98,7 @@ export function QuickStatsBanner() {
             </div>
             <div>
               <span className="num text-xl sm:text-2xl font-black text-white block leading-tight">
-                {stats?.stat4Value || 'SHA-256'}
+                {stat4Val}
               </span>
               <span className="text-[11px] text-text-dim block uppercase font-bold tracking-wider">
                 {stats?.stat4Label || 'Cryptographic Integrity'}

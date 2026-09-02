@@ -71,7 +71,7 @@ export function NotificationsModal({ isOpen, onClose, notifications }: Notificat
   })
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-16 sm:pt-20">
+    <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-16 sm:pt-20">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-page/85 backdrop-blur-md transition-opacity"
@@ -210,12 +210,22 @@ export function NotificationsModal({ isOpen, onClose, notifications }: Notificat
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-border-subtle bg-[#101a2f] px-5 py-3 text-[11px] text-text-dim">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 border-t border-border-subtle bg-[#101a2f] px-5 py-3 text-[11px] text-text-dim">
           <span className="flex items-center gap-1.5">
             <CheckCircle2 size={13} className="text-nominal" />
-            Live Ground Broadcast Sync Active
+            Live Ground Broadcast Sync Active ({notifications.length} Total Notices)
           </span>
-          <span className="num">ESC to close</span>
+          <div className="flex items-center gap-3">
+            <a
+              href="/notifications"
+              onClick={onClose}
+              className="text-accent-light hover:underline font-semibold flex items-center gap-1"
+            >
+              <span>Open in Nav Feed</span>
+              <span>→</span>
+            </a>
+            <span className="num text-text-dim/60">· ESC to close</span>
+          </div>
         </div>
       </div>
     </div>

@@ -18,6 +18,7 @@ export interface SearchResultItem {
   departmentId: string
   departmentName: string
   departmentCode?: string
+  departmentIsActive?: boolean
   satelliteId?: string | null
   satelliteName: string
   satelliteCode?: string | null

@@ -1,4 +1,4 @@
-﻿import { useToastStore } from "../store/toastStore"
+import { useToastStore } from "../store/toastStore"
 import { Toast } from "./Toast"
 
 /**
@@ -9,7 +9,7 @@ export function ToastContainer() {
   const visible = useToastStore((s) => s.visible)
 
   return (
-    <div className="pointer-events-none fixed top-5 right-5 z-[99999] flex flex-col gap-2.5 max-w-sm w-full">
+    <div className="pointer-events-none fixed top-5 right-5 z-[99999] flex flex-col gap-3 max-w-md w-full">
       {visible.map((toast) => (
         <Toast
           key={toast.id}

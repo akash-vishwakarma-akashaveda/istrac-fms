@@ -718,7 +718,14 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
 
     // 1. Get user's accessible departments
     const userAccess = await prisma.userDepartmentAccess.findMany({
-      where: { userId, deletedAt: null },
+      where: {
+        userId,
+        deletedAt: null,
+        department: {
+          isActive: true,
+          deletedAt: null,
+        },
+      },
       select: { departmentId: true, accessLevel: true },
     })
     const deptIds = isAdmin
@@ -729,7 +736,7 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
       nodeType: 'FILE',
       deletedAt: null,
       status: { in: ['ACTIVE', 'ORPHANED'] },
-      ...(!isAdmin && deptIds.length > 0 ? { departmentId: { in: deptIds } } : {}),
+      ...(!isAdmin ? { departmentId: { in: deptIds } } : {}),
     }
 
     const todayStart = new Date()
@@ -774,7 +781,7 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
         where: {
           deletedAt: null,
           isActive: true,
-          ...(!isAdmin && deptIds.length > 0 ? { id: { in: deptIds } } : {}),
+          ...(!isAdmin ? { id: { in: deptIds } } : {}),
         },
         select: {
           id: true,

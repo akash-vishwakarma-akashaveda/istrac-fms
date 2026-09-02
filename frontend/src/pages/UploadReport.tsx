@@ -19,6 +19,7 @@ import { reportPresetsApi, type CategoryPreset, type NamingPreset } from '../api
 import { useAuthStore } from '../store/authStore'
 import { useToastStore } from '../store/toastStore'
 import { apiClient } from '../api/client'
+import { useSystemConfig } from '../hooks/useSystemConfig'
 import { PageHeader, Button, Input, Textarea, Select, Modal } from '../components'
 import { formatFileSize } from '../lib/formatFileSize'
 
@@ -87,6 +88,8 @@ export function UploadReport() {
   const [uploadProgress, setUploadProgress] = useState(0)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { data: systemConfig } = useSystemConfig()
+  const maxUploadBytes = systemConfig?.maxUploadSizeBytes || 524288000
 
   const loadData = async () => {
     try {
@@ -266,18 +269,36 @@ export function UploadReport() {
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault()
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0])
+      const dropped = e.dataTransfer.files[0]
+      if (dropped.size > maxUploadBytes) {
+        addToast({
+          title: 'File Exceeds Limit',
+          message: `Selected file (${formatFileSize(dropped.size)}) exceeds the maximum configured limit of ${formatFileSize(maxUploadBytes)}. Adjust this limit in System Settings if required.`,
+          variant: 'error',
+        })
+        return
+      }
+      setFile(dropped)
       if (!reportTitle) {
-        setReportTitle(e.dataTransfer.files[0].name.replace(/\.[^/.]+$/, ''))
+        setReportTitle(dropped.name.replace(/\.[^/.]+$/, ''))
       }
     }
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0])
+      const selected = e.target.files[0]
+      if (selected.size > maxUploadBytes) {
+        addToast({
+          title: 'File Exceeds Limit',
+          message: `Selected file (${formatFileSize(selected.size)}) exceeds the maximum configured limit of ${formatFileSize(maxUploadBytes)}. Adjust this limit in System Settings if required.`,
+          variant: 'error',
+        })
+        return
+      }
+      setFile(selected)
       if (!reportTitle) {
-        setReportTitle(e.target.files[0].name.replace(/\.[^/.]+$/, ''))
+        setReportTitle(selected.name.replace(/\.[^/.]+$/, ''))
       }
     }
   }
@@ -688,7 +709,7 @@ export function UploadReport() {
                           </p>
                         </div>
                         <p className="text-[10px] text-text-dim">
-                          Supported formats: PDF, DOCX, XLSX, CSV, TXT, DAT (Up to 50MB)
+                          Supported formats: PDF, DOCX, XLSX, CSV, TXT, DAT (Up to {formatFileSize(maxUploadBytes)})
                         </p>
                       </div>
                     )}

@@ -5,6 +5,7 @@ import { ProtectedRoute } from "./routes/ProtectedRoute"
 import { AdminRoute } from "./routes/AdminRoute"
 import { ComponentDemo } from "./pages/ComponentDemo"
 import { useInitAuth } from "./hooks/useInitAuth"
+import { useLiveNotificationSync } from "./hooks/useLiveNotificationSync"
 import { Login } from "./pages/Login"
 import { Register } from "./pages/Register"
 import { CmsProvider } from "./context/cmsContext"
@@ -47,6 +48,7 @@ function AppRedirect() {
 
 export default function App() {
   const { isChecking } = useInitAuth()
+  useLiveNotificationSync()
 
   if (isChecking) {
     return (
