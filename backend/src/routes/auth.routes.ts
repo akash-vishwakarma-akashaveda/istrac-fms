@@ -292,10 +292,34 @@ router.post('/refresh',refreshRateLimiter, async (req, res, next) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     })
 
+    const fullUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        name: true,
+        designation: true,
+        email: true,
+        employeeId: true,
+        phone: true,
+        role: true,
+        status: true,
+        departmentPreference: true,
+        departmentAccess: {
+          where: { deletedAt: null },
+          include: {
+            department: {
+              select: { id: true, name: true, code: true, satellite: { select: { code: true } } },
+            },
+          },
+        },
+      },
+    })
+
     res.json({
       data: {
         accessToken: newAccessToken,
         refreshToken: newRawRefreshToken,
+        user: fullUser,
       },
       requestId: req.requestId,
     })

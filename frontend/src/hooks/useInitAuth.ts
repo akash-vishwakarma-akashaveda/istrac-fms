@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef } from "react"
 import { apiClient } from "../api/client"
 import { useAuthStore } from "../store/authStore"
 
@@ -29,8 +29,9 @@ export function useInitAuth() {
           .then((res) => {
             const token = res.data?.data?.accessToken || res.data?.accessToken
             const newRefresh = res.data?.data?.refreshToken || res.data?.refreshToken
+            const refreshedUser = res.data?.data?.user || res.data?.user || currentUser
             if (token) {
-              useAuthStore.getState().setAuth(currentUser, token, newRefresh)
+              useAuthStore.getState().setAuth(refreshedUser, token, newRefresh)
             }
           })
           .catch(() => {
@@ -51,8 +52,9 @@ export function useInitAuth() {
         .then((res) => {
           const token = res.data?.data?.accessToken || res.data?.accessToken
           const newRefresh = res.data?.data?.refreshToken || res.data?.refreshToken
+          const refreshedUser = res.data?.data?.user || res.data?.user || currentUser
           if (token) {
-            useAuthStore.getState().setAuth(currentUser, token, newRefresh)
+            useAuthStore.getState().setAuth(refreshedUser, token, newRefresh)
           } else {
             useAuthStore.getState().clearAuth()
           }

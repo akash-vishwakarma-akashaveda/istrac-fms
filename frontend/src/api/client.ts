@@ -85,9 +85,9 @@ apiClient.interceptors.response.use(
         const newRefreshToken = refreshRes?.data?.refreshToken || refreshRes?.refreshToken || storedRefreshToken
 
         if (newToken) {
-          const currentUser = useAuthStore.getState().user
-          if (currentUser) {
-            useAuthStore.getState().setAuth(currentUser, newToken, newRefreshToken)
+          const refreshedUser = refreshRes?.data?.user || refreshRes?.user || useAuthStore.getState().user
+          if (refreshedUser) {
+            useAuthStore.getState().setAuth(refreshedUser, newToken, newRefreshToken)
           }
 
           refreshQueue.forEach((cb) => cb(newToken))
