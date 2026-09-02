@@ -20,6 +20,7 @@ import { satellitesApi, type Satellite } from "../api/satellites.api"
 import { useDepartments } from "../hooks/useDepartments"
 import { useToastStore } from "../store/toastStore"
 import { PageHeader, Button, Modal, Textarea } from "../components"
+import { schedulerApi } from "../api/schedule.api"
 
 const EVENT_TYPES = [
   { id: "MISSION_PASS", label: "Spacecraft Tracking Pass", icon: Radio, color: "text-accent-light bg-accent/10 border-accent/30" },
@@ -64,16 +65,21 @@ export function EventManager() {
 
   // Delete Modal
   const [deletingEvent, setDeletingEvent] = useState<MissionEventItem | null>(null)
-
+  const [schedulerInterval, setSchedulerInterval] = useState(10)
+const [schedulerSaving, setSchedulerSaving] = useState(false)
   const loadData = async () => {
     setLoading(true)
     try {
-      const [eventsData, satsData] = await Promise.all([
+      const [eventsData, satsData,schedulerData] = await Promise.all([
         eventsApi.getEvents(),
         satellitesApi.getAllAdminSatellites().catch(() => []),
+         schedulerApi.getMissionEventScheduler().catch(() => null),
       ])
       setEvents(eventsData || [])
       setSatellites(satsData || [])
+        if (schedulerData) {
+      setSchedulerInterval(schedulerData.interval)
+    }
     } catch {
       addToast({ title: "Error", message: "Failed to load mission events", variant: "error" })
     } finally {
@@ -84,6 +90,39 @@ export function EventManager() {
   useEffect(() => {
     loadData()
   }, [])
+
+//cron job handler 
+const handleSchedulerChange = async (
+  e: React.ChangeEvent<HTMLSelectElement>
+) => {
+  const interval = Number(e.target.value)
+
+  setSchedulerSaving(true)
+
+  try {
+    const updated = await schedulerApi.updateMissionEventScheduler({
+      interval,
+    })
+
+    setSchedulerInterval(updated.interval)
+
+    addToast({
+      title: "Scheduler Updated",
+      message: `Event status checks will now run every ${updated.interval} minutes.`,
+      variant: "success",
+    })
+  } catch (err: any) {
+    addToast({
+      title: "Update Failed",
+      message:
+        err.response?.data?.error?.message ||
+        "Could not update scheduler interval",
+      variant: "error",
+    })
+  } finally {
+    setSchedulerSaving(false)
+  }
+}
 
   // Partition events into Live/Future vs Past Archived
   const { liveFutureEvents, pastEvents } = useMemo(() => {
@@ -264,9 +303,35 @@ export function EventManager() {
           </button>
         </div>
 
-        <span className="text-xs text-text-dim hidden sm:block">
-          {tabMode === "LIVE_FUTURE" ? "Showing active operations and upcoming windows" : "Historical operations archive"}
-        </span>
+      <div className="flex items-center gap-3">
+  <span className="text-xs text-text-dim hidden lg:block">
+    {tabMode === "LIVE_FUTURE"
+      ? "Showing active operations and upcoming windows"
+      : "Historical operations archive"}
+  </span>
+
+  <div className="flex items-center gap-2">
+    <Clock size={13} className="text-accent-light" />
+
+    <span className="text-[11px] font-semibold text-text-dim whitespace-nowrap">
+      Status Check
+    </span>
+
+    <select
+      value={schedulerInterval}
+      onChange={handleSchedulerChange}
+      disabled={schedulerSaving}
+      className="rounded-lg border border-border-default bg-[#060c18] px-2.5 py-2 text-[11px] font-semibold text-white outline-none focus:border-accent cursor-pointer disabled:opacity-50"
+    >
+      <option value={1}>Every 1 min</option>
+      <option value={5}>Every 5 min</option>
+      <option value={10}>Every 10 min</option>
+      <option value={15}>Every 15 min</option>
+      <option value={30}>Every 30 min</option>
+      <option value={60}>Every 1 hour</option>
+    </select>
+  </div>
+</div>
       </div>
 
       {/* Filter & Search Toolbar */}
@@ -505,7 +570,7 @@ export function EventManager() {
                 />
               </div>
 
-              <div>
+            {editingEvent &&  <div>
                 <label className="block text-xs font-bold text-text-dim uppercase mb-1">Status</label>
                 <select
                   value={formData.status}
@@ -515,9 +580,10 @@ export function EventManager() {
                   <option value="UPCOMING">Upcoming</option>
                   <option value="IN_PROGRESS">In Progress</option>
                   <option value="COMPLETED">Completed</option>
+                  <option value="TIMED_OUT">Timed Out</option>
                   <option value="CANCELLED">Cancelled</option>
                 </select>
-              </div>
+              </div>}
 
               <div>
                 <label className="block text-xs font-bold text-text-dim uppercase mb-1">Urgency</label>
