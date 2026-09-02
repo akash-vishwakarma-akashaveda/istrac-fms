@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Satellite, Building, Radio } from 'lucide-react'
 
 interface ImageWithFallbackProps extends React.ImgHTMLAttributes<HTMLImageElement> {
@@ -22,6 +22,51 @@ export function ImageWithFallback({
 }: ImageWithFallbackProps) {
   const [hasError, setHasError] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const imgRef = useRef<HTMLImageElement | null>(null)
+
+  useEffect(() => {
+    if (!src) {
+      setHasError(true)
+      setIsLoading(false)
+      return
+    }
+
+    setHasError(false)
+    setIsLoading(true)
+
+    // Check if the image is already in browser cache
+    const testImg = new window.Image()
+    testImg.src = src
+
+    if (testImg.complete) {
+      if (testImg.naturalWidth > 0) {
+        setIsLoading(false)
+      } else {
+        setHasError(true)
+        setIsLoading(false)
+      }
+      return
+    }
+
+    testImg.onload = () => {
+      setIsLoading(false)
+    }
+
+    testImg.onerror = () => {
+      setIsLoading(false)
+      setHasError(true)
+    }
+
+    const timer = setTimeout(() => {
+      setIsLoading(false)
+    }, 4000)
+
+    return () => {
+      clearTimeout(timer)
+      testImg.onload = null
+      testImg.onerror = null
+    }
+  }, [src])
 
   const aspectClass =
     aspectRatio === 'video'
@@ -68,6 +113,7 @@ export function ImageWithFallback({
         </div>
       )}
       <img
+        ref={imgRef}
         src={src}
         alt={alt}
         loading="lazy"

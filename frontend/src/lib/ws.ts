@@ -1,6 +1,7 @@
-﻿import { useAuthStore } from "../store/authStore"
+import { useAuthStore } from "../store/authStore"
 
 type MessageHandler = (event: string, payload: unknown) => void
+
 const EXPECTED_EVENTS = new Set([
   "ping",
   "pong",
@@ -13,39 +14,62 @@ const EXPECTED_EVENTS = new Set([
   "SYNC_COMPLETE",
 ])
 
-function getSecureWsUrl(): string {
-  const envUrl = import.meta.env.VITE_WS_URL
-  if (envUrl) {
-    // If the browser page is loaded over HTTPS (like AWS Amplify), force wss://
-    if (typeof window !== "undefined" && window.location.protocol === "https:") {
-      return envUrl.replace(/^ws:\/\//i, "wss://")
-    }
-    return envUrl
+function getBaseWsUrl(): string {
+  let envUrl = import.meta.env.VITE_WS_URL || ""
+
+  // Fallback to VITE_API_URL if VITE_WS_URL is not set
+  if (!envUrl && import.meta.env.VITE_API_URL) {
+    envUrl = import.meta.env.VITE_API_URL.replace(/^http/i, "ws")
   }
 
-  if (typeof window !== "undefined") {
+  if (!envUrl && typeof window !== "undefined") {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:"
-    return `${proto}//${window.location.host}/ws`
+    envUrl = `${proto}//${window.location.host}/ws`
   }
 
-  return "wss://d2qycovk79gx2n.cloudfront.net/"
+  if (!envUrl) {
+    envUrl = "wss://d2qycovk79gx2n.cloudfront.net/ws"
+  }
+
+  // Force wss:// when running over HTTPS (e.g. AWS Amplify)
+  if (typeof window !== "undefined" && window.location.protocol === "https:") {
+    envUrl = envUrl.replace(/^ws:\/\//i, "wss://")
+  }
+
+  // Ensure trailing path is /ws
+  try {
+    const parsed = new URL(envUrl.replace(/^wss?:/i, "https:"))
+    if (!parsed.pathname || parsed.pathname === "/" || parsed.pathname === "") {
+      envUrl = envUrl.replace(/\/+$/, "") + "/ws"
+    }
+  } catch {
+    if (!envUrl.endsWith("/ws")) {
+      envUrl = envUrl.replace(/\/+$/, "") + "/ws"
+    }
+  }
+
+  return envUrl
 }
 
 class WSClient {
   private socket: WebSocket | null = null
   private handlers = new Map<string, MessageHandler[]>()
   private reconnectAttempt = 0
+  private maxReconnectAttempts = 5
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
 
   connect() {
     const token = useAuthStore.getState().accessToken
+    // Do not attempt to establish WebSocket for unauthenticated public sessions
     if (!token) return
 
-    const wsUrl = getSecureWsUrl()
+    const baseWsUrl = getBaseWsUrl()
+    // Pass token both in query param (preserved across CDNs) and subprotocol
+    const urlWithToken = `${baseWsUrl}${baseWsUrl.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`
 
     try {
-      this.socket = new WebSocket(wsUrl, [`Bearer.${token}`])
+      this.socket = new WebSocket(urlWithToken, [`Bearer.${token}`])
 
       this.socket.onopen = () => {
         this.reconnectAttempt = 0
@@ -98,6 +122,7 @@ class WSClient {
       this.socket.close()
       this.socket = null
     }
+    this.reconnectAttempt = 0
   }
 
   subscribe(event: string, handler: MessageHandler): () => void {
@@ -131,11 +156,22 @@ class WSClient {
 
   private scheduleReconnect() {
     if (this.reconnectTimer) return
-    const delay = Math.min(1000 * 2 ** this.reconnectAttempt, 30_000)
-    this.reconnectAttempt++
+
+    // Exponential backoff up to 30s; if max attempts exceeded, pause for 60s
+    let delay = Math.min(1500 * 2 ** this.reconnectAttempt, 30_000)
+    if (this.reconnectAttempt >= this.maxReconnectAttempts) {
+      delay = 60_000 // pause for 1 minute before retrying
+      this.reconnectAttempt = 0
+    } else {
+      this.reconnectAttempt++
+    }
+
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null
-      this.connect()
+      const token = useAuthStore.getState().accessToken
+      if (token) {
+        this.connect()
+      }
     }, delay)
   }
 }

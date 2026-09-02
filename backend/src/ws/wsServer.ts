@@ -81,34 +81,41 @@ export function createWsServer(server: Server): WebSocketServer {
     let client: ConnectedClient | null = null
 
     try {
-      const protocolHeader = req.headers['sec-websocket-protocol']
+      // 1. Extract Token from (a) URL Query Param, (b) Sec-WebSocket-Protocol, (c) Authorization Header
+      let token: string | null = null
+      let matchedProtocol: string | null = null
 
-    if (!protocolHeader) {
-      ws.close(4401, 'Unauthorized: Missing authentication')
-      return
-    }
+      // Check URL query param (?token=xxx) — universally preserved across all CDNs/CloudFront
+      try {
+        const parsedUrl = new URL(req.url || '', 'http://localhost')
+        const queryToken = parsedUrl.searchParams.get('token')
+        if (queryToken) token = queryToken
+      } catch {}
 
-    const protocols = protocolHeader
-      .split(',')
-      .map((protocol) => protocol.trim())
+      // Check Sec-WebSocket-Protocol (Bearer.xxx)
+      if (!token) {
+        const protocolHeader = req.headers['sec-websocket-protocol']
+        if (protocolHeader) {
+          const protocols = protocolHeader.split(',').map((p) => p.trim())
+          const bearerProto = protocols.find((p) => p.startsWith('Bearer.'))
+          if (bearerProto) {
+            token = bearerProto.slice('Bearer.'.length)
+            matchedProtocol = bearerProto
+          }
+        }
+      }
 
-    const bearerProtocol = protocols.find((protocol) =>
-      protocol.startsWith('Bearer.')
-    )
+      // Check Authorization Header
+      if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+        token = req.headers.authorization.slice(7)
+      }
 
-    if (!bearerProtocol) {
-      ws.close(4401, 'Unauthorized: Missing authentication')
-      return
-    }
+      if (!token) {
+        ws.close(4401, 'Unauthorized: Missing authentication token')
+        return
+      }
 
-    const token = bearerProtocol.slice('Bearer.'.length)
-
-    if (!token) {
-      ws.close(4401, 'Unauthorized: Missing token')
-      return
-    }
-
-    const payload = verifyAccessToken(token)
+      const payload = verifyAccessToken(token)
 
       // Fetch user's active department memberships
       const accessRows = await prisma.userDepartmentAccess.findMany({

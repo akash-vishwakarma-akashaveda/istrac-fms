@@ -1,4 +1,4 @@
-﻿import axios, { type AxiosError, type AxiosRequestConfig } from "axios"
+import axios, { type AxiosError, type AxiosRequestConfig } from "axios"
 import { useAuthStore } from "../store/authStore"
 
 const apiUrl = import.meta.env.VITE_API_URL
@@ -36,13 +36,17 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean }
 
-    // Only attempt refresh on 401, not on auth routes themselves
+    const storedRefreshToken = useAuthStore.getState().refreshToken
+    const storedAccessToken = useAuthStore.getState().accessToken
+
+    // Only attempt refresh on 401 if user was actually authenticated
     if (
       error.response?.status === 401 &&
       originalRequest &&
       !originalRequest._retry &&
       !originalRequest.url?.includes("/auth/login") &&
-      !originalRequest.url?.includes("/auth/refresh")
+      !originalRequest.url?.includes("/auth/refresh") &&
+      (storedRefreshToken || storedAccessToken)
     ) {
       originalRequest._retry = true
 

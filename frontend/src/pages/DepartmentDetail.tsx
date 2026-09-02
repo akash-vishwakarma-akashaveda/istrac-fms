@@ -22,12 +22,17 @@ import {
   Plus,
   Trash2,
   Lock,
+  Maximize2,
+  RefreshCw,
+  FolderOpen,
+  LogIn,
 } from 'lucide-react'
 import { departmentsApi, type Department } from '../api/departments.api'
 import { satellitesApi, type Satellite as SatelliteType } from '../api/satellites.api'
 import { useAuthStore } from '../store/authStore'
+import { useAuthModalStore } from '../store/authModalStore'
 import { useToastStore } from '../store/toastStore'
-import { Navbar, Footer, Button, Modal, Textarea } from '../components'
+import { Navbar, Footer, Button, Modal, Textarea, ImageLightboxModal } from '../components'
 import { VersionHistoryPanel } from '../components/VersionHistoryPanel'
 import { FilePreviewModal } from '../components/FilePreviewModal'
 import { ImageWithFallback } from '../components/ImageWithFallback'
@@ -128,6 +133,8 @@ export function DepartmentDetail() {
   // Modals & Preview
   const [previewFile, setPreviewFile] = useState<FileNode | null>(null)
   const [versionPanelFile, setVersionPanelFile] = useState<{ id: string; name: string } | null>(null)
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
+  const openLogin = useAuthModalStore((s) => s.openLogin)
 
   // Department CMS Edit Modal State
   const [loginModalOpen, setLoginModalOpen] = useState(false)
@@ -199,7 +206,7 @@ export function DepartmentDetail() {
             throw new Error('Department not found')
           })
         ),
-        satellitesApi.getAllAdminSatellites().catch(() => []),
+        satellitesApi.getActiveSatellites().catch(() => []),
       ])
 
       setDept(deptData)
@@ -360,6 +367,9 @@ export function DepartmentDetail() {
     ? activeSlide.url
     : '/fallback-hero.jpg'
 
+  const MAX_PUBLIC_PREVIEW_FILES = 3
+  const displayedFiles = user ? deptFiles : deptFiles.slice(0, MAX_PUBLIC_PREVIEW_FILES)
+
   return (
     <div className="min-h-screen bg-page text-text-primary antialiased">
       <Navbar />
@@ -474,17 +484,45 @@ export function DepartmentDetail() {
                     >
                       {isPlaying ? <Pause size={10} /> : <Play size={10} />}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsLightboxOpen(true)}
+                      className="p-1 rounded text-text-dim hover:text-white hover:bg-white/10 transition-colors"
+                      title="Enlarge telemetry image"
+                      aria-label="Enlarge image in fullscreen preview"
+                    >
+                      <Maximize2 size={11} />
+                    </button>
                   </div>
                 </div>
 
-                {/* Active Slide Image */}
-                <div className="relative h-full w-full">
+                {/* Active Slide Image (Clickable to Enlarge) */}
+                <div
+                  className="relative h-full w-full cursor-pointer group/img"
+                  onClick={() => setIsLightboxOpen(true)}
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Click to enlarge image"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setIsLightboxOpen(true)
+                    }
+                  }}
+                >
                   <ImageWithFallback
                     src={safeImageUrl}
                     alt={activeSlide?.caption || `${dept.name} facility`}
                     className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#060b16] via-[#060b16]/30 to-transparent" />
+
+                  {/* Hover Click to Enlarge Icon */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity duration-200 bg-black/25 pointer-events-none">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black/80 border border-white/25 text-white shadow-2xl backdrop-blur-md">
+                      <Maximize2 size={18} className="text-accent-light" />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Slide Navigation Arrows */}
@@ -636,15 +674,20 @@ export function DepartmentDetail() {
 
           {/* Files Display: Loading, Empty, Card View, or Table View */}
           {loadingFiles ? (
-            <div className="h-64 rounded-xl border border-border-subtle bg-card flex items-center justify-center text-xs text-text-dim">
-              Scanning /{dept.code || 'dept'} storage partition…
+            <div className="h-64 rounded-xl border border-border-subtle bg-card p-8 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2">
+                <RefreshCw size={20} className="animate-spin text-accent-light" />
+                <p className="text-xs text-text-dim">Filtering repository catalog…</p>
+              </div>
             </div>
-          ) : deptFiles.length === 0 ? (
-            <div className="rounded-xl border border-border-subtle bg-card p-12 text-center space-y-3">
-              <HardDrive size={32} className="mx-auto text-text-dim" />
-              <p className="text-sm font-bold text-white">No Datasets Found in /{dept.code || 'Dept'}</p>
-              <p className="text-xs text-text-secondary">
-                No telemetry files match your filter criteria or none have been ingested yet.
+          ) : displayedFiles.length === 0 ? (
+            <div className="rounded-xl border border-border-default bg-card p-12 text-center space-y-3">
+              <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-xl bg-surface text-text-dim border border-border-subtle">
+                <FolderOpen size={22} />
+              </div>
+              <h3 className="text-sm font-bold text-white">No Datasets Found</h3>
+              <p className="text-xs text-text-secondary max-w-sm mx-auto">
+                No telemetry passes or reports match the selected spacecraft and format filters.
               </p>
               {isAdmin && (
                 <Link to="/admin/upload" className="inline-block pt-2">
@@ -660,7 +703,7 @@ export function DepartmentDetail() {
             /* CARD GRID VIEW */
             /* ============================================================ */
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {deptFiles.map((file) => {
+              {displayedFiles.map((file) => {
                 const extConf = EXT_CONFIG[file.extension] || EXT_CONFIG.BIN
                 const Icon = extConf.icon
 
@@ -682,7 +725,7 @@ export function DepartmentDetail() {
                             </span>
                             <h3
                               onClick={() => {
-                                if (!user) setLoginModalOpen(true)
+                                if (!user) openLogin()
                                 else setPreviewFile(file as unknown as FileNode)
                               }}
                               className="font-bold text-white text-sm hover:text-accent-light cursor-pointer truncate transition-colors"
@@ -720,7 +763,7 @@ export function DepartmentDetail() {
                           <button
                             type="button"
                             onClick={() => {
-                              if (!user) setLoginModalOpen(true)
+                              if (!user) openLogin()
                               else setVersionPanelFile({ id: file.id, name: file.name })
                             }}
                             className="text-purple-300 font-bold hover:underline cursor-pointer"
@@ -742,7 +785,7 @@ export function DepartmentDetail() {
                       {!user ? (
                         <button
                           type="button"
-                          onClick={() => setLoginModalOpen(true)}
+                          onClick={openLogin}
                           className="w-full py-2 px-3 rounded-lg border border-accent/40 bg-accent/15 text-accent-light hover:bg-accent hover:text-white transition-all text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                         >
                           <Lock size={13} />
@@ -792,7 +835,7 @@ export function DepartmentDetail() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border-subtle text-xs">
-                    {deptFiles.map((file) => {
+                    {displayedFiles.map((file) => {
                       const extConf = EXT_CONFIG[file.extension] || EXT_CONFIG.BIN
                       const Icon = extConf.icon
 
@@ -807,7 +850,7 @@ export function DepartmentDetail() {
                               <div className="min-w-0">
                                 <p
                                   onClick={() => {
-                                    if (!user) setLoginModalOpen(true)
+                                    if (!user) openLogin()
                                     else setPreviewFile(file as unknown as FileNode)
                                   }}
                                   className="font-bold text-white hover:text-accent-light cursor-pointer truncate max-w-xs transition-colors"
@@ -815,8 +858,8 @@ export function DepartmentDetail() {
                                 >
                                   {file.name}
                                 </p>
-                                <p className="text-[10px] text-text-dim truncate max-w-xs font-mono">
-                                  {file.hddPath}
+                                <p className="text-[10px] text-text-dim truncate max-w-xs">
+                                  {file.report?.category || file.extension || 'TELEMETRY'}
                                 </p>
                               </div>
                             </div>
@@ -839,7 +882,7 @@ export function DepartmentDetail() {
                             <button
                               type="button"
                               onClick={() => {
-                                if (!user) setLoginModalOpen(true)
+                                if (!user) openLogin()
                                 else setVersionPanelFile({ id: file.id, name: file.name })
                               }}
                               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-purple-400/40 bg-purple-400/10 text-purple-300 hover:bg-purple-400/20 text-[10px] font-bold num transition-colors cursor-pointer"
@@ -860,7 +903,7 @@ export function DepartmentDetail() {
                             {!user ? (
                               <button
                                 type="button"
-                                onClick={() => setLoginModalOpen(true)}
+                                onClick={openLogin}
                                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-accent/40 bg-accent/10 text-accent-light hover:bg-accent hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
                               >
                                 <Lock size={12} />
@@ -871,19 +914,19 @@ export function DepartmentDetail() {
                                 <button
                                   type="button"
                                   onClick={() => setPreviewFile(file as unknown as FileNode)}
-                                  className="p-1.5 rounded-md border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-white transition-all cursor-pointer"
-                                  title="Preview File"
+                                  className="px-2.5 py-1 rounded border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-white transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer"
                                 >
-                                  <Eye size={13} />
+                                  <Eye size={12} className="text-accent-light" />
+                                  <span>Preview</span>
                                 </button>
 
                                 <a
                                   href={`/api/files/${file.id}/download`}
                                   download={file.name}
-                                  className="p-1.5 rounded-md border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all cursor-pointer"
-                                  title="Download Dataset"
+                                  className="px-2.5 py-1 rounded border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer"
                                 >
-                                  <Download size={13} />
+                                  <Download size={12} />
+                                  <span>Download</span>
                                 </a>
                               </div>
                             )}
@@ -894,6 +937,35 @@ export function DepartmentDetail() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {/* Public Limited Preview Notice Banner */}
+          {!user && deptFiles.length > 0 && (
+            <div className="rounded-xl border border-white/10 bg-[#080e1b]/80 p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg backdrop-blur-md">
+              <div className="flex items-center gap-3 text-left">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 border border-accent/20 text-accent-light">
+                  <Lock size={18} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">
+                    Public Dataset Sample (Showing 1 Row · {Math.min(deptFiles.length, MAX_PUBLIC_PREVIEW_FILES)} of {deptFiles.length} Records)
+                  </h4>
+                  <p className="text-xs text-text-secondary mt-0.5">
+                    Sign in with your ISTRAC-SIMS credentials to access the full historical repository, orbital binaries, and telemetry revisions.
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={openLogin}
+                className="shrink-0 gap-1.5 font-semibold shadow-sm cursor-pointer whitespace-nowrap"
+              >
+                <LogIn size={14} />
+                <span>Sign In for Full Repository</span>
+              </Button>
             </div>
           )}
         </section>
@@ -1104,15 +1176,36 @@ export function DepartmentDetail() {
             <Button variant="outline" size="sm" onClick={() => setLoginModalOpen(false)}>
               Cancel
             </Button>
-            <Link to="/login">
-              <Button variant="primary" size="sm" className="shadow-md shadow-accent/25">
-                <span>Sign In to Continue</span>
-                <ChevronRight size={14} />
-              </Button>
-            </Link>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                setLoginModalOpen(false)
+                openLogin()
+              }}
+              className="shadow-md shadow-accent/25 cursor-pointer"
+            >
+              <span>Sign In to Continue</span>
+              <ChevronRight size={14} />
+            </Button>
           </div>
         </div>
       </Modal>
+
+      {/* Enlarged Image Preview Lightbox */}
+      <ImageLightboxModal
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+        images={slides.map((s, idx) => ({
+          url: s.url,
+          title: dept?.name || 'ISTRAC Division Operations',
+          caption: s.caption || `${dept?.name} Telemetry Node Slide 0${idx + 1}`,
+          alt: s.caption || `${dept?.name} Facility`,
+          tag: `/${dept?.code || 'OPS'} · SLIDE 0${idx + 1}`,
+          station: `${dept?.name} (${dept?.code || 'OPS'}) · Global Ground Station Network`,
+        }))}
+        initialIndex={currentSlideIndex}
+      />
 
       <Footer />
     </div>

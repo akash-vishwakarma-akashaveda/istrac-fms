@@ -13,6 +13,7 @@ import {
   Plus,
   Trash2,
   Image as ImageIcon,
+  Maximize2,
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
@@ -20,11 +21,13 @@ import { useCms, DEFAULT_CMS_BLOCKS } from '../context/cmsContext'
 import { useUpdateCmsBlock } from '../hooks/useUpdateCmsBlock'
 import { usePreviewRefresh } from '../context/PreviewRefreshContext'
 import { useAuthStore } from '../store/authStore'
+import { useAuthModalStore } from '../store/authModalStore'
 import { useToastStore } from '../store/toastStore'
 import { type HeroContent, type HeroSlide } from '../types/cms'
 import { Button, Modal, Input, Textarea } from '.'
 import { SearchModal } from './SearchModal'
 import { ImageWithFallback } from './ImageWithFallback'
+import { ImageLightboxModal } from './ImageLightboxModal'
 import { isSafeUrl } from '../lib/sanitize'
 
 interface ExtendedHeroContent extends HeroContent {
@@ -78,6 +81,8 @@ export function Hero() {
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
+  const { openLogin, openRegister } = useAuthModalStore()
 
   // Carousel State
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
@@ -288,20 +293,26 @@ export function Hero() {
               ) : (
                 <>
                   {(hero?.showLoginBtn ?? true) && (
-                    <Link to="/login">
-                      <Button variant="primary" size="md" className="shadow-lg shadow-accent/25 px-5">
-                        <LogIn size={15} strokeWidth={2.2} />
-                        <span>{hero?.ctaText || 'Log In'}</span>
-                      </Button>
-                    </Link>
+                    <Button
+                      variant="primary"
+                      size="md"
+                      onClick={openLogin}
+                      className="shadow-lg shadow-accent/25 px-5 cursor-pointer"
+                    >
+                      <LogIn size={15} strokeWidth={2.2} />
+                      <span>{hero?.ctaText || 'Log In'}</span>
+                    </Button>
                   )}
                   {(hero?.showRegisterBtn ?? true) && (
-                    <Link to="/register">
-                      <Button variant="outline" size="md" className="px-5">
-                        <UserPlus size={15} strokeWidth={1.8} />
-                        <span>Request Access</span>
-                      </Button>
-                    </Link>
+                    <Button
+                      variant="outline"
+                      size="md"
+                      onClick={openRegister}
+                      className="px-5 cursor-pointer"
+                    >
+                      <UserPlus size={15} strokeWidth={1.8} />
+                      <span>Request Access</span>
+                    </Button>
                   )}
                 </>
               )}
@@ -357,12 +368,33 @@ export function Hero() {
                   >
                     {isPlaying ? <Pause size={11} /> : <Play size={11} />}
                   </button>
-                  <span className="h-2 w-2 rounded-full bg-nominal animate-pulse ml-1" />
+                  <button
+                    type="button"
+                    onClick={() => setIsLightboxOpen(true)}
+                    className="p-1 rounded text-text-dim hover:text-white hover:bg-white/10 transition-colors"
+                    title="Enlarge telemetry image"
+                    aria-label="Enlarge image in fullscreen preview"
+                  >
+                    <Maximize2 size={12} />
+                  </button>
+                  <span className="h-2 w-2 rounded-full bg-nominal animate-pulse ml-0.5" />
                 </div>
               </div>
 
-              {/* Main Carousel Image with Fallback */}
-              <div className="relative h-full w-full">
+              {/* Main Carousel Image with Fallback (Clickable to Enlarge) */}
+              <div
+                className="relative h-full w-full cursor-pointer group/img"
+                onClick={() => setIsLightboxOpen(true)}
+                role="button"
+                tabIndex={0}
+                aria-label="Click to enlarge image"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    setIsLightboxOpen(true)
+                  }
+                }}
+              >
                 <ImageWithFallback
                   src={activeSlide?.url}
                   alt={activeSlide?.caption || 'Indian Deep Space Network'}
@@ -373,6 +405,13 @@ export function Hero() {
                   fallbackSubtitle="Primary Ground Station Antenna Node"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#060b16] via-transparent to-transparent" />
+
+                {/* Hover Click to Enlarge Icon */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity duration-200 bg-black/25 pointer-events-none">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black/80 border border-white/25 text-white shadow-2xl backdrop-blur-md">
+                    <Maximize2 size={18} className="text-accent-light" />
+                  </div>
+                </div>
               </div>
 
               {/* Slide Navigation Arrows (Revealed on Hover) */}
@@ -561,6 +600,21 @@ export function Hero() {
       </Modal>
 
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      {/* Enlarged Image Preview Lightbox */}
+      <ImageLightboxModal
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+        images={slides.map((s, idx) => ({
+          url: s.url,
+          title: s.alt || `IDSN Deep Space Antenna Facility 0${idx + 1}`,
+          caption: s.caption || s.alt || 'ISTRAC Telemetry Ground Complex',
+          alt: s.alt || s.caption || 'Telemetry Facility',
+          tag: `SLIDE 0${idx + 1} / 0${slides.length}`,
+          station: 'ISTRAC BENGALURU MOX COMPLEX · IDSN BYALALU',
+        }))}
+        initialIndex={currentSlideIndex}
+      />
     </>
   )
 }

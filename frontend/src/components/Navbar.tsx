@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import {
   Menu,
@@ -6,6 +6,7 @@ import {
   Search,
   ChevronDown,
   LogIn,
+  UserPlus,
   UserCheck,
   Layers,
   Home,
@@ -15,6 +16,7 @@ import {
   Radio,
 } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
+import { useAuthModalStore } from "../store/authModalStore"
 import { departmentsApi, type Department } from "../api/departments.api"
 import { Button } from "."
 import { SearchModal } from "./SearchModal"
@@ -35,6 +37,7 @@ interface NavBlockContent {
 
 export function Navbar() {
   const user = useAuthStore((s) => s.user)
+  const { openLogin, openRegister } = useAuthModalStore()
   const { cmsBlocks } = useCms()
 
   const navData =
@@ -234,16 +237,26 @@ export function Navbar() {
                   </Button>
                 </Link>
               ) : (
-                <Link to="/login">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={openRegister}
+                    className="gap-1.5 font-semibold text-text-secondary hover:text-white hover:border-accent/50 cursor-pointer"
+                  >
+                    <UserPlus size={14} className="text-accent-light" />
+                    <span>Request Access</span>
+                  </Button>
                   <Button
                     variant="primary"
                     size="sm"
-                    className="gap-1.5 shadow-sm shadow-accent/20 font-semibold"
+                    onClick={openLogin}
+                    className="gap-1.5 shadow-sm shadow-accent/20 font-semibold cursor-pointer"
                   >
                     <LogIn size={14} />
                     <span>Portal Sign In</span>
                   </Button>
-                </Link>
+                </div>
               )
             )}
           </div>
@@ -397,12 +410,32 @@ export function Navbar() {
                     </Button>
                   </Link>
                 ) : (
-                  <Link to="/login" onClick={() => setMobileOpen(false)}>
-                    <Button variant="primary" size="lg" className="w-full justify-center gap-2 shadow-lg shadow-accent/20">
+                  <div className="space-y-2">
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      onClick={() => {
+                        setMobileOpen(false)
+                        openLogin()
+                      }}
+                      className="w-full justify-center gap-2 shadow-lg shadow-accent/20 cursor-pointer"
+                    >
                       <LogIn size={16} />
                       <span>Sign In to Mission Portal</span>
                     </Button>
-                  </Link>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={() => {
+                        setMobileOpen(false)
+                        openRegister()
+                      }}
+                      className="w-full justify-center gap-2 border-border-default hover:border-accent/50 cursor-pointer"
+                    >
+                      <UserPlus size={16} className="text-accent-light" />
+                      <span>Request Operational Access</span>
+                    </Button>
+                  </div>
                 )}
               </div>
             )}
