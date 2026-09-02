@@ -268,4 +268,5 @@ router.delete('/events/:id', authMiddleware, adminMiddleware, async (req, res, n
   }
 })
 
+
 export { router as eventRouter }

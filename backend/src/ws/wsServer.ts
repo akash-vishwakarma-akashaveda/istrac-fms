@@ -69,18 +69,13 @@ export function sendToDeptUsers(deptId: string, event: string, payload: unknown)
 }
 
 export function createWsServer(server: Server): WebSocketServer {
-  const wss = new WebSocketServer({
-    server,
-    // Accept connections on /ws or root to support all reverse proxy configurations
-    verifyClient: (info, done) => {
-      const pathname = new URL(info.req.url || '/', 'http://localhost').pathname
-      if (pathname === '/ws' || pathname === '/' || pathname === '') {
-        done(true)
-      } else {
-        done(true)
-      }
-    },
-  })
+  const wss = new WebSocketServer({ server, path: '/ws',handleProtocols: (protocols, req) => {
+      const bearerProtocol = Array.from(protocols).find((p) =>
+        p.startsWith('Bearer.')
+      )
+      // Return the matching protocol to satisfy the browser handshake
+      return bearerProtocol || false
+    }, })
 
   wss.on('connection', async (ws: WebSocket, req) => {
     let client: ConnectedClient | null = null

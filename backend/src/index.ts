@@ -36,6 +36,7 @@ import { createWsServer } from './ws/wsServer.js'
 
 // Enable JSON.stringify for BigInt across all Prisma models
 ;import { globalRateLimiter } from './middleware/rateLimiter.middleware.js'
+import { schedulerRouter } from './routes/scheduler.routes.js'
 (BigInt.prototype as any).toJSON = function () {
   return this.toString()
 }
@@ -90,6 +91,7 @@ app.use(globalRateLimiter, adminRouter)
 app.use(globalRateLimiter, reportPresetRouter)
 app.use(globalRateLimiter, eventRouter)
 app.use(globalRateLimiter, healthRouter)
+app.use(globalRateLimiter,schedulerRouter)
 
 // ============================================================
 // GLOBAL ERROR HANDLER (MUST BE REGISTERED LAST)
