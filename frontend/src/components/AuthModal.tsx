@@ -21,6 +21,7 @@ import { loginSchema, registerSchema, type LoginFormData, type RegisterFormData 
 import { authApi } from '../api'
 import { departmentsApi, type Department } from '../api/departments.api'
 import { Button, Alert } from '.'
+import { useCms } from '../context/cmsContext'
 
 // ============================================================================
 // PROFESSIONAL SPACIOUS UNDERLINE-ONLY FORM CONTROLS
@@ -190,6 +191,11 @@ const FALLBACK_DEPARTMENTS = [
 ]
 
 export function AuthModal() {
+  const { cmsBlocks } = useCms()
+  const headerBlock = cmsBlocks['nav_header']?.content as Record<string, any> | undefined
+  const brandTitle = headerBlock?.brandTitle ?? 'ISTRAC'
+  const brandHighlight = headerBlock?.brandHighlight ?? '-SIMS'
+
   const { isOpen, mode, setMode, closeModal } = useAuthModalStore()
   const navigate = useNavigate()
   const setAuth = useAuthStore((s) => s.setAuth)
@@ -380,7 +386,7 @@ export function AuthModal() {
             </div>
             <div>
               <div className="flex items-center gap-2 text-[10px] font-mono font-semibold tracking-wider text-text-dim uppercase">
-                <span>ISRO · ISTRAC-SIMS</span>
+                <span>ISRO · {brandTitle}{brandHighlight}</span>
                 <span>·</span>
                 <span className="text-nominal">SECURED</span>
               </div>

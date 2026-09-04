@@ -21,7 +21,7 @@ import { useAuthStore } from '../store/authStore'
 import { useToastStore } from '../store/toastStore'
 import { apiClient } from '../api/client'
 import { useSystemConfig } from '../hooks/useSystemConfig'
-import { PageHeader, Button, Input, Textarea, Select, Modal } from '../components'
+import { PageHeader, Button, Input, Textarea, Select, Modal, ConfirmDialog } from '../components'
 import { formatFileSize } from '../lib/formatFileSize'
 
 
@@ -70,6 +70,7 @@ export function UploadReport() {
   const [customCatCode, setCustomCatCode] = useState('')
   const [customCatDesc, setCustomCatDesc] = useState('')
   const [savingCategory, setSavingCategory] = useState(false)
+  const [deletingCategoryTarget, setDeletingCategoryTarget] = useState<{ id: string; name: string } | null>(null)
 
   // Naming Convention Template State
   const [selectedPresetId, setSelectedPresetId] = useState<string>('default')
@@ -221,7 +222,9 @@ export function UploadReport() {
   }
 
   // Handle Deleting Custom Category
-  const handleDeleteCategory = async (id: string, name: string) => {
+  const handleConfirmDeleteCategory = async () => {
+    if (!deletingCategoryTarget) return
+    const { id, name } = deletingCategoryTarget
     try {
       await reportPresetsApi.deleteCategory(id)
       addToast({ title: 'Category Removed', message: `${name} deleted`, variant: 'info' })
@@ -229,12 +232,14 @@ export function UploadReport() {
       if (categories.length > 0) {
         setSelectedCategoryCode(categories[0].code)
       }
+      setDeletingCategoryTarget(null)
     } catch (err: any) {
       addToast({
         title: 'Delete Failed',
         message: err.response?.data?.error?.message || 'Cannot delete category',
         variant: 'error',
       })
+      setDeletingCategoryTarget(null)
     }
   }
 
@@ -847,7 +852,7 @@ export function UploadReport() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                      onClick={() => setDeletingCategoryTarget({ id: cat.id, name: cat.name })}
                       className="p-1 rounded text-text-dim hover:text-critical hover:bg-critical/10 transition-colors"
                       title="Delete category preset"
                     >
@@ -918,6 +923,18 @@ export function UploadReport() {
           </div>
         </form>
       </Modal>
+
+      {/* Delete Category Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deletingCategoryTarget !== null}
+        onClose={() => setDeletingCategoryTarget(null)}
+        onConfirm={handleConfirmDeleteCategory}
+        title="Delete Category Preset"
+        message={`Are you sure you want to permanently delete the custom report category "${deletingCategoryTarget?.name}"? Existing files with this category will remain, but the category preset will be removed.`}
+        confirmLabel="Delete Category"
+        variant="danger"
+      />
     </div>
   )
 }
+

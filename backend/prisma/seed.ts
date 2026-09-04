@@ -9,39 +9,88 @@ async function main() {
   // ================================================================
   const satellitesData = [
     {
+      satId: 'ISTRAC-HQ-01',
       name: 'ISTRAC Bengaluru Ground Complex',
       code: 'ISTRAC-BLR',
       description: 'ISRO Telemetry, Tracking and Command Network — Headquarters & MOX Complex',
+      launchDate: new Date('1976-09-06'),
+      payloads: 'Deep Space S/X-Band Feeds, 32m DSN Antenna, Mission Control Systems',
+      fuelBalance: 'N/A (Ground Complex)',
+      launchMass: 'Station Complex',
+      orbitType: 'Ground Tracking Station',
+      status: 'ACTIVE',
     },
     {
+      satId: 'SAT-ADITYA-L1',
       name: 'Aditya-L1 Solar Observatory',
       code: 'ADITYA-L1',
       description: 'Lagrange Point L1 Sun-Earth halo orbit coronagraphy & solar wind telemetry monitoring.',
+      launchDate: new Date('2023-09-02T06:20:00.000Z'),
+      payloads: 'VELC, SUIT, ASPEX, PAPA, SoLEXS, HEL1OS, MAG',
+      fuelBalance: '298 kg (78%)',
+      launchMass: '1,475 kg',
+      orbitType: 'Halo Orbit (L1 Lagrangian)',
+      status: 'ACTIVE',
     },
     {
+      satId: 'SAT-CH-3',
       name: 'Chandrayaan-3 Lunar Relay',
       code: 'CHANDRAYAAN-3',
       description: 'Lunar south-pole propulsion module relay and deep-space autotrack node.',
+      launchDate: new Date('2023-07-14T09:05:00.000Z'),
+      payloads: 'SHAPE (Spectro-polarimetry of Habitable Planet Earth), S-Band Transponder',
+      fuelBalance: '168 kg (35%)',
+      launchMass: '3,900 kg',
+      orbitType: 'Lunar Polar Orbit (153 km x 163 km)',
+      status: 'ACTIVE',
     },
     {
+      satId: 'SAT-CARTO-3',
       name: 'Cartosat-3 Optical Constellation',
       code: 'CARTOSAT-3',
       description: 'Sun-synchronous orbit high-resolution panchromatic & multispectral imaging payload.',
+      launchDate: new Date('2019-11-27T03:58:00.000Z'),
+      payloads: 'Panchromatic & Multispectral High-Res Optical Sensors (0.28m GSD)',
+      fuelBalance: '82 kg (52%)',
+      launchMass: '1,625 kg',
+      orbitType: 'Sun-Synchronous Polar (SSO, 505 km)',
+      status: 'ACTIVE',
     },
     {
+      satId: 'SAT-GAGAN-TV1',
       name: 'Gaganyaan Orbital Module',
       code: 'GAGANYAAN',
       description: 'Crew module environmental life-support telemetry & real-time re-entry recovery telemetry.',
+      launchDate: new Date('2023-10-21T04:30:00.000Z'),
+      payloads: 'Crew Escape System (CES), ECLSS Telemetry, High-G Accelerometers',
+      fuelBalance: '420 kg (91%)',
+      launchMass: '8,200 kg',
+      orbitType: 'Low Earth Orbit (LEO, 400 km)',
+      status: 'ACTIVE',
     },
     {
+      satId: 'SAT-NISAR-01',
       name: 'NISAR Earth Observatory',
       code: 'NISAR',
       description: 'NASA-ISRO Dual-Frequency Synthetic Aperture Radar environmental dynamics payload.',
+      launchDate: new Date('2025-03-30T10:00:00.000Z'),
+      payloads: 'L-band SAR (NASA), S-band SAR (ISRO), 12m Deployable Reflector Antenna',
+      fuelBalance: '480 kg (99%)',
+      launchMass: '2,800 kg',
+      orbitType: 'Sun-Synchronous Dawn-Dusk (SSO, 747 km)',
+      status: 'ACTIVE',
     },
     {
-      name: 'General',
+      satId: 'SAT-GEN-CORE',
+      name: 'General Mission Fleet',
       code: 'GENERAL',
-      description: 'General non-mission-specific files and documentation.',
+      description: 'General non-mission-specific files and shared telemetry documentation.',
+      launchDate: new Date('2020-01-01'),
+      payloads: 'Multi-Mission Relay & Calibration Data',
+      fuelBalance: 'N/A',
+      launchMass: 'N/A',
+      orbitType: 'Geostationary / LEO',
+      status: 'ACTIVE',
     },
   ]
 
@@ -49,11 +98,28 @@ async function main() {
   for (const s of satellitesData) {
     const sat = await prisma.satellite.upsert({
       where: { code: s.code },
-      update: { name: s.name, description: s.description },
+      update: {
+        satId: s.satId,
+        name: s.name,
+        description: s.description,
+        launchDate: s.launchDate,
+        payloads: s.payloads,
+        fuelBalance: s.fuelBalance,
+        launchMass: s.launchMass,
+        orbitType: s.orbitType,
+        status: s.status,
+      },
       create: {
+        satId: s.satId,
         name: s.name,
         code: s.code,
         description: s.description,
+        launchDate: s.launchDate,
+        payloads: s.payloads,
+        fuelBalance: s.fuelBalance,
+        launchMass: s.launchMass,
+        orbitType: s.orbitType,
+        status: s.status,
         isActive: true,
       },
     })
@@ -299,6 +365,40 @@ async function main() {
       })
     }
     createdDepts[dept.code] = d
+  }
+
+  // ================================================================
+  // 3b. SATELLITE ↔ DEPARTMENT JUNCTION ASSIGNMENTS
+  // ================================================================
+  const deptSatMap: Record<string, string[]> = {
+    MOX: ['ADITYA-L1', 'CHANDRAYAAN-3', 'CARTOSAT-3', 'GAGANYAAN', 'NISAR'],
+    TTC: ['ADITYA-L1', 'CHANDRAYAAN-3', 'CARTOSAT-3', 'ISTRAC-BLR'],
+    FDD: ['ADITYA-L1', 'CHANDRAYAAN-3', 'CARTOSAT-3', 'NISAR'],
+    NETRA: ['CARTOSAT-3', 'GAGANYAAN', 'NISAR'],
+    GSO: ['GAGANYAAN', 'NISAR', 'CHANDRAYAAN-3'],
+  }
+
+  for (const [deptCode, satCodes] of Object.entries(deptSatMap)) {
+    const dept = createdDepts[deptCode]
+    if (!dept) continue
+    for (const satCode of satCodes) {
+      const sat = seededSats[satCode]
+      if (sat) {
+        await prisma.departmentSatellite.upsert({
+          where: {
+            departmentId_satelliteId: {
+              departmentId: dept.id,
+              satelliteId: sat.id,
+            },
+          },
+          update: {},
+          create: {
+            departmentId: dept.id,
+            satelliteId: sat.id,
+          },
+        })
+      }
+    }
   }
 
   // ================================================================

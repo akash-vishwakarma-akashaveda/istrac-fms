@@ -31,6 +31,7 @@ import { VersionHistoryPanel } from './VersionHistoryPanel'
 import { UploadVersionModal } from './UploadVersionModal'
 import { FilePreviewModal } from './FilePreviewModal'
 import { ConfirmFeatureModal } from './ConfirmFeatureModal'
+import { ConfirmDialog } from './ConfirmDialog'
 import { Button } from '.'
 import { Panel } from './Panel'
 import type { FileNode, SortField, SortDirection } from '../types/file'
@@ -71,6 +72,8 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const [previewFile, setPreviewFile] = useState<FileNode | null>(null)
 
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false)
+
   const { data: filesData, isLoading } = useDeptFiles({
     deptId,
     parentId,
@@ -100,14 +103,19 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
     })
   }
 
-  function handleBulkDelete() {
-    if (!canWrite) return
+  function handleConfirmBulkDelete() {
+    if (!canWrite || selectedIds.size === 0) return
+    const count = selectedIds.size
     bulkDelete.mutate(Array.from(selectedIds), {
       onSuccess: () => {
-        addToast({ message: `${selectedIds.size} file(s) deleted`, variant: 'success' })
+        addToast({ message: `${count} file(s) permanently removed`, variant: 'success' })
         setSelectedIds(new Set())
+        setIsBulkDeleteModalOpen(false)
       },
-      onError: () => addToast({ message: 'Bulk delete failed', variant: 'error' }),
+      onError: () => {
+        addToast({ message: 'Bulk delete failed', variant: 'error' })
+        setIsBulkDeleteModalOpen(false)
+      },
     })
   }
 
@@ -880,7 +888,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
       {canWrite && (
         <BulkActionBar
           selectedCount={selectedIds.size}
-          onDelete={handleBulkDelete}
+          onDelete={() => setIsBulkDeleteModalOpen(true)}
           onTag={() => setTagModalOpen(true)}
           onClear={() => setSelectedIds(new Set())}
         />
@@ -948,6 +956,18 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['dept-files', deptId] })
         }}
+      />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={isBulkDeleteModalOpen}
+        onClose={() => setIsBulkDeleteModalOpen(false)}
+        onConfirm={handleConfirmBulkDelete}
+        title="Confirm Bulk Deletion"
+        message={`Permanently remove ${selectedIds.size} selected telemetry dataset(s) from this department? This action will delete these files and their historical revisions.`}
+        confirmLabel={`Delete ${selectedIds.size} File(s)`}
+        variant="danger"
+        isSubmitting={bulkDelete.isPending}
       />
     </div>
   )

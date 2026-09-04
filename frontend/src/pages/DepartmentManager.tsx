@@ -39,6 +39,7 @@ export function DepartmentManager() {
     pageLeadOfficer?: string
     pageLeadRole?: string
     pageContact?: string
+    satelliteIds?: string[]
   } | null>(null)
 
   const filtered =
@@ -61,6 +62,7 @@ export function DepartmentManager() {
     pageLeadOfficer?: string
     pageLeadRole?: string
     pageContact?: string
+    satelliteIds?: string[]
   }) {
     await createDept.mutateAsync(data)
 
@@ -77,6 +79,7 @@ export function DepartmentManager() {
     pageLeadOfficer?: string
     pageLeadRole?: string
     pageContact?: string
+    satelliteIds?: string[]
   }) {
     if (!editingDept) return
 
@@ -115,6 +118,7 @@ export function DepartmentManager() {
       pageLeadOfficer: dept.pageLeadOfficer || '',
       pageLeadRole: dept.pageLeadRole || '',
       pageContact: dept.pageContact || '',
+      satelliteIds: dept.satellites?.map((s: any) => s.id) || (dept.satelliteId ? [dept.satelliteId] : []),
     })
   }
 

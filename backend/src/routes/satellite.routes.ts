@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { prisma } from '../config/db.js'
-import { authMiddleware } from '../middleware/auth.middleware.js'
+import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.middleware.js'
 import { adminMiddleware } from '../middleware/admin.middleware.js'
 import { auditService } from '../services/audit.service.js'
 import { AppError } from '../lib/errors.js'
@@ -8,24 +8,43 @@ import { AppError } from '../lib/errors.js'
 const router = Router()
 
 // ============================================================
-// LIST ACTIVE SATELLITES (PUBLIC / MEMBER / ADMIN FOR UI DROPDOWNS)
+// LIST ACTIVE SATELLITES (PUBLIC / MEMBER / ADMIN FOR UI DROPDOWNS & CARDS)
 // ============================================================
-router.get('/satellites', authMiddleware, async (req, res, next) => {
+router.get('/satellites', optionalAuthMiddleware, async (req, res, next) => {
   try {
     const satellites = await prisma.satellite.findMany({
       where: { isActive: true, deletedAt: null },
-      select: {
-        id: true,
-        name: true,
-        code: true,
-        description: true,
-        createdAt: true,
+      include: {
+        departmentSatellites: {
+          include: {
+            department: {
+              select: { id: true, name: true, code: true },
+            },
+          },
+        },
       },
       orderBy: { name: 'asc' },
     })
 
+    const data = satellites.map((s) => ({
+      id: s.id,
+      satId: s.satId,
+      name: s.name,
+      code: s.code,
+      description: s.description,
+      launchDate: s.launchDate,
+      payloads: s.payloads,
+      fuelBalance: s.fuelBalance,
+      launchMass: s.launchMass,
+      orbitType: s.orbitType,
+      status: s.status,
+      isActive: s.isActive,
+      departments: s.departmentSatellites.map((ds) => ds.department),
+      createdAt: s.createdAt,
+    }))
+
     res.json({
-      data: satellites,
+      data,
       requestId: req.requestId,
     })
   } catch (err) {
@@ -34,16 +53,85 @@ router.get('/satellites', authMiddleware, async (req, res, next) => {
 })
 
 // ============================================================
-// ADMIN: LIST ALL SATELLITES WITH STATS
+// PUBLIC / OPERATIONAL: GET DETAILED SATELLITE INFO VIEW (ITEM 29)
+// ============================================================
+router.get('/satellites/:satelliteId', optionalAuthMiddleware, async (req, res, next) => {
+  try {
+    const rawId = req.params.satelliteId
+    const satelliteId = Array.isArray(rawId) ? rawId[0] : rawId
+
+    const satellite = await prisma.satellite.findFirst({
+      where: {
+        OR: [{ id: satelliteId }, { satId: satelliteId }, { code: satelliteId }],
+        deletedAt: null,
+      },
+      include: {
+        departmentSatellites: {
+          include: {
+            department: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                pageTitle: true,
+                pageLeadOfficer: true,
+                pageLeadRole: true,
+                pageContact: true,
+              },
+            },
+          },
+        },
+        events: {
+          where: { deletedAt: null },
+          orderBy: { eventDate: 'desc' },
+          take: 6,
+        },
+      },
+    })
+
+    if (!satellite) {
+      throw new AppError('satellite_not_found', 'Satellite program not found', 404)
+    }
+
+    res.json({
+      data: {
+        id: satellite.id,
+        satId: satellite.satId,
+        name: satellite.name,
+        code: satellite.code,
+        description: satellite.description,
+        launchDate: satellite.launchDate,
+        payloads: satellite.payloads,
+        fuelBalance: satellite.fuelBalance,
+        launchMass: satellite.launchMass,
+        orbitType: satellite.orbitType,
+        status: satellite.status,
+        isActive: satellite.isActive,
+        departments: satellite.departmentSatellites.map((ds) => ds.department),
+        recentEvents: satellite.events,
+        createdAt: satellite.createdAt,
+        updatedAt: satellite.updatedAt,
+      },
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ============================================================
+// ADMIN: LIST ALL SATELLITES WITH STATS & LINKED DEPARTMENTS
 // ============================================================
 router.get('/admin/satellites', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     const satellites = await prisma.satellite.findMany({
       where: { deletedAt: null },
       include: {
-        _count: {
-          select: {
-            departments: { where: { deletedAt: null } },
+        departmentSatellites: {
+          include: {
+            department: {
+              select: { id: true, name: true, code: true },
+            },
           },
         },
       },
@@ -51,13 +139,21 @@ router.get('/admin/satellites', authMiddleware, adminMiddleware, async (req, res
     })
 
     res.json({
-      data: satellites.map((s: any) => ({
+      data: satellites.map((s) => ({
         id: s.id,
+        satId: s.satId,
         name: s.name,
         code: s.code,
         description: s.description,
+        launchDate: s.launchDate,
+        payloads: s.payloads,
+        fuelBalance: s.fuelBalance,
+        launchMass: s.launchMass,
+        orbitType: s.orbitType,
+        status: s.status,
         isActive: s.isActive,
-        departmentCount: s._count.departments,
+        departments: s.departmentSatellites.map((ds) => ds.department),
+        departmentCount: s.departmentSatellites.length,
         createdAt: s.createdAt,
         updatedAt: s.updatedAt,
       })),
@@ -69,32 +165,79 @@ router.get('/admin/satellites', authMiddleware, adminMiddleware, async (req, res
 })
 
 // ============================================================
-// ADMIN: CREATE SATELLITE
+// ADMIN: CREATE SATELLITE (ITEM 27 & 28)
 // ============================================================
 router.post('/admin/satellites', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
-    const { name, code, description } = req.body
+    const {
+      satId,
+      name,
+      code,
+      description,
+      launchDate,
+      payloads,
+      fuelBalance,
+      launchMass,
+      orbitType,
+      status,
+      departmentIds,
+    } = req.body
 
     if (!name) {
       throw new AppError('missing_name', 'Satellite name is required', 400)
     }
 
     if (code) {
-      const existing = await prisma.satellite.findFirst({
+      const existingCode = await prisma.satellite.findFirst({
         where: { code, deletedAt: null },
       })
-      if (existing) {
+      if (existingCode) {
         throw new AppError('satellite_code_exists', 'Satellite with this code already exists', 409)
+      }
+    }
+
+    if (satId) {
+      const existingSatId = await prisma.satellite.findFirst({
+        where: { satId, deletedAt: null },
+      })
+      if (existingSatId) {
+        throw new AppError('sat_id_exists', 'Satellite with this SAT_ID already exists', 409)
       }
     }
 
     const satellite = await prisma.satellite.create({
       data: {
-        name,
-        code: code || null,
+        satId: satId || null,
+        name: name.trim(),
+        code: code ? code.trim().toUpperCase() : null,
         description: description || null,
+        launchDate: launchDate ? new Date(launchDate) : null,
+        payloads: payloads || null,
+        fuelBalance: fuelBalance || null,
+        launchMass: launchMass || null,
+        orbitType: orbitType || null,
+        status: status || 'ACTIVE',
+        isActive: true,
       },
     })
+
+    // Assign departments via junction table (Item 27)
+    if (departmentIds && Array.isArray(departmentIds) && departmentIds.length > 0) {
+      const validDepts = await prisma.department.findMany({
+        where: { id: { in: departmentIds }, deletedAt: null },
+        select: { id: true },
+      })
+
+      if (validDepts.length > 0) {
+        await prisma.departmentSatellite.createMany({
+          data: validDepts.map((d) => ({
+            satelliteId: satellite.id,
+            departmentId: d.id,
+          })),
+          skipDuplicates: true,
+        })
+      }
+    }
 
     auditService.log({
       userId: req.user!.id,
@@ -103,8 +246,20 @@ router.post('/admin/satellites', authMiddleware, adminMiddleware, async (req, re
       resourceId: satellite.id,
     })
 
+    const fullSatellite = await prisma.satellite.findUnique({
+      where: { id: satellite.id },
+      include: {
+        departmentSatellites: {
+          include: { department: { select: { id: true, name: true, code: true } } },
+        },
+      },
+    })
+
     res.status(201).json({
-      data: satellite,
+      data: {
+        ...fullSatellite,
+        departments: fullSatellite?.departmentSatellites.map((ds) => ds.department) || [],
+      },
       requestId: req.requestId,
     })
   } catch (err) {
@@ -123,21 +278,27 @@ router.get('/admin/satellites/:satelliteId', authMiddleware, adminMiddleware, as
     const satellite = await prisma.satellite.findUnique({
       where: { id: satelliteId, deletedAt: null },
       include: {
-        departments: {
-          where: { deletedAt: null },
+        departmentSatellites: {
           include: {
-            _count: { select: { files: { where: { deletedAt: null } } } },
+            department: {
+              include: {
+                _count: { select: { files: { where: { deletedAt: null } } } },
+              },
+            },
           },
         },
       },
     })
 
     if (!satellite) {
-      throw new AppError('satellite_not_found', 'Satellite station not found', 404)
+      throw new AppError('satellite_not_found', 'Satellite program not found', 404)
     }
 
     res.json({
-      data: satellite,
+      data: {
+        ...satellite,
+        departments: satellite.departmentSatellites.map((ds) => ds.department),
+      },
       requestId: req.requestId,
     })
   } catch (err) {
@@ -146,13 +307,26 @@ router.get('/admin/satellites/:satelliteId', authMiddleware, adminMiddleware, as
 })
 
 // ============================================================
-// ADMIN: UPDATE SATELLITE
+// ADMIN: UPDATE SATELLITE (ITEM 27 & 28)
 // ============================================================
 router.put('/admin/satellites/:satelliteId', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     const rawId = req.params.satelliteId
     const satelliteId = Array.isArray(rawId) ? rawId[0] : rawId
-    const { name, code, description, isActive } = req.body
+    const {
+      satId,
+      name,
+      code,
+      description,
+      launchDate,
+      payloads,
+      fuelBalance,
+      launchMass,
+      orbitType,
+      status,
+      isActive,
+      departmentIds,
+    } = req.body
 
     const existing = await prisma.satellite.findUnique({
       where: { id: satelliteId, deletedAt: null },
@@ -162,15 +336,64 @@ router.put('/admin/satellites/:satelliteId', authMiddleware, adminMiddleware, as
       throw new AppError('satellite_not_found', 'Satellite not found', 404)
     }
 
+    if (code && code !== existing.code) {
+      const duplicateCode = await prisma.satellite.findFirst({
+        where: { code, deletedAt: null, id: { not: satelliteId } },
+      })
+      if (duplicateCode) {
+        throw new AppError('satellite_code_exists', 'Satellite with this code already exists', 409)
+      }
+    }
+
+    if (satId && satId !== existing.satId) {
+      const duplicateSatId = await prisma.satellite.findFirst({
+        where: { satId, deletedAt: null, id: { not: satelliteId } },
+      })
+      if (duplicateSatId) {
+        throw new AppError('sat_id_exists', 'Satellite with this SAT_ID already exists', 409)
+      }
+    }
+
     const updated = await prisma.satellite.update({
       where: { id: satelliteId },
       data: {
-        name: name !== undefined ? name : undefined,
-        code: code !== undefined ? code : undefined,
+        satId: satId !== undefined ? (satId ? String(satId).trim() : null) : undefined,
+        name: name !== undefined ? String(name).trim() : undefined,
+        code: code !== undefined ? (code ? String(code).trim().toUpperCase() : null) : undefined,
         description: description !== undefined ? description : undefined,
+        launchDate: launchDate !== undefined ? (launchDate ? new Date(launchDate) : null) : undefined,
+        payloads: payloads !== undefined ? payloads : undefined,
+        fuelBalance: fuelBalance !== undefined ? fuelBalance : undefined,
+        launchMass: launchMass !== undefined ? launchMass : undefined,
+        orbitType: orbitType !== undefined ? orbitType : undefined,
+        status: status !== undefined ? status : undefined,
         isActive: isActive !== undefined ? Boolean(isActive) : undefined,
       },
     })
+
+    // Sync department assignments if provided (Item 27)
+    if (departmentIds !== undefined && Array.isArray(departmentIds)) {
+      await prisma.departmentSatellite.deleteMany({
+        where: { satelliteId },
+      })
+
+      if (departmentIds.length > 0) {
+        const validDepts = await prisma.department.findMany({
+          where: { id: { in: departmentIds }, deletedAt: null },
+          select: { id: true },
+        })
+
+        if (validDepts.length > 0) {
+          await prisma.departmentSatellite.createMany({
+            data: validDepts.map((d) => ({
+              satelliteId,
+              departmentId: d.id,
+            })),
+            skipDuplicates: true,
+          })
+        }
+      }
+    }
 
     auditService.log({
       userId: req.user!.id,
@@ -179,8 +402,20 @@ router.put('/admin/satellites/:satelliteId', authMiddleware, adminMiddleware, as
       resourceId: updated.id,
     })
 
+    const fullSatellite = await prisma.satellite.findUnique({
+      where: { id: updated.id },
+      include: {
+        departmentSatellites: {
+          include: { department: { select: { id: true, name: true, code: true } } },
+        },
+      },
+    })
+
     res.json({
-      data: updated,
+      data: {
+        ...fullSatellite,
+        departments: fullSatellite?.departmentSatellites.map((ds) => ds.department) || [],
+      },
       requestId: req.requestId,
     })
   } catch (err) {
@@ -196,18 +431,6 @@ router.delete('/admin/satellites/:satelliteId', authMiddleware, adminMiddleware,
     const rawId = req.params.satelliteId
     const satelliteId = Array.isArray(rawId) ? rawId[0] : rawId
 
-    const activeDepts = await prisma.department.count({
-      where: { satelliteId, deletedAt: null },
-    })
-
-    if (activeDepts > 0) {
-      throw new AppError(
-        'satellite_has_departments',
-        'Cannot deactivate satellite with active departments. Remove or migrate departments first.',
-        400,
-      )
-    }
-
     await prisma.satellite.update({
       where: { id: satelliteId },
       data: { deletedAt: new Date(), isActive: false },
@@ -221,7 +444,7 @@ router.delete('/admin/satellites/:satelliteId', authMiddleware, adminMiddleware,
     })
 
     res.json({
-      data: { message: 'Satellite station deactivated successfully' },
+      data: { message: 'Satellite program deactivated successfully' },
       requestId: req.requestId,
     })
   } catch (err) {
@@ -230,3 +453,4 @@ router.delete('/admin/satellites/:satelliteId', authMiddleware, adminMiddleware,
 })
 
 export { router as satelliteRouter }
+

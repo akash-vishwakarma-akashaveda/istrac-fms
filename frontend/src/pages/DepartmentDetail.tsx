@@ -27,13 +27,28 @@ import {
   FolderOpen,
   LogIn,
   Star,
+  Orbit,
+  Fuel,
+  Weight,
+  CheckCircle2,
+  Radio,
+  Calendar,
 } from 'lucide-react'
 import { departmentsApi, type Department } from '../api/departments.api'
 import { satellitesApi, type Satellite as SatelliteType } from '../api/satellites.api'
 import { useAuthStore } from '../store/authStore'
 import { useAuthModalStore } from '../store/authModalStore'
 import { useToastStore } from '../store/toastStore'
-import { Navbar, Footer, Button, Modal, Textarea, ImageLightboxModal, ConfirmFeatureModal } from '../components'
+import {
+  Navbar,
+  Footer,
+  Button,
+  Modal,
+  Textarea,
+  ImageLightboxModal,
+  ConfirmFeatureModal,
+  SatelliteInfoModal,
+} from '../components'
 import { VersionHistoryPanel } from '../components/VersionHistoryPanel'
 import { FilePreviewModal } from '../components/FilePreviewModal'
 import { ImageWithFallback } from '../components/ImageWithFallback'
@@ -137,6 +152,9 @@ export function DepartmentDetail() {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
   const openLogin = useAuthModalStore((s) => s.openLogin)
 
+  // Satellite Dossier Modal State (Item 29)
+  const [viewingSatelliteId, setViewingSatelliteId] = useState<string | null>(null)
+
   // Department CMS Edit Modal State
   const [loginModalOpen, setLoginModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -152,6 +170,8 @@ export function DepartmentDetail() {
     slides: [{ url: '', caption: '' }],
     allowUserFolderCreation: false,
     maxFolderDepth: 5,
+    includeSatellites: false,
+    satelliteIds: [] as string[],
   })
   const [savingEdit, setSavingEdit] = useState(false)
   const [featureConfirmFile, setFeatureConfirmFile] = useState<{ id: string; name: string; isFeatured?: boolean } | null>(null)
@@ -260,6 +280,7 @@ export function DepartmentDetail() {
   const handleOpenEditModal = () => {
     if (!dept) return
     const currentSlides = getCarouselSlides()
+    const currentSatIds = dept.satellites?.map((s) => s.id) || (dept.satelliteId ? [dept.satelliteId] : [])
 
     setEditForm({
       name: dept.name,
@@ -273,6 +294,8 @@ export function DepartmentDetail() {
       slides: currentSlides.length > 0 ? currentSlides : [{ url: '', caption: '' }],
       allowUserFolderCreation: dept.allowUserFolderCreation || false,
       maxFolderDepth: dept.maxFolderDepth || 5,
+      includeSatellites: currentSatIds.length > 0,
+      satelliteIds: currentSatIds,
     })
     setIsEditModalOpen(true)
   }
@@ -305,9 +328,9 @@ export function DepartmentDetail() {
     if (!dept) return
 
     setSavingEdit(true)
-   const validSlides = editForm.slides.filter(
-  (s) => s.url.trim().length > 0 && isSafeUrl(s.url.trim())
-)
+    const validSlides = editForm.slides.filter(
+      (s) => s.url.trim().length > 0 && isSafeUrl(s.url.trim())
+    )
     const bannerUrlPayload = validSlides.length > 0 ? JSON.stringify(validSlides) : undefined
 
     try {
@@ -323,13 +346,16 @@ export function DepartmentDetail() {
         pageBannerUrl: bannerUrlPayload,
         allowUserFolderCreation: editForm.allowUserFolderCreation,
         maxFolderDepth: Number(editForm.maxFolderDepth) || 5,
+        satelliteIds: editForm.includeSatellites ? editForm.satelliteIds : [],
       })
 
-      setDept(updated)
+      // Fetch fresh full department to load populated satellites array
+      const refreshed = await departmentsApi.getPublicDepartment(dept.id).catch(() => updated)
+      setDept(refreshed)
       setIsEditModalOpen(false)
       addToast({
         title: 'Department CMS Updated',
-        message: `Successfully saved hero images and profile for ${updated.name}.`,
+        message: `Successfully saved satellite associations and profile for ${refreshed.name}.`,
         variant: 'success',
       })
     } catch (err: any) {
@@ -602,7 +628,174 @@ export function DepartmentDetail() {
         </section>
 
         {/* ============================================================ */}
-        {/* 2. DEDICATED DEPARTMENT FILES EXPLORER (CARD & TABLE VIEW) */}
+        {/* 2. ASSIGNED SPACECRAFT & SATELLITE MISSIONS */}
+        {/* ============================================================ */}
+        <section className="shell mt-10 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 border-b border-border-default pb-4">
+            <div>
+              <div className="flex items-center gap-2 text-accent-light text-xs font-mono uppercase tracking-wider font-bold">
+                <Radio size={14} />
+                <span>Spacecraft Fleet Operations</span>
+              </div>
+              <h2 className="text-xl font-bold text-white mt-1 flex items-center gap-2.5">
+                <span>Assigned Spacecraft & Satellites</span>
+                <span className="rounded-full bg-accent/20 border border-accent/40 text-accent-light px-2.5 py-0.5 text-xs font-mono num font-bold">
+                  {dept.satellites?.length || 0} Missions
+                </span>
+              </h2>
+              <p className="text-xs text-text-secondary mt-1 max-w-2xl">
+                Spacecraft missions supported by {dept.name} ({dept.code || 'DIV'}) for orbital tracking, telemetry downlink, flight dynamics, and payload telemetry downlinks.
+              </p>
+            </div>
+
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={handleOpenEditModal}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent-light hover:bg-accent hover:text-white transition-all self-start sm:self-auto shrink-0"
+              >
+                <Edit2 size={12} />
+                <span>Configure Satellites</span>
+              </button>
+            )}
+          </div>
+
+          {!dept.satellites || dept.satellites.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border-default bg-[#070c17]/60 p-8 text-center space-y-2">
+              <Radio size={28} className="mx-auto text-text-dim opacity-50 mb-1" />
+              <h4 className="text-xs font-bold text-white">No Satellites Directly Assigned</h4>
+              <p className="text-[11px] text-text-dim max-w-md mx-auto">
+                This operational division is currently operating as a multi-mission facility or has no direct spacecraft program assignments.
+              </p>
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenEditModal}
+                  className="mt-2 text-xs text-accent-light border-accent/40"
+                >
+                  <Plus size={12} />
+                  <span>Assign Satellites Now</span>
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {dept.satellites.map((sat) => (
+                <div
+                  key={sat.id}
+                  onClick={() => setViewingSatelliteId(sat.id)}
+                  className="flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all hover:border-accent/60 hover:bg-[#0c1527] shadow-sm group cursor-pointer hover:shadow-xl hover:shadow-accent/5"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setViewingSatelliteId(sat.id)
+                    }
+                  }}
+                >
+                  <div className="space-y-3">
+                    {/* Header: SAT_ID badge, code, status */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/25 group-hover:scale-105 transition-transform">
+                          <Radio size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {(sat.satId || sat.code) && (
+                              <span className="num text-[10px] font-mono font-bold text-accent-light bg-accent/10 border border-accent/30 rounded px-1.5 py-0.2">
+                                {sat.satId || sat.code}
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="text-sm font-bold text-white truncate group-hover:text-accent-light transition-colors mt-0.5">
+                            {sat.name}
+                          </h3>
+                        </div>
+                      </div>
+
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-nominal/15 text-nominal border border-nominal/30 shrink-0">
+                        <CheckCircle2 size={10} />
+                        <span>{sat.status || 'Active'}</span>
+                      </span>
+                    </div>
+
+                    {/* Orbit & Description */}
+                    <div className="space-y-1">
+                      {sat.orbitType && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-accent-light">
+                          <Orbit size={12} className="shrink-0" />
+                          <span className="truncate font-medium">{sat.orbitType}</span>
+                        </div>
+                      )}
+                      <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
+                        {sat.description || 'Primary ISRO ISTRAC mission program.'}
+                      </p>
+                    </div>
+
+                    {/* Quick Metrics */}
+                    <div className="grid grid-cols-3 gap-1.5 p-2 rounded-lg border border-border-subtle bg-[#070d1a] text-[10px]">
+                      <div className="min-w-0">
+                        <span className="text-text-dim block flex items-center gap-1">
+                          <Fuel size={10} className="text-nominal" /> Fuel
+                        </span>
+                        <strong className="text-white font-mono truncate block mt-0.5">
+                          {sat.fuelBalance || 'Nominal'}
+                        </strong>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-text-dim block flex items-center gap-1">
+                          <Weight size={10} className="text-accent-light" /> Mass
+                        </span>
+                        <strong className="text-white font-mono truncate block mt-0.5">
+                          {sat.launchMass || 'Standard'}
+                        </strong>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-text-dim block flex items-center gap-1">
+                          <Calendar size={10} className="text-warning" /> Launch
+                        </span>
+                        <strong className="text-white font-mono truncate block mt-0.5">
+                          {sat.launchDate
+                            ? new Date(sat.launchDate).toLocaleDateString(undefined, {
+                                month: 'short',
+                                year: '2-digit',
+                              })
+                            : 'Active'}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {/* Payloads */}
+                    {sat.payloads && (
+                      <div className="text-[10px] text-text-dim bg-surface/60 rounded-md px-2 py-1 border border-border-subtle/60 flex items-center gap-1.5">
+                        <span className="font-semibold text-text-muted shrink-0">Payloads:</span>
+                        <span className="truncate text-text-secondary font-mono">
+                          {sat.payloads}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-3.5 pt-3 border-t border-border-subtle/80 flex items-center justify-between text-xs">
+                    <span className="text-[11px] text-text-dim group-hover:text-accent-light transition-colors">
+                      Click to view live telemetry
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-accent-light group-hover:translate-x-0.5 transition-transform">
+                      <span>Mission Dossier</span>
+                      <ChevronRight size={13} />
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* ============================================================ */}
+        {/* 3. DEDICATED DEPARTMENT FILES EXPLORER (CARD & TABLE VIEW) */}
         {/* ============================================================ */}
         <section className="shell mt-10 space-y-6">
           {/* Header & Controls Toolbar */}
@@ -1314,6 +1507,126 @@ export function DepartmentDetail() {
             </div>
           </div>
 
+          {/* ============================================================ */}
+          {/* ASSOCIATED SPACECRAFT & SATELLITE MISSIONS */}
+          {/* ============================================================ */}
+          <div className="rounded-xl border border-border-default bg-[#070d1a] p-3.5 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  id="dept-detail-link-satellites"
+                  checked={editForm.includeSatellites}
+                  onChange={(e) => {
+                    const checked = e.target.checked
+                    setEditForm((prev) => ({
+                      ...prev,
+                      includeSatellites: checked,
+                      satelliteIds: checked ? prev.satelliteIds : [],
+                    }))
+                  }}
+                  className="h-4 w-4 rounded border-border-default bg-surface text-accent focus:ring-accent"
+                />
+                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Radio size={14} className="text-accent-light" />
+                  <span>Link Satellite Programs (Mission Operations)</span>
+                </span>
+              </label>
+
+              {editForm.includeSatellites && (
+                <span className="text-[10px] uppercase tracking-wider font-mono font-bold text-accent-light bg-accent/15 border border-accent/30 rounded-full px-2.5 py-0.5">
+                  {editForm.satelliteIds.length} Selected
+                </span>
+              )}
+            </div>
+
+            <p className="text-[11px] text-text-dim leading-relaxed">
+              When enabled, select spacecraft missions that receive ground support from this department. Selected satellites are rendered as mission dossiers on this department's page.
+            </p>
+
+            {editForm.includeSatellites && (
+              <div className="pt-2 border-t border-border-subtle/80 space-y-2">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-text-secondary font-medium">Available Spacecraft:</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          satelliteIds: satellites.map((s) => s.id),
+                        }))
+                      }
+                      className="text-accent-light hover:underline font-semibold"
+                    >
+                      Select All
+                    </button>
+                    <span className="text-text-dim">·</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          satelliteIds: [],
+                        }))
+                      }
+                      className="text-text-dim hover:text-white"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
+
+                {satellites.length === 0 ? (
+                  <div className="py-3 text-center text-xs text-text-dim border border-border-subtle rounded-lg bg-surface">
+                    No active satellite programs found.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto p-1.5 rounded-lg border border-border-subtle bg-surface">
+                    {satellites.map((sat) => {
+                      const isChecked = editForm.satelliteIds.includes(sat.id)
+                      return (
+                        <label
+                          key={sat.id}
+                          className={`flex items-start gap-2.5 p-2 rounded-md border cursor-pointer transition-all ${
+                            isChecked
+                              ? 'border-accent/50 bg-accent/10 text-white'
+                              : 'border-border-subtle/60 bg-card/40 text-text-secondary hover:border-border-bright hover:bg-card'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEditForm((prev) => ({
+                                  ...prev,
+                                  satelliteIds: [...prev.satelliteIds, sat.id],
+                                }))
+                              } else {
+                                setEditForm((prev) => ({
+                                  ...prev,
+                                  satelliteIds: prev.satelliteIds.filter((id) => id !== sat.id),
+                                }))
+                              }
+                            }}
+                            className="mt-0.5 h-3.5 w-3.5 rounded border-border-default bg-card text-accent focus:ring-accent"
+                          />
+                          <div className="min-w-0 flex-1 text-xs">
+                            <div className="font-semibold truncate">{sat.name}</div>
+                            <div className="text-[10px] text-accent-light font-mono mt-0.5">
+                              {sat.satId || sat.code || 'ISRO'}
+                            </div>
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-border-subtle">
             <Button type="button" variant="outline" size="sm" onClick={() => setIsEditModalOpen(false)}>
               Cancel
@@ -1409,6 +1722,13 @@ export function DepartmentDetail() {
             prev.map((f) => (f.id === updated.id ? { ...f, isFeatured: updated.isFeatured } : f))
           )
         }}
+      />
+
+      {/* Satellite Detailed Telemetry Dossier Modal (Item 29) */}
+      <SatelliteInfoModal
+        satelliteId={viewingSatelliteId}
+        isOpen={Boolean(viewingSatelliteId)}
+        onClose={() => setViewingSatelliteId(null)}
       />
 
       <Footer />

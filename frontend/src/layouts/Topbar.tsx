@@ -17,6 +17,7 @@ import { useNotifications } from '../hooks/useNotifications'
 import { wsClient } from '../lib/ws'
 import { useToastStore } from '../store/toastStore'
 import { authApi } from '../api'
+import { useCms } from '../context/cmsContext'
 
 /** Vertical hairline between readout fields. */
 function FieldDivider() {
@@ -29,7 +30,17 @@ export function Topbar() {
   const user = useAuthStore((state) => state.user)
   const clearAuth = useAuthStore((state) => state.clearAuth)
   const unreadCount = useNotificationStore((state) => state.unreadCount)
- const {addToast } =  useToastStore()
+  const { addToast } = useToastStore()
+  const { cmsBlocks } = useCms()
+
+  const navData =
+    (cmsBlocks['nav_header'] as any) ||
+    (cmsBlocks['nav_footer'] as any)
+
+  const brandTitle = navData?.brandTitle || 'ISTRAC'
+  const brandHighlight = navData?.brandHighlight !== undefined ? navData.brandHighlight : '-SIMS'
+  const brandSubtitle = navData?.brandSubtitle || 'ISRO Ground Network'
+
   const [menuOpen, setMenuOpen] = useState(false)
   const [bellMenuOpen, setBellMenuOpen] = useState(false)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
@@ -49,19 +60,19 @@ export function Topbar() {
     return () => clearInterval(interval)
   }, [])
 
-async function handleLogout() {
-  try {
-    await authApi.logout()
-  } catch (error) {
-    addToast({message:"failed to logout",title:"error",variant:"warning"})
-    console.error('Logout API error:', error)
-  } finally {
-    clearAuth()
-    wsClient.disconnect()
-    setMenuOpen(false)
-    navigate('/login')
+  async function handleLogout() {
+    try {
+      await authApi.logout()
+    } catch (error) {
+      addToast({ message: 'failed to logout', title: 'error', variant: 'warning' })
+      console.error('Logout API error:', error)
+    } finally {
+      clearAuth()
+      wsClient.disconnect()
+      setMenuOpen(false)
+      navigate('/login')
+    }
   }
-}
 
   function handleNotifications() {
     navigate('/notifications')
@@ -91,6 +102,21 @@ async function handleLogout() {
             ACCESS
             <span className="text-text-secondary font-bold">{user?.role ?? '—'}</span>
           </span>
+
+          <FieldDivider />
+
+          <span
+            className="readout hidden md:inline-flex text-white font-bold truncate cursor-default"
+            title={brandSubtitle}
+          >
+            {brandTitle}
+            <span className="text-accent-light">{brandHighlight}</span>
+            {brandSubtitle && (
+              <span className="ml-1.5 font-normal text-text-dim text-[10px] hidden lg:inline">
+                · {brandSubtitle}
+              </span>
+            )}
+          </span>
         </div>
 
         {/* Controls */}
@@ -99,7 +125,7 @@ async function handleLogout() {
           <Link
             to="/"
             className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-[#080e1b] px-3 py-1.5 text-xs font-semibold text-text-secondary hover:border-accent hover:text-white transition-all shadow-sm group"
-            title="Return to ISTRAC Public Portal Homepage"
+            title={`Return to ${brandTitle}${brandHighlight} Public Portal Homepage`}
           >
             <Home size={14} className="text-accent-light group-hover:scale-110 transition-transform" />
             <span className="hidden sm:inline">Back to Home</span>

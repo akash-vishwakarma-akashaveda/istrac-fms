@@ -10,6 +10,15 @@ interface CmsContextValue {
 
 // Authoritative ISTRAC Mission & Network Default Fallbacks
 export const DEFAULT_CMS_BLOCKS: Record<string, Record<string, unknown>> = {
+  nav_header: {
+    brandTitle: 'ISTRAC',
+    brandHighlight: '-SIMS',
+    brandSubtitle: 'ISRO Ground Network',
+  },
+  nav_footer: {
+    copyrightText: 'ISTRAC-SIMS · ISRO Ground Network. All rights reserved.',
+    subText: 'BLR · MOX Complex',
+  },
   hero: {
     title: 'ISRO Telemetry, Tracking & Command Network',
     subtitle: 'The nerve centre for spacecraft operations, deep space tracking, launch vehicle telemetry, and orbit determination across all Indian space missions.',
@@ -290,10 +299,23 @@ export const DEFAULT_CMS_BLOCKS: Record<string, Record<string, unknown>> = {
     ctaHref: '/login',
   },
   info: {
+    aboutEyebrow: 'About Telemetry Infrastructure',
     aboutTitle: 'About ISTRAC (ISRO Telemetry, Tracking and Command Network)',
     aboutText: 'ISTRAC is a premier centre of the Indian Space Research Organisation (ISRO) headquartered in Bengaluru. ISTRAC has the primary mandate of providing telemetry, tracking and command (TTC) support for all satellite and launch vehicle missions of ISRO. The centre also operates the Indian Deep Space Network (IDSN) at Byalalu for planetary exploration, the IS4OM facility for space situational awareness, and global downrange stations across India and overseas.',
     aboutImageUrl: 'https://images.unsplash.com/photo-1581822261290-991b38693d1b?auto=format&fit=crop&w=1000&q=80',
     aboutImageAlt: 'Mission Operations Complex (MOX-2 Bengaluru)',
+    facilityTag: 'ISTRAC HEADQUARTERS',
+    frequencyTag: 'AOS 2.2 GHz',
+    primaryNodeLabel: 'PRIMARY CONTROL NODE',
+    primaryNodeLocation: 'Bengaluru MOX Complex (BLR)',
+    ctaText: 'Contact Mission Support',
+    ctaHref: '#contact',
+    assurances: [
+      'Permission-aware departmental access controls (RBAC)',
+      'Tamper-evident append-only audit activity logging',
+      'Multi-ground station satellite scoping (BLR / SHAR / PBL / MAU)',
+      'Real-time WebSocket telemetry pass notifications',
+    ],
     contactEmail: 'support@istrac.isro.gov.in',
     contactPhone: '+91 80 2838 4000',
     address: 'ISTRAC Campus, Plot No. 12 & 13, 3rd Main, 2nd Phase, Peenya Industrial Area, Bengaluru, Karnataka - 560058, India',
@@ -301,12 +323,16 @@ export const DEFAULT_CMS_BLOCKS: Record<string, Record<string, unknown>> = {
   quick_stats: {
     stat1Value: '5 Stations',
     stat1Label: 'Global Ground Network',
+    stat1Icon: 'globe',
     stat2Value: '10+ Missions',
     stat2Label: 'Deep Space & LEO',
+    stat2Icon: 'radio',
     stat3Value: '24/7 MOX Ops',
     stat3Label: 'Continuous Telemetry',
+    stat3Icon: 'activity',
     stat4Value: 'SHA-256',
     stat4Label: 'Cryptographic Integrity',
+    stat4Icon: 'shield',
   },
 }
 
@@ -360,6 +386,15 @@ export function CmsProvider({ children }: { children: ReactNode }) {
       unsub3()
     }
   }, [])
+
+  useEffect(() => {
+    const navHeader = cmsBlocks['nav_header'] as Record<string, any> | undefined
+    if (navHeader?.brandTitle) {
+      const brand = `${navHeader.brandTitle}${navHeader.brandHighlight || ''}`
+      const subtitle = navHeader.brandSubtitle ? ` · ${navHeader.brandSubtitle}` : ''
+      document.title = `${brand}${subtitle}`
+    }
+  }, [cmsBlocks])
 
   return (
     <CmsContext.Provider value={{ cmsBlocks, isLoading, refetch: fetchBlocks }}>

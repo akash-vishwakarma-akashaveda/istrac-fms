@@ -20,6 +20,7 @@ export interface Department {
   pageBannerUrl?: string | null
   isPageEnabled?: boolean
   satellite?: Satellite
+  satellites?: Satellite[]
   fileCount?: number
   userCount?: number
   accessLevel?: 'READ_ONLY' | 'READ_WRITE'
@@ -29,6 +30,7 @@ export interface Department {
 
 export interface CreateDepartmentPayload {
   satelliteId?: string
+  satelliteIds?: string[]
   name: string
   code?: string
   description?: string
@@ -60,6 +62,7 @@ export interface UpdateDepartmentPayload {
   isPageEnabled?: boolean
   isActive?: boolean
   archived?: boolean
+  satelliteIds?: string[]
 }
 
 export const departmentsApi = {

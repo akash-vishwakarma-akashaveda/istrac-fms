@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { departmentsApi, type Department } from "../api/departments.api"
 import { useCms } from "../context/cmsContext"
+import { SatelliteInfoModal } from "./SatelliteInfoModal"
 
 interface DepartmentCmsData {
   title?: string
@@ -41,6 +42,7 @@ export function OperationalDivisions() {
 
   const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
+  const [viewingSatelliteId, setViewingSatelliteId] = useState<string | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -136,6 +138,46 @@ export function OperationalDivisions() {
                         {description}
                       </p>
                     </div>
+
+                    {/* Linked Spacecraft / Satellites Badges */}
+                    {dept.satellites && dept.satellites.length > 0 && (
+                      <div className="pt-2 border-t border-border-subtle/50">
+                        <div className="flex items-center justify-between text-[10px] text-text-dim uppercase font-bold tracking-wider mb-1.5">
+                          <span className="flex items-center gap-1">
+                            <Radio size={11} className="text-accent-light" />
+                            <span>Supported Spacecraft:</span>
+                          </span>
+                          <span className="font-mono text-accent-light font-bold">
+                            {dept.satellites.length}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {dept.satellites.slice(0, 3).map((sat) => (
+                            <button
+                              key={sat.id}
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setViewingSatelliteId(sat.id)
+                              }}
+                              className="inline-flex items-center gap-1 rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent-light hover:bg-accent hover:text-white transition-all cursor-pointer shadow-sm"
+                              title={`Click to view live telemetry dossier for ${sat.name}`}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-nominal" />
+                              <span className="font-mono font-semibold">
+                                {sat.satId || sat.code || sat.name}
+                              </span>
+                            </button>
+                          ))}
+                          {dept.satellites.length > 3 && (
+                            <span className="rounded-md border border-border-subtle bg-surface px-1.5 py-0.5 text-[10px] text-text-dim font-mono">
+                              +{dept.satellites.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Footer Officer & Direct Link */}
@@ -163,6 +205,14 @@ export function OperationalDivisions() {
           </div>
         )}
       </div>
+
+      {/* Satellite Detailed Dossier Modal */}
+      <SatelliteInfoModal
+        satelliteId={viewingSatelliteId}
+        isOpen={Boolean(viewingSatelliteId)}
+        onClose={() => setViewingSatelliteId(null)}
+      />
     </section>
   )
 }
+

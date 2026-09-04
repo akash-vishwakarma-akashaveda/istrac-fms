@@ -126,21 +126,32 @@ model User {
 // ============================================================
 
 model Satellite {
-  id          String  @id @default(uuid())
+  id          String    @id @default(uuid())
+  satId       String?
   name        String
-  code        String? @unique
-  description String?
+  code        String?   @unique
+  description String?   @db.Text
 
-  isActive Boolean @default(true)
+  // Extended Telemetry & Mission Specs (Item 28)
+  launchDate  DateTime?
+  payloads    String?   @db.Text
+  fuelBalance String?
+  launchMass  String?
+  orbitType   String?
+  status      String    @default("ACTIVE")
 
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  isActive    Boolean   @default(true)
 
-  departments Department[]
-  events      MissionEvent[]
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  departmentSatellites DepartmentSatellite[]
+  departments          Department[]
+  events               MissionEvent[]
 
   @@index([name])
+  @@index([satId])
   @@index([deletedAt])
 }
 
@@ -151,8 +162,8 @@ model Satellite {
 model Department {
   id String @id @default(uuid())
 
-  satelliteId String
-  satellite   Satellite @relation(fields: [satelliteId], references: [id], onDelete: Restrict)
+  satelliteId String?
+  satellite   Satellite? @relation(fields: [satelliteId], references: [id], onDelete: SetNull)
 
   name        String
   code        String?
@@ -195,9 +206,31 @@ model Department {
   // Events
   events MissionEvent[]
 
+  // Associated Satellites (Many-to-Many via junction)
+  departmentSatellites DepartmentSatellite[]
+
   @@index([satelliteId])
   @@index([name])
   @@index([deletedAt])
+}
+
+// ============================================================
+// DEPARTMENT ↔ SATELLITE JUNCTION
+// ============================================================
+
+model DepartmentSatellite {
+  id           String     @id @default(uuid())
+  departmentId String
+  satelliteId  String
+
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  satellite    Satellite  @relation(fields: [satelliteId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime   @default(now())
+
+  @@unique([departmentId, satelliteId])
+  @@index([departmentId])
+  @@index([satelliteId])
 }
 
 // ============================================================

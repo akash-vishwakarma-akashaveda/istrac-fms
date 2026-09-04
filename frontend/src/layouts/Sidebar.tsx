@@ -4,6 +4,7 @@ import { NavLink, Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useUIStore } from '../store/uiStore'
 import { navItems, type NavItem } from '../config/navigation'
+import { useCms } from '../context/cmsContext'
 
 /** The official ISRO logo brand mark */
 function StationMark({ className = '' }: { className?: string }) {
@@ -19,6 +20,15 @@ function StationMark({ className = '' }: { className?: string }) {
 export function Sidebar() {
   const user = useAuthStore((state) => state.user)
   const { sidebarCollapsed, toggleSidebar } = useUIStore()
+  const { cmsBlocks } = useCms()
+
+  const navData =
+    (cmsBlocks['nav_header'] as any) ||
+    (cmsBlocks['nav_footer'] as any)
+
+  const brandTitle = navData?.brandTitle || 'ISTRAC'
+  const brandHighlight = navData?.brandHighlight !== undefined ? navData.brandHighlight : '-SIMS'
+  const brandSubtitle = navData?.brandSubtitle || 'ISRO Ground Network'
 
   const isAdmin = user?.role === 'ADMIN'
 
@@ -41,16 +51,32 @@ export function Sidebar() {
         }`}
       >
         {sidebarCollapsed ? (
-          <Link to="/" title="Return to Public Portal Homepage" className="flex items-center justify-center">
+          <Link
+            to="/"
+            title={`Return to ${brandTitle}${brandHighlight} Public Portal`}
+            className="flex items-center justify-center"
+          >
             <StationMark className="h-7" />
           </Link>
         ) : (
-          <Link to="/" title="Return to Public Portal Homepage" className="flex min-w-0 items-center gap-2.5 hover:opacity-90 transition-opacity">
+          <Link
+            to="/"
+            title={`Return to ${brandTitle}${brandHighlight} Public Portal`}
+            className="flex min-w-0 items-center gap-2.5 hover:opacity-90 transition-opacity"
+          >
             <StationMark className="h-8" />
 
-            <span className="truncate text-[13px] font-extrabold tracking-[0.06em] text-white">
-              ISTRAC<span className="text-[#FF6B00] font-black">-SIMS</span>
-            </span>
+            <div className="flex flex-col min-w-0">
+              <span className="truncate text-[13px] font-extrabold tracking-[0.06em] text-white leading-tight">
+                {brandTitle}
+                <span className="text-accent-light font-black">{brandHighlight}</span>
+              </span>
+              {brandSubtitle && (
+                <span className="truncate text-[8.5px] text-text-dim uppercase tracking-wider font-mono">
+                  {brandSubtitle}
+                </span>
+              )}
+            </div>
           </Link>
         )}
 
@@ -86,12 +112,12 @@ export function Sidebar() {
         )}
       </nav>
 
-      {/* Station footer: Bengaluru ground station */}
+      {/* Station footer */}
       {!sidebarCollapsed && (
         <div className="shrink-0 border-t border-border-subtle px-3 py-2.5">
-          <p className="eyebrow text-text-dim text-[9px]">Ground Station</p>
-          <p className="num mt-0.5 text-[10px] text-text-dim font-medium">
-            BLR · MOX Complex
+          <p className="eyebrow text-text-dim text-[9px]">Station / Facility</p>
+          <p className="num mt-0.5 text-[10px] text-text-dim font-medium truncate" title={brandSubtitle || "BLR · MOX Complex"}>
+            {brandSubtitle || "BLR · MOX Complex"}
           </p>
         </div>
       )}

@@ -1,27 +1,69 @@
 import { apiClient, extractData } from './client'
 
-export interface Satellite {
+export interface SatelliteDepartment {
   id: string
   name: string
   code?: string | null
+  pageTitle?: string | null
+  pageLeadOfficer?: string | null
+  pageLeadRole?: string | null
+  pageContact?: string | null
+}
+
+export interface Satellite {
+  id: string
+  satId?: string | null
+  name: string
+  code?: string | null
   description?: string | null
+  launchDate?: string | null
+  payloads?: string | null
+  fuelBalance?: string | null
+  launchMass?: string | null
+  orbitType?: string | null
+  status?: string | null
   isActive: boolean
   departmentCount?: number
+  departments?: SatelliteDepartment[]
+  recentEvents?: Array<{
+    id: string
+    title: string
+    eventType: string
+    eventDate: string
+    urgency?: string
+    status?: string
+  }>
   createdAt: string
   updatedAt?: string
 }
 
 export interface CreateSatellitePayload {
+  satId?: string
   name: string
   code?: string
   description?: string
+  launchDate?: string | null
+  payloads?: string
+  fuelBalance?: string
+  launchMass?: string
+  orbitType?: string
+  status?: string
+  departmentIds?: string[]
 }
 
 export interface UpdateSatellitePayload {
+  satId?: string
   name?: string
   code?: string
   description?: string
+  launchDate?: string | null
+  payloads?: string
+  fuelBalance?: string
+  launchMass?: string
+  orbitType?: string
+  status?: string
   isActive?: boolean
+  departmentIds?: string[]
 }
 
 export const satellitesApi = {
@@ -40,6 +82,11 @@ export const satellitesApi = {
     return extractData<Satellite>(res)
   },
 
+  async getPublicSatellite(id: string): Promise<Satellite> {
+    const res = await apiClient.get(`/satellites/${id}`)
+    return extractData<Satellite>(res)
+  },
+
   async createSatellite(payload: CreateSatellitePayload): Promise<Satellite> {
     const res = await apiClient.post('/admin/satellites', payload)
     return extractData<Satellite>(res)
@@ -55,3 +102,4 @@ export const satellitesApi = {
     return extractData<{ message: string }>(res)
   },
 }
+
