@@ -1,26 +1,57 @@
-import { useEffect, useState } from 'react'
-import { api } from '../lib/axios'
-import { useAuthStore } from '../store/authStore'
+import { useEffect, useState, useRef } from "react"
+import { apiClient } from "../api/client"
+import { useAuthStore } from "../store/authStore"
 
 export function useInitAuth() {
   const [isChecking, setIsChecking] = useState(true)
-  const user = useAuthStore((s) => s.user)
-  const setAuth = useAuthStore((s) => s.setAuth)
-  const clearAuth = useAuthStore((s) => s.clearAuth)
+  const hasRun = useRef(false)
 
   useEffect(() => {
-    // If there's no leftover `user` from storage, don't even bother —
-    // definitely not logged in, skip straight to showing the login page.
-    if (!user) {
+    if (hasRun.current) return
+    hasRun.current = true
+
+    const currentUser = useAuthStore.getState().user
+    const currentToken = useAuthStore.getState().accessToken
+    const currentRefreshToken = useAuthStore.getState().refreshToken
+
+    // If we have an active user and accessToken in localStorage, we are already authenticated!
+    if (currentUser && currentToken) {
       setIsChecking(false)
       return
     }
 
-    api
-      .post('/auth/refresh')
-      .then(({ data }) => setAuth(user, data.accessToken))
-      .catch(() => clearAuth())
-      .finally(() => setIsChecking(false))
+    // If user exists without accessToken, attempt session restoration via refresh token / cookie
+    if (currentUser && !currentToken && currentRefreshToken) {
+      apiClient
+        .post(
+          "/auth/refresh",
+          { refreshToken: currentRefreshToken },
+          { headers: { "x-refresh-token": currentRefreshToken } }
+        )
+        .then((res) => {
+          const token = res.data?.data?.accessToken || res.data?.accessToken
+          const newRefresh = res.data?.data?.refreshToken || res.data?.refreshToken
+          const refreshedUser = res.data?.data?.user || res.data?.user || currentUser
+          if (token) {
+            useAuthStore.getState().setAuth(refreshedUser, token, newRefresh)
+          } else {
+            useAuthStore.getState().clearAuth()
+          }
+        })
+        .catch(() => {
+          useAuthStore.getState().clearAuth()
+          if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login") && window.location.pathname !== "/") {
+            window.location.href = "/login?session_expired=true"
+          }
+        })
+        .finally(() => {
+          setIsChecking(false)
+        })
+      return
+    }
+
+    // Guest visitor
+    setIsChecking(false)
   }, [])
 
   return { isChecking }

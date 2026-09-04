@@ -1,0 +1,29 @@
+{
+  "station": "Byalalu Deep Space Network (DSN)",
+  "antennas": [
+    {
+      "name": "DSN-32 (32-meter Deep Space Dish)",
+      "pointing_error_deg": 0.0012,
+      "lna_temp_k": 14.2,
+      "status": "OPERATIONAL"
+    },
+    {
+      "name": "DSN-18 (18-meter S/X-Band)",
+      "pointing_error_deg": 0.0024,
+      "lna_temp_k": 18,
+      "status": "OPERATIONAL"
+    },
+    {
+      "name": "BLR-1 (Bengaluru TTC 11m)",
+      "pointing_error_deg": 0.0031,
+      "lna_temp_k": 22.4,
+      "status": "OPERATIONAL"
+    },
+    {
+      "name": "PB-1 (Port Blair 11m)",
+      "pointing_error_deg": 0.0029,
+      "lna_temp_k": 21.8,
+      "status": "OPERATIONAL"
+    }
+  ]
+}

@@ -3,7 +3,7 @@ import { useAuthStore } from '../store/authStore'
 import { Button, PageHeader, Panel } from '../components'
 
 const TEST_USERS = {
-  superAdmin: { id: '1', name: 'Test Admin', email: 'admin@istrac.local', role: 'SUPER_ADMIN' as const, tempPass: false },
+  superAdmin: { id: '1', name: 'Test Admin', email: 'admin@istrac.local', role: 'ADMIN' as const, tempPass: false },
   member: { id: '2', name: 'Test Member', email: 'member@istrac.local', role: 'MEMBER' as const, tempPass: false },
 }
 
@@ -98,7 +98,7 @@ export function DevIndex() {
 
         <Section title="Public" meta="no auth" pages={PUBLIC_PAGES} />
         <Section title="User" meta="requires login" pages={USER_PAGES} />
-        <Section title="Admin" meta="SUPER_ADMIN / DEPT_ADMIN" pages={ADMIN_PAGES} />
+        <Section title="Admin" meta="ADMIN only" pages={ADMIN_PAGES} />
       </div>
     </div>
   )
