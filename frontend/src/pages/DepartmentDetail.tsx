@@ -26,13 +26,14 @@ import {
   RefreshCw,
   FolderOpen,
   LogIn,
+  Star,
 } from 'lucide-react'
 import { departmentsApi, type Department } from '../api/departments.api'
 import { satellitesApi, type Satellite as SatelliteType } from '../api/satellites.api'
 import { useAuthStore } from '../store/authStore'
 import { useAuthModalStore } from '../store/authModalStore'
 import { useToastStore } from '../store/toastStore'
-import { Navbar, Footer, Button, Modal, Textarea, ImageLightboxModal } from '../components'
+import { Navbar, Footer, Button, Modal, Textarea, ImageLightboxModal, ConfirmFeatureModal } from '../components'
 import { VersionHistoryPanel } from '../components/VersionHistoryPanel'
 import { FilePreviewModal } from '../components/FilePreviewModal'
 import { ImageWithFallback } from '../components/ImageWithFallback'
@@ -153,8 +154,18 @@ export function DepartmentDetail() {
     maxFolderDepth: 5,
   })
   const [savingEdit, setSavingEdit] = useState(false)
+  const [featureConfirmFile, setFeatureConfirmFile] = useState<{ id: string; name: string; isFeatured?: boolean } | null>(null)
+  const [featuredOnly, setFeaturedOnly] = useState<boolean>(false)
 
   const isAdmin = user?.role === 'ADMIN'
+  const isWriteAllowed = Boolean(
+    isAdmin ||
+    user?.departmentAccess?.some(
+      (da: any) =>
+        (da.departmentId === dept?.id || da.department?.id === dept?.id || da.department?.code?.toUpperCase() === dept?.code?.toUpperCase()) &&
+        da.accessLevel === 'READ_WRITE'
+    )
+  )
 
   // Parse slides for carousel from dept.pageBannerUrl
   const getCarouselSlides = (): CarouselSlide[] => {
@@ -368,7 +379,19 @@ export function DepartmentDetail() {
     : '/fallback-hero.jpg'
 
   const MAX_PUBLIC_PREVIEW_FILES = 3
-  const displayedFiles = user ? deptFiles : deptFiles.slice(0, MAX_PUBLIC_PREVIEW_FILES)
+  const filteredDeptFiles = deptFiles.filter((f) => {
+    if (featuredOnly && !f.isFeatured) return false
+    return true
+  })
+
+  const displayedFiles = user
+    ? filteredDeptFiles
+    : featuredOnly
+      ? filteredDeptFiles
+      : [
+          ...filteredDeptFiles.filter((f) => f.isFeatured),
+          ...filteredDeptFiles.filter((f) => !f.isFeatured).slice(0, 3),
+        ]
 
   return (
     <div className="min-h-screen bg-page text-text-primary antialiased">
@@ -392,7 +415,7 @@ export function DepartmentDetail() {
               {/* Status Pill */}
               <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3.5 py-1 text-xs font-semibold text-accent-light shadow-sm shadow-accent/20">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-nominal" />
-                <span className="font-mono">/{dept.code || 'DIVISION'}</span>
+                <span className="font-mono">{dept.code || 'DIVISION'}</span>
                 <span>·</span>
                 <span>Operational Ground Division · Active 24/7 MOX Ops</span>
               </div>
@@ -439,7 +462,7 @@ export function DepartmentDetail() {
                   <Link to="/admin/upload">
                     <Button variant="primary" size="md" className="shadow-lg shadow-accent/25 px-5 flex items-center gap-2">
                       <Upload size={14} />
-                      <span>Upload to /{dept.code || 'Dept'}</span>
+                      <span>Upload to {dept.code || 'Dept'}</span>
                     </Button>
                   </Link>
                 )}
@@ -470,7 +493,7 @@ export function DepartmentDetail() {
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-nominal" />
                     </span>
                     <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted">
-                      /{dept.code || 'OPS'} // TELEMETRY FEED
+                      {dept.code || 'OPS'} // TELEMETRY FEED
                     </span>
                   </div>
 
@@ -587,7 +610,7 @@ export function DepartmentDetail() {
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <HardDrive size={18} className="text-accent-light" />
-                <span>/{dept.code || dept.name} Repository Datasets</span>
+                <span>{dept.code || dept.name} Repository Datasets</span>
                 <span className="rounded-full bg-accent/20 border border-accent/40 text-accent-light px-2 py-0.5 text-xs font-mono num font-bold">
                   {deptFiles.length} files
                 </span>
@@ -635,7 +658,7 @@ export function DepartmentDetail() {
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
               <input
                 type="text"
-                placeholder={`Search within /${dept.code || 'department'} datasets, reports, checksums…`}
+                placeholder={`Search within ${dept.code || 'department'} datasets, reports, checksums…`}
                 value={fileSearch}
                 onChange={(e) => setFileSearch(e.target.value)}
                 className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
@@ -672,6 +695,41 @@ export function DepartmentDetail() {
             </div>
           </div>
 
+          {/* Featured Reports Highlight Strip */}
+          {deptFiles.some((f) => f.isFeatured) && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  <Star size={16} className="fill-amber-400" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                    <span>Featured Mission Reports</span>
+                    <span className="rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 text-[10px] font-mono font-bold">
+                      {deptFiles.filter((f) => f.isFeatured).length} Showcased
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-text-secondary mt-0.5">
+                    Reports starred by division engineers can be viewed directly in-browser without login; raw datasets can be downloaded instantly.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setFeaturedOnly(!featuredOnly)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 border ${
+                  featuredOnly
+                    ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                    : 'border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+                }`}
+              >
+                <Star size={12} className={featuredOnly ? 'fill-white' : 'fill-amber-300'} />
+                <span>{featuredOnly ? 'Show All Files' : 'Filter Featured Only'}</span>
+              </button>
+            </div>
+          )}
+
           {/* Files Display: Loading, Empty, Card View, or Table View */}
           {loadingFiles ? (
             <div className="h-64 rounded-xl border border-border-subtle bg-card p-8 flex items-center justify-center">
@@ -693,7 +751,7 @@ export function DepartmentDetail() {
                 <Link to="/admin/upload" className="inline-block pt-2">
                   <Button variant="primary" size="sm">
                     <Upload size={13} />
-                    <span>Upload Telemetry to /{dept.code || 'Dept'}</span>
+                    <span>Upload Telemetry to {dept.code || 'Dept'}</span>
                   </Button>
                 </Link>
               )}
@@ -720,12 +778,20 @@ export function DepartmentDetail() {
                             <Icon size={18} />
                           </div>
                           <div className="min-w-0">
-                            <span className="text-[10px] font-bold uppercase num text-accent-light block">
-                              /{dept.code || 'OPS'}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold uppercase num text-accent-light block">
+                                {dept.code || 'OPS'}
+                              </span>
+                              {file.isFeatured && (
+                                <span className="rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-bold text-amber-300 uppercase flex items-center gap-0.5">
+                                  <Star size={8} className="fill-amber-300" />
+                                  <span>Featured</span>
+                                </span>
+                              )}
+                            </div>
                             <h3
                               onClick={() => {
-                                if (!user) openLogin()
+                                if (!user && !file.isFeatured) openLogin()
                                 else setPreviewFile(file as unknown as FileNode)
                               }}
                               className="font-bold text-white text-sm hover:text-accent-light cursor-pointer truncate transition-colors"
@@ -736,16 +802,35 @@ export function DepartmentDetail() {
                           </div>
                         </div>
 
-                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase num border shrink-0 ${extConf.badge}`}>
-                          {extConf.label}
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isWriteAllowed && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setFeatureConfirmFile({ id: file.id, name: file.name, isFeatured: file.isFeatured })
+                              }}
+                              className={`p-1 rounded-md border transition-all ${
+                                file.isFeatured
+                                  ? 'border-amber-500/50 bg-amber-500/20 text-amber-400'
+                                  : 'border-border-subtle bg-surface text-text-dim hover:border-amber-500/50 hover:text-amber-400'
+                              }`}
+                              title={file.isFeatured ? 'Featured in Mission Reports (Click to unfeature)' : 'Feature in Public Mission Reports'}
+                            >
+                              <Star size={12} className={file.isFeatured ? 'fill-amber-400' : ''} />
+                            </button>
+                          )}
+                          <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase num border shrink-0 ${extConf.badge}`}>
+                            {extConf.label}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Spacecraft Target Tag */}
                       <div className="rounded-lg border border-border-subtle bg-[#060c18] p-2.5 text-xs space-y-1">
                         <span className="text-[10px] text-text-dim uppercase font-bold block">Spacecraft Target</span>
                         <strong className="text-white text-xs truncate block">
-                          {file.report?.spacecraft || 'Primary Fleet Constellation'}
+                          {(file.report?.spacecraft && file.report.spacecraft.includes('General')) ? 'General' : (file.report?.spacecraft || 'General')}
                         </strong>
                       </div>
 
@@ -783,14 +868,37 @@ export function DepartmentDetail() {
                     {/* Bottom Action Buttons */}
                     <div className="pt-3 border-t border-border-subtle">
                       {!user ? (
-                        <button
-                          type="button"
-                          onClick={openLogin}
-                          className="w-full py-2 px-3 rounded-lg border border-accent/40 bg-accent/15 text-accent-light hover:bg-accent hover:text-white transition-all text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer"
-                        >
-                          <Lock size={13} />
-                          <span>Sign In to Access File</span>
-                        </button>
+                        file.isFeatured ? (
+                          <div className="flex items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewFile(file as unknown as FileNode)}
+                              className="flex-1 py-1.5 px-3 rounded-lg border border-accent/40 bg-accent/15 text-accent-light hover:bg-accent hover:text-white transition-all text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                              title="View in-browser without login"
+                            >
+                              <Eye size={13} />
+                              <span>View Report</span>
+                            </button>
+                            <a
+                              href={`/api/files/${file.id}/download`}
+                              download={file.name}
+                              className="px-3 py-1.5 rounded-lg border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                              title="Download without login"
+                            >
+                              <Download size={13} />
+                              <span>Download</span>
+                            </a>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={openLogin}
+                            className="w-full py-2 px-3 rounded-lg border border-accent/40 bg-accent/15 text-accent-light hover:bg-accent hover:text-white transition-all text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                          >
+                            <Lock size={13} />
+                            <span>Sign In to Access File</span>
+                          </button>
+                        )
                       ) : (
                         <div className="flex items-center justify-between">
                           <button
@@ -826,6 +934,9 @@ export function DepartmentDetail() {
                 <table className="w-full text-left border-collapse min-w-[850px]">
                   <thead>
                     <tr className="border-b border-border-default bg-surface text-[11px] font-bold text-text-dim uppercase tracking-wider">
+                      <th className="w-10 px-3 py-3.5 text-center" title="Featured Mission Report">
+                        <Star size={12} className="inline text-amber-400 fill-amber-400/20" />
+                      </th>
                       <th className="px-4 py-3.5">Dataset / Filename</th>
                       <th className="px-4 py-3.5">Spacecraft Target</th>
                       <th className="px-4 py-3.5">Size</th>
@@ -841,6 +952,36 @@ export function DepartmentDetail() {
 
                       return (
                         <tr key={file.id} className="hover:bg-card-hover transition-colors">
+                          {/* Front Star Action */}
+                          <td className="w-10 px-3 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
+                            {isWriteAllowed ? (
+                              <button
+                                type="button"
+                                onClick={() => setFeatureConfirmFile({ id: file.id, name: file.name, isFeatured: file.isFeatured })}
+                                className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                                  file.isFeatured
+                                    ? 'border-amber-500/50 bg-amber-500/20 text-amber-400 shadow-sm'
+                                    : 'border-transparent text-text-dim/40 hover:text-amber-400 hover:border-amber-500/40 hover:bg-surface'
+                                }`}
+                                title={
+                                  file.isFeatured
+                                    ? '⭐ Featured Mission Report (Click to unfeature)'
+                                    : 'Feature in Public Mission Reports'
+                                }
+                              >
+                                <Star size={14} className={file.isFeatured ? 'fill-amber-400 text-amber-400' : ''} />
+                              </button>
+                            ) : file.isFeatured ? (
+                              <span className="p-1 inline-block text-amber-400" title="Featured Mission Report">
+                                <Star size={14} className="fill-amber-400 text-amber-400" />
+                              </span>
+                            ) : (
+                              <span className="p-1 inline-block text-text-dim/20">
+                                <Star size={14} />
+                              </span>
+                            )}
+                          </td>
+
                           {/* File Name & Format */}
                           <td className="px-4 py-3.5">
                             <div className="flex items-center gap-2.5">
@@ -848,16 +989,24 @@ export function DepartmentDetail() {
                                 <Icon size={16} />
                               </div>
                               <div className="min-w-0">
-                                <p
-                                  onClick={() => {
-                                    if (!user) openLogin()
-                                    else setPreviewFile(file as unknown as FileNode)
-                                  }}
-                                  className="font-bold text-white hover:text-accent-light cursor-pointer truncate max-w-xs transition-colors"
-                                  title="Preview File"
-                                >
-                                  {file.name}
-                                </p>
+                                <div className="flex items-center gap-1.5">
+                                  <p
+                                    onClick={() => {
+                                      if (!user && !file.isFeatured) openLogin()
+                                      else setPreviewFile(file as unknown as FileNode)
+                                    }}
+                                    className="font-bold text-white hover:text-accent-light cursor-pointer truncate max-w-xs transition-colors"
+                                    title="Preview File"
+                                  >
+                                    {file.name}
+                                  </p>
+                                  {file.isFeatured && (
+                                    <span className="shrink-0 rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-bold text-amber-300 uppercase flex items-center gap-0.5">
+                                      <Star size={8} className="fill-amber-300" />
+                                      <span>Featured</span>
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-[10px] text-text-dim truncate max-w-xs">
                                   {file.report?.category || file.extension || 'TELEMETRY'}
                                 </p>
@@ -868,7 +1017,7 @@ export function DepartmentDetail() {
                           {/* Spacecraft */}
                           <td className="px-4 py-3.5">
                             <span className="font-semibold text-text-primary text-xs">
-                              {file.report?.spacecraft || 'Primary Mission Fleet'}
+                              {(file.report?.spacecraft && file.report.spacecraft.includes('General')) ? 'General' : (file.report?.spacecraft || 'General')}
                             </span>
                           </td>
 
@@ -900,36 +1049,79 @@ export function DepartmentDetail() {
 
                           {/* Actions */}
                           <td className="px-4 py-3.5 text-right">
-                            {!user ? (
-                              <button
-                                type="button"
-                                onClick={openLogin}
-                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-accent/40 bg-accent/10 text-accent-light hover:bg-accent hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
-                              >
-                                <Lock size={12} />
-                                <span>Sign In to Access</span>
-                              </button>
-                            ) : (
-                              <div className="flex items-center justify-end gap-1.5">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {isWriteAllowed && (
                                 <button
                                   type="button"
-                                  onClick={() => setPreviewFile(file as unknown as FileNode)}
-                                  className="px-2.5 py-1 rounded border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-white transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setFeatureConfirmFile({ id: file.id, name: file.name, isFeatured: file.isFeatured })
+                                  }}
+                                  className={`p-1.5 rounded-lg border transition-all ${
+                                    file.isFeatured
+                                      ? 'border-amber-500/50 bg-amber-500/20 text-amber-400'
+                                      : 'border-border-default bg-[#0c1424] text-text-muted hover:border-amber-500/50 hover:text-amber-400'
+                                  }`}
+                                  title={file.isFeatured ? 'Featured in Mission Reports (Click to unfeature)' : 'Feature in Public Mission Reports'}
                                 >
-                                  <Eye size={12} className="text-accent-light" />
-                                  <span>Preview</span>
+                                  <Star size={13} className={file.isFeatured ? 'fill-amber-400' : ''} />
                                 </button>
+                              )}
 
-                                <a
-                                  href={`/api/files/${file.id}/download`}
-                                  download={file.name}
-                                  className="px-2.5 py-1 rounded border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer"
-                                >
-                                  <Download size={12} />
-                                  <span>Download</span>
-                                </a>
-                              </div>
-                            )}
+                              {!user ? (
+                                file.isFeatured ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => setPreviewFile(file as unknown as FileNode)}
+                                      className="px-2.5 py-1 rounded border border-accent/40 bg-accent/15 text-accent-light hover:bg-accent hover:text-white transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                                      title="View in-browser without login"
+                                    >
+                                      <Eye size={12} />
+                                      <span>View</span>
+                                    </button>
+                                    <a
+                                      href={`/api/files/${file.id}/download`}
+                                      download={file.name}
+                                      className="px-2.5 py-1 rounded border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                                      title="Download without login"
+                                    >
+                                      <Download size={12} />
+                                      <span>Download</span>
+                                    </a>
+                                  </>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={openLogin}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-accent/40 bg-accent/10 text-accent-light hover:bg-accent hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
+                                  >
+                                    <Lock size={12} />
+                                    <span>Sign In to Access</span>
+                                  </button>
+                                )
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewFile(file as unknown as FileNode)}
+                                    className="px-2.5 py-1 rounded border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-white transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Eye size={12} className="text-accent-light" />
+                                    <span>Preview</span>
+                                  </button>
+
+                                  <a
+                                    href={`/api/files/${file.id}/download`}
+                                    download={file.name}
+                                    className="px-2.5 py-1 rounded border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Download size={12} />
+                                    <span>Download</span>
+                                  </a>
+                                </>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       )
@@ -1201,10 +1393,22 @@ export function DepartmentDetail() {
           title: dept?.name || 'ISTRAC Division Operations',
           caption: s.caption || `${dept?.name} Telemetry Node Slide 0${idx + 1}`,
           alt: s.caption || `${dept?.name} Facility`,
-          tag: `/${dept?.code || 'OPS'} · SLIDE 0${idx + 1}`,
+          tag: `${dept?.code || 'OPS'} · SLIDE 0${idx + 1}`,
           station: `${dept?.name} (${dept?.code || 'OPS'}) · Global Ground Station Network`,
         }))}
         initialIndex={currentSlideIndex}
+      />
+
+      {/* Confirmation Modal to Feature / Unfeature Mission Report */}
+      <ConfirmFeatureModal
+        isOpen={featureConfirmFile !== null}
+        file={featureConfirmFile}
+        onClose={() => setFeatureConfirmFile(null)}
+        onSuccess={(updated) => {
+          setDeptFiles((prev) =>
+            prev.map((f) => (f.id === updated.id ? { ...f, isFeatured: updated.isFeatured } : f))
+          )
+        }}
       />
 
       <Footer />

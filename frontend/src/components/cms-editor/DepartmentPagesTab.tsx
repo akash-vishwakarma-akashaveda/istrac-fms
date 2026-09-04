@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { Building2, Layers, ExternalLink, CheckCircle2 } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useCms } from "../../context/cmsContext"
@@ -244,7 +244,7 @@ export function DepartmentPagesTab() {
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="num font-bold text-xs text-accent-light">/{code}</span>
+                      <span className="num font-bold text-xs text-accent-light">{code}</span>
                       {isSelected && <CheckCircle2 size={12} className="text-nominal" />}
                     </div>
                     <div className="text-xs font-bold text-white truncate">{title}</div>

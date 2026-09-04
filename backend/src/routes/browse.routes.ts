@@ -19,13 +19,21 @@ router.get('/departments/:deptId/files', authMiddleware, deptAccessMiddleware, a
     const page = Math.max(1, Number(req.query.page) || 1)
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50))
     const skip = (page - 1) * limit
-
+    const isAdmin = req.user?.role === 'ADMIN'
     const where: any = {
       departmentId: deptId,
       parentId,
       deletedAt: null,
       status: 'ACTIVE',
       ...(type && { nodeType: type }),
+      ...(!isAdmin ? {
+        versions: {
+          some: {
+            isVisible: true,
+            deletedAt: null,
+          },
+        },
+      } : {}),
     }
 
     const [total, items] = await Promise.all([
@@ -37,6 +45,25 @@ router.get('/departments/:deptId/files', authMiddleware, deptAccessMiddleware, a
         orderBy: [{ nodeType: 'asc' }, { name: 'asc' }],
         include: {
           uploader: { select: { id: true, name: true } },
+          versions: {
+            where: {
+              deletedAt: null,
+              ...(!isAdmin ? { isVisible: true } : {}),
+            },
+            orderBy: { versionNum: 'desc' },
+            take: 1,
+            select: { name: true, sizeBytes: true, versionLabel: true },
+          },
+          _count: {
+            select: {
+              versions: {
+                where: {
+                  deletedAt: null,
+                  ...(!isAdmin ? { isVisible: true } : {}),
+                },
+              },
+            },
+          },
           report: {
             select: {
               id: true,
@@ -44,6 +71,7 @@ router.get('/departments/:deptId/files', authMiddleware, deptAccessMiddleware, a
               spacecraft: true,
               category: true,
               reportNumber: true,
+              versionLabel: true,
             },
           },
         },
@@ -51,22 +79,32 @@ router.get('/departments/:deptId/files', authMiddleware, deptAccessMiddleware, a
     ])
 
     res.json({
-      data: items.map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        nodeType: item.nodeType,
-        mimeType: item.mimeType,
-        extension: item.extension,
-        sizeBytes: item.sizeBytes ? item.sizeBytes.toString() : null,
-        versionCount: item.versionCount,
-        uploader: item.uploader?.name || 'System',
-        spacecraft: item.report?.spacecraft || null,
-        title: item.report?.title || null,
-        category: item.report?.category || null,
-        reportNumber: item.report?.reportNumber || null,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
-      })),
+      data: items.map((item: any) => {
+        const activeVer = item.versions?.[0]
+        const displayName = (!isAdmin && activeVer?.name) ? activeVer.name : item.name
+        const displaySize = (!isAdmin && activeVer?.sizeBytes) ? activeVer.sizeBytes.toString() : (item.sizeBytes ? item.sizeBytes.toString() : null)
+        const displayLabel = (!isAdmin && activeVer?.versionLabel) ? activeVer.versionLabel : (item.report?.versionLabel || `V${item.versionCount || 1}.0`)
+        const versionCount = !isAdmin ? (item._count?.versions ?? (activeVer ? 1 : 0)) : (item.versionCount || 1)
+
+        return {
+          id: item.id,
+          name: displayName,
+          nodeType: item.nodeType,
+          mimeType: item.mimeType,
+          extension: item.extension,
+          sizeBytes: displaySize,
+          versionCount,
+          versionLabel: displayLabel,
+          uploader: item.uploader?.name || 'System',
+          spacecraft: item.report?.spacecraft ? (item.report.spacecraft.includes('General') ? 'General' : item.report.spacecraft) : null,
+          title: item.report?.title || null,
+          category: item.report?.category || null,
+          reportNumber: item.report?.reportNumber || null,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+          isFeatured: Boolean(item.isFeatured),
+        }
+      }),
       accessLevel: req.deptAccessLevel || 'READ_ONLY',
       total,
       page,

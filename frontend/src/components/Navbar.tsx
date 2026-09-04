@@ -161,7 +161,7 @@ export function Navbar() {
                         </span>
                         {dept.code && (
                           <span className="num text-[10px] text-accent-light rounded bg-surface px-1.5 py-0.5 border border-border-subtle shrink-0">
-                            /{dept.code}
+                            {dept.code}
                           </span>
                         )}
                       </Link>
@@ -370,7 +370,7 @@ export function Navbar() {
                         <span className="truncate">{dept.name}</span>
                         {dept.code && (
                           <span className="num text-[10px] text-accent-light bg-surface px-1.5 py-0.5 rounded border border-border-subtle">
-                            /{dept.code}
+                            {dept.code}
                           </span>
                         )}
                       </Link>

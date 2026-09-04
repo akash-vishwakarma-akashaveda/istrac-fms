@@ -737,6 +737,16 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
       deletedAt: null,
       status: { in: ['ACTIVE', 'ORPHANED'] },
       ...(!isAdmin ? { departmentId: { in: deptIds } } : {}),
+      ...(!isAdmin
+        ? {
+            versions: {
+              some: {
+                isVisible: true,
+                deletedAt: null,
+              },
+            },
+          }
+        : {}),
     }
 
     const todayStart = new Date()
@@ -763,6 +773,15 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
         include: {
           department: { select: { id: true, name: true, code: true } },
           uploader: { select: { id: true, name: true } },
+          versions: {
+            where: {
+              deletedAt: null,
+              ...(!isAdmin ? { isVisible: true } : {}),
+            },
+            orderBy: { versionNum: 'desc' },
+            take: 1,
+            select: { name: true, sizeBytes: true, versionLabel: true },
+          },
           report: {
             select: {
               id: true,
@@ -791,7 +810,21 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
           pageLeadOfficer: true,
           pageLeadRole: true,
           files: {
-            where: { nodeType: 'FILE', deletedAt: null, status: { in: ['ACTIVE', 'ORPHANED'] } },
+            where: {
+              nodeType: 'FILE',
+              deletedAt: null,
+              status: { in: ['ACTIVE', 'ORPHANED'] },
+              ...(!isAdmin
+                ? {
+                    versions: {
+                      some: {
+                        isVisible: true,
+                        deletedAt: null,
+                      },
+                    },
+                  }
+                : {}),
+            },
             take: 10,
             orderBy: { createdAt: 'desc' },
             select: {
@@ -801,12 +834,35 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
               extension: true,
               sizeBytes: true,
               createdAt: true,
+              versions: {
+                where: {
+                  deletedAt: null,
+                  ...(!isAdmin ? { isVisible: true } : {}),
+                },
+                orderBy: { versionNum: 'desc' },
+                take: 1,
+                select: { name: true, sizeBytes: true },
+              },
             },
           },
           _count: {
             select: {
               files: {
-                where: { nodeType: 'FILE', deletedAt: null, status: { in: ['ACTIVE', 'ORPHANED'] } },
+                where: {
+                  nodeType: 'FILE',
+                  deletedAt: null,
+                  status: { in: ['ACTIVE', 'ORPHANED'] },
+                  ...(!isAdmin
+                    ? {
+                        versions: {
+                          some: {
+                            isVisible: true,
+                            deletedAt: null,
+                          },
+                        },
+                      }
+                    : {}),
+                },
               },
             },
           },
@@ -887,23 +943,30 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
         },
         spacecraftBreakdown: spacecraftData,
         categoryBreakdown: categoryData,
-        recentFiles: allFiles.map((f: any) => ({
-          id: f.id,
-          name: f.name,
-          title: f.report?.title || f.name.replace(/_/g, ' ').replace(/\.[^.]+$/, ''),
-          category: f.report?.category || 'DAILY_REPORT',
-          version: f.report?.versionLabel || `V${f.versionCount || 1}.0`,
-          status: f.report?.status || 'Published',
-          reportDate: f.createdAt,
-          author: f.uploader?.name || 'Mission Ops',
-          classification: f.report?.classificationLevel || 'ISRO_LEVEL',
-          spacecraft: f.report?.spacecraft || 'General',
-          departmentName: f.department?.name || 'Mission Operations',
-          departmentCode: f.department?.code || 'MOX',
-          sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
-          mimeType: f.mimeType,
-          extension: (f.extension || 'DAT').toUpperCase(),
-        })),
+        recentFiles: allFiles.map((f: any) => {
+          const activeVer = f.versions?.[0]
+          const displayName = (!isAdmin && activeVer?.name) ? activeVer.name : f.name
+          const displaySize = (!isAdmin && activeVer?.sizeBytes) ? activeVer.sizeBytes.toString() : (f.sizeBytes ? f.sizeBytes.toString() : '0')
+          const displayVer = (!isAdmin && activeVer?.versionLabel) ? activeVer.versionLabel : (f.report?.versionLabel || `V${f.versionCount || 1}.0`)
+
+          return {
+            id: f.id,
+            name: displayName,
+            title: f.report?.title || displayName.replace(/_/g, ' ').replace(/\.[^.]+$/, ''),
+            category: f.report?.category || 'DAILY_REPORT',
+            version: displayVer,
+            status: f.report?.status || 'Published',
+            reportDate: f.createdAt,
+            author: f.uploader?.name || 'Mission Ops',
+            classification: f.report?.classificationLevel || 'ISRO_LEVEL',
+            spacecraft: f.report?.spacecraft || 'General',
+            departmentName: f.department?.name || 'Mission Operations',
+            departmentCode: f.department?.code || 'MOX',
+            sizeBytes: displaySize,
+            mimeType: f.mimeType,
+            extension: (f.extension || 'DAT').toUpperCase(),
+          }
+        }),
         departments: departments.map((d: any) => {
           const access = userAccess.find((ua) => ua.departmentId === d.id)
           return {
@@ -916,14 +979,19 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
             fileCount: d._count.files,
             accessLevel: isAdmin ? 'READ_WRITE' : access?.accessLevel || 'READ_ONLY',
             isAssigned: isAdmin || !!access,
-            files: d.files.map((f: any) => ({
-              id: f.id,
-              name: f.name,
-              mimeType: f.mimeType,
-              extension: (f.extension || 'DAT').toUpperCase(),
-              sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
-              createdAt: f.createdAt,
-            })),
+            files: d.files.map((f: any) => {
+              const activeVer = f.versions?.[0]
+              const name = (!isAdmin && activeVer?.name) ? activeVer.name : f.name
+              const size = (!isAdmin && activeVer?.sizeBytes) ? activeVer.sizeBytes.toString() : (f.sizeBytes ? f.sizeBytes.toString() : '0')
+              return {
+                id: f.id,
+                name,
+                mimeType: f.mimeType,
+                extension: (f.extension || 'DAT').toUpperCase(),
+                sizeBytes: size,
+                createdAt: f.createdAt,
+              }
+            }),
           }
         }),
         notices: notices.map((n: any) => ({

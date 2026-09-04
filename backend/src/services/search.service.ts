@@ -38,6 +38,7 @@ export interface SearchResultItem {
   customCategory?: string | null
   classificationLevel?: string | null
   versionLabel?: string | null
+  isFeatured?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -256,6 +257,7 @@ export const searchService = {
       customCategory: f.report?.customCategory || null,
       classificationLevel: f.report?.classificationLevel || null,
       versionLabel: f.report?.versionLabel || null,
+      isFeatured: Boolean(f.isFeatured),
       createdAt: f.createdAt ? f.createdAt.toISOString() : new Date().toISOString(),
       updatedAt: f.updatedAt ? f.updatedAt.toISOString() : new Date().toISOString(),
     }))

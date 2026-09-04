@@ -4,7 +4,7 @@ import * as fs from 'node:fs/promises'
 import { prisma } from '../config/db.js'
 import { redis } from '../config/redis.js'
 import { env } from '../config/env.js'
-import { authMiddleware } from '../middleware/auth.middleware.js'
+import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.middleware.js'
 import { adminMiddleware } from '../middleware/admin.middleware.js'
 import { auditService } from '../services/audit.service.js'
 import { notificationService } from '../services/notification.service.js'
@@ -124,13 +124,14 @@ router.get('/departments/public/:deptId', async (req, res, next) => {
 // ============================================================
 // PUBLIC/AUTH: GET FILES FOR SPECIFIC DEPARTMENT
 // ============================================================
-router.get('/departments/:deptId/files', async (req, res, next) => {
+router.get('/departments/:deptId/files', optionalAuthMiddleware, async (req, res, next) => {
   try {
     const rawDeptId = req.params.deptId
     const deptId = Array.isArray(rawDeptId) ? rawDeptId[0] : rawDeptId
     const search = req.query.search ? String(req.query.search).trim() : ''
     const extension = req.query.extension ? String(req.query.extension).trim().toUpperCase() : ''
     const spacecraft = req.query.spacecraft ? String(req.query.spacecraft).trim() : ''
+    const parentId = req.query.parentId !== undefined ? ((req.query.parentId as string) || null) : undefined
 
     const department = await prisma.department.findFirst({
       where: {
@@ -143,11 +144,42 @@ router.get('/departments/:deptId/files', async (req, res, next) => {
       throw new AppError('department_not_found', 'Department not found', 404)
     }
 
+    const isAdmin = req.user?.role === 'ADMIN'
+
+    // If department is deactivated/archived and user is not admin, deny
+    if (!department.isActive && !isAdmin) {
+      throw new AppError('dept_archived', 'Department is archived', 403)
+    }
+
+    // Access check for authenticated non-admin users
+    if (req.user && !isAdmin) {
+      const access = await prisma.userDepartmentAccess.findFirst({
+        where: {
+          userId: req.user.id,
+          departmentId: department.id,
+          deletedAt: null,
+        },
+      })
+      if (!access) {
+        throw new AppError('dept_access_denied', 'You do not have access to this department repository', 403)
+      }
+    }
+
     const where: any = {
       departmentId: department.id,
       deletedAt: null,
       nodeType: 'FILE',
+      ...(parentId !== undefined ? { parentId } : {}),
       ...(extension && extension !== 'ALL' && { extension }),
+      // Regular members and guests ONLY see files that have at least one visible published version
+      ...(!isAdmin ? {
+        versions: {
+          some: {
+            isVisible: true,
+            deletedAt: null,
+          },
+        },
+      } : {}),
     }
 
     if (search) {
@@ -185,36 +217,62 @@ router.get('/departments/:deptId/files', async (req, res, next) => {
       include: {
         report: { select: { id: true, title: true, category: true, spacecraft: true, classificationLevel: true } },
         versions: {
+          where: {
+            deletedAt: null,
+            ...(!isAdmin ? { isVisible: true } : {}),
+          },
           orderBy: { versionNum: 'desc' },
           take: 1,
-          select: { id: true, versionNum: true, sizeBytes: true, sha256: true, createdAt: true },
+          select: { id: true, versionNum: true, sizeBytes: true, sha256: true, createdAt: true, name: true, mimeType: true },
+        },
+        _count: {
+          select: {
+            versions: {
+              where: {
+                deletedAt: null,
+                ...(!isAdmin ? { isVisible: true } : {}),
+              },
+            },
+          },
         },
       },
     })
 
     res.json({
-      data: files.map((f: any) => ({
-        id: f.id,
-        name: f.name,
-        nodeType: f.nodeType,
-        extension: (f.extension || 'DAT').toUpperCase(),
-        sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
-        sha256: f.sha256 || 'Verified SHA-256',
-        versionCount: f.versionCount || 1,
-        status: f.status,
-        description: f.description,
-        hddPath: f.hddPath,
-        report: f.report,
-        latestVersion: f.versions?.[0] ? {
-          id: f.versions[0].id,
-          versionNum: f.versions[0].versionNum,
-          sizeBytes: f.versions[0].sizeBytes ? f.versions[0].sizeBytes.toString() : '0',
-          sha256: f.versions[0].sha256,
-          createdAt: f.versions[0].createdAt,
-        } : null,
-        createdAt: f.createdAt,
-        updatedAt: f.updatedAt,
-      })),
+      data: files.map((f: any) => {
+        const activeVer = f.versions?.[0]
+        const displayName = (!isAdmin && activeVer?.name) ? activeVer.name : f.name
+        const displaySize = (!isAdmin && activeVer?.sizeBytes) ? activeVer.sizeBytes.toString() : (f.sizeBytes ? f.sizeBytes.toString() : '0')
+        const displaySha256 = (!isAdmin && activeVer?.sha256) ? activeVer.sha256 : (f.sha256 || 'Verified SHA-256')
+        const versionCount = !isAdmin ? (f._count?.versions ?? (activeVer ? 1 : 0)) : (f.versionCount || 1)
+
+        return {
+          id: f.id,
+          name: displayName,
+          nodeType: f.nodeType,
+          extension: (f.extension || 'DAT').toUpperCase(),
+          sizeBytes: displaySize,
+          sha256: displaySha256,
+          versionCount,
+          status: f.status,
+          description: f.description,
+          hddPath: f.hddPath,
+          report: f.report,
+          title: f.report?.title || displayName.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+          spacecraft: f.report?.spacecraft || 'General',
+          category: f.report?.category || 'DAILY_REPORT',
+          isFeatured: Boolean(f.isFeatured),
+          latestVersion: activeVer ? {
+            id: activeVer.id,
+            versionNum: activeVer.versionNum,
+            sizeBytes: activeVer.sizeBytes ? activeVer.sizeBytes.toString() : '0',
+            sha256: activeVer.sha256,
+            createdAt: activeVer.createdAt,
+          } : null,
+          createdAt: f.createdAt,
+          updatedAt: f.updatedAt,
+        }
+      }),
       requestId: req.requestId,
     })
   } catch (err) {
@@ -457,23 +515,35 @@ router.get('/admin/departments', authMiddleware, adminMiddleware, async (req, re
       orderBy: { createdAt: 'desc' },
     })
 
+    const storageConfig = await prisma.systemConfig.findFirst({
+      where: { configKey: { in: ['STORAGE_PRIMARY_PATH', 'STORAGE_MOUNT_PATH'] } },
+    })
+    const baseMount = (storageConfig?.configValue || env.HDD_MOUNT_PATH).replace(/[\\/]+$/, '')
+
     res.json({
-      data: departments.map((d: any) => ({
-        id: d.id,
-        name: d.name,
-        code: d.code,
-        description: d.description,
-        hddPath: d.hddPath,
-        isActive: d.isActive,
-        archived: !d.isActive,
-        allowUserFolderCreation: d.allowUserFolderCreation,
-        maxFolderDepth: d.maxFolderDepth,
-        satellite: d.satellite,
-        fileCount: d._count.files,
-        userCount: d._count.userAccess,
-        createdAt: d.createdAt,
-        updatedAt: d.updatedAt,
-      })),
+      data: departments.map((d: any) => {
+        let displayPath = d.hddPath
+        if (!displayPath || displayPath.startsWith('/mnt/istrac_storage')) {
+          const sub = (d.code || d.name).toLowerCase().replace(/[^a-z0-9_-]/g, '_')
+          displayPath = path.join(baseMount, sub)
+        }
+        return {
+          id: d.id,
+          name: d.name,
+          code: d.code,
+          description: d.description,
+          hddPath: displayPath,
+          isActive: d.isActive,
+          archived: !d.isActive,
+          allowUserFolderCreation: d.allowUserFolderCreation,
+          maxFolderDepth: d.maxFolderDepth,
+          satellite: d.satellite,
+          fileCount: d._count.files,
+          userCount: d._count.userAccess,
+          createdAt: d.createdAt,
+          updatedAt: d.updatedAt,
+        }
+      }),
       requestId: req.requestId,
     })
   } catch (err) {
@@ -535,7 +605,13 @@ const createDeptHandler = async (req: any, res: any, next: any) => {
       )
     }
 
-    const finalHddPath = hddPath || path.join(env.HDD_MOUNT_PATH, name.toLowerCase().replace(/[^a-z0-9]/g, '_'))
+    const storageConfig = await prisma.systemConfig.findFirst({
+      where: { configKey: { in: ['STORAGE_PRIMARY_PATH', 'STORAGE_MOUNT_PATH'] } },
+    })
+    const baseMount = (storageConfig?.configValue || env.HDD_MOUNT_PATH).replace(/[\\/]+$/, '')
+    const finalHddPath = hddPath && !hddPath.startsWith('/mnt/istrac_storage')
+      ? hddPath
+      : path.join(baseMount, (code || name).toLowerCase().replace(/[^a-z0-9_-]/g, '_'))
 
     try {
       await fs.mkdir(finalHddPath, { recursive: true })
@@ -652,6 +728,14 @@ const updateDeptHandler = async (req: any, res: any, next: any) => {
     }
 
     const isDeptActive = archived !== undefined ? !archived : isActive !== undefined ? Boolean(isActive) : undefined
+
+    // EDGE CASE: If department is being archived / deactivated, automatically unfeature ALL its files
+    if (isDeptActive === false) {
+      await prisma.file.updateMany({
+        where: { departmentId: deptId, isFeatured: true },
+        data: { isFeatured: false },
+      })
+    }
 
     const updated = await prisma.department.update({
       where: { id: deptId },

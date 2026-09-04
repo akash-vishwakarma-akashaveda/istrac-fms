@@ -1,12 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { AxiosError } from 'axios'
 import { Modal, Button, Input } from '.'
+import { apiClient } from '../api/client'
 import {
   departmentSchema,
   type DepartmentFormData,
-  HDD_ROOT,
 } from '../../schemas/departmentSchema'
 
 interface CreateDeptModalProps {
@@ -52,6 +52,22 @@ export function CreateDeptModal({
     resolver: zodResolver(departmentSchema),
   })
 
+  const [mountRoot, setMountRoot] = useState('C:\\istrac_storage\\')
+
+  useEffect(() => {
+    if (isOpen) {
+      apiClient.get('/admin/storage/redundancy')
+        .then((res) => {
+          const p = res.data?.data?.primaryPath
+          if (p) {
+            const sep = p.includes('/') ? '/' : '\\'
+            setMountRoot(p.replace(/[\\/]+$/, '') + sep)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [isOpen])
+
   useEffect(() => {
     if (isOpen) {
       reset(
@@ -74,7 +90,7 @@ export function CreateDeptModal({
       await onSubmit({
         name: data.name,
         code: data.code || undefined,
-        hddPath: `${HDD_ROOT}${data.folderName}`,
+        hddPath: `${mountRoot}${data.folderName}`,
         pageTitle: data.pageTitle || undefined,
         pageAbout: data.pageAbout || undefined,
         pageLeadOfficer: data.pageLeadOfficer || undefined,
@@ -138,7 +154,7 @@ export function CreateDeptModal({
 
           <div className="flex w-full overflow-hidden rounded-md border border-border-default bg-surface transition-colors duration-150 focus-within:border-accent">
             <span className="num flex shrink-0 items-center border-r border-border-default bg-card px-3 py-2 text-xs text-text-dim font-mono">
-              {HDD_ROOT}
+              {mountRoot}
             </span>
 
             <input

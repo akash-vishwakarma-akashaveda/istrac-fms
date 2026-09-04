@@ -11,7 +11,12 @@ let syncTimer: NodeJS.Timeout | null = null
  * Reconciles physical files on the HDD mount with DB records.
  */
 export async function runHddSync(): Promise<{ registered: number; orphaned: number; updated: number }> {
-  const mountRoot = path.resolve(env.HDD_MOUNT_PATH)
+  const storageConfig = await prisma.systemConfig.findFirst({
+    where: { configKey: { in: ['STORAGE_PRIMARY_PATH', 'STORAGE_MOUNT_PATH'] } },
+  })
+  const mountRoot = storageConfig?.configValue
+    ? path.resolve(storageConfig.configValue)
+    : path.resolve(env.HDD_MOUNT_PATH)
   let registered = 0
   let orphaned = 0
   let updated = 0

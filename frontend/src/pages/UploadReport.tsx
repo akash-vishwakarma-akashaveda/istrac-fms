@@ -11,8 +11,9 @@ import {
   Plus,
   Trash2,
   Check,
+  Star,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { satellitesApi, type Satellite } from '../api/satellites.api'
 import { departmentsApi, type Department } from '../api/departments.api'
 import { reportPresetsApi, type CategoryPreset, type NamingPreset } from '../api/reportPresets.api'
@@ -23,12 +24,6 @@ import { useSystemConfig } from '../hooks/useSystemConfig'
 import { PageHeader, Button, Input, Textarea, Select, Modal } from '../components'
 import { formatFileSize } from '../lib/formatFileSize'
 
-const CLASSIFICATION_LEVELS = [
-  { id: 'ISRO_LEVEL', label: 'ISRO Level — All Authenticated SPOA Personnel' },
-  { id: 'MISSION_TEAM', label: 'Mission Team — Dedicated Spacecraft Ops Team' },
-  { id: 'DIRECTORATE', label: 'Directorate — OD / SOM Mission Directors' },
-  { id: 'RESTRICTED', label: 'Restricted — High-Security Air-Gapped Key' },
-]
 
 const TOKEN_CHIPS = [
   { token: '{SAT}', label: 'Spacecraft Code' },
@@ -43,6 +38,8 @@ const TOKEN_CHIPS = [
 
 export function UploadReport() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const deptIdParam = searchParams.get('deptId')
   const user = useAuthStore((s) => s.user)
   const addToast = useToastStore((s) => s.addToast)
 
@@ -57,7 +54,6 @@ export function UploadReport() {
   const [selectedSat, setSelectedSat] = useState<string>('')
   const [selectedDept, setSelectedDept] = useState<string>('')
   const [selectedCategoryCode, setSelectedCategoryCode] = useState<string>('DAILYOPS')
-  const [classification, setClassification] = useState<string>('ISRO_LEVEL')
   const [reportTitle, setReportTitle] = useState<string>('')
   const [reportDate, setReportDate] = useState<string>(
     new Date().toISOString().split('T')[0],
@@ -66,6 +62,7 @@ export function UploadReport() {
   const [author, setAuthor] = useState<string>(user?.name || '')
   const [description, setDescription] = useState<string>('')
   const [enforceNaming, setEnforceNaming] = useState<boolean>(true)
+  const [isFeatured, setIsFeatured] = useState<boolean>(false)
 
   // Custom Category Modal State
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
@@ -106,7 +103,13 @@ export function UploadReport() {
       setNamingPresets(presets || [])
 
       if (sats && sats.length > 0) setSelectedSat(sats[0].id)
-      if (depts && depts.length > 0) setSelectedDept(depts[0].id)
+      if (depts && depts.length > 0) {
+        if (deptIdParam && depts.some((d) => d.id === deptIdParam)) {
+          setSelectedDept(deptIdParam)
+        } else {
+          setSelectedDept(depts[0].id)
+        }
+      }
       if (cats && cats.length > 0) setSelectedCategoryCode(cats[0].code)
 
       const defPreset = presets?.find((p) => p.isDefault) || presets?.[0]
@@ -129,7 +132,7 @@ export function UploadReport() {
     ? activeSatObj.code.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
     : activeSatObj?.name
       ? activeSatObj.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase()
-      : 'EOS08'
+      : 'GENERAL'
 
   const activeDeptObj = departments.find((d) => d.id === selectedDept)
   const cleanDept = activeDeptObj?.code
@@ -328,8 +331,8 @@ export function UploadReport() {
       formData.append('description', description || '')
       formData.append('spacecraft', activeSatObj?.name || cleanSat)
       formData.append('category', selectedCategoryCode)
-      formData.append('classificationLevel', classification)
       formData.append('versionLabel', version)
+      formData.append('isFeatured', isFeatured ? 'true' : 'false')
 
       setUploadProgress(40)
 
@@ -401,11 +404,14 @@ export function UploadReport() {
                       onChange={(e) => setSelectedSat(e.target.value)}
                       required
                     >
-                      {satellites.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} ({s.code || 'ISRO'})
-                        </option>
-                      ))}
+                      {satellites
+                        .slice()
+                        .sort((a, b) => (a.code === 'GENERAL' ? -1 : b.code === 'GENERAL' ? 1 : a.name.localeCompare(b.name)))
+                        .map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.code === 'GENERAL' ? 'General' : `${s.name} (${s.code || 'ISRO'})`}
+                          </option>
+                        ))}
                     </Select>
                   </div>
 
@@ -429,58 +435,42 @@ export function UploadReport() {
                 </div>
 
                 {/* Report Category with Custom Option */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-semibold text-text-primary">
-                        Report Category / Type *
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setIsCategoryModalOpen(true)}
-                        className="text-[11px] font-bold text-accent-light hover:underline flex items-center gap-1"
-                      >
-                        <Plus size={12} />
-                        <span>Add Custom Category</span>
-                      </button>
-                    </div>
-
-                    <Select
-                      id="upload-type"
-                      value={selectedCategoryCode}
-                      onChange={(e) => {
-                        if (e.target.value === '__add_custom__') {
-                          setIsCategoryModalOpen(true)
-                        } else {
-                          setSelectedCategoryCode(e.target.value)
-                        }
-                      }}
-                    >
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.code}>
-                          {c.name} ({c.code})
-                        </option>
-                      ))}
-                      <option value="__add_custom__">+ Create New Custom Category…</option>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-text-primary mb-1.5">
-                      Classification Level *
+                <div className="pt-1">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-text-primary">
+                      Report Category / Type *
                     </label>
-                    <Select
-                      id="upload-class"
-                      value={classification}
-                      onChange={(e) => setClassification(e.target.value)}
+                    <button
+                      type="button"
+                      onClick={() => setIsCategoryModalOpen(true)}
+                      className="text-[11px] font-bold text-accent-light hover:underline flex items-center gap-1"
                     >
-                      {CLASSIFICATION_LEVELS.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.label}
+                      <Plus size={12} />
+                      <span>Add Custom Category</span>
+                    </button>
+                  </div>
+
+                  <Select
+                    id="upload-type"
+                    value={selectedCategoryCode}
+                    onChange={(e) => {
+                      if (e.target.value === '__add_custom__') {
+                        setIsCategoryModalOpen(true)
+                      } else {
+                        setSelectedCategoryCode(e.target.value)
+                      }
+                    }}
+                  >
+                    {categories
+                      .slice()
+                      .sort((a, b) => (a.code === 'GENERAL' ? -1 : b.code === 'GENERAL' ? 1 : a.name.localeCompare(b.name)))
+                      .map((c) => (
+                        <option key={c.id} value={c.code}>
+                          {c.code === 'GENERAL' ? 'General' : `${c.name} (${c.code})`}
                         </option>
                       ))}
-                    </Select>
-                  </div>
+                    <option value="__add_custom__">+ Create New Custom Category…</option>
+                  </Select>
                 </div>
               </div>
 
@@ -714,6 +704,27 @@ export function UploadReport() {
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Feature in Public Showcase Checkbox Card */}
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3.5 space-y-1.5">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isFeatured}
+                      onChange={(e) => setIsFeatured(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-border-default bg-[#050b16] text-amber-500 focus:ring-amber-500 accent-amber-500"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <Star size={13} className={isFeatured ? 'fill-amber-400 text-amber-400' : 'text-amber-400'} />
+                        <span>Feature in Public Mission Reports Showcase</span>
+                      </span>
+                      <p className="text-[11px] text-text-muted mt-0.5 leading-relaxed">
+                        Enables instant in-browser viewing and direct download without requiring user login on the public portal.
+                      </p>
+                    </div>
+                  </label>
                 </div>
 
                 {/* Upload Progress & Ingest Action */}

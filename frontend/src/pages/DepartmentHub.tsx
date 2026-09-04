@@ -20,6 +20,7 @@ import { useAuthStore } from '../store/authStore'
 import { useToastStore } from '../store/toastStore'
 import { Button, Modal, Textarea } from '../components'
 import { formatFileSize } from '../lib/formatFileSize'
+import { formatDateTimeIST } from '../lib/formatDate'
 
 interface DepartmentHubData {
   department: {
@@ -206,7 +207,7 @@ export function DepartmentHub() {
             <Link to={`/admin/upload?deptId=${department.id}`}>
               <Button type="button" variant="primary" size="sm" className="shadow-md shadow-accent/25">
                 <Upload size={13} />
-                <span>Upload to /{department.code || department.name}</span>
+                <span>Upload to {department.code || department.name}</span>
               </Button>
             </Link>
           )}
@@ -351,7 +352,7 @@ export function DepartmentHub() {
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
               <input
                 type="text"
-                placeholder={`Search files inside /${department.code || department.name}…`}
+                placeholder={`Search files inside ${department.code || department.name}…`}
                 value={fileSearch}
                 onChange={(e) => setFileSearch(e.target.value)}
                 className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
@@ -397,7 +398,7 @@ export function DepartmentHub() {
                       </td>
                       <td className="px-4 py-3 text-text-muted">{file.uploader}</td>
                       <td className="px-4 py-3 num text-text-dim">
-                        {new Date(file.createdAt).toLocaleDateString()}
+                        {formatDateTimeIST(file.createdAt)}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <a
@@ -433,7 +434,7 @@ export function DepartmentHub() {
                       {r.category || 'MISSION REPORT'}
                     </span>
                     <span className="text-[10px] text-text-dim num">
-                      {new Date(r.createdAt).toLocaleDateString()}
+                      {formatDateTimeIST(r.createdAt)}
                     </span>
                   </div>
                   <h4 className="text-sm font-bold text-white">{r.title}</h4>

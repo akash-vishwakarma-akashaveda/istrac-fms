@@ -10,7 +10,6 @@ import {
 import { useToastStore } from '../store/toastStore'
 import { Button, PageHeader, Modal } from '../components'
 import { CreateDeptModal } from '../components/CreateDeptModal'
-import { HDD_ROOT } from '../../schemas/departmentSchema'
 import type { Department } from '../api'
 
 type Tab = 'active' | 'archived'
@@ -110,7 +109,7 @@ export function DepartmentManager() {
       id: dept.id,
       name: dept.name,
       code: dept.code || '',
-      folderName: dept.hddPath ? dept.hddPath.replace(HDD_ROOT, '') : '',
+      folderName: dept.hddPath ? dept.hddPath.replace(/.*[/\\]/, '') : '',
       pageTitle: dept.pageTitle || '',
       pageAbout: dept.pageAbout || '',
       pageLeadOfficer: dept.pageLeadOfficer || '',
@@ -293,7 +292,7 @@ export function DepartmentManager() {
                 <div>
                   <div className="flex items-center justify-between">
                     <p className="col-label">Physical Storage Root</p>
-                    <span className="num text-[10px] font-mono text-text-dim">/{dept.code || 'OPS'} Division</span>
+                    <span className="num text-[10px] font-mono text-text-dim">{dept.code || 'OPS'} Division</span>
                   </div>
                   <p className="num mt-1 break-all text-[11px] leading-5 text-text-secondary font-mono bg-surface/60 px-2.5 py-1.5 rounded border border-border-subtle">
                     {dept.hddPath}

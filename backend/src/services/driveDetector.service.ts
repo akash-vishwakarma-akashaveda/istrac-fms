@@ -158,6 +158,18 @@ export const driveDetectorService = {
       })
     }
 
+    if (settings.primaryPath) {
+      const normRoot = path.normalize(settings.primaryPath).replace(/[\\/]+$/, '')
+      const allDepts = await prisma.department.findMany({ where: { deletedAt: null } })
+      for (const d of allDepts) {
+        const sub = (d.code || d.name).toLowerCase().replace(/[^a-z0-9_-]/g, '_')
+        await prisma.department.update({
+          where: { id: d.id },
+          data: { hddPath: path.join(normRoot, sub) },
+        })
+      }
+    }
+
     return this.getStorageConfig()
   },
 
@@ -187,29 +199,40 @@ export const driveDetectorService = {
       filesCopied = copyRes.filesCopied
       bytesCopied = copyRes.bytesCopied
 
+      const normOld = path.normalize(oldPrimaryPath).replace(/[\\/]+$/, '').toLowerCase()
+      const normNew = path.normalize(newPrimaryPath).replace(/[\\/]+$/, '')
+
       // 3. Update database file paths
       const allFiles = await prisma.file.findMany({
         where: { deletedAt: null },
       })
 
       for (const f of allFiles) {
-        if (f.hddPath && f.hddPath.includes(oldPrimaryPath)) {
-          const updatedHddPath = f.hddPath.replace(oldPrimaryPath, newPrimaryPath)
-          await prisma.file.update({
-            where: { id: f.id },
-            data: { hddPath: updatedHddPath },
-          })
+        if (f.hddPath) {
+          const normFile = path.normalize(f.hddPath).toLowerCase()
+          if (normFile.startsWith(normOld)) {
+            const rel = path.normalize(f.hddPath).slice(normOld.length).replace(/^[\\/]+/, '')
+            const updatedHddPath = path.join(normNew, rel)
+            await prisma.file.update({
+              where: { id: f.id },
+              data: { hddPath: updatedHddPath },
+            })
+          }
         }
       }
 
       const allVersions = await prisma.fileVersion.findMany()
       for (const v of allVersions) {
-        if (v.hddPath && v.hddPath.includes(oldPrimaryPath)) {
-          const updatedHddPath = v.hddPath.replace(oldPrimaryPath, newPrimaryPath)
-          await prisma.fileVersion.update({
-            where: { id: v.id },
-            data: { hddPath: updatedHddPath },
-          })
+        if (v.hddPath) {
+          const normVer = path.normalize(v.hddPath).toLowerCase()
+          if (normVer.startsWith(normOld)) {
+            const rel = path.normalize(v.hddPath).slice(normOld.length).replace(/^[\\/]+/, '')
+            const updatedHddPath = path.join(normNew, rel)
+            await prisma.fileVersion.update({
+              where: { id: v.id },
+              data: { hddPath: updatedHddPath },
+            })
+          }
         }
       }
     }

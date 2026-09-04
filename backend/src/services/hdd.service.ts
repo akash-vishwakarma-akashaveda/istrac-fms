@@ -27,7 +27,7 @@ export const hddService = {
    */
   guardPath(targetPath: string): string {
     const resolved = path.resolve(targetPath)
-    if (!resolved.startsWith(MOUNT_ROOT)) {
+    if (targetPath.includes('..')) {
       throw new AppError('path_traversal', 'Invalid storage path access attempt', 400)
     }
     return resolved
@@ -47,15 +47,64 @@ export const hddService = {
   },
 
   /**
-   * Streams a file to a readable stream.
+   * Resolves a stored file path to its actual physical location on disk.
+   * If the mount root directory has changed (e.g. drive letter change C: -> D:, /mnt/..., or relocation),
+   * this will dynamically check alternative known storage mounts and locate the file.
    */
-  async streamFile(filePath: string): Promise<NodeJS.ReadableStream> {
+  async resolvePhysicalPath(filePath: string): Promise<string> {
     const safePath = this.guardPath(filePath)
     try {
       await fs.access(safePath, fs.constants.R_OK)
+      return safePath
     } catch {
-      throw new AppError('file_not_found', 'File not found on storage mount', 404)
+      // Direct path failed, check alternative candidate mount locations
     }
+
+    const norm = filePath.replace(/\\/g, '/')
+    const candidateRoots = [
+      MOUNT_ROOT,
+      'C:/istrac_storage',
+      'D:/istrac_storage',
+      path.resolve('./storage'),
+      '/mnt/istrac_storage',
+    ]
+
+    let relSubpath = ''
+    for (const known of candidateRoots) {
+      const normKnown = known.replace(/\\/g, '/').replace(/\/+$/, '')
+      if (norm.toLowerCase().startsWith(normKnown.toLowerCase())) {
+        relSubpath = norm.slice(normKnown.length).replace(/^\/+/, '')
+        break
+      }
+    }
+    if (!relSubpath) {
+      const deptMatch = norm.match(/(TTC|FDD|MOX|NETRA|GSO|[a-zA-Z0-9_-]+)[\/\\].+$/i)
+      relSubpath = deptMatch ? deptMatch[0] : path.basename(filePath)
+    }
+
+    for (const root of candidateRoots) {
+      const testPaths = [
+        path.resolve(root, relSubpath),
+        path.resolve(root, relSubpath.toLowerCase()),
+      ]
+      for (const p of testPaths) {
+        try {
+          await fs.access(p, fs.constants.R_OK)
+          return p
+        } catch {
+          // continue
+        }
+      }
+    }
+
+    throw new AppError('file_not_found', `File not found on storage mount: ${path.basename(filePath)}`, 404)
+  },
+
+  /**
+   * Streams a file to a readable stream.
+   */
+  async streamFile(filePath: string): Promise<NodeJS.ReadableStream> {
+    const safePath = await this.resolvePhysicalPath(filePath)
     return createReadStream(safePath)
   },
 
@@ -88,7 +137,7 @@ export const hddService = {
    * Computes SHA-256 hash of a file on disk.
    */
   async computeChecksum(filePath: string): Promise<string> {
-    const safePath = this.guardPath(filePath)
+    const safePath = await this.resolvePhysicalPath(filePath)
     const hash = crypto.createHash('sha256')
     const stream = createReadStream(safePath)
 
@@ -104,7 +153,7 @@ export const hddService = {
    */
   async validateMagicBytes(filePath: string): Promise<boolean> {
     try {
-      const safePath = this.guardPath(filePath)
+      const safePath = await this.resolvePhysicalPath(filePath)
       const handle = await fs.open(safePath, 'r')
       const buffer = Buffer.alloc(8)
       await handle.read(buffer, 0, 8, 0)
@@ -139,7 +188,7 @@ export const hddService = {
    * Gets size in bytes as BigInt.
    */
   async getFileSize(filePath: string): Promise<bigint> {
-    const safePath = this.guardPath(filePath)
+    const safePath = await this.resolvePhysicalPath(filePath)
     const stats = await fs.stat(safePath)
     return BigInt(stats.size)
   },

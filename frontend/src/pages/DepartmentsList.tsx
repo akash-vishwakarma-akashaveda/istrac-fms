@@ -108,7 +108,7 @@ export function DepartmentsList() {
                       {/* Division Shortcode Tag */}
                       {dept.code && (
                         <span className="absolute top-3 right-3 num font-mono rounded-full border border-accent/40 bg-[#060b16]/80 backdrop-blur-md px-2.5 py-0.5 text-xs font-bold text-accent-light shadow-md">
-                          /{dept.code}
+                          {dept.code}
                         </span>
                       )}
 

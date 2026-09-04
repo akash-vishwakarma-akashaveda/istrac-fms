@@ -1,37 +1,43 @@
 import { useState, useRef, useEffect } from "react"
 import {
   FileText,
-  Lock,
-  ShieldCheck,
-  HardDrive,
+  Eye,
+  Download,
   FileCode,
   FileSpreadsheet,
-  LogIn,
-  X,
   Filter,
   ChevronLeft,
   ChevronRight,
   FolderOpen,
+  Star,
+  Sparkles,
 } from "lucide-react"
-import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "../store/authStore"
-import { useAuthModalStore } from "../store/authModalStore"
 import { useCms } from "../context/cmsContext"
-import { Button } from "."
 import { apiClient } from "../api/client"
 import { formatFileSize } from "../lib/formatFileSize"
+import { FilePreviewModal } from "./FilePreviewModal"
+import { ConfirmFeatureModal } from "./ConfirmFeatureModal"
+import type { FileNode } from "../types/file"
 
 export interface FeaturedReportItem {
   id: string
   title: string
   filename: string
   department: string
+  departmentName?: string
+  departmentCode?: string
+  departmentId?: string
   satellite: string
   fileSize: string
   extension: string
+  mimeType?: string | null
   date: string
   classification?: string
   description?: string
+  isFeatured?: boolean
+  versionCount?: number
+  versionLabel?: string
 }
 
 const EXT_CONFIG: Record<
@@ -48,53 +54,78 @@ const EXT_CONFIG: Record<
   LOG: { label: "LOG", badge: "bg-purple-400/15 text-purple-400 border-purple-400/30", icon: FileText },
 }
 
+function isViewableFormat(ext: string, mime?: string | null): boolean {
+  const e = ext.toUpperCase()
+  if (["PDF", "PNG", "JPG", "JPEG", "WEBP", "GIF", "SVG", "TXT", "LOG", "JSON", "CSV"].includes(e)) return true
+  if (mime && (mime.startsWith("image/") || mime.startsWith("text/") || mime === "application/pdf")) return true
+  return false
+}
+
 export function FeaturedReports() {
   const user = useAuthStore((s) => s.user)
-  const { openLogin, openRegister } = useAuthModalStore()
-  const navigate = useNavigate()
   const { cmsBlocks } = useCms()
 
   const [dbFiles, setDbFiles] = useState<FeaturedReportItem[]>([])
   const [selectedDept, setSelectedDept] = useState<string>("ALL")
-  const [restrictedModalItem, setRestrictedModalItem] = useState<FeaturedReportItem | null>(null)
+  const [previewFile, setPreviewFile] = useState<FileNode | null>(null)
+  const [featureConfirmFile, setFeatureConfirmFile] = useState<{ id: string; name: string; isFeatured?: boolean } | null>(null)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const carouselRef = useRef<HTMLDivElement>(null)
 
-  // Fetch real uploaded files if CMS has not explicitly set any featured files yet
-  useEffect(() => {
-    const cmsItems = cmsBlocks["featured_reports"]?.items as FeaturedReportItem[] | undefined
-    if (cmsItems && cmsItems.length > 0) {
-      setDbFiles(cmsItems)
-    } else {
-      // Fetch latest real files from public endpoint
-      apiClient
-        .get("/files/featured-list")
-        .then((res) => {
-          if (res.data?.data && res.data.data.length > 0) {
-            const mapped: FeaturedReportItem[] = res.data.data.slice(0, 10).map((f: any) => ({
-              id: f.id,
-              title: f.name.replace(/\.[^/.]+$/, "").replace(/_/g, " "),
-              filename: f.name,
-              department: f.department || "TTC",
-              satellite: f.satellite || "Primary Fleet",
-              fileSize: formatFileSize(Number(f.sizeBytes) || 0),
-              extension: (f.extension || "DAT").toUpperCase(),
-              date: f.createdAt ? f.createdAt.split("T")[0] : new Date().toISOString().split("T")[0],
-              classification: "RESTRICTED",
-              description: `Official telemetry archive and observation report for ${f.satellite || f.department}.`,
-            }))
-            setDbFiles(mapped)
-          } else {
-            setDbFiles([])
-          }
-        })
-        .catch(() => {
+  const fetchFeaturedFiles = () => {
+    apiClient
+      .get("/files/featured-list")
+      .then((res) => {
+        if (res.data?.data && res.data.data.length > 0) {
+          const mapped: FeaturedReportItem[] = res.data.data.map((f: any) => ({
+            id: f.id,
+            title: f.title || f.name.replace(/\.[^/.]+$/, "").replace(/_/g, " "),
+            filename: f.filename || f.name,
+            department: f.department || f.departmentCode || "TTC",
+            departmentName: f.departmentName,
+            departmentCode: f.departmentCode,
+            departmentId: f.departmentId,
+            satellite: f.satellite || "Primary Fleet",
+            fileSize: formatFileSize(Number(f.sizeBytes) || 0),
+            extension: (f.extension || "DAT").toUpperCase(),
+            mimeType: f.mimeType || null,
+            date: f.date || (f.createdAt ? f.createdAt.split("T")[0] : new Date().toISOString().split("T")[0]),
+            classification: f.classification || "RESTRICTED",
+            description: f.description || `Official telemetry archive and observation report for ${f.satellite || f.department}.`,
+            isFeatured: Boolean(f.isFeatured),
+          }))
+          setDbFiles(mapped)
+        } else {
           setDbFiles([])
-        })
+        }
+      })
+      .catch(() => {
+        setDbFiles([])
+      })
+  }
+
+  useEffect(() => {
+    fetchFeaturedFiles()
+
+    const handleRefresh = () => {
+      fetchFeaturedFiles()
+    }
+
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data?.type === "REFRESH_FEATURED" || e.data?.type === "CMS_SCROLL_TO") {
+        fetchFeaturedFiles()
+      }
+    }
+
+    window.addEventListener("istrac:featured-refresh", handleRefresh)
+    window.addEventListener("message", handleMessage)
+    return () => {
+      window.removeEventListener("istrac:featured-refresh", handleRefresh)
+      window.removeEventListener("message", handleMessage)
     }
   }, [cmsBlocks])
 
-  const rawReports = (cmsBlocks["featured_reports"]?.items as FeaturedReportItem[]) || dbFiles
-
+  const rawReports = dbFiles.filter((r) => r.isFeatured)
   const departments = ["ALL", ...Array.from(new Set(rawReports.map((r) => r.department)))]
 
   const filtered =
@@ -102,12 +133,59 @@ export function FeaturedReports() {
       ? rawReports
       : rawReports.filter((r) => r.department.toUpperCase() === selectedDept.toUpperCase())
 
-  const handleFileAction = (item: FeaturedReportItem) => {
-    if (!user) {
-      setRestrictedModalItem(item)
-    } else {
-      navigate(`/dashboard/files`)
+  const handleDownload = async (e: React.MouseEvent, item: FeaturedReportItem) => {
+    e.stopPropagation()
+    if (downloadingId === item.id) return
+    setDownloadingId(item.id)
+    try {
+      const res = await apiClient.get(`/files/${item.id}/download`, { responseType: "blob" })
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = item.filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error("Direct download failed:", err)
+    } finally {
+      setDownloadingId(null)
     }
+  }
+
+  const handleOpenPreview = (item: FeaturedReportItem) => {
+    const ext = (item.extension || "DAT").toUpperCase()
+    if (isViewableFormat(ext, item.mimeType)) {
+      setPreviewFile({
+        id: item.id,
+        name: item.filename,
+        nodeType: "FILE",
+        departmentId: item.departmentId || "",
+        parentId: null,
+        sizeBytes: null,
+        mimeType: item.mimeType || null,
+        status: "ACTIVE",
+        createdAt: item.date,
+        isFeatured: item.isFeatured,
+      })
+    } else {
+      // If it cannot be viewed, directly download it as requested
+      handleDownload({ stopPropagation: () => {} } as React.MouseEvent, item)
+    }
+  }
+
+  const canUserManageFeature = (item: FeaturedReportItem) => {
+    if (!user) return false
+    if (user.role === "ADMIN") return true
+    return Boolean(
+      user.departmentAccess?.some((da: any) => {
+        const matchesId = item.departmentId && (da.departmentId === item.departmentId || da.department?.id === item.departmentId)
+        const matchesCode = da.department?.code && (da.department.code.toUpperCase() === item.department.toUpperCase() || da.department.code.toUpperCase() === item.departmentCode?.toUpperCase())
+        const matchesName = da.department?.name && da.department.name.toUpperCase() === item.department.toUpperCase()
+        return (matchesId || matchesCode || matchesName) && da.accessLevel === "READ_WRITE"
+      })
+    )
   }
 
   const scrollLeft = () => {
@@ -133,20 +211,20 @@ export function FeaturedReports() {
           {/* Header & Filter / Navigation Row */}
           <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
             <div>
-              <p className="eyebrow flex items-center gap-2 text-accent-light">
-                <HardDrive size={14} />
-                Telemetry Repositories · Files
-              </p>
+              <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[11px] font-semibold text-accent-light shadow-sm mb-2">
+                <Sparkles size={12} className="text-accent-light" />
+                <span>Public Telemetry Showcase · Viewable Without Login</span>
+              </div>
 
               <h2
                 id="featured-files-title"
-                className="display mt-2 text-2xl font-bold text-text-primary sm:text-3xl"
+                className="display text-2xl font-bold text-text-primary sm:text-3xl"
               >
-                Featured Mission Reports & Files.
+                {(cmsBlocks["featured_reports"] as any)?.title || "Featured Mission Reports & Datasets"}
               </h2>
 
               <p className="mt-2 max-w-xl text-xs leading-relaxed text-text-muted">
-                Public catalog of recent telemetry passes, orbit determinations, and launch vehicle tracking logs. Direct file download is restricted to authorized users.
+                {(cmsBlocks["featured_reports"] as any)?.subtitle || "Public mission telemetry archive and observation reports. Viewable directly in-browser without login; raw telemetry streams and datasets can be downloaded instantly."}
               </p>
             </div>
 
@@ -199,9 +277,9 @@ export function FeaturedReports() {
           {filtered.length === 0 ? (
             <div className="mt-8 rounded-2xl border border-dashed border-border-subtle bg-[#0d1629]/50 p-12 text-center">
               <FolderOpen size={32} className="mx-auto text-text-dim mb-3" />
-              <h3 className="text-sm font-semibold text-white">No Featured Files Available</h3>
+              <h3 className="text-sm font-semibold text-white">No Featured Mission Reports Available</h3>
               <p className="text-xs text-text-muted max-w-sm mx-auto mt-1">
-                Upload files in the File Repository or select files from the Portal CMS to feature them here.
+                Operators with R/W permission can feature reports using the Star button in their department repository or during file upload.
               </p>
             </div>
           ) : (
@@ -214,14 +292,17 @@ export function FeaturedReports() {
                   const ext = (item.extension || "DAT").toUpperCase()
                   const meta = EXT_CONFIG[ext] || EXT_CONFIG.DAT
                   const Icon = meta.icon
+                  const viewable = isViewableFormat(ext, item.mimeType)
+                  const canManage = canUserManageFeature(item)
 
                   return (
                     <div
                       key={item.id}
-                      className="group relative flex w-[320px] sm:w-[350px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-2xl border border-border-default bg-[#0d1629] p-5 shadow-card transition-all duration-300 hover:border-accent/40 hover:bg-[#101c36] hover:shadow-2xl"
+                      onClick={() => handleOpenPreview(item)}
+                      className="group relative flex w-[320px] sm:w-[350px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-2xl border border-border-default bg-[#0d1629] p-5 shadow-card transition-all duration-300 hover:border-accent/50 hover:bg-[#101c36] hover:shadow-2xl cursor-pointer"
                     >
                       <div>
-                        {/* Top Row: Extension badge, Satellite tag, Date */}
+                        {/* Top Row: Extension badge, Satellite tag, and Star action */}
                         <div className="flex items-center justify-between border-b border-border-subtle/70 pb-3">
                           <div className="flex items-center gap-2">
                             <span
@@ -232,13 +313,33 @@ export function FeaturedReports() {
                             </span>
 
                             <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary border border-border-subtle">
-                              {item.satellite}
+                              {item.satellite?.includes('General') ? 'General' : item.satellite}
                             </span>
+
+                            {item.versionLabel && (
+                              <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] font-mono font-bold text-accent-light border border-border-subtle">
+                                {item.versionLabel}
+                              </span>
+                            )}
                           </div>
 
-                          <span className="num text-[11px] font-medium text-text-dim">
-                            {item.date}
-                          </span>
+                          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            {/* Star Action Button for R/W users */}
+                            {canManage && (
+                              <button
+                                type="button"
+                                onClick={() => setFeatureConfirmFile({ id: item.id, name: item.filename, isFeatured: true })}
+                                className="p-1 rounded-md border border-amber-500/40 bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
+                                title="Manage Featured status (R/W clearance)"
+                              >
+                                <Star size={13} className="fill-amber-400" />
+                              </button>
+                            )}
+
+                            <span className="num text-[11px] font-medium text-text-dim">
+                              {item.date}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Title & Filename */}
@@ -260,7 +361,7 @@ export function FeaturedReports() {
                         )}
                       </div>
 
-                      {/* Footer: Size, Dept, Action Button */}
+                      {/* Footer: Size, Dept, Action Buttons */}
                       <div className="mt-5 flex items-center justify-between border-t border-border-subtle/70 pt-3">
                         <div className="flex items-center gap-2">
                           <span className="num text-xs font-bold text-white">
@@ -272,14 +373,41 @@ export function FeaturedReports() {
                           </span>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleFileAction(item)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:border-accent hover:text-white transition-all shadow-sm group-hover:border-accent/60"
-                        >
-                          <Lock size={12} className="text-accent-light" />
-                          <span>Access File</span>
-                        </button>
+                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          {viewable ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenPreview(item)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-accent/40 bg-accent/15 px-2.5 py-1.5 text-xs font-semibold text-accent-light hover:bg-accent hover:text-white transition-all shadow-sm"
+                                title="View in-browser without login"
+                              >
+                                <Eye size={12} />
+                                <span>View</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => handleDownload(e, item)}
+                                disabled={downloadingId === item.id}
+                                className="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border-default bg-surface text-text-muted hover:border-nominal hover:text-nominal transition-colors"
+                                title="Download Report"
+                              >
+                                <Download size={12} />
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => handleDownload(e, item)}
+                              disabled={downloadingId === item.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:border-nominal hover:text-nominal transition-all shadow-sm"
+                              title="Download Raw Dataset (No login required)"
+                            >
+                              <Download size={12} className="text-nominal" />
+                              <span>{downloadingId === item.id ? "Streaming…" : "Download"}</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )
@@ -290,84 +418,21 @@ export function FeaturedReports() {
         </div>
       </section>
 
-      {/* Restricted Access Modal */}
-      {restrictedModalItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-md rounded-2xl border border-border-default bg-[#0c1426] p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-border-subtle pb-3">
-              <div className="flex items-center gap-2 text-accent-light">
-                <ShieldCheck size={18} />
-                <span className="text-xs font-bold uppercase tracking-wider">
-                  Restricted Mission Archive
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setRestrictedModalItem(null)}
-                className="p-1 rounded-md text-text-dim hover:text-white transition-colors"
-              >
-                <X size={16} />
-              </button>
-            </div>
+      {/* In-Browser Preview Modal (Works without login for featured files) */}
+      <FilePreviewModal
+        file={previewFile}
+        onClose={() => setPreviewFile(null)}
+      />
 
-            <div className="space-y-2">
-              <h4 className="text-base font-bold text-white">
-                {restrictedModalItem.title}
-              </h4>
-              <p className="text-xs text-text-secondary leading-relaxed">
-                Direct access to telemetry records and engineering dumps requires an authenticated ISRO account with authorized department clearances.
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-border-subtle bg-[#060c18] p-3 space-y-1.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-text-dim">Filename:</span>
-                <span className="font-mono text-white text-[11px] truncate max-w-[240px]">
-                  {restrictedModalItem.filename}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-dim">Department:</span>
-                <span className="font-bold text-accent-light">
-                  {restrictedModalItem.department}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-text-dim">Security Tier:</span>
-                <span className="font-bold text-warning">
-                  {restrictedModalItem.classification || "RESTRICTED"}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-2">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  setRestrictedModalItem(null)
-                  openLogin()
-                }}
-                className="flex-1 justify-center gap-1.5 cursor-pointer"
-              >
-                <LogIn size={13} />
-                <span>Log In to Access</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setRestrictedModalItem(null)
-                  openRegister()
-                }}
-                className="flex-1 justify-center cursor-pointer"
-              >
-                Request Access
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Confirmation Modal to Add / Remove Featured status */}
+      <ConfirmFeatureModal
+        isOpen={featureConfirmFile !== null}
+        file={featureConfirmFile}
+        onClose={() => setFeatureConfirmFile(null)}
+        onSuccess={() => {
+          fetchFeaturedFiles()
+        }}
+      />
     </>
   )
 }

@@ -483,9 +483,16 @@ export function EventManager() {
                   </div>
 
                   <div className="flex items-center justify-between pt-1 text-[11px]">
-                    <div className="flex items-center gap-1 text-text-dim truncate max-w-[150px]">
-                      <MapPin size={12} className="shrink-0" />
-                      <span className="truncate">{ev.location || "ISTRAC MOX"}</span>
+                    <div className="flex items-center gap-2 truncate max-w-[180px]">
+                      {ev.department?.code && (
+                        <span className="font-mono text-accent-light shrink-0">
+                          {ev.department.code}
+                        </span>
+                      )}
+                      <div className="flex items-center gap-1 text-text-dim truncate">
+                        <MapPin size={12} className="shrink-0" />
+                        <span className="truncate">{ev.location || "ISTRAC MOX"}</span>
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-1">

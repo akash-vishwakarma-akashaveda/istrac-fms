@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Search, X, FileText, Folder, ArrowRight, Sparkles, Lock, LogIn } from "lucide-react"
 import { useNavigate, Link } from "react-router-dom"
 import { useAuthStore } from "../store/authStore"
@@ -212,7 +212,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                         {item.name}
                       </p>
                       <div className="flex items-center gap-2 num text-[10px] text-text-dim">
-                        <span className="text-accent-light font-semibold">/{item.departmentName}</span>
+                        <span className="text-accent-light font-semibold">{item.departmentName}</span>
                         <span>·</span>
                         <span>{item.satelliteName}</span>
                         {item.sizeBytes && Number(item.sizeBytes) > 0 && (

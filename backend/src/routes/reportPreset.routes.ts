@@ -7,6 +7,7 @@ const router = Router()
 
 // Default Built-in Categories
 const DEFAULT_CATEGORIES = [
+  { name: 'General', code: 'GENERAL', description: 'General documentation and files', isSystem: true },
   { name: 'Daily Report', code: 'DAILYOPS', description: 'Regular 24-hour mission tracking log', isSystem: true },
   { name: 'Anomaly Report', code: 'ANOMALY', description: 'Telemetry or payload subsystem anomalies', isSystem: true },
   { name: 'Special Operations Report', code: 'SPECOPS', description: 'Orbit maneuvers, solar arrays, maneuvers', isSystem: true },

@@ -65,15 +65,18 @@ class WSClient {
     if (!token) return
 
     const baseWsUrl = getBaseWsUrl()
-    // Pass token both in query param (preserved across CDNs) and subprotocol
-    const urlWithToken = `${baseWsUrl}${baseWsUrl.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`
 
     try {
-      this.socket = new WebSocket(urlWithToken, [`Bearer.${token}`])
+      // Do NOT pass token in query string (prevents token leakage in URL, logs, and browser console)
+      this.socket = new WebSocket(baseWsUrl, [`Bearer.${token}`])
 
       this.socket.onopen = () => {
         this.reconnectAttempt = 0
         this.startHeartbeat()
+        // Send auth frame as supplementary verification
+        try {
+          this.socket?.send(JSON.stringify({ type: 'auth', token }))
+        } catch {}
       }
 
       this.socket.onmessage = (event) => {

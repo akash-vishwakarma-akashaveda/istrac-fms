@@ -79,7 +79,7 @@ export function AnnouncementBar() {
           bannerItems.push({
             id: ev.id,
             title: ev.title,
-            message: ev.description ?? `${ev.location ?? ""} · ${new Date(ev.eventDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })} IST`,
+            message: ev.description ?? `${ev.location ?? ""} · ${new Date(ev.eventDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`,
             category: EVENT_TYPE_CATEGORY[ev.eventType] ?? ev.eventType,
             urgency: ev.urgency,
           })

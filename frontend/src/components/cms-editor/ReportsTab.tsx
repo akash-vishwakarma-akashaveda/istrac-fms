@@ -2,21 +2,20 @@ import { useEffect, useState } from "react"
 import {
   Trash2,
   Search,
-  FileText,
-  CheckSquare,
-  Square,
-  HardDrive,
   RefreshCw,
+  Star,
+  Sparkles,
 } from "lucide-react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useCms } from "../../context/cmsContext"
 import { usePreviewRefresh } from "../../context/PreviewRefreshContext"
 import { useUpdateCmsBlock } from "../../hooks/useUpdateCmsBlock"
 import { useToastStore } from "../../store/toastStore"
-import { Panel } from ".."
+import { Panel, Input, Textarea } from ".."
 import { SaveBar } from "./SaveBar"
 import { apiClient } from "../../api/client"
 import { formatFileSize } from "../../lib/formatFileSize"
-import type { FeaturedReportItem } from "../FeaturedReports"
+import { ConfirmFeatureModal } from "../ConfirmFeatureModal"
 
 interface RepositoryFile {
   id: string
@@ -28,9 +27,11 @@ interface RepositoryFile {
   satellite: string
   uploader: string
   createdAt: string
+  isFeatured?: boolean
 }
 
 export function ReportsTab() {
+  const queryClient = useQueryClient()
   const { cmsBlocks } = useCms()
   const updateBlock = useUpdateCmsBlock()
   const addToast = useToastStore((s) => s.addToast)
@@ -40,17 +41,27 @@ export function ReportsTab() {
     | {
         title?: string
         subtitle?: string
-        items?: FeaturedReportItem[]
       }
     | undefined
 
-  const [items, setItems] = useState<FeaturedReportItem[]>([])
+  const [title, setTitle] = useState("")
+  const [subtitle, setSubtitle] = useState("")
   const [repoFiles, setRepoFiles] = useState<RepositoryFile[]>([])
   const [repoLoading, setRepoLoading] = useState(false)
   const [fileSearch, setFileSearch] = useState("")
+  const [filterFeaturedOnly, setFilterFeaturedOnly] = useState(false)
+  const [featureConfirmFile, setFeatureConfirmFile] = useState<{
+    id: string
+    name: string
+    isFeatured?: boolean
+  } | null>(null)
 
   useEffect(() => {
-    setItems(existing?.items ?? [])
+    setTitle(existing?.title ?? "Featured Mission Reports & Datasets")
+    setSubtitle(
+      existing?.subtitle ??
+        "Public mission telemetry archive and observation reports. Viewable directly in-browser without login; raw telemetry streams and datasets can be downloaded instantly."
+    )
   }, [existing])
 
   // Load real files from the database repository
@@ -66,7 +77,7 @@ export function ReportsTab() {
         setRepoFiles(res.data.data)
       }
     } catch {
-      // ignore
+      addToast({ message: "Failed to load repository files", variant: "error" })
     } finally {
       setRepoLoading(false)
     }
@@ -76,208 +87,302 @@ export function ReportsTab() {
     fetchRepoFiles()
   }, [fileSearch])
 
-  // Toggle selection of existing repository file
-  const toggleFeatureFile = (file: RepositoryFile) => {
-    const isAlreadyFeatured = items.some(
-      (item) => item.id === file.id || item.filename === file.name
-    )
-
-    if (isAlreadyFeatured) {
-      setItems((prev) => prev.filter((item) => item.id !== file.id && item.filename !== file.name))
-      addToast({ message: `Unfeatured "${file.name}"`, variant: "info" })
-    } else {
-      const newItem: FeaturedReportItem = {
-        id: file.id,
-        title: file.name.replace(/\.[^/.]+$/, "").replace(/_/g, " "),
-        filename: file.name,
-        department: file.department,
-        satellite: file.satellite || "Primary Fleet",
-        fileSize: formatFileSize(Number(file.sizeBytes) || 0),
-        extension: file.extension || "DAT",
-        date: file.createdAt ? file.createdAt.split("T")[0] : new Date().toISOString().split("T")[0],
-        classification: "RESTRICTED",
-        description: `Official telemetry archive and observation report for ${file.satellite || file.department}.`,
-      }
-      setItems((prev) => [newItem, ...prev])
-      addToast({ message: `Selected "${file.name}" as featured`, variant: "success" })
-    }
-  }
-
-  function removeItem(index: number) {
-    setItems((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  function handleSave() {
+  // Save Header CMS Block
+  function handleSaveHeader() {
     updateBlock.mutate(
       {
         blockKey: "featured_reports",
-        content: { items },
+        content: { title, subtitle },
       },
       {
         onSuccess: () => {
-          addToast({ message: "Featured Datasets updated on public portal", variant: "success" })
+          addToast({ message: "Featured Section headers updated on public portal", variant: "success" })
           triggerRefresh()
         },
         onError: () => {
-          addToast({ message: "Failed to save featured datasets", variant: "error" })
+          addToast({ message: "Failed to save section headers", variant: "error" })
         },
       }
     )
   }
 
+  // Handle when modal confirms feature toggle
+  const handleFeatureSuccess = (updated: { id: string; isFeatured: boolean }) => {
+    setRepoFiles((prev) =>
+      prev.map((f) => (f.id === updated.id ? { ...f, isFeatured: updated.isFeatured } : f))
+    )
+    queryClient.invalidateQueries({ queryKey: ["dept-files"] })
+    queryClient.invalidateQueries({ queryKey: ["admin-files"] })
+    triggerRefresh()
+    window.dispatchEvent(new CustomEvent("istrac:featured-refresh"))
+    try {
+      const iframes = document.querySelectorAll("iframe")
+      iframes.forEach((ifr) => {
+        ifr.contentWindow?.postMessage({ type: "REFRESH_FEATURED" }, "*")
+      })
+    } catch {}
+  }
+
+  const currentlyFeatured = repoFiles.filter((f) => f.isFeatured)
+  const displayedRepoFiles = filterFeaturedOnly
+    ? repoFiles.filter((f) => f.isFeatured)
+    : repoFiles
+
   return (
-    <div className="space-y-5">
-      {/* SECTION 1: REPOSITORY FILE SELECTION */}
+    <div className="space-y-6">
+      {/* UNIFIED SYNC NOTICE BANNER */}
+      <div className="flex items-start gap-3.5 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+          <Sparkles size={18} />
+        </div>
+        <div className="space-y-1 text-xs">
+          <h4 className="font-bold text-white flex items-center gap-2">
+            <span>Unified Featured Showcase</span>
+            <span className="rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 text-[10px] font-mono font-bold">
+              {currentlyFeatured.length} Publicly Showcased
+            </span>
+          </h4>
+          <p className="text-text-secondary leading-relaxed">
+            Featured files here and starred files in the <strong>File Repository</strong> are directly synchronized in the database.
+            Featuring a file enables visitors to view and download it from the public landing page without signing in.
+          </p>
+        </div>
+      </div>
+
+      {/* SECTION 1: SECTION HEADINGS CMS CUSTOMIZATION */}
+      <Panel title="Section Heading & Intro" meta="block:featured_reports">
+        <div className="space-y-4">
+          <Input
+            id="featured-section-title"
+            label="Section Display Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Featured Mission Reports & Datasets"
+          />
+
+          <Textarea
+            id="featured-section-subtitle"
+            label="Section Descriptive Subtitle"
+            rows={2}
+            value={subtitle}
+            onChange={(e) => setSubtitle(e.target.value)}
+            placeholder="Public mission telemetry archive and observation reports..."
+          />
+
+          <SaveBar onSave={handleSaveHeader} isPending={updateBlock.isPending} />
+        </div>
+      </Panel>
+
+      {/* SECTION 2: CURRENTLY FEATURED REPORTS LIST */}
       <Panel
-        title="Featured Repository Files"
-        meta={`${items.length} of ${repoFiles.length} selected`}
+        title="Active Featured Mission Reports"
+        meta={`${currentlyFeatured.length} Live on Landing Page`}
       >
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-border-subtle pb-3">
-            <div className="flex items-center gap-2">
-              <HardDrive size={16} className="text-accent-light" />
-              <p className="text-xs text-text-secondary">
-                Simply click on any uploaded file to feature or unfeature it on the landing page.
+          {currentlyFeatured.length === 0 ? (
+            <div className="py-8 text-center text-xs text-text-dim border border-dashed border-border-subtle rounded-xl space-y-2">
+              <Star size={20} className="mx-auto text-amber-400/50" />
+              <p className="font-bold text-white">No Mission Reports Currently Featured</p>
+              <p className="max-w-md mx-auto text-text-muted">
+                Star files from the repository catalog below or from the <strong>File Repository</strong> page to feature them here.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={fetchRepoFiles}
-              className="flex items-center gap-1.5 text-xs text-accent-light hover:underline shrink-0"
-            >
-              <RefreshCw size={12} className={repoLoading ? "animate-spin" : ""} />
-              <span>Refresh repository</span>
-            </button>
+          ) : (
+            <div className="space-y-2.5">
+              {currentlyFeatured.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between p-3.5 rounded-xl border border-amber-500/30 bg-[#060c18] hover:border-amber-500/50 transition-all shadow-sm"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFeatureConfirmFile({ id: item.id, name: item.name, isFeatured: true })
+                      }
+                      className="p-1.5 rounded-lg border border-amber-500/50 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-all cursor-pointer shrink-0"
+                      title="Click to unfeature this report"
+                    >
+                      <Star size={15} className="fill-amber-400 text-amber-400" />
+                    </button>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white truncate">{item.name}</span>
+                        <span className="rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-bold text-amber-300 uppercase">
+                          Featured
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] text-text-dim num mt-0.5">
+                        <span className="text-accent-light font-bold">{item.department}</span>
+                        <span>·</span>
+                        <span>{item.satellite}</span>
+                        <span>·</span>
+                        <span>{formatFileSize(Number(item.sizeBytes) || 0)}</span>
+                        <span>·</span>
+                        <span className="uppercase font-bold">{item.extension}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFeatureConfirmFile({ id: item.id, name: item.name, isFeatured: true })
+                      }
+                      className="px-2.5 py-1 rounded-lg border border-border-default bg-surface text-text-dim hover:border-critical hover:text-critical transition-all text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                      title="Remove from public showcase"
+                    >
+                      <Trash2 size={12} />
+                      <span className="hidden sm:inline">Unfeature</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Panel>
+
+      {/* SECTION 3: REPOSITORY BROWSER & STAR SELECTOR */}
+      <Panel
+        title="File Repository Explorer"
+        meta={`${displayedRepoFiles.length} files available`}
+      >
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-subtle pb-3">
+            <p className="text-xs text-text-secondary">
+              Click the <strong>Star</strong> in front of any repository file to toggle its featured showcase status.
+            </p>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setFilterFeaturedOnly(!filterFeaturedOnly)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                  filterFeaturedOnly
+                    ? "bg-amber-500 text-white border-amber-500 shadow-sm"
+                    : "bg-[#060c18] border-border-default text-text-dim hover:text-amber-400 hover:border-amber-500/40"
+                }`}
+              >
+                <Star size={12} className={filterFeaturedOnly ? "fill-white" : "fill-amber-400 text-amber-400"} />
+                <span>{filterFeaturedOnly ? "Show All Files" : "Filter Featured Only"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={fetchRepoFiles}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-border-default bg-[#060c18] text-accent-light hover:underline"
+              >
+                <RefreshCw size={12} className={repoLoading ? "animate-spin" : ""} />
+                <span>Refresh</span>
+              </button>
+            </div>
           </div>
 
           {/* Live Search */}
           <div className="relative">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim"
-            />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
             <input
               type="text"
-              placeholder="Search files by name, extension, satellite, department..."
+              placeholder="Search repository by name, extension, satellite, division..."
               value={fileSearch}
               onChange={(e) => setFileSearch(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2.5 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
             />
           </div>
 
-          {/* Repository File List */}
-          <div className="max-h-[380px] overflow-y-auto space-y-2 pr-1 scrollbar-none">
+          {/* Repository Files List */}
+          <div className="max-h-[420px] overflow-y-auto space-y-2 pr-1">
             {repoLoading ? (
               <div className="py-12 text-center text-xs text-text-dim flex flex-col items-center justify-center gap-2">
-                <RefreshCw size={16} className="animate-spin text-accent-light" />
+                <RefreshCw size={18} className="animate-spin text-accent-light" />
                 <span>Loading files from storage repository…</span>
               </div>
-            ) : repoFiles.length === 0 ? (
-              <div className="py-10 text-center text-xs text-text-dim border border-dashed border-border-subtle rounded-lg">
-                No files found in the storage repository matching "{fileSearch || "all"}". Upload files in the File Repositories section to feature them here.
+            ) : displayedRepoFiles.length === 0 ? (
+              <div className="py-10 text-center text-xs text-text-dim border border-dashed border-border-subtle rounded-xl">
+                No files found matching "{fileSearch || "all"}".
               </div>
             ) : (
-              repoFiles.map((file) => {
-                const isFeatured = items.some(
-                  (item) => item.id === file.id || item.filename === file.name
-                )
+              displayedRepoFiles.map((file) => (
+                <div
+                  key={file.id}
+                  className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                    file.isFeatured
+                      ? "border-amber-500/40 bg-amber-500/[0.07] text-white shadow-sm"
+                      : "border-border-subtle bg-[#060c18] hover:border-border-default text-text-secondary"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* Star in front */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFeatureConfirmFile({
+                          id: file.id,
+                          name: file.name,
+                          isFeatured: file.isFeatured,
+                        })
+                      }
+                      className={`p-1.5 rounded-lg border transition-all cursor-pointer shrink-0 ${
+                        file.isFeatured
+                          ? "border-amber-500/50 bg-amber-500/20 text-amber-400"
+                          : "border-border-subtle bg-surface text-text-dim hover:text-amber-400 hover:border-amber-500/40"
+                      }`}
+                      title={
+                        file.isFeatured
+                          ? "⭐ Featured in Public Mission Reports (Click to unfeature)"
+                          : "Click to feature in Public Mission Reports"
+                      }
+                    >
+                      <Star size={15} className={file.isFeatured ? "fill-amber-400 text-amber-400" : ""} />
+                    </button>
 
-                return (
-                  <div
-                    key={file.id}
-                    onClick={() => toggleFeatureFile(file)}
-                    className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
-                      isFeatured
-                        ? "border-accent bg-accent/10 text-white shadow-sm"
-                        : "border-border-subtle bg-[#060c18] hover:border-border-default hover:bg-card-hover text-text-secondary"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      {isFeatured ? (
-                        <CheckSquare size={18} className="text-accent-light shrink-0" />
-                      ) : (
-                        <Square size={18} className="text-text-dim shrink-0" />
-                      )}
-
-                      <div className="min-w-0">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
                         <p className="text-xs font-semibold truncate text-white">{file.name}</p>
-                        <div className="flex flex-wrap items-center gap-2 text-[10px] text-text-dim num mt-0.5">
-                          <span className="text-accent-light font-bold">/{file.department}</span>
-                          <span>·</span>
-                          <span>{file.satellite}</span>
-                          <span>·</span>
-                          <span>{formatFileSize(Number(file.sizeBytes) || 0)}</span>
-                          <span>·</span>
-                          <span>Uploaded by {file.uploader}</span>
-                        </div>
+                        {file.isFeatured && (
+                          <span className="rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-bold text-amber-300 uppercase">
+                            Featured
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] text-text-dim num mt-0.5">
+                        <span className="text-accent-light font-bold">{file.department}</span>
+                        <span>·</span>
+                        <span>{file.satellite}</span>
+                        <span>·</span>
+                        <span>{formatFileSize(Number(file.sizeBytes) || 0)}</span>
+                        <span>·</span>
+                        <span>Uploaded by {file.uploader}</span>
                       </div>
                     </div>
-
-                    <span
-                      className={`rounded px-2.5 py-1 text-[10px] font-bold uppercase num shrink-0 ${
-                        isFeatured ? "bg-accent/25 text-accent-light border border-accent/40 font-extrabold" : "bg-surface text-text-dim"
-                      }`}
-                    >
-                      {isFeatured ? "FEATURED" : file.extension}
-                    </span>
                   </div>
-                )
-              })
+
+                  <span
+                    className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase num shrink-0 ${
+                      file.isFeatured
+                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 font-extrabold"
+                        : "bg-surface text-text-dim border border-border-subtle"
+                    }`}
+                  >
+                    {file.extension}
+                  </span>
+                </div>
+              ))
             )}
           </div>
         </div>
       </Panel>
 
-      {/* SECTION 2: CURRENTLY FEATURED SUMMARY LIST */}
-      <Panel
-        title="Featured Files Preview List"
-        meta={`${items.length} active on landing portal`}
-      >
-        <div className="space-y-4">
-          {items.length === 0 ? (
-            <div className="py-6 text-center text-xs text-text-dim border border-dashed border-border-subtle rounded-lg">
-              No files selected. Click any file in the list above to feature it.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {items.map((item, index) => (
-                <div
-                  key={item.id || index}
-                  className="flex items-center justify-between p-3 rounded-lg border border-border-subtle bg-[#060c18]"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <FileText size={15} className="text-accent-light shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-white truncate">
-                        {item.filename}
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] text-text-dim num">
-                        <span>{item.department}</span>
-                        <span>·</span>
-                        <span>{item.satellite}</span>
-                        <span>·</span>
-                        <span>{item.fileSize}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => removeItem(index)}
-                    aria-label={`Unfeature file ${index + 1}`}
-                    className="p-1.5 text-text-dim hover:text-critical transition-colors rounded hover:bg-critical/10 shrink-0"
-                    title="Remove from featured list"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <SaveBar onSave={handleSave} isPending={updateBlock.isPending} />
-        </div>
-      </Panel>
+      {/* CONFIRM FEATURE / UNFEATURE MODAL */}
+      <ConfirmFeatureModal
+        isOpen={featureConfirmFile !== null}
+        file={featureConfirmFile}
+        onClose={() => setFeatureConfirmFile(null)}
+        onSuccess={handleFeatureSuccess}
+      />
     </div>
   )
 }

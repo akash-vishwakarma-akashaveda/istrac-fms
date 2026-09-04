@@ -17,6 +17,14 @@ import {
   Upload,
   Copy,
   Check,
+  Star,
+  Lock,
+  Archive,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  Clock,
+  RotateCcw,
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { apiClient } from '../api/client'
@@ -25,14 +33,18 @@ import { satellitesApi, type Satellite } from '../api/satellites.api'
 import { useToastStore } from '../store/toastStore'
 import { PageHeader, Button, Modal, Textarea } from '../components'
 import { VersionHistoryPanel } from '../components/VersionHistoryPanel'
+import { UploadVersionModal } from '../components/UploadVersionModal'
 import { FilePreviewModal } from '../components/FilePreviewModal'
+import { ConfirmFeatureModal } from '../components/ConfirmFeatureModal'
 import { formatFileSize } from '../lib/formatFileSize'
+import { formatDateTimeIST } from '../lib/formatDate'
 import type { FileNode } from '../types/file'
 
 interface AdminFileRecord {
   id: string
   name: string
   nodeType: string
+  isFeatured?: boolean
   extension: string
   sizeBytes: string
   sha256: string
@@ -44,6 +56,7 @@ interface AdminFileRecord {
     id: string
     name: string
     code: string
+    isActive?: boolean
     satellite?: { id: string; name: string; code?: string | null } | null
   }
   report?: {
@@ -91,6 +104,12 @@ export function AdminFileManager() {
   const [selectedDept, setSelectedDept] = useState(deptIdParam || 'ALL')
   const [selectedExt, setSelectedExt] = useState('ALL')
   const [selectedSat, setSelectedSat] = useState('ALL')
+  const [selectedCategory, setSelectedCategory] = useState('ALL')
+  const [dateFilter, setDateFilter] = useState('ALL')
+  const [sortBy, setSortBy] = useState<'createdAt' | 'sizeBytes' | 'name' | 'versionCount'>('createdAt')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [filterFeatured, setFilterFeatured] = useState<boolean>(false)
+  const [includeArchived, setIncludeArchived] = useState<boolean>(false)
 
   useEffect(() => {
     if (deptIdParam && deptIdParam !== selectedDept) {
@@ -98,12 +117,13 @@ export function AdminFileManager() {
     }
   }, [deptIdParam])
 
-  // Modals
-  const [versionPanelFile, setVersionPanelFile] = useState<{ id: string; name: string } | null>(null)
+  const [versionPanelFile, setVersionPanelFile] = useState<AdminFileRecord | null>(null)
+  const [uploadVersionFile, setUploadVersionFile] = useState<AdminFileRecord | null>(null)
   const [previewFile, setPreviewFile] = useState<FileNode | null>(null)
   const [editingFile, setEditingFile] = useState<AdminFileRecord | null>(null)
   const [deletingFile, setDeletingFile] = useState<AdminFileRecord | null>(null)
   const [broadcastingFile, setBroadcastingFile] = useState<AdminFileRecord | null>(null)
+  const [featureConfirmFile, setFeatureConfirmFile] = useState<{ id: string; name: string; isFeatured?: boolean } | null>(null)
 
   // Edit Metadata Form State
   const [editForm, setEditForm] = useState({
@@ -139,6 +159,12 @@ export function AdminFileManager() {
             departmentId: selectedDept !== 'ALL' ? selectedDept : undefined,
             satelliteId: selectedSat !== 'ALL' ? selectedSat : undefined,
             extension: selectedExt !== 'ALL' ? selectedExt : undefined,
+            category: selectedCategory !== 'ALL' ? selectedCategory : undefined,
+            dateFilter: dateFilter !== 'ALL' ? dateFilter : undefined,
+            sortBy,
+            sortOrder,
+            isFeatured: filterFeatured ? 'true' : undefined,
+            includeArchived: includeArchived ? 'true' : undefined,
           },
         }),
         satellitesApi.getAllAdminSatellites().catch(() => []),
@@ -157,7 +183,42 @@ export function AdminFileManager() {
 
   useEffect(() => {
     fetchFiles()
-  }, [search, selectedDept, selectedExt, selectedSat])
+  }, [search, selectedDept, selectedExt, selectedSat, selectedCategory, dateFilter, sortBy, sortOrder, filterFeatured, includeArchived])
+
+  const handleToggleSort = (field: 'createdAt' | 'sizeBytes' | 'name' | 'versionCount') => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortBy(field)
+      setSortOrder(field === 'name' ? 'asc' : 'desc')
+    }
+  }
+
+  const handleResetFilters = () => {
+    setSearch('')
+    setSelectedDept('ALL')
+    setSelectedSat('ALL')
+    setSelectedExt('ALL')
+    setSelectedCategory('ALL')
+    setDateFilter('ALL')
+    setSortBy('createdAt')
+    setSortOrder('desc')
+    setFilterFeatured(false)
+    setIncludeArchived(false)
+    setSearchParams({})
+  }
+
+  const hasActiveFilters =
+    Boolean(search) ||
+    selectedDept !== 'ALL' ||
+    selectedSat !== 'ALL' ||
+    selectedExt !== 'ALL' ||
+    selectedCategory !== 'ALL' ||
+    dateFilter !== 'ALL' ||
+    sortBy !== 'createdAt' ||
+    sortOrder !== 'desc' ||
+    filterFeatured ||
+    includeArchived
 
   // Open Edit Metadata Modal
   const handleOpenEdit = (file: AdminFileRecord) => {
@@ -324,69 +385,196 @@ export function AdminFileManager() {
       </div>
 
       {/* FILTER & SEARCH TOOLBAR */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-4 rounded-xl border border-border-default bg-card shadow-sm">
-        <div className="relative sm:col-span-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
-          <input
-            type="text"
-            placeholder="Search by name, hash, parameter…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
-          />
+      <div className="p-4 rounded-xl border border-border-default bg-card shadow-sm space-y-3">
+        {/* Row 1: Search & Core Organizational Filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
+            <input
+              type="text"
+              placeholder="Search by name, hash, parameter…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+            />
+          </div>
+
+          <div>
+            <select
+              value={selectedDept}
+              onChange={(e) => {
+                const val = e.target.value
+                setSelectedDept(val)
+                if (val !== 'ALL') {
+                  setSearchParams({ deptId: val })
+                } else {
+                  setSearchParams({})
+                }
+              }}
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+            >
+              <option value="ALL">All Active Divisions</option>
+              {departments?.some((d) => !d.archived && d.isActive !== false) && (
+                <optgroup label="Active Divisions">
+                  {departments
+                    .filter((d) => !d.archived && d.isActive !== false)
+                    .map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.code || d.name} — {d.name}
+                      </option>
+                    ))}
+                </optgroup>
+              )}
+              {departments?.some((d) => d.archived || d.isActive === false) && (
+                <optgroup label="Archived Divisions (Admin Only)">
+                  {departments
+                    .filter((d) => d.archived || d.isActive === false)
+                    .map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.code || d.name} — {d.name} 🔒 (Archived)
+                      </option>
+                    ))}
+                </optgroup>
+              )}
+            </select>
+          </div>
+
+          <div>
+            <select
+              value={selectedSat}
+              onChange={(e) => setSelectedSat(e.target.value)}
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+            >
+              <option value="ALL">All Spacecraft & Satellites</option>
+              {satellites
+                .slice()
+                .sort((a, b) => (a.code === 'GENERAL' ? -1 : b.code === 'GENERAL' ? 1 : a.name.localeCompare(b.name)))
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.code === 'GENERAL' ? 'General' : `${s.name} (${s.code || 'ISRO'})`}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          <div>
+            <select
+              value={selectedExt}
+              onChange={(e) => setSelectedExt(e.target.value)}
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+            >
+              <option value="ALL">All File Formats</option>
+              <option value="PDF">PDF (Mission Reports)</option>
+              <option value="BIN">BIN (Raw Telemetry)</option>
+              <option value="DAT">DAT (Ephemeris / Science)</option>
+              <option value="CSV">CSV (Separation / State Tables)</option>
+              <option value="LOG">LOG (Tracking Logs)</option>
+              <option value="DOCX">DOCX (Office Docs)</option>
+            </select>
+          </div>
         </div>
 
-        <div>
-          <select
-            value={selectedDept}
-            onChange={(e) => {
-              const val = e.target.value
-              setSelectedDept(val)
-              if (val !== 'ALL') {
-                setSearchParams({ deptId: val })
-              } else {
-                setSearchParams({})
-              }
-            }}
-            className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
-          >
-            <option value="ALL">All Departments & Divisions</option>
-            {departments?.map((d) => (
-              <option key={d.id} value={d.id}>
-                /{d.code || d.name} — {d.name} {d.archived ? '⚠️ (Archived - Admin Only)' : ''}
-              </option>
-            ))}
-          </select>
+        {/* Row 2: Category, Upload Date (IST), Sorting & Reset Actions */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-border-subtle/60">
+          <div>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+            >
+              <option value="ALL">All Mission Categories</option>
+              <option value="DAILY_REPORT">Daily Operations Report</option>
+              <option value="ORBIT_MANEUVER">Orbit Maneuver Record</option>
+              <option value="CONJUNCTION_WARNING">Conjunction & Collision Warning</option>
+              <option value="ANOMALY_REPORT">Payload Anomaly Report</option>
+              <option value="TELEMETRY_PAYLOAD">Telemetry Payload Raw Stream</option>
+              <option value="MISSION_STUDY">Mission Study / Flight Dynamics</option>
+              <option value="GENERAL_DOC">General Operations Document</option>
+            </select>
+          </div>
+
+          <div>
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+            >
+              <option value="ALL">All Upload Dates</option>
+              <option value="today">Uploaded Today</option>
+              <option value="7days">Uploaded in Last 7 Days</option>
+              <option value="30days">Uploaded in Last 30 Days</option>
+            </select>
+          </div>
+
+          <div>
+            <select
+              value={`${sortBy}-${sortOrder}`}
+              onChange={(e) => {
+                const [f, o] = e.target.value.split('-') as [any, any]
+                setSortBy(f)
+                setSortOrder(o)
+              }}
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer font-medium"
+            >
+              <option value="createdAt-desc">Date Uploaded: Newest ↓</option>
+              <option value="createdAt-asc">Date Uploaded: Oldest ↑</option>
+              <option value="sizeBytes-desc">File Size: Largest First ↓</option>
+              <option value="sizeBytes-asc">File Size: Smallest First ↑</option>
+              <option value="name-asc">Filename: A → Z ↑</option>
+              <option value="name-desc">Filename: Z → A ↓</option>
+              <option value="versionCount-desc">Revisions: Most Versions ↓</option>
+            </select>
+          </div>
+
+          <div className="flex items-center justify-end">
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border-default bg-surface text-text-secondary hover:border-accent hover:text-accent-light text-xs font-semibold transition-all cursor-pointer w-full justify-center"
+              >
+                <RotateCcw size={12} />
+                <span>Reset Filters</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        <div>
-          <select
-            value={selectedSat}
-            onChange={(e) => setSelectedSat(e.target.value)}
-            className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
-          >
-            <option value="ALL">All Spacecraft & Satellites</option>
-            {satellites.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} ({s.code || 'ISRO'})
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Featured Filter & Archived Divisions Toggle Strip */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-border-subtle">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setFilterFeatured(!filterFeatured)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                filterFeatured
+                  ? 'bg-amber-500 text-white border-amber-500 shadow-sm shadow-amber-500/25'
+                  : 'bg-[#060c18] border-border-default text-text-dim hover:text-amber-400 hover:border-amber-500/40'
+              }`}
+            >
+              <Star size={13} className={filterFeatured ? 'fill-white' : 'fill-amber-400 text-amber-400'} />
+              <span>{filterFeatured ? 'Showing Featured Files Only' : 'Filter Featured Files'}</span>
+            </button>
 
-        <div>
-          <select
-            value={selectedExt}
-            onChange={(e) => setSelectedExt(e.target.value)}
-            className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
-          >
-            <option value="ALL">All File Formats</option>
-            <option value="BIN">BIN (Raw Telemetry)</option>
-            <option value="DAT">DAT (Ephemeris / Science)</option>
-            <option value="PDF">PDF (Mission Reports)</option>
-            <option value="CSV">CSV (Separation / State Tables)</option>
-            <option value="LOG">LOG (Tracking Logs)</option>
-          </select>
+            <button
+              type="button"
+              onClick={() => setIncludeArchived(!includeArchived)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                includeArchived
+                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/50 shadow-sm'
+                  : 'bg-[#060c18] border-border-default text-text-dim hover:text-purple-300 hover:border-purple-500/30'
+              }`}
+              title="Include or hide files belonging to archived divisions"
+            >
+              <Archive size={12} className={includeArchived ? 'text-purple-300' : 'text-text-dim'} />
+              <span>{includeArchived ? 'Showing Archived Divisions' : 'Include Archived Divisions'}</span>
+            </button>
+          </div>
+
+          <div className="text-[11px] text-text-dim flex items-center gap-1.5 font-mono">
+            <span className="num font-bold text-accent-light">{files.length}</span>
+            <span>records matching active criteria</span>
+          </div>
         </div>
       </div>
 
@@ -429,13 +617,68 @@ export function AdminFileManager() {
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
                 <tr className="border-b border-border-default bg-surface text-[11px] font-bold text-text-dim uppercase tracking-wider">
-                  <th className="px-4 py-3.5">Dataset / Filename</th>
+                  <th className="w-12 px-3 py-3.5 text-center" title="Featured Mission Report">
+                    <Star size={13} className="inline text-amber-400 fill-amber-400/20" />
+                  </th>
+                  <th
+                    className="px-4 py-3.5 cursor-pointer select-none hover:text-white transition-colors"
+                    onClick={() => handleToggleSort('name')}
+                    title="Click to sort by Filename"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Dataset / Filename</span>
+                      {sortBy === 'name' ? (
+                        sortOrder === 'asc' ? <ArrowUp size={12} className="text-accent-light" /> : <ArrowDown size={12} className="text-accent-light" />
+                      ) : (
+                        <ArrowUpDown size={11} className="text-text-dim opacity-50" />
+                      )}
+                    </div>
+                  </th>
                   <th className="px-4 py-3.5">Department</th>
                   <th className="px-4 py-3.5">Spacecraft</th>
-                  <th className="px-4 py-3.5">Size</th>
-                  <th className="px-4 py-3.5">Version History</th>
+                  <th
+                    className="px-4 py-3.5 cursor-pointer select-none hover:text-white transition-colors"
+                    onClick={() => handleToggleSort('sizeBytes')}
+                    title="Click to sort by File Size"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Size</span>
+                      {sortBy === 'sizeBytes' ? (
+                        sortOrder === 'asc' ? <ArrowUp size={12} className="text-accent-light" /> : <ArrowDown size={12} className="text-accent-light" />
+                      ) : (
+                        <ArrowUpDown size={11} className="text-text-dim opacity-50" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    className="px-4 py-3.5 cursor-pointer select-none hover:text-white transition-colors"
+                    onClick={() => handleToggleSort('versionCount')}
+                    title="Click to sort by Version Count"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Version History</span>
+                      {sortBy === 'versionCount' ? (
+                        sortOrder === 'asc' ? <ArrowUp size={12} className="text-accent-light" /> : <ArrowDown size={12} className="text-accent-light" />
+                      ) : (
+                        <ArrowUpDown size={11} className="text-text-dim opacity-50" />
+                      )}
+                    </div>
+                  </th>
                   <th className="px-4 py-3.5">SHA-256 Checksum</th>
-                  <th className="px-4 py-3.5">Uploaded</th>
+                  <th
+                    className="px-4 py-3.5 cursor-pointer select-none hover:text-white transition-colors"
+                    onClick={() => handleToggleSort('createdAt')}
+                    title="Click to sort by Upload Timestamp"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>Uploaded</span>
+                      {sortBy === 'createdAt' ? (
+                        sortOrder === 'asc' ? <ArrowUp size={12} className="text-accent-light" /> : <ArrowDown size={12} className="text-accent-light" />
+                      ) : (
+                        <ArrowUpDown size={11} className="text-text-dim opacity-50" />
+                      )}
+                    </div>
+                  </th>
                   <th className="px-4 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
@@ -446,6 +689,35 @@ export function AdminFileManager() {
 
                   return (
                     <tr key={file.id} className="hover:bg-card-hover transition-colors">
+                      {/* Featured Star in the Front */}
+                      <td className="w-12 px-3 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
+                        {file.department?.isActive === false ? (
+                          <span
+                            className="inline-flex p-1.5 rounded-lg border border-border-subtle bg-surface text-text-dim/40 cursor-not-allowed"
+                            title="Cannot feature files from an archived division. Restore the division first."
+                          >
+                            <Lock size={13} />
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setFeatureConfirmFile({ id: file.id, name: file.name, isFeatured: file.isFeatured })}
+                            className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                              file.isFeatured
+                                ? 'border-amber-500/50 bg-amber-500/20 text-amber-400 shadow-sm'
+                                : 'border-transparent text-text-dim/40 hover:text-amber-400 hover:border-amber-500/40 hover:bg-surface'
+                            }`}
+                            title={
+                              file.isFeatured
+                                ? '⭐ Featured in Public Mission Reports (Click to unfeature)'
+                                : 'Click to feature in Public Mission Reports'
+                            }
+                          >
+                            <Star size={14} className={file.isFeatured ? 'fill-amber-400 text-amber-400' : ''} />
+                          </button>
+                        )}
+                      </td>
+
                       {/* Name & Format */}
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-2.5">
@@ -453,13 +725,21 @@ export function AdminFileManager() {
                             <Icon size={16} />
                           </div>
                           <div className="min-w-0">
-                            <p
-                              onClick={() => setPreviewFile(file as unknown as FileNode)}
-                              className="font-bold text-white hover:text-accent-light cursor-pointer truncate max-w-xs transition-colors"
-                              title="Click to Preview File"
-                            >
-                              {file.name}
-                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <p
+                                onClick={() => setPreviewFile(file as unknown as FileNode)}
+                                className="font-bold text-white hover:text-accent-light cursor-pointer truncate max-w-xs transition-colors"
+                                title="Click to Preview File"
+                              >
+                                {file.name}
+                              </p>
+                              {file.isFeatured && (
+                                <span className="shrink-0 rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-bold text-amber-300 uppercase flex items-center gap-0.5">
+                                  <Star size={8} className="fill-amber-300" />
+                                  <span>Featured</span>
+                                </span>
+                              )}
+                            </div>
                             {file.description && (
                               <p className="text-[10px] text-text-dim truncate max-w-xs">
                                 {file.description}
@@ -471,15 +751,22 @@ export function AdminFileManager() {
 
                       {/* Department */}
                       <td className="px-4 py-3.5">
-                        <span className="num font-bold text-accent-light">
-                          /{file.department?.code || file.department?.name || 'TTC'}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`num font-bold ${file.department?.isActive === false ? 'text-text-dim' : 'text-accent-light'}`}>
+                            {file.department?.code || file.department?.name || 'TTC'}
+                          </span>
+                          {file.department?.isActive === false && (
+                            <span className="rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[8px] font-bold text-amber-300 uppercase tracking-wide">
+                              Archived
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Spacecraft */}
                       <td className="px-4 py-3.5">
                         <span className="font-medium text-text-secondary truncate max-w-[140px] block">
-                          {file.report?.spacecraft || file.department?.satellite?.name || 'Primary Fleet'}
+                          {(file.report?.spacecraft?.includes('General') ? 'General' : file.report?.spacecraft) || (file.department?.satellite?.name?.includes('General') ? 'General' : file.department?.satellite?.name) || 'General'}
                         </span>
                       </td>
 
@@ -492,8 +779,8 @@ export function AdminFileManager() {
                       <td className="px-4 py-3.5">
                         <button
                           type="button"
-                          onClick={() => setVersionPanelFile({ id: file.id, name: file.name })}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-purple-400/40 bg-purple-400/10 text-purple-300 hover:bg-purple-400/20 text-[10px] font-bold num transition-colors"
+                          onClick={() => setVersionPanelFile(file)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-border-default bg-surface text-text-secondary hover:border-accent hover:text-accent-light text-[10px] font-bold num transition-colors cursor-pointer"
                           title="Open Revision History Drawer"
                         >
                           <History size={11} />
@@ -518,11 +805,14 @@ export function AdminFileManager() {
                         </button>
                       </td>
 
-                      {/* Upload Date & Officer */}
+                      {/* Upload Date & Officer (IST) */}
                       <td className="px-4 py-3.5">
                         <div className="text-[11px] text-text-dim num leading-tight">
-                          <span>{new Date(file.createdAt).toLocaleDateString()}</span>
-                          <span className="block text-[10px] text-text-muted">
+                          <div className="flex items-center gap-1 text-text-secondary font-mono font-medium">
+                            <Clock size={11} className="text-accent-light shrink-0" />
+                            <span>{formatDateTimeIST(file.createdAt)}</span>
+                          </div>
+                          <span className="block text-[10px] text-text-muted mt-0.5">
                             by {file.uploader?.name || 'Officer'}
                           </span>
                         </div>
@@ -531,6 +821,20 @@ export function AdminFileManager() {
                       {/* Actions */}
                       <td className="px-4 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Feature Toggle */}
+                          <button
+                            type="button"
+                            onClick={() => setFeatureConfirmFile({ id: file.id, name: file.name, isFeatured: file.isFeatured })}
+                            className={`p-1.5 rounded-md border transition-all ${
+                              file.isFeatured
+                                ? 'border-amber-500/50 bg-amber-500/20 text-amber-400'
+                                : 'border-border-default bg-[#0c1424] text-text-muted hover:border-amber-500/50 hover:text-amber-400'
+                            }`}
+                            title={file.isFeatured ? 'Featured Mission Report (Click to unfeature)' : 'Feature in Public Mission Reports'}
+                          >
+                            <Star size={13} className={file.isFeatured ? 'fill-amber-400' : ''} />
+                          </button>
+
                           {/* Preview */}
                           <button
                             type="button"
@@ -549,6 +853,16 @@ export function AdminFileManager() {
                           >
                             <Download size={13} />
                           </a>
+
+                          {/* Upload New Version */}
+                          <button
+                            type="button"
+                            onClick={() => setUploadVersionFile(file)}
+                            className="p-1.5 rounded-md border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-accent-light transition-all cursor-pointer"
+                            title="Upload New Version for this file"
+                          >
+                            <Upload size={13} />
+                          </button>
 
                           {/* Edit Metadata & Optional Broadcast */}
                           <button
@@ -622,11 +936,18 @@ export function AdminFileManager() {
               </label>
               <input
                 type="text"
+                list="spacecraft-options"
                 value={editForm.spacecraft}
                 onChange={(e) => setEditForm({ ...editForm, spacecraft: e.target.value })}
-                placeholder="e.g. Aditya-L1"
+                placeholder="e.g. Aditya-L1 or General"
                 className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
               />
+              <datalist id="spacecraft-options">
+                <option value="General" />
+                {satellites.map((s) => (
+                  <option key={s.id} value={s.name} />
+                ))}
+              </datalist>
             </div>
 
             <div>
@@ -787,14 +1108,57 @@ export function AdminFileManager() {
         </div>
       </Modal>
 
-      {/* SLIDE-OVER: VERSION HISTORY DRAWER */}
+      {/* DRAWER: VERSION HISTORY */}
       {versionPanelFile && (
         <VersionHistoryPanel
           fileId={versionPanelFile.id}
           fileName={versionPanelFile.name}
+          fileDetails={{
+            id: versionPanelFile.id,
+            name: versionPanelFile.name,
+            title: versionPanelFile.report?.title || versionPanelFile.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+            description: versionPanelFile.description || '',
+            departmentId: versionPanelFile.department?.id,
+            departmentName: versionPanelFile.department?.name,
+            departmentCode: versionPanelFile.department?.code,
+            spacecraft: versionPanelFile.report?.spacecraft || versionPanelFile.department?.satellite?.name || 'General',
+            category: versionPanelFile.report?.category || 'DAILY_REPORT',
+            classificationLevel: versionPanelFile.report?.classificationLevel || 'RESTRICTED',
+            sizeBytes: versionPanelFile.sizeBytes,
+            sha256: versionPanelFile.sha256,
+            createdAt: versionPanelFile.createdAt,
+            uploader: versionPanelFile.uploader?.name || 'Authorized Officer',
+            versionCount: versionPanelFile.versionCount,
+            extension: versionPanelFile.extension,
+          }}
+          canWrite={true}
           onClose={() => setVersionPanelFile(null)}
+          onOpenUploadVersion={() => {
+            const target = files.find((f) => f.id === versionPanelFile.id)
+            if (target) setUploadVersionFile(target)
+          }}
         />
       )}
+
+      {/* MODAL: UPLOAD NEW VERSION */}
+      <UploadVersionModal
+        isOpen={uploadVersionFile !== null}
+        onClose={() => setUploadVersionFile(null)}
+        file={uploadVersionFile ? {
+          id: uploadVersionFile.id,
+          name: uploadVersionFile.name,
+          departmentId: uploadVersionFile.department?.id,
+          departmentName: uploadVersionFile.department?.name,
+          spacecraft: uploadVersionFile.report?.spacecraft || uploadVersionFile.department?.satellite?.name || 'General',
+          category: uploadVersionFile.report?.category || 'DAILY_REPORT',
+          title: uploadVersionFile.report?.title || uploadVersionFile.name,
+          description: uploadVersionFile.description || '',
+          versionCount: uploadVersionFile.versionCount,
+        } : null}
+        onSuccess={() => {
+          fetchFiles()
+        }}
+      />
 
       {/* MODAL: IN-BROWSER PREVIEW */}
       <FilePreviewModal
@@ -805,6 +1169,18 @@ export function AdminFileManager() {
           sizeBytes: Number(previewFile.sizeBytes) || null,
         } : null}
         onClose={() => setPreviewFile(null)}
+      />
+
+      {/* MODAL: CONFIRM FEATURE MISSION REPORT */}
+      <ConfirmFeatureModal
+        isOpen={featureConfirmFile !== null}
+        file={featureConfirmFile}
+        onClose={() => setFeatureConfirmFile(null)}
+        onSuccess={(updated) => {
+          setFiles((prev) =>
+            prev.map((f) => (f.id === updated.id ? { ...f, isFeatured: updated.isFeatured } : f))
+          )
+        }}
       />
     </div>
   )

@@ -269,7 +269,7 @@ export function MissionCalendar({
                     <div className="flex items-center gap-2 text-[10px] text-text-dim num">
                       <span>📍 {ev.station}</span>
                       <span>·</span>
-                      <span className="text-accent-light font-semibold">/{ev.department}</span>
+                      <span className="text-accent-light font-semibold">{ev.department}</span>
                     </div>
                   </div>
                 ))
@@ -314,7 +314,7 @@ export function MissionCalendar({
 
                   <div className="flex items-center justify-between text-[10px] text-text-dim pt-2 border-t border-border-subtle/60 num">
                     <span>🕒 {ev.time}</span>
-                    <span className="text-accent-light font-semibold">/{ev.department}</span>
+                    <span className="text-accent-light font-semibold">{ev.department}</span>
                   </div>
                 </div>
               ))}

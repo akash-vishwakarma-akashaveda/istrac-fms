@@ -29,6 +29,7 @@ import { Button, Modal } from '../components'
 import { FileIcon } from '../components/FileIcon'
 import { FilePreviewModal } from '../components/FilePreviewModal'
 import { formatFileSize } from '../lib/formatFileSize'
+import { formatDateTimeIST, formatDateIST } from '../lib/formatDate'
 import { api } from '../lib/axios'
 
 export function UserHome() {
@@ -657,7 +658,7 @@ export function UserHome() {
                                     {formatFileSize(Number(f.sizeBytes))}
                                   </td>
                                   <td className="px-4 py-2.5 num text-text-dim">
-                                    {new Date(f.createdAt).toLocaleDateString()}
+                                    {formatDateTimeIST(f.createdAt)}
                                   </td>
                                   <td className="px-4 py-2.5 text-right">
                                     <div className="flex items-center justify-end gap-1.5">
@@ -877,7 +878,7 @@ export function UserHome() {
                       {formatFileSize(Number(file.sizeBytes))}
                     </td>
                     <td className="px-4 py-3 num text-text-dim">
-                      {new Date(file.reportDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {formatDateIST(file.reportDate)} IST
                     </td>
                     <td className="px-4 py-3 text-text-secondary truncate max-w-[120px]">
                       {file.author}

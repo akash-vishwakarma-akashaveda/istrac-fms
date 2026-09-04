@@ -17,7 +17,13 @@ import { api } from '../lib/axios'
 import { formatFileSize } from '../lib/formatFileSize'
 
 interface FilePreviewModalProps {
-  file: { id: string; name: string; mimeType: string | null; sizeBytes: number | null } | null
+  file: {
+    id: string
+    name: string
+    mimeType: string | null
+    sizeBytes: number | null
+    downloadUrl?: string
+  } | null
   onClose: () => void
 }
 
@@ -54,7 +60,7 @@ export function FilePreviewModal({ file, onClose }: FilePreviewModalProps) {
   const ext = file ? getFileExtension(file.name) : 'DAT'
   const isPdf = file ? ext === 'PDF' || file.mimeType === 'application/pdf' : false
   const isImage = file ? file.mimeType?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(file.name) : false
-  const fileUrl = file ? `/files/${file.id}/download` : ''
+  const fileUrl = file?.downloadUrl || (file ? `/files/${file.id}/download` : '')
 
   useEffect(() => {
     if (file) {
@@ -64,10 +70,10 @@ export function FilePreviewModal({ file, onClose }: FilePreviewModalProps) {
   }, [file?.id])
 
   async function handleDownload() {
-    if (!file || downloading) return
+    if (!file || !fileUrl || downloading) return
     setDownloading(true)
     try {
-      const response = await api.get(`/files/${file.id}/download`, { responseType: 'blob' })
+      const response = await api.get(fileUrl, { responseType: 'blob' })
       const url = URL.createObjectURL(response.data)
       const link = document.createElement('a')
       link.href = url
@@ -87,7 +93,7 @@ export function FilePreviewModal({ file, onClose }: FilePreviewModalProps) {
   const FormatIcon = formatMeta.icon
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={file?.name ?? 'File Details'} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={file?.name ?? 'File Details'} size="preview">
       {file && (
         <div className="space-y-4">
           {/* Metadata Bar */}

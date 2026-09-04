@@ -38,6 +38,11 @@ async function main() {
       code: 'NISAR',
       description: 'NASA-ISRO Dual-Frequency Synthetic Aperture Radar environmental dynamics payload.',
     },
+    {
+      name: 'General',
+      code: 'GENERAL',
+      description: 'General non-mission-specific files and documentation.',
+    },
   ]
 
   const seededSats: Record<string, any> = {}

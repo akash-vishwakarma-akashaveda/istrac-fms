@@ -430,7 +430,7 @@ export function UserManagement() {
                                     : 'bg-accent/15 text-accent-light border border-accent/30'
                                 }`}
                               >
-                                /{da.department?.code || da.department?.name || 'TTC'} [
+                                {da.department?.code || da.department?.name || 'TTC'} [
                                 {da.accessLevel === 'READ_WRITE' ? 'RW' : 'RO'}]
                               </span>
                             ))}
@@ -708,7 +708,7 @@ export function UserManagement() {
                       />
                       <div className="min-w-0">
                         <span className="text-xs font-bold text-white truncate block">
-                          /{dept.code || dept.name} — {dept.name}
+                          {dept.code || dept.name} — {dept.name}
                         </span>
                         <span className="text-[10px] text-text-dim truncate block">
                           {dept.description || 'Division Repository'}
@@ -877,7 +877,7 @@ export function UserManagement() {
                       key={da.department?.id || da.id}
                       className="rounded-md border border-accent/30 bg-accent/10 px-2.5 py-1 text-xs font-semibold text-accent-light"
                     >
-                      /{da.department?.code || da.department?.name || 'TTC'} ({da.accessLevel})
+                      {da.department?.code || da.department?.name || 'TTC'} ({da.accessLevel})
                     </span>
                   ))}
                 </div>

@@ -383,6 +383,8 @@ model File {
 
   versionCount Int @default(1)
 
+  isFeatured  Boolean    @default(false)
+
   uploaderId String
   uploader   User   @relation("FileUploader", fields: [uploaderId], references: [id], onDelete: Restrict)
 
@@ -403,6 +405,7 @@ model File {
   @@index([reportId])
   @@index([parentId])
   @@index([uploaderId])
+  @@index([isFeatured])
   @@index([deletedAt])
 }
 
@@ -416,7 +419,12 @@ model FileVersion {
   fileId String
   file   File   @relation(fields: [fileId], references: [id], onDelete: Restrict)
 
-  versionNum Int
+  versionNum   Int
+  versionLabel String?  @default("V1.0")
+  isVisible    Boolean  @default(true)
+  changeLog    String?  @db.Text
+  name         String?
+  mimeType     String?
 
   hddPath   String
   sizeBytes BigInt?
@@ -431,6 +439,7 @@ model FileVersion {
   @@unique([fileId, versionNum])
   @@index([fileId])
   @@index([deletedAt])
+  @@index([isVisible])
 }
 
 // ============================================================

@@ -627,7 +627,7 @@ export function ApprovalQueue() {
                                     }`}
                                     title={`Department: ${dept.name} (${dept.accessLevel})`}
                                   >
-                                    /{dept.code || dept.name} [{dept.accessLevel === 'READ_WRITE' ? 'RW' : 'RO'}]
+                                    {dept.code || dept.name} [{dept.accessLevel === 'READ_WRITE' ? 'RW' : 'RO'}]
                                   </span>
                                 ))}
                               </div>
@@ -746,7 +746,7 @@ export function ApprovalQueue() {
                         <strong className="text-sm text-white">{req.requestedBy.name}</strong>
                         <span className="text-xs text-text-dim">({req.requestedBy.email})</span>
                         <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent-light uppercase">
-                          /{req.department.code || req.department.name}
+                          {req.department.code || req.department.name}
                         </span>
                       </div>
 
@@ -942,7 +942,7 @@ export function ApprovalQueue() {
                       />
                       <div className="min-w-0">
                         <span className="text-xs font-bold text-white truncate block">
-                          /{dept.code || dept.name} — {dept.name}
+                          {dept.code || dept.name} — {dept.name}
                         </span>
                         <span className="text-[10px] text-text-dim truncate block">
                           {dept.description || 'Division Repository'}
@@ -1079,7 +1079,7 @@ export function ApprovalQueue() {
                       />
                       <div className="min-w-0">
                         <span className="text-xs font-bold text-white truncate block">
-                          /{dept.code || dept.name} — {dept.name}
+                          {dept.code || dept.name} — {dept.name}
                         </span>
                         <span className="text-[10px] text-text-dim truncate block">
                           {dept.description || 'Division Repository'}
@@ -1202,7 +1202,7 @@ export function ApprovalQueue() {
                       key={dept.id}
                       className="rounded-md border border-accent/30 bg-accent/10 px-2.5 py-1 text-xs font-semibold text-accent-light"
                     >
-                      /{dept.code || dept.name} ({dept.accessLevel})
+                      {dept.code || dept.name} ({dept.accessLevel})
                     </span>
                   ))}
                 </div>
@@ -1245,7 +1245,7 @@ export function ApprovalQueue() {
           <p className="text-xs text-text-secondary leading-relaxed">
             You are deciding to <strong className={processingDocAction === 'APPROVED' ? 'text-nominal' : 'text-critical'}>{processingDocAction}</strong> access for{' '}
             <strong className="text-white">{processingDocRequest?.requestedBy.name}</strong> to the{' '}
-            <strong className="text-accent-light">/{processingDocRequest?.department.name}</strong> division repository.
+            <strong className="text-accent-light">{processingDocRequest?.department.name}</strong> division repository.
           </p>
 
           <Textarea

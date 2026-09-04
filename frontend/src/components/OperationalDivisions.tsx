@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import {
   Radio,
@@ -116,7 +116,7 @@ export function OperationalDivisions() {
                           <Radio size={18} />
                         </div>
                         <span className="num rounded-md bg-surface border border-border-subtle px-2 py-0.5 text-xs font-bold text-accent-light">
-                          /{code}
+                          {code}
                         </span>
                       </div>
 

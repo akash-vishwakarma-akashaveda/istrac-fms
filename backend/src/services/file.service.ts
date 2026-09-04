@@ -8,8 +8,27 @@ import { AppError } from '../lib/errors.js'
 import { createReadStream, createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
 
+export function incrementVersionLabel(currentLabel?: string | null, versionNum = 1): string {
+  if (!currentLabel) return `V${versionNum}.0`
+  const clean = currentLabel.trim().replace(/^[vV]/, '')
+  const parts = clean.split('.')
+  if (parts.length >= 2) {
+    const major = parseInt(parts[0], 10)
+    const minor = parseInt(parts[1], 10)
+    if (!isNaN(major) && !isNaN(minor)) {
+      return `V${major}.${minor + 1}`
+    }
+  } else if (parts.length === 1) {
+    const major = parseInt(parts[0], 10)
+    if (!isNaN(major)) {
+      return `V${major}.1`
+    }
+  }
+  return `V${versionNum}.0`
+}
+
 export interface UploadFileParams {
-    fileBuffer?: Buffer
+  fileBuffer?: Buffer
   filePath?: string
   originalName: string
   mimeType: string
@@ -24,6 +43,10 @@ export interface UploadFileParams {
   classificationLevel?: string
   versionLabel?: string
   reportNumber?: string
+  isFeatured?: boolean
+  targetFileId?: string
+  changeLog?: string
+  isVisible?: boolean
 }
 
 
@@ -34,6 +57,7 @@ export interface UploadFileResult {
   sizeBytes: string
   mimeType: string | null
   versionNum: number
+  versionLabel?: string
   reportId?: string | null
 }
 
@@ -100,32 +124,66 @@ if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
     const sanitizedFilename = params.originalName.replace(/[^a-zA-Z0-9._-]/g, '_')
     const satFolder = (params.spacecraft || 'GENERAL').replace(/[^a-zA-Z0-9_-]/g, '_')
     const deptFolder = dept.code || (dept.hddPath ? path.basename(dept.hddPath) : 'GENERAL')
-    const destDir = path.join(path.resolve(env.HDD_MOUNT_PATH), deptFolder, satFolder, parentPath)
+    const storageConfig = await prisma.systemConfig.findFirst({
+      where: { configKey: { in: ['STORAGE_PRIMARY_PATH', 'STORAGE_MOUNT_PATH'] } },
+    })
+    const baseMount = storageConfig?.configValue
+      ? path.resolve(storageConfig.configValue)
+      : path.resolve(env.HDD_MOUNT_PATH)
+    const destDir = path.join(baseMount, deptFolder, satFolder, parentPath)
     const destPath = path.join(destDir, sanitizedFilename)
 
-    // Check if an active file already exists at this path
-    const existingFile = await prisma.file.findFirst({
-      where: { hddPath: destPath, deletedAt: null },
-      include: { versions: { orderBy: { versionNum: 'desc' }, take: 1 } },
-    })
+    // Check if an active file already exists at this path OR if targetFileId was passed
+    let existingFile = null
+    if (params.targetFileId) {
+      existingFile = await prisma.file.findFirst({
+        where: { id: params.targetFileId, deletedAt: null },
+        include: {
+          versions: { orderBy: { versionNum: 'desc' }, take: 1 },
+          report: true,
+          department: true,
+        },
+      })
+      if (!existingFile) {
+        throw new AppError('file_not_found', 'Target file for version upload not found', 404)
+      }
+    } else {
+      existingFile = await prisma.file.findFirst({
+        where: { hddPath: destPath, deletedAt: null },
+        include: {
+          versions: { orderBy: { versionNum: 'desc' }, take: 1 },
+          report: true,
+          department: true,
+        },
+      })
+    }
 
     const versionNum = existingFile ? existingFile.versionCount + 1 : 1
+    const latestVersion = existingFile?.versions?.[0]
+    const baseLabel = existingFile?.report?.versionLabel || latestVersion?.versionLabel || (existingFile ? `V${existingFile.versionCount}.0` : 'V1.0')
+    const finalVersionLabel = params.versionLabel || (existingFile ? incrementVersionLabel(baseLabel, versionNum) : 'V1.0')
+
+    let targetDir = destDir
+    if (existingFile && existingFile.hddPath) {
+      targetDir = path.dirname(existingFile.hddPath)
+    }
+
     const versionedPath = existingFile
-      ? path.join(destDir, `.v${versionNum}_${sanitizedFilename}`)
+      ? path.join(targetDir, `.v${versionNum}_${sanitizedFilename}`)
       : destPath
 
     // 4. Write to physical storage
-   if (params.filePath) {
-  await hddService.copyFile(
-    params.filePath,
-    versionedPath,
-  )
-} else {
-  await hddService.writeFile(
-    versionedPath,
-    params.fileBuffer!,
-  )
-}
+    if (params.filePath) {
+      await hddService.copyFile(
+        params.filePath,
+        versionedPath,
+      )
+    } else {
+      await hddService.writeFile(
+        versionedPath,
+        params.fileBuffer!,
+      )
+    }
 
     // 5. Compute checksum & size
     const sha256 = await hddService.computeChecksum(versionedPath)
@@ -142,6 +200,11 @@ if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
             data: {
               fileId: existingFile.id,
               versionNum,
+              versionLabel: finalVersionLabel,
+              isVisible: params.isVisible !== undefined ? Boolean(params.isVisible) : true,
+              changeLog: params.changeLog || null,
+              name: sanitizedFilename,
+              mimeType: params.mimeType,
               hddPath: versionedPath,
               sizeBytes,
               sha256,
@@ -155,15 +218,23 @@ if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
               versionCount: { increment: 1 },
               sizeBytes,
               sha256,
+              hddPath: versionedPath,
+              name: sanitizedFilename,
+              mimeType: params.mimeType,
+              extension: path.extname(sanitizedFilename).replace('.', '') || existingFile.extension,
+              description: params.description !== undefined ? params.description : existingFile.description,
               updatedAt: new Date(),
             },
           })
 
-          if (existingFile.reportId && params.versionLabel) {
+          if (existingFile.reportId) {
             await tx.report.update({
               where: { id: existingFile.reportId },
               data: {
-                versionLabel: params.versionLabel,
+                title: params.title || undefined,
+                description: params.description !== undefined ? params.description : undefined,
+                spacecraft: params.spacecraft || undefined,
+                versionLabel: finalVersionLabel,
                 updatedAt: new Date(),
               },
             })
@@ -205,7 +276,7 @@ if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
                 customCategory: params.category || null,
                 status: 'ACTIVE',
                 spacecraft: params.spacecraft || null,
-                classificationLevel: params.classificationLevel || 'ISRO_LEVEL',
+                classificationLevel: params.classificationLevel || null,
                 versionLabel: params.versionLabel || 'V1.0',
                 reportNumber: params.reportNumber || null,
               },
@@ -228,6 +299,7 @@ if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
               uploaderId: params.uploaderId,
               description: params.description || null,
               status: 'ACTIVE',
+              isFeatured: params.isFeatured ? true : false,
               versionCount: 1,
             },
           })
@@ -236,6 +308,11 @@ if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
             data: {
               fileId: f.id,
               versionNum: 1,
+              versionLabel: finalVersionLabel,
+              isVisible: true,
+              changeLog: params.changeLog || 'Initial release',
+              name: sanitizedFilename,
+              mimeType: params.mimeType,
               hddPath: destPath,
               sizeBytes,
               sha256,
@@ -272,6 +349,7 @@ if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
         sizeBytes: sizeBytes.toString(),
         mimeType: params.mimeType,
         versionNum,
+        versionLabel: finalVersionLabel,
         reportId,
       }
     } catch (dbErr) {
@@ -291,7 +369,7 @@ if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
 
     await prisma.file.update({
       where: { id: fileId },
-      data: { deletedAt: new Date() },
+      data: { deletedAt: new Date(), isFeatured: false },
     })
 
     auditService.log({

@@ -282,6 +282,8 @@ For in-depth architectural, deployment, and configuration guides, refer to the [
 - 🐧 [**Red Hat Enterprise Linux (RHEL) Production Deployment Guide**](file:///D:/istrac-fms/documents/RHEL_DEPLOYMENT_GUIDE.md)
 - ⚙️ [**Backend Setup & Configuration Guide**](file:///D:/istrac-fms/documents/BACKEND_SETUP_AND_CONFIGURATION_GUIDE.md)
 - ⚙️ [**Frontend Setup & Configuration Guide**](file:///D:/istrac-fms/documents/FRONTEND_SETUP_AND_CONFIGURATION_GUIDE.md)
+- 💾 [**Storage Architecture & Edge Case Resilience Specification**](file:///D:/istrac-fms/documents/STORAGE_ARCHITECTURE_AND_EDGE_CASES.md)
+- 📦 [**File Upload, Naming & Version Management Report**](file:///D:/istrac-fms/documents/FILE_UPLOAD_NAMING_AND_VERSIONING_REPORT.md)
 
 ---
 

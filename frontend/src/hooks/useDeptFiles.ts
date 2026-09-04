@@ -27,6 +27,9 @@ export function useDeptFiles({ deptId, parentId, sortField, sortDirection }: Use
             status: 'ACTIVE' as const,
             createdAt: f.createdAt,
             versionCount: f.versionCount || 1,
+            isFeatured: Boolean(f.isFeatured),
+            spacecraft: f.spacecraft ? (String(f.spacecraft).includes('General') ? 'General' : f.spacecraft) : null,
+            category: f.category || null,
           }))
         : []
       return fileNodes

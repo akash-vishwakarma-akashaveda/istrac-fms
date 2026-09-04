@@ -354,12 +354,12 @@ export function AdminHome() {
                     </td>
                     <td className="px-4 py-2.5">
                       <span className="num text-[11px] font-mono text-accent-light">
-                        /{file.department?.code || file.department?.name || 'TTC'}
+                        {file.department?.code || file.department?.name || 'TTC'}
                       </span>
                     </td>
                     <td className="px-4 py-2.5">
                       <span className="text-xs text-text-primary">
-                        {file.report?.spacecraft || 'Fleet Mission'}
+                        {(file.report?.spacecraft && file.report.spacecraft.includes('General')) ? 'General' : (file.report?.spacecraft || 'General')}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 num text-text-secondary text-[11px]">

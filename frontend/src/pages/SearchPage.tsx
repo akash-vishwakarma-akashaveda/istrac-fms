@@ -630,7 +630,7 @@ export function SearchPage() {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {file.satelliteName ? (
                         <span className="rounded bg-accent/15 border border-accent/30 text-accent-light px-1.5 py-0.5 text-[9px] font-bold uppercase num">
-                          {file.satelliteName}
+                          {file.satelliteName.includes('General') ? 'General' : file.satelliteName}
                         </span>
                       ) : null}
                       {(file.departmentCode || file.departmentName) ? (
@@ -639,7 +639,7 @@ export function SearchPage() {
                             ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
                             : 'bg-surface border-border-subtle text-text-dim'
                         }`}>
-                          {file.departmentCode ? `/${file.departmentCode}` : file.departmentName}
+                          {file.departmentCode || file.departmentName}
                           {file.departmentIsActive === false ? ' ⚠️ ARCHIVED' : ''}
                         </span>
                       ) : null}

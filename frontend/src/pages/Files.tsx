@@ -67,7 +67,7 @@ export function Files() {
 
                   return (
                     <option key={department.id} value={department.id}>
-                      {department.code ? `/${department.code} — ` : ''}
+                      {department.code ? `${department.code} — ` : ''}
                       {department.name}
                       {levelTag}
                     </option>
@@ -78,10 +78,10 @@ export function Files() {
           )}
 
           {isAdmin && (
-            <Link to="/admin/upload">
+            <Link to={`/admin/upload${deptId ? `?deptId=${deptId}` : ''}`}>
               <Button variant="primary" size="sm" className="font-bold shadow-md shadow-accent/20">
                 <Upload size={13} strokeWidth={2} />
-                <span>Upload Dataset</span>
+                <span>Upload File</span>
               </Button>
             </Link>
           )}
@@ -102,7 +102,7 @@ export function Files() {
                 </h3>
                 {selectedDepartment.code && (
                   <span className="rounded bg-accent/20 border border-accent/30 px-2 py-0.2 text-[10px] font-bold num text-accent-light">
-                    /{selectedDepartment.code}
+                    {selectedDepartment.code}
                   </span>
                 )}
               </div>
