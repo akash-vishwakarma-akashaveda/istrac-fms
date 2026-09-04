@@ -4,24 +4,34 @@ import { useCms, DEFAULT_CMS_BLOCKS } from '../context/cmsContext'
 import { ImageWithFallback } from './ImageWithFallback'
 import { ImageLightboxModal } from './ImageLightboxModal'
 
-const ASSURANCES = [
-  'Permission-aware departmental access controls (RBAC)',
-  'Tamper-evident append-only audit activity logging',
-  'Multi-ground station satellite scoping (BLR / SHAR / PBL / MAU)',
-  'Real-time WebSocket telemetry pass notifications',
-]
-
 export function AboutSection() {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
   const { cmsBlocks } = useCms()
+  const navHeader = cmsBlocks['nav_header'] as Record<string, any> | undefined
+  const brandTitle = navHeader?.brandTitle || 'ISTRAC'
+  const brandHighlight = navHeader?.brandHighlight !== undefined ? navHeader.brandHighlight : '-SIMS'
+  const brandSubtitle = navHeader?.brandSubtitle || 'ISRO Ground Network'
+
   const info = cmsBlocks['info'] as
     | {
+        aboutEyebrow?: string
         aboutTitle?: string
         aboutText?: string
         aboutImageUrl?: string
         aboutImageAlt?: string
+        facilityTag?: string
+        frequencyTag?: string
+        primaryNodeLabel?: string
+        primaryNodeLocation?: string
+        ctaText?: string
+        ctaHref?: string
+        assurances?: Array<string | { title?: string; text: string }>
       }
     | undefined
+
+  const aboutEyebrow =
+    info?.aboutEyebrow ||
+    `About ${brandTitle}${brandHighlight} Telemetry Infrastructure`
 
   const aboutText =
     (cmsBlocks['org_overview']?.text as string) ||
@@ -41,6 +51,21 @@ export function AboutSection() {
     info?.aboutImageAlt ||
     (DEFAULT_CMS_BLOCKS['info'].aboutImageAlt as string) ||
     'Mission Operations Complex (MOX-2 Bengaluru)'
+
+  const facilityTag = info?.facilityTag || `${brandTitle} HEADQUARTERS`
+  const frequencyTag = info?.frequencyTag || 'AOS 2.2 GHz'
+  const primaryNodeLabel = info?.primaryNodeLabel || 'PRIMARY CONTROL NODE'
+  const primaryNodeLocation =
+    info?.primaryNodeLocation ||
+    (brandSubtitle ? `${brandSubtitle} (BLR)` : 'Bengaluru MOX Complex (BLR)')
+
+  const ctaText = info?.ctaText || 'Contact Mission Support'
+  const ctaHref = info?.ctaHref || '#contact'
+
+  const assurancesList =
+    Array.isArray(info?.assurances) && info!.assurances.length > 0
+      ? info!.assurances
+      : (DEFAULT_CMS_BLOCKS['info'].assurances as string[])
 
   return (
     <section
@@ -67,12 +92,12 @@ export function AboutSection() {
           <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between border-b border-border-subtle/80 bg-[#0b1220]/80 px-4 py-2.5 backdrop-blur-md text-[11px]">
             <span className="eyebrow flex items-center gap-1.5 text-accent-light">
               <Compass size={13} />
-              ISTRAC HEADQUARTERS
+              {facilityTag}
             </span>
             <div className="flex items-center gap-2">
               <span className="num text-nominal font-bold flex items-center gap-1">
                 <Radio size={12} />
-                AOS 2.2 GHz
+                {frequencyTag}
               </span>
               <button
                 type="button"
@@ -110,8 +135,8 @@ export function AboutSection() {
           {/* Bottom Station Node Strip */}
           <div className="absolute bottom-0 inset-x-0 z-20 flex items-center justify-between border-t border-border-subtle/80 bg-[#0b1220]/85 px-4 py-2.5 backdrop-blur-md">
             <div>
-              <p className="eyebrow text-[9px] text-text-dim">PRIMARY CONTROL NODE</p>
-              <p className="num text-xs font-bold text-text-primary">Bengaluru MOX Complex (BLR)</p>
+              <p className="eyebrow text-[9px] text-text-dim">{primaryNodeLabel}</p>
+              <p className="num text-xs font-bold text-text-primary">{primaryNodeLocation}</p>
             </div>
             <span className="num text-[10px] text-nominal font-semibold">● SYNCHRONIZED</span>
           </div>
@@ -121,7 +146,7 @@ export function AboutSection() {
         <div className="lg:col-span-7">
           <p className="eyebrow flex items-center gap-2.5 text-accent-light">
             <span aria-hidden="true" className="h-2.5 w-px bg-accent-light" />
-            About ISTRAC Telemetry Infrastructure
+            {aboutEyebrow}
           </p>
 
           <h2
@@ -136,24 +161,33 @@ export function AboutSection() {
           </p>
 
           <div className="mt-8 grid gap-3 border-t border-border-subtle pt-6 sm:grid-cols-2">
-            {ASSURANCES.map((assurance) => (
-              <div
-                key={assurance}
-                className="flex items-start gap-2.5 rounded-lg border border-border-subtle bg-card/60 p-3 text-xs text-text-secondary"
-              >
-                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-nominal/15 text-nominal">
-                  <Check size={12} strokeWidth={2.5} />
+            {assurancesList.map((assurance, index) => {
+              const isObj = typeof assurance === 'object' && assurance !== null
+              const title = isObj ? (assurance as { title?: string }).title : undefined
+              const text = isObj ? (assurance as { text?: string }).text : (assurance as string)
+
+              return (
+                <div
+                  key={index}
+                  className="flex items-start gap-2.5 rounded-lg border border-border-subtle bg-card/60 p-3 text-xs text-text-secondary hover:border-accent/40 transition-colors"
+                >
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-nominal/15 text-nominal mt-0.5">
+                    <Check size={12} strokeWidth={2.5} />
+                  </div>
+                  <div className="min-w-0">
+                    {title && <div className="font-bold text-white text-xs mb-0.5">{title}</div>}
+                    <span className="text-text-secondary leading-relaxed">{text}</span>
+                  </div>
                 </div>
-                <span>{assurance}</span>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           <a
             className="group mt-8 inline-flex items-center gap-2 text-sm font-semibold text-accent-light transition-colors hover:text-text-primary"
-            href="#contact"
+            href={ctaHref}
           >
-            <span>Contact Mission Support</span>
+            <span>{ctaText}</span>
             <ArrowUpRight
               size={15}
               className="transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"

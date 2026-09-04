@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { useCms } from '../context/cmsContext'
 
 /**
  * Station mark — the same crosshair glyph used in the navbar and the rail,
@@ -29,6 +30,12 @@ interface AuthFrameProps {
  * a graticule and the curve of the limb. No imagery, no per-render randomness.
  */
 export function AuthFrame({ actions, width = 'sm', children }: AuthFrameProps) {
+  const { cmsBlocks } = useCms()
+  const headerBlock = cmsBlocks['nav_header']?.content as Record<string, any> | undefined
+  const brandTitle = headerBlock?.brandTitle ?? 'ISTRAC'
+  const brandHighlight = headerBlock?.brandHighlight ?? '-SIMS'
+  const brandSubtitle = headerBlock?.brandSubtitle ?? 'BLR · MOX Complex'
+
   return (
     <div className="relative isolate flex min-h-screen flex-col bg-page antialiased">
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
@@ -45,12 +52,12 @@ export function AuthFrame({ actions, width = 'sm', children }: AuthFrameProps) {
           <Link
             to="/"
             className="group flex items-center gap-2.5 text-text-primary"
-            aria-label="ISTRAC-SIMS home"
+            aria-label={`${brandTitle}${brandHighlight} home`}
           >
             <StationMark />
 
             <span className="text-[13px] tracking-[0.06em]">
-              ISTRAC<span className="text-accent-light">-SIMS</span>
+              {brandTitle}<span className="text-accent-light">{brandHighlight}</span>
             </span>
           </Link>
 
@@ -76,7 +83,7 @@ export function AuthFrame({ actions, width = 'sm', children }: AuthFrameProps) {
 
       <footer className="relative z-10 border-t border-border-subtle">
         <div className="shell flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-4">
-          <p className="num text-[10px] text-text-dim">BLR · MOX Complex</p>
+          <p className="num text-[10px] text-text-dim">{brandSubtitle}</p>
           <p className="num text-[10px] text-text-dim">REF UTC</p>
         </div>
       </footer>

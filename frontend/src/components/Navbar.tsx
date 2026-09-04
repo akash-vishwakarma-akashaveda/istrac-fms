@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import {
   Menu,
   X,
@@ -15,10 +15,14 @@ import {
   Headphones,
   Radio,
   Bell,
+  LogOut,
 } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
 import { useNotificationStore } from "../store/notificationStore"
 import { useAuthModalStore } from "../store/authModalStore"
+import { useToastStore } from "../store/toastStore"
+import { authApi } from "../api/auth.api"
+import { wsClient } from "../lib/ws"
 import { departmentsApi, type Department } from "../api/departments.api"
 import { Button } from "."
 import { SearchModal } from "./SearchModal"
@@ -38,9 +42,26 @@ interface NavBlockContent {
 }
 
 export function Navbar() {
+  const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
+  const clearAuth = useAuthStore((s) => s.clearAuth)
+  const { addToast } = useToastStore()
   const { openLogin, openRegister } = useAuthModalStore()
   const { cmsBlocks } = useCms()
+
+  async function handleLogout() {
+    try {
+      await authApi.logout()
+      addToast({ message: "Signed out successfully", variant: "success" })
+    } catch (error) {
+      console.error("Logout API error:", error)
+      addToast({ message: "Session signed out", variant: "info" })
+    } finally {
+      clearAuth()
+      wsClient.disconnect()
+      navigate("/login")
+    }
+  }
 
   const navData =
     (cmsBlocks["nav_header"] as NavBlockContent | undefined) ||
@@ -253,6 +274,17 @@ export function Navbar() {
                       <span>Mission Console</span>
                     </Button>
                   </Link>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="gap-1.5 border-border-default bg-[#070c18] text-text-secondary hover:border-critical/60 hover:text-critical font-semibold cursor-pointer shadow-inner transition-colors"
+                    title="Sign Out Session"
+                  >
+                    <LogOut size={13} className="text-critical/90" />
+                    <span>Logout</span>
+                  </Button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
@@ -279,7 +311,7 @@ export function Navbar() {
             )}
           </div>
 
-          {/* Mobile Actions: Search Icon + Hamburger Toggle */}
+          {/* Mobile Actions: Search Icon + Logout (if logged in) + Hamburger Toggle */}
           <div className="flex items-center gap-1.5 md:hidden">
             {showSearchButton && (
               <button
@@ -289,6 +321,18 @@ export function Navbar() {
                 aria-label="Search"
               >
                 <Search size={18} />
+              </button>
+            )}
+
+            {user && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-border-subtle bg-surface/80 text-text-secondary hover:border-critical/60 hover:text-critical transition-colors cursor-pointer"
+                title="Logout"
+                aria-label="Logout"
+              >
+                <LogOut size={17} className="text-critical" />
               </button>
             )}
 
@@ -421,12 +465,37 @@ export function Navbar() {
             {showAuthButton && (
               <div>
                 {user ? (
-                  <Link to="/app" onClick={() => setMobileOpen(false)}>
-                    <Button variant="primary" size="lg" className="w-full justify-center gap-2 shadow-lg shadow-accent/20">
-                      <UserCheck size={16} />
-                      <span>Launch Mission Console</span>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between rounded-xl border border-border-default bg-[#0b1220] p-3 text-xs">
+                      <div className="truncate pr-2">
+                        <div className="font-bold text-text-primary truncate">{user.name}</div>
+                        <div className="num text-[10px] text-text-dim font-mono truncate">{user.email}</div>
+                      </div>
+                      <span className="rounded bg-accent/20 border border-accent/30 px-2 py-0.5 text-[9px] font-bold uppercase num text-accent-light shrink-0">
+                        {user.role}
+                      </span>
+                    </div>
+
+                    <Link to="/app" onClick={() => setMobileOpen(false)}>
+                      <Button variant="primary" size="lg" className="w-full justify-center gap-2 shadow-lg shadow-accent/20">
+                        <UserCheck size={16} />
+                        <span>Launch Mission Console</span>
+                      </Button>
+                    </Link>
+
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={() => {
+                        setMobileOpen(false)
+                        handleLogout()
+                      }}
+                      className="w-full justify-center gap-2 border-border-default text-text-secondary hover:border-critical/60 hover:text-critical cursor-pointer"
+                    >
+                      <LogOut size={16} className="text-critical" />
+                      <span>Sign Out / Logout</span>
                     </Button>
-                  </Link>
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     <Button

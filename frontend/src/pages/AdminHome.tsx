@@ -24,6 +24,7 @@ import { StatCard, AuditFeed, SetupWizardModal } from '../components'
 import { usersApi } from '../api/users.api'
 import { apiClient } from '../api/client'
 import { useToastStore } from '../store/toastStore'
+import { useCms } from '../context/cmsContext'
 
 function formatBytes(bytes: number) {
   if (!bytes) return '0 B'
@@ -37,6 +38,12 @@ function formatBytes(bytes: number) {
 }
 
 export function AdminHome() {
+  const { cmsBlocks } = useCms()
+  const headerBlock = cmsBlocks['nav_header']?.content as Record<string, any> | undefined
+  const brandTitle = headerBlock?.brandTitle ?? 'ISTRAC'
+  const brandHighlight = headerBlock?.brandHighlight ?? '-SIMS'
+  const brandSubtitle = headerBlock?.brandSubtitle ?? 'ISRO Ground Network'
+
   const { data: stats, isLoading, refetch } = useAdminStats()
   const addToast = useToastStore((s) => s.addToast)
 
@@ -128,7 +135,7 @@ export function AdminHome() {
           <div className="flex items-center gap-2">
             <span className="flex h-2 w-2 rounded-full bg-nominal animate-pulse" />
             <span className="eyebrow text-xs font-bold text-accent-light tracking-widest uppercase">
-              ISTRAC Ground Station Command & Control
+              {brandTitle}{brandHighlight} · {brandSubtitle || 'Ground Station Command & Control'}
             </span>
           </div>
           <h1 className="display mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-white">

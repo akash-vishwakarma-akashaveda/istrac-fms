@@ -21,6 +21,25 @@ router.get('/departments/public', async (_req, res, next) => {
       where: { isActive: true, deletedAt: null },
       include: {
         satellite: { select: { id: true, name: true, code: true } },
+        departmentSatellites: {
+          include: {
+            satellite: {
+              select: {
+                id: true,
+                satId: true,
+                name: true,
+                code: true,
+                description: true,
+                launchDate: true,
+                payloads: true,
+                fuelBalance: true,
+                launchMass: true,
+                orbitType: true,
+                status: true,
+              },
+            },
+          },
+        },
         _count: { select: { files: { where: { deletedAt: null } } } },
       },
       orderBy: { name: 'asc' },
@@ -33,6 +52,7 @@ router.get('/departments/public', async (_req, res, next) => {
         code: d.code,
         description: d.description,
         satellite: d.satellite,
+        satellites: d.departmentSatellites.map((ds: any) => ds.satellite),
         fileCount: d._count.files,
         pageTitle: d.pageTitle,
         pageAbout: d.pageAbout,
@@ -90,6 +110,25 @@ router.get('/departments/public/:deptId', async (req, res, next) => {
       },
       include: {
         satellite: { select: { id: true, name: true, code: true } },
+        departmentSatellites: {
+          include: {
+            satellite: {
+              select: {
+                id: true,
+                satId: true,
+                name: true,
+                code: true,
+                description: true,
+                launchDate: true,
+                payloads: true,
+                fuelBalance: true,
+                launchMass: true,
+                orbitType: true,
+                status: true,
+              },
+            },
+          },
+        },
         _count: { select: { files: { where: { deletedAt: null } } } },
       },
     })
@@ -105,6 +144,7 @@ router.get('/departments/public/:deptId', async (req, res, next) => {
         code: department.code,
         description: department.description,
         satellite: department.satellite,
+        satellites: department.departmentSatellites.map((ds: any) => ds.satellite),
         fileCount: department._count.files,
         pageTitle: department.pageTitle,
         pageAbout: department.pageAbout,
@@ -297,6 +337,25 @@ router.get('/departments/:deptId/hub', authMiddleware, async (req, res, next) =>
       },
       include: {
         satellite: { select: { id: true, name: true, code: true, description: true } },
+        departmentSatellites: {
+          include: {
+            satellite: {
+              select: {
+                id: true,
+                satId: true,
+                name: true,
+                code: true,
+                description: true,
+                launchDate: true,
+                payloads: true,
+                fuelBalance: true,
+                launchMass: true,
+                orbitType: true,
+                status: true,
+              },
+            },
+          },
+        },
         _count: { select: { files: { where: { deletedAt: null } } } },
       },
     })
@@ -359,6 +418,7 @@ router.get('/departments/:deptId/hub', authMiddleware, async (req, res, next) =>
           description: department.description,
           hddPath: department.hddPath,
           satellite: department.satellite,
+          satellites: department.departmentSatellites.map((ds: any) => ds.satellite),
           fileCount: department._count.files,
           pageTitle: department.pageTitle || `${department.name} Operational Division`,
           pageAbout: department.pageAbout || department.description || 'ISRO Telemetry, Tracking & Command Operational Hub.',
@@ -505,6 +565,24 @@ router.get('/admin/departments', authMiddleware, adminMiddleware, async (req, re
       },
       include: {
         satellite: { select: { id: true, name: true, code: true } },
+        departmentSatellites: {
+          include: {
+            satellite: {
+              select: {
+                id: true,
+                satId: true,
+                name: true,
+                code: true,
+                status: true,
+                launchDate: true,
+                payloads: true,
+                fuelBalance: true,
+                launchMass: true,
+                orbitType: true,
+              },
+            },
+          },
+        },
         _count: {
           select: {
             files: { where: { deletedAt: null } },
@@ -538,6 +616,7 @@ router.get('/admin/departments', authMiddleware, adminMiddleware, async (req, re
           allowUserFolderCreation: d.allowUserFolderCreation,
           maxFolderDepth: d.maxFolderDepth,
           satellite: d.satellite,
+          satellites: d.departmentSatellites.map((ds: any) => ds.satellite),
           fileCount: d._count.files,
           userCount: d._count.userAccess,
           createdAt: d.createdAt,
@@ -558,6 +637,7 @@ const createDeptHandler = async (req: any, res: any, next: any) => {
   try {
     let {
       satelliteId,
+      satelliteIds,
       name,
       code,
       description,
@@ -577,32 +657,26 @@ const createDeptHandler = async (req: any, res: any, next: any) => {
       throw new AppError('missing_fields', 'Department name is required', 400)
     }
 
+    if (satelliteIds && Array.isArray(satelliteIds) && satelliteIds.length > 0 && !satelliteId) {
+      satelliteId = satelliteIds[0]
+    }
+
     if (!satelliteId) {
       const defaultSatellite = await prisma.satellite.findFirst({
         where: { isActive: true, deletedAt: null },
       })
-      if (!defaultSatellite) {
-        throw new AppError('no_satellite', 'No active satellite found. Please create a satellite first.', 400)
+      if (defaultSatellite) {
+        satelliteId = defaultSatellite.id
       }
-      satelliteId = defaultSatellite.id
     }
 
-    const satellite = await prisma.satellite.findUnique({
-      where: { id: satelliteId, deletedAt: null },
-    })
-    if (!satellite) {
-      throw new AppError('satellite_not_found', 'Specified satellite does not exist', 404)
-    }
-
-    const existingName = await prisma.department.findFirst({
-      where: { satelliteId, name, deletedAt: null },
-    })
-    if (existingName) {
-      throw new AppError(
-        'department_exists',
-        'A department with this name already exists in this satellite station',
-        409,
-      )
+    if (satelliteId) {
+      const satellite = await prisma.satellite.findUnique({
+        where: { id: satelliteId, deletedAt: null },
+      })
+      if (!satellite) {
+        throw new AppError('satellite_not_found', 'Specified satellite does not exist', 404)
+      }
     }
 
     const storageConfig = await prisma.systemConfig.findFirst({
@@ -621,7 +695,7 @@ const createDeptHandler = async (req: any, res: any, next: any) => {
 
     const department = await prisma.department.create({
       data: {
-        satelliteId,
+        satelliteId: satelliteId || null,
         name,
         code: code || null,
         description: description || null,
@@ -641,6 +715,24 @@ const createDeptHandler = async (req: any, res: any, next: any) => {
       },
     })
 
+    // Assign satellites via junction table
+    if (satelliteIds && Array.isArray(satelliteIds) && satelliteIds.length > 0) {
+      const validSats = await prisma.satellite.findMany({
+        where: { id: { in: satelliteIds }, deletedAt: null },
+        select: { id: true },
+      })
+
+      if (validSats.length > 0) {
+        await prisma.departmentSatellite.createMany({
+          data: validSats.map((s) => ({
+            departmentId: department.id,
+            satelliteId: s.id,
+          })),
+          skipDuplicates: true,
+        })
+      }
+    }
+
     auditService.log({
       userId: req.user!.id,
       action: 'POST:/departments',
@@ -648,8 +740,36 @@ const createDeptHandler = async (req: any, res: any, next: any) => {
       resourceId: department.id,
     })
 
+    const fullDept = await prisma.department.findUnique({
+      where: { id: department.id },
+      include: {
+        satellite: true,
+        departmentSatellites: {
+          include: {
+            satellite: {
+              select: {
+                id: true,
+                satId: true,
+                name: true,
+                code: true,
+                status: true,
+                launchDate: true,
+                payloads: true,
+                fuelBalance: true,
+                launchMass: true,
+                orbitType: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
     res.status(201).json({
-      data: department,
+      data: {
+        ...fullDept,
+        satellites: fullDept?.departmentSatellites.map((ds) => ds.satellite) || [],
+      },
       requestId: req.requestId,
     })
   } catch (err) {
@@ -672,6 +792,25 @@ router.get('/admin/departments/:deptId', authMiddleware, adminMiddleware, async 
       where: { id: deptId, deletedAt: null },
       include: {
         satellite: true,
+        departmentSatellites: {
+          include: {
+            satellite: {
+              select: {
+                id: true,
+                satId: true,
+                name: true,
+                code: true,
+                description: true,
+                launchDate: true,
+                payloads: true,
+                fuelBalance: true,
+                launchMass: true,
+                orbitType: true,
+                status: true,
+              },
+            },
+          },
+        },
         userAccess: {
           where: { deletedAt: null },
           include: {
@@ -686,7 +825,10 @@ router.get('/admin/departments/:deptId', authMiddleware, adminMiddleware, async 
     }
 
     res.json({
-      data: department,
+      data: {
+        ...department,
+        satellites: department.departmentSatellites.map((ds) => ds.satellite),
+      },
       requestId: req.requestId,
     })
   } catch (err) {
@@ -718,6 +860,7 @@ const updateDeptHandler = async (req: any, res: any, next: any) => {
       isPageEnabled,
       isActive,
       archived,
+      satelliteIds,
     } = req.body
 
     const existing = await prisma.department.findUnique({
@@ -737,6 +880,11 @@ const updateDeptHandler = async (req: any, res: any, next: any) => {
       })
     }
 
+    let primarySatId: string | undefined | null = undefined
+    if (satelliteIds !== undefined && Array.isArray(satelliteIds)) {
+      primarySatId = satelliteIds.length > 0 ? satelliteIds[0] : null
+    }
+
     const updated = await prisma.department.update({
       where: { id: deptId },
       data: {
@@ -754,11 +902,36 @@ const updateDeptHandler = async (req: any, res: any, next: any) => {
         pageBannerUrl: pageBannerUrl !== undefined ? pageBannerUrl : undefined,
         isPageEnabled: isPageEnabled !== undefined ? Boolean(isPageEnabled) : undefined,
         isActive: isDeptActive,
+        satelliteId: primarySatId !== undefined ? primarySatId : undefined,
       },
       include: {
         satellite: true,
       },
     })
+
+    // Sync department satellites junction if provided
+    if (satelliteIds !== undefined && Array.isArray(satelliteIds)) {
+      await prisma.departmentSatellite.deleteMany({
+        where: { departmentId: deptId },
+      })
+
+      if (satelliteIds.length > 0) {
+        const validSats = await prisma.satellite.findMany({
+          where: { id: { in: satelliteIds }, deletedAt: null },
+          select: { id: true },
+        })
+
+        if (validSats.length > 0) {
+          await prisma.departmentSatellite.createMany({
+            data: validSats.map((s) => ({
+              departmentId: deptId,
+              satelliteId: s.id,
+            })),
+            skipDuplicates: true,
+          })
+        }
+      }
+    }
 
     auditService.log({
       userId: req.user!.id,
@@ -767,8 +940,36 @@ const updateDeptHandler = async (req: any, res: any, next: any) => {
       resourceId: updated.id,
     })
 
+    const fullDept = await prisma.department.findUnique({
+      where: { id: deptId },
+      include: {
+        satellite: true,
+        departmentSatellites: {
+          include: {
+            satellite: {
+              select: {
+                id: true,
+                satId: true,
+                name: true,
+                code: true,
+                status: true,
+                launchDate: true,
+                payloads: true,
+                fuelBalance: true,
+                launchMass: true,
+                orbitType: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
     res.json({
-      data: updated,
+      data: {
+        ...fullDept,
+        satellites: fullDept?.departmentSatellites.map((ds) => ds.satellite) || [],
+      },
       requestId: req.requestId,
     })
   } catch (err) {

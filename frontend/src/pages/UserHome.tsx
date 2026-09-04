@@ -25,6 +25,7 @@ import {
 
 import { useMissionOverview } from '../hooks/useUserHome'
 import { useAuthStore } from '../store/authStore'
+import { useCms } from '../context/cmsContext'
 import { Button, Modal } from '../components'
 import { FileIcon } from '../components/FileIcon'
 import { FilePreviewModal } from '../components/FilePreviewModal'
@@ -35,6 +36,15 @@ import { api } from '../lib/axios'
 export function UserHome() {
   const user = useAuthStore((state) => state.user)
   const isAdmin = user?.role === 'ADMIN'
+  const { cmsBlocks } = useCms()
+
+  const navData =
+    (cmsBlocks['nav_header'] as any) ||
+    (cmsBlocks['nav_footer'] as any)
+
+  const brandTitle = navData?.brandTitle || 'ISTRAC'
+  const brandHighlight = navData?.brandHighlight !== undefined ? navData.brandHighlight : '-SIMS'
+  const brandSubtitle = navData?.brandSubtitle || 'ISRO Ground Network'
 
   // Fetch complete mission overview payload from real DB
   const { data: overview, isLoading } = useMissionOverview()
@@ -220,7 +230,7 @@ export function UserHome() {
               </span>
             </div>
             <p className="text-xs text-text-secondary mt-0.5">
-              ISRO Telemetry, Tracking and Command Network • Secure Mission Data Portal
+              {brandTitle}{brandHighlight} • {brandSubtitle || 'Secure Mission Data Portal'}
             </p>
           </div>
         </div>

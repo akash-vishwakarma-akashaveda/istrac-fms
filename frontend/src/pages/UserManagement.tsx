@@ -54,6 +54,12 @@ export function UserManagement() {
     name: string
   } | null>(null)
 
+  // Force Logout Target State
+  const [forceLogoutTarget, setForceLogoutTarget] = useState<{
+    id: string
+    name: string
+  } | null>(null)
+
   // Inspect User State
   const [inspectingUser, setInspectingUser] = useState<UserProfile | null>(null)
 
@@ -178,10 +184,19 @@ export function UserManagement() {
     })
   }
 
-  function handleForceLogout(userId: string, name: string) {
-    forceLogout.mutate(userId, {
-      onSuccess: () => addToast({ message: `${name}'s session invalidated`, variant: 'success' }),
-      onError: () => addToast({ message: 'Failed to force logout', variant: 'error' }),
+  function handleConfirmForceLogout() {
+    if (!forceLogoutTarget) return
+    const { id, name } = forceLogoutTarget
+
+    forceLogout.mutate(id, {
+      onSuccess: () => {
+        addToast({ message: `${name}'s session invalidated`, variant: 'success' })
+        setForceLogoutTarget(null)
+      },
+      onError: () => {
+        addToast({ message: 'Failed to force logout', variant: 'error' })
+        setForceLogoutTarget(null)
+      },
     })
   }
 
@@ -503,7 +518,7 @@ export function UserManagement() {
                             {/* Force Logout */}
                             <button
                               type="button"
-                              onClick={() => handleForceLogout(userRow.id, userRow.name)}
+                              onClick={() => setForceLogoutTarget({ id: userRow.id, name: userRow.name })}
                               disabled={forceLogout.isPending}
                               className="p-1.5 rounded-lg border border-border-default bg-[#0c1424] text-warning hover:bg-warning/10 transition-all text-xs font-bold disabled:opacity-40"
                               title="Force Session Logout"
@@ -762,6 +777,18 @@ export function UserManagement() {
         message={`Suspend ${suspendTarget?.name}? They will be immediately logged out and unable to sign in until reinstated.`}
         confirmLabel="Suspend"
         isSubmitting={suspendUser.isPending}
+      />
+
+      {/* Force Logout Confirmation */}
+      <ConfirmDialog
+        isOpen={forceLogoutTarget !== null}
+        onClose={() => setForceLogoutTarget(null)}
+        onConfirm={handleConfirmForceLogout}
+        title="Force Session Logout"
+        message={`Terminate the active mission session for ${forceLogoutTarget?.name}? Their session token will be immediately revoked and they will be logged out of all operational consoles.`}
+        confirmLabel="Force Logout"
+        variant="danger"
+        isSubmitting={forceLogout.isPending}
       />
 
       {/* ============================================================ */}
