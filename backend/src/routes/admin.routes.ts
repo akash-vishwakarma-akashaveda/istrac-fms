@@ -169,7 +169,7 @@ router.get('/admin/settings', authMiddleware, adminMiddleware, async (req, res, 
     // Default configuration blueprint
     const defaults: Record<string, any> = {
       maxUploadSizeBytes: 524288000, // 500MB
-      allowedExtensions: ['pdf', 'docx', 'xlsx', 'pptx', 'csv', 'txt', 'png', 'jpg', 'zip'],
+      allowedExtensions: ['pdf', 'docx', 'xlsx', 'pptx', 'csv', 'txt', 'dat', 'bin', 'raw', 'fits', 'h5', 'png', 'jpg', 'zip', 'tar'],
       virusScanEnabled: false,
       guestAccessExpiryDays: 7,
       hddSyncIntervalMinutes: 15,

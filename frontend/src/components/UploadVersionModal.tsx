@@ -846,7 +846,6 @@ export function UploadVersionModal({
                           type="file"
                           className="hidden"
                           onChange={handleFileSelect}
-                          accept=".pdf,.docx,.doc,.xlsx,.xls,.csv,.txt,.dat,.json"
                         />
 
                         {uploadedFile ? (
@@ -878,7 +877,7 @@ export function UploadVersionModal({
                               </p>
                             </div>
                             <p className="text-[10px] text-text-dim border-t border-border-subtle pt-2">
-                              Max allowed: {formatFileSize(maxUploadBytes)} (PDF, DOCX, CSV, BIN, DAT)
+                              All mission data formats supported: Documents, Telemetry (DAT, RAW, BIN), Scientific (FITS, H5), Archives (ZIP, TAR) · Up to {formatFileSize(maxUploadBytes)}
                             </p>
                           </div>
                         )}

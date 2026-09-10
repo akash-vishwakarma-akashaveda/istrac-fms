@@ -63,19 +63,36 @@ export interface UploadFileResult {
   reportId?: string | null
 }
 
-const ALLOWED_EXTENSIONS = new Set([
-  // Document formats
-  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp',
-  // Text / data
-  'txt', 'csv', 'json', 'xml', 'md', 'log', 'dat', 'tsv',
-  // Images
-  'png', 'jpg', 'jpeg', 'gif', 'webp', 'tiff', 'bmp', 'svg',
-  // Video
-  'mp4', 'mov', 'avi', 'mkv', 'webm',
-  // Scientific / Telemetry formats
-  'fits', 'fit', 'hdf', 'hdf5', 'h5', 'nc', 'cdf', 'sav', 'mat',
-  // Archive
-  'zip', 'tar', 'gz', 'bz2', '7z', 'rar',
+export const FORBIDDEN_EXECUTABLE_EXTENSIONS = new Set([
+  // Binary system executables & libraries
+  'exe', 'dll', 'so', 'dylib', 'com', 'pif', 'scr', 'cpl', 'msc', 'msi', 'msp',
+  // Shell & script execution vectors
+  'bat', 'cmd', 'vbs', 'vbe', 'jse', 'wsf', 'wsh', 'ps1', 'ps2', 'psc1', 'psc2',
+  // Web server execution scripts
+  'php', 'phtml', 'php3', 'php4', 'php5', 'phps', 'asp', 'aspx', 'jsp', 'jspx', 'cgi', 'pl',
+  // Shortcuts & registry execution
+  'lnk', 'inf', 'reg', 'hta',
+])
+
+export const DEFAULT_ALLOWED_EXTENSIONS = new Set([
+  // Documents & Office
+  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'xlsm', 'xlsb', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'rtf', 'tex', 'wpd',
+  // Text & Structured Data
+  'txt', 'csv', 'tsv', 'json', 'xml', 'yaml', 'yml', 'md', 'log', 'dat', 'ini', 'conf', 'toml', 'sql',
+  // Telemetry, Aerospace & Binary
+  'bin', 'raw', 'tlm', 'hex', 'pcap', 'pcapng', 'ephem', 'tle', 'orb', 'sp3', 'oem', 'rinex', 'nav', 'obs', 'ccsds',
+  // Scientific & Planetary Datasets
+  'fits', 'fit', 'fts', 'hdf', 'hdf5', 'h5', 'nc', 'cdf', 'sav', 'mat', 'parquet', 'feather', 'arrow',
+  // Images & Visuals
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'tiff', 'tif', 'bmp', 'svg', 'ico', 'psd', 'ai', 'eps',
+  // Video & Motion
+  'mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v', 'flv', 'wmv',
+  // Audio & Voice Comms
+  'mp3', 'wav', 'flac', 'ogg', 'm4a', 'aac',
+  // Archives & Compressed Packages
+  'zip', 'tar', 'gz', 'tgz', 'bz2', 'tbz2', '7z', 'rar', 'xz', 'txz', 'zst', 'iso',
+  // Engineering, CAD & 3D Models
+  'step', 'stp', 'iges', 'igs', 'stl', 'dxf', 'dwg', 'obj', 'gltf', 'glb',
 ])
 
 
@@ -94,12 +111,51 @@ export const fileService = {
   )
 }
   // ============================================================
-  // D1: Validate file extension against allowlist
+  // D1: Validate file extension against allowlist & settings
   // ============================================================
-const ext = path.extname(params.originalName).replace('.', '').toLowerCase()
-if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
-  throw new AppError('unsupported_file_type', `File type .${ext} is not permitted. Contact your administrator to add support for this format.`, 415)
-}
+  const rawExt = path.extname(params.originalName)
+  const ext = rawExt ? rawExt.replace('.', '').toLowerCase().trim() : ''
+
+  // 1. Strictly block known dangerous system executables/malware scripts
+  if (ext && FORBIDDEN_EXECUTABLE_EXTENSIONS.has(ext)) {
+    throw new AppError(
+      'executable_file_forbidden',
+      `Executable or script format (.${ext}) is prohibited for mission security.`,
+      415,
+    )
+  }
+
+  // 2. Fetch dynamic allowed extensions from SystemConfig
+  let systemAllowed: string[] | null = null
+  try {
+    const configRow = await prisma.systemConfig.findUnique({
+      where: { configKey: 'allowedExtensions' },
+    })
+    if (configRow) {
+      const parsed = JSON.parse(configRow.configValue)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        systemAllowed = parsed.map((e: string) => e.replace('.', '').toLowerCase().trim())
+      }
+    }
+  } catch {
+    systemAllowed = null
+  }
+
+  const allowAll = systemAllowed?.includes('*') || systemAllowed?.includes('all')
+
+  if (!allowAll && ext) {
+    const isPermitted = systemAllowed
+      ? systemAllowed.includes(ext) || DEFAULT_ALLOWED_EXTENSIONS.has(ext)
+      : DEFAULT_ALLOWED_EXTENSIONS.has(ext)
+
+    if (!isPermitted) {
+      throw new AppError(
+        'unsupported_file_type',
+        `File type .${ext} is not permitted. Contact your administrator to add support for this format in System Settings.`,
+        415,
+      )
+    }
+  }
 
 // D2: Scan SVG files for Stored XSS / XXE payload
 if (ext === 'svg') {

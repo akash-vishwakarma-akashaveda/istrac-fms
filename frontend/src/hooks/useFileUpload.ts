@@ -11,13 +11,11 @@ interface UseFileUploadParams {
   parentId: string | null
 }
 const MAX_FILE_SIZE = 500 * 1024 * 1024
-const ALLOWED_EXTENSIONS = new Set([
-  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods',
-  'txt', 'csv', 'json', 'xml', 'md', 'log', 'dat', 'tsv',
-  'png', 'jpg', 'jpeg', 'gif', 'webp', 'tiff', 'bmp',
-  'mp4', 'mov', 'avi', 'mkv', 'webm',
-  'fits', 'fit', 'hdf', 'hdf5', 'h5', 'nc', 'cdf',
-  'zip', 'tar', 'gz', 'bz2', '7z',
+const FORBIDDEN_EXECUTABLE_EXTENSIONS = new Set([
+  'exe', 'dll', 'so', 'dylib', 'com', 'pif', 'scr', 'cpl', 'msc', 'msi', 'msp',
+  'bat', 'cmd', 'vbs', 'vbe', 'jse', 'wsf', 'wsh', 'ps1', 'ps2', 'psc1', 'psc2',
+  'php', 'phtml', 'php3', 'php4', 'php5', 'phps', 'asp', 'aspx', 'jsp', 'jspx', 'cgi', 'pl',
+  'lnk', 'inf', 'reg', 'hta',
 ])
 export function useFileUpload({ departmentId, parentId }: UseFileUploadParams) {
   const [items, setItems] = useState<UploadItem[]>([])
@@ -95,8 +93,8 @@ function addFiles(files: FileList | File[]) {
       .pop()
       ?.toLowerCase()
 
-    if (!extension || !ALLOWED_EXTENSIONS.has(extension)) {
-      rejected.push(file.name)
+    if (extension && FORBIDDEN_EXECUTABLE_EXTENSIONS.has(extension)) {
+      rejected.push(`${file.name} (Executable files prohibited)`)
       continue
     }
       if (file.size > MAX_FILE_SIZE) {

@@ -679,7 +679,6 @@ export function UploadReport() {
                       type="file"
                       className="hidden"
                       onChange={handleFileSelect}
-                      accept=".pdf,.docx,.doc,.xlsx,.xls,.csv,.txt,.dat,.json"
                     />
 
                     {file ? (
@@ -711,7 +710,7 @@ export function UploadReport() {
                           </p>
                         </div>
                         <p className="text-[10px] text-text-dim">
-                          Supported formats: PDF, DOCX, XLSX, CSV, TXT, DAT (Up to {formatFileSize(maxUploadBytes)})
+                          All mission data formats supported (PDF, Telemetry, RAW, BIN, FITS, HDF5, CSV, Media, Archives · Up to {formatFileSize(maxUploadBytes)})
                         </p>
                       </div>
                     )}
