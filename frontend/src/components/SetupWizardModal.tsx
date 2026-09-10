@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { Modal, Button, Input } from './'
 import { apiClient } from '../api/client'
+import { useQueryClient } from '@tanstack/react-query'
 import { useToastStore } from '../store/toastStore'
 import { satellitesApi, type Satellite } from '../api/satellites.api'
 import { formatFileSize } from '../lib/formatFileSize'
@@ -40,6 +41,7 @@ interface SetupWizardModalProps {
 
 export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardModalProps) {
   const addToast = useToastStore((s) => s.addToast)
+  const queryClient = useQueryClient()
 
   const [currentStep, setCurrentStep] = useState(1)
 
@@ -198,6 +200,12 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
         message: `Registered ${data.satellitesCreated || 6} satellites and ${data.departmentsCreated || 5} operational divisions.`,
         variant: 'success',
       })
+      queryClient.invalidateQueries({ queryKey: ['satellites'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-satellites'] })
+      queryClient.invalidateQueries({ queryKey: ['departments'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-departments'] })
+      queryClient.invalidateQueries({ queryKey: ['public-departments'] })
+      queryClient.invalidateQueries({ queryKey: ['system-config'] })
       await fetchSatellites()
     } catch (err: any) {
       addToast({
@@ -211,6 +219,12 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
   }
 
   const handleFinish = () => {
+    queryClient.invalidateQueries({ queryKey: ['satellites'] })
+    queryClient.invalidateQueries({ queryKey: ['admin-satellites'] })
+    queryClient.invalidateQueries({ queryKey: ['departments'] })
+    queryClient.invalidateQueries({ queryKey: ['admin-departments'] })
+    queryClient.invalidateQueries({ queryKey: ['public-departments'] })
+    queryClient.invalidateQueries({ queryKey: ['system-config'] })
     addToast({
       title: 'Station Configured',
       message: 'Ground station storage, spacecraft fleet, and failover parameters are active.',
@@ -259,7 +273,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                   )}
                   <span className="num text-[11px] font-bold">0{s.num}</span>
                 </div>
-                <span className="text-[10px] font-medium truncate max-w-full">{s.label}</span>
+                <span className="hidden sm:block text-[10px] font-medium truncate max-w-full">{s.label}</span>
               </div>
             )
           })}
@@ -286,7 +300,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
 
             {/* Detected Host Storage Drives Grid */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-text-dim">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs font-bold text-text-dim">
                 <span>Available System Volumes ({availableDrives.length})</span>
                 <span className="text-[11px] text-accent-light">Click a drive to select mount root</span>
               </div>
@@ -526,9 +540,14 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                 >
                   <Sparkles size={16} />
                   <span>
-                    {bootstrapping
-                      ? 'Seeding ISRO Missions & Divisions…'
-                      : '⚡ 1-Click Seed ISRO Fleet (Aditya-L1, Chandrayaan-3, TTC, FDD, MOX)'}
+                    {bootstrapping ? (
+                      'Seeding ISRO Missions & Divisions…'
+                    ) : (
+                      <>
+                        <span className="hidden sm:inline">⚡ 1-Click Seed ISRO Fleet (Aditya-L1, Chandrayaan-3, TTC, FDD, MOX)</span>
+                        <span className="sm:hidden">⚡ 1-Click Seed ISRO Fleet</span>
+                      </>
+                    )}
                   </span>
                 </Button>
               </div>
@@ -713,7 +732,8 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                 className="bg-nominal hover:bg-nominal-light text-white shadow-lg shadow-nominal/25"
               >
                 <CheckCircle2 size={15} />
-                <span>Launch Ground Command Center</span>
+                <span className="hidden sm:inline">Launch Ground Command Center</span>
+                <span className="sm:hidden">Launch Center</span>
               </Button>
             )}
           </div>

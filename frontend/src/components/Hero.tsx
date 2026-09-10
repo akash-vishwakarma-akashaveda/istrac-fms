@@ -420,7 +420,7 @@ export function Hero() {
                   <button
                     type="button"
                     onClick={handlePrevSlide}
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full bg-card/85 border border-border-default text-text-muted hover:text-white hover:bg-accent flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 shadow-lg"
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full bg-card/85 border border-border-default text-text-muted hover:text-white hover:bg-accent flex items-center justify-center transition-all opacity-80 sm:opacity-0 sm:group-hover:opacity-100 shadow-lg cursor-pointer"
                     aria-label="Previous slide"
                   >
                     <ChevronLeft size={15} />
@@ -429,7 +429,7 @@ export function Hero() {
                   <button
                     type="button"
                     onClick={handleNextSlide}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full bg-card/85 border border-border-default text-text-muted hover:text-white hover:bg-accent flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 shadow-lg"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full bg-card/85 border border-border-default text-text-muted hover:text-white hover:bg-accent flex items-center justify-center transition-all opacity-80 sm:opacity-0 sm:group-hover:opacity-100 shadow-lg cursor-pointer"
                     aria-label="Next slide"
                   >
                     <ChevronRight size={15} />

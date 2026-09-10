@@ -184,14 +184,14 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-1 border-b border-border-subtle pb-2">
+        <div className="flex items-center gap-1 border-b border-border-subtle pb-2 overflow-x-auto scrollbar-none">
           <button
             type="button"
             onClick={() => {
               setActiveTab('profile')
               setIsEditingProfile(false)
             }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
               activeTab === 'profile'
                 ? 'bg-accent/20 text-accent-light border border-accent/40 shadow-sm'
                 : 'text-text-dim hover:text-white hover:bg-surface'
@@ -204,7 +204,7 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
           <button
             type="button"
             onClick={() => setActiveTab('security')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
               activeTab === 'security'
                 ? 'bg-accent/20 text-accent-light border border-accent/40 shadow-sm'
                 : 'text-text-dim hover:text-white hover:bg-surface'
@@ -217,7 +217,7 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
           <button
             type="button"
             onClick={() => setActiveTab('preferences')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
               activeTab === 'preferences'
                 ? 'bg-accent/20 text-accent-light border border-accent/40 shadow-sm'
                 : 'text-text-dim hover:text-white hover:bg-surface'

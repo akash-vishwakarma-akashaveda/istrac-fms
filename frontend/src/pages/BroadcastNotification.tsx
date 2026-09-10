@@ -55,18 +55,19 @@ const URGENCY_LEVELS = [
 ]
 
 const QUICK_TEMPLATES = [
-  'Aditya-L1 ground tracking pass and telemetry ingest scheduled tonight from 18:30 to 20:00 UTC.',
+  'Aditya-L1 ground tracking pass and telemetry ingest scheduled tonight from 18:30 to 20:00 IST.',
   'Ground Station SAS RAID array maintenance window scheduled between 23:00 - 01:00 IST.',
   'Flight Dynamics Division (FDD) has released new orbit determination ephemeris for Chandrayaan-3.',
   'All operations personnel: Please ensure daily mission reports are uploaded prior to shift handover.',
 ]
 
 const TARGETS: {
-  id: 'all' | 'departments'
+  id: 'all' | 'all_departments' | 'departments'
   label: string
   detail: string
 }[] = [
   { id: 'all', label: 'All ISRO Personnel', detail: 'Broadcast to all authenticated ground station accounts' },
+  { id: 'all_departments', label: 'All Divisions', detail: 'Broadcast across personnel assigned to all operational divisions' },
   { id: 'departments', label: 'Specific Operational Divisions', detail: 'Target selected departments (TTC, FDD, MOX, NETRA)' },
 ]
 
@@ -83,7 +84,7 @@ interface BroadcastRecord {
 export function BroadcastNotification() {
   const [urgency, setUrgency] = useState('STANDARD')
   const [message, setMessage] = useState('')
-  const [target, setTarget] = useState<'all' | 'departments'>('all')
+  const [target, setTarget] = useState<'all' | 'all_departments' | 'departments'>('all')
   const [selectedDeptIds, setSelectedDeptIds] = useState<string[]>([])
   
   // History state
@@ -112,7 +113,7 @@ export function BroadcastNotification() {
 
   const canSend =
     message.trim().length > 0 &&
-    (target === 'all' || selectedDeptIds.length > 0)
+    (target === 'all' || target === 'all_departments' || selectedDeptIds.length > 0)
 
   const activeUrgencyObj = URGENCY_LEVELS.find((u) => u.id === urgency) || URGENCY_LEVELS[0]
 
@@ -302,7 +303,7 @@ export function BroadcastNotification() {
               rows={4}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="e.g. Aditya-L1 scheduled maneuver tracking pass commences at 18:30 UTC. Telemetry stream active on TTC channel 4."
+              placeholder="e.g. Aditya-L1 scheduled maneuver tracking pass commences at 18:30 IST. Telemetry stream active on TTC channel 4."
               hint="Keep statements concise and actionable for shift controllers."
             />
 
@@ -332,7 +333,7 @@ export function BroadcastNotification() {
                 3. Target Audience
               </label>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 {TARGETS.map((option) => (
                   <label
                     key={option.id}

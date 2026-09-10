@@ -9,27 +9,13 @@ import {
   BellRing,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { eventsApi, type ActiveBannerData } from '../api/events.api'
+import { useActiveBanner } from '../hooks/useActiveBanner'
 
 export function DynamicAlertBanner() {
   const navigate = useNavigate()
-  const [data, setData] = useState<ActiveBannerData | null>(null)
+  const { data } = useActiveBanner()
   const [dismissedIds, setDismissedIds] = useState<string[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
-
-  useEffect(() => {
-    const fetchBanner = async () => {
-      try {
-        const res = await eventsApi.getActiveBanner()
-        setData(res)
-      } catch {
-        // silent fallback
-      }
-    }
-    fetchBanner()
-    const interval = setInterval(fetchBanner, 45000) // auto-refresh every 45s
-    return () => clearInterval(interval)
-  }, [])
 
   // Consolidate broadcasts and events into unified items
   const items: Array<{
@@ -58,13 +44,13 @@ export function DynamicAlertBanner() {
   if (data?.events) {
     data.events.forEach((ev) => {
       if (!dismissedIds.includes(ev.id)) {
-        const timeStr = new Date(ev.eventDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        const timeStr = new Date(ev.eventDate).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })
         items.push({
           id: ev.id,
           type: 'EVENT',
-          title: `[MISSION SCHEDULE] ${ev.title} at ${ev.location || 'ISTRAC MOX'} (${timeStr} UTC)`,
+          title: `[MISSION SCHEDULE] ${ev.title} at ${ev.location || 'ISTRAC MOX'} (${timeStr} IST)`,
           urgency: ev.urgency,
-          timestamp: timeStr,
+          timestamp: `${timeStr} IST`,
           rawEvent: ev,
         })
       }

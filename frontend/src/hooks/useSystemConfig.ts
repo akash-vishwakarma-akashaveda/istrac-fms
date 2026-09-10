@@ -3,9 +3,11 @@ import { adminApi, type SystemConfig } from '../api'
 
 export type { SystemConfig }
 
+export const SYSTEM_CONFIG_QUERY_KEY = ['system-config'] as const
+
 export function useSystemConfig() {
   return useQuery({
-    queryKey: ['system-config'],
+    queryKey: SYSTEM_CONFIG_QUERY_KEY,
     queryFn: () => adminApi.getSystemConfig(),
   })
 }

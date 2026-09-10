@@ -17,6 +17,16 @@ export function useInitAuth() {
     // If we have an active user and accessToken in localStorage, we are already authenticated!
     if (currentUser && currentToken) {
       setIsChecking(false)
+      // Background sync latest user profile & department access permissions from DB
+      apiClient
+        .get("/auth/me")
+        .then((res) => {
+          const freshUser = res.data?.data || res.data
+          if (freshUser?.id) {
+            useAuthStore.getState().updateUser(freshUser)
+          }
+        })
+        .catch(() => {})
       return
     }
 

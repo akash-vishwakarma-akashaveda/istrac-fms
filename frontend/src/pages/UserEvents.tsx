@@ -15,80 +15,88 @@ import {
   CalendarDays,
   History,
   Zap,
-  Globe,
 } from "lucide-react"
 import { Link, useSearchParams } from "react-router-dom"
 import { eventsApi, type MissionEventItem } from "../api/events.api"
-import { satellitesApi, type Satellite } from "../api/satellites.api"
+import { useSatellites } from "../hooks/useSatellites"
 import { PageHeader } from "../components"
 import { MissionCalendar } from "../components/MissionCalendar"
 
-const EVENT_TYPE_MAP: Record<string, { label: string; icon: any; color: string; badge: string }> = {
+const EVENT_TYPE_MAP: Record<string, { label: string; icon: any; color: string; badge: string; bullet: string }> = {
   MISSION_PASS: {
     label: "Spacecraft Tracking Pass",
     icon: Radio,
-    color: "text-accent-light bg-accent/15 border-accent/30",
+    color: "text-nominal bg-nominal/15 border-nominal/30",
     badge: "PASS",
+    bullet: "🟢",
   },
   LAUNCH: {
-    label: "Rocket Launch Window",
+    label: "Mission Launch Activity",
     icon: Flame,
-    color: "text-[#FF6B00] bg-[#FF6B00]/15 border-[#FF6B00]/30",
+    color: "text-purple-400 bg-purple-400/15 border-purple-400/30",
     badge: "LAUNCH",
+    bullet: "🟣",
   },
   ORBIT_MANEUVER: {
-    label: "Orbit Correction Maneuver",
+    label: "Orbital Maneuver / Station Keeping",
     icon: Sparkles,
-    color: "text-purple-400 bg-purple-400/15 border-purple-400/30",
+    color: "text-orange-400 bg-orange-400/15 border-orange-400/30",
     badge: "MANEUVER",
+    bullet: "🟠",
   },
   MAINTENANCE: {
     label: "Ground Station Maintenance",
     icon: AlertTriangle,
-    color: "text-yellow-400 bg-yellow-400/15 border-yellow-400/30",
+    color: "text-accent-light bg-accent/15 border-accent/30",
     badge: "MAINTENANCE",
+    bullet: "🔵",
   },
   SEMINAR: {
     label: "Operational Review",
     icon: Building2,
-    color: "text-nominal bg-nominal/15 border-nominal/30",
+    color: "text-emerald-400 bg-emerald-400/15 border-emerald-400/30",
     badge: "REVIEW",
+    bullet: "🟢",
   },
   ANOMALY: {
     label: "Telemetry Anomaly Review",
     icon: AlertTriangle,
     color: "text-red-400 bg-red-400/15 border-red-400/30",
     badge: "ANOMALY",
+    bullet: "🔴",
   },
 }
 
 export type TimelineTab = "ACTIVE_UPCOMING" | "PAST"
-export type TimeFormatMode = "BOTH" | "IST" | "UTC"
 
 export function UserEvents() {
   const [searchParams] = useSearchParams()
   const targetEventId = searchParams.get("eventId")
 
+  const { data: satData } = useSatellites()
+  const satellites = useMemo(() => satData || [], [satData])
+
   const [events, setEvents] = useState<MissionEventItem[]>([])
-  const [satellites, setSatellites] = useState<Satellite[]>([])
+  const [customCategories, setCustomCategories] = useState<Array<{ id: string; label: string }>>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [timelineTab, setTimelineTab] = useState<TimelineTab>("ACTIVE_UPCOMING")
   const [typeFilter, setTypeFilter] = useState("ALL")
   const [satelliteFilter, setSatelliteFilter] = useState("ALL")
   const [viewMode, setViewMode] = useState<"calendar" | "cards" | "both">("both")
-  const [timeMode, setTimeMode] = useState<TimeFormatMode>("BOTH")
 
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true)
-        const [evData, satData] = await Promise.all([
+        const [evData, cfgData] = await Promise.all([
           eventsApi.getEvents(),
-          satellitesApi.getActiveSatellites().catch(() => []),
+          eventsApi.getEventConfig().catch(() => ({ locations: [], categories: [] })),
         ])
         setEvents(evData || [])
-        setSatellites(satData || [])
+        if (cfgData?.categories?.length) {
+          setCustomCategories(cfgData.categories)
+        }
       } catch (err) {
         console.error("Failed to fetch events:", err)
       } finally {
@@ -171,45 +179,10 @@ export function UserEvents() {
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {/* Dual Time Toggle */}
-            <div className="flex items-center rounded-lg border border-border-default bg-[#060c18] p-0.5">
-              <button
-                type="button"
-                onClick={() => setTimeMode("BOTH")}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                  timeMode === "BOTH"
-                    ? "bg-accent/20 text-accent-light border border-accent/40"
-                    : "text-text-secondary hover:text-white"
-                }`}
-                title="Show both IST and UTC"
-              >
-                <Globe size={12} />
-                <span>IST + UTC</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setTimeMode("IST")}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                  timeMode === "IST"
-                    ? "bg-accent/20 text-accent-light border border-accent/40"
-                    : "text-text-secondary hover:text-white"
-                }`}
-              >
-                <span>IST Only</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setTimeMode("UTC")}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                  timeMode === "UTC"
-                    ? "bg-accent/20 text-accent-light border border-accent/40"
-                    : "text-text-secondary hover:text-white"
-                }`}
-              >
-                <span>UTC (Z)</span>
-              </button>
+            {/* Standard IST Indicator */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-default bg-[#060c18] text-xs font-mono font-bold text-accent-light">
+              <Clock size={12} className="text-accent-light" />
+              <span>IST (UTC+05:30)</span>
             </div>
 
             {/* View Mode Toggle */}
@@ -299,30 +272,25 @@ export function UserEvents() {
 
               {/* Hero Time Display */}
               <div className="flex flex-wrap items-center gap-4 text-xs text-text-dim pt-1 font-mono">
-                {(timeMode === "BOTH" || timeMode === "IST") && (
-                  <span className="flex items-center gap-1 text-white font-bold">
-                    <Clock size={13} className="text-accent-light" />
-                    {new Date(nextEvent.eventDate).toLocaleString("en-IN", {
-                      timeZone: "Asia/Kolkata",
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}{" "}
-                    <span className="text-accent-light">IST</span>
-                  </span>
-                )}
-
-                {(timeMode === "BOTH" || timeMode === "UTC") && (
-                  <span className="flex items-center gap-1 text-text-dim bg-surface/70 border border-border-subtle px-2 py-0.5 rounded">
-                    <Globe size={12} className="text-text-dim" />
-                    {new Date(nextEvent.eventDate).toLocaleString("en-US", {
-                      timeZone: "UTC",
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                      hour12: false,
-                    })}{" "}
-                    UTC
-                  </span>
-                )}
+                <span className="flex items-center gap-1 text-white font-bold">
+                  <Clock size={13} className="text-accent-light" />
+                  {new Date(nextEvent.eventDate).toLocaleString("en-IN", {
+                    timeZone: "Asia/Kolkata",
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                  {nextEvent.endDate && (
+                    <>
+                      {" - "}
+                      {new Date(nextEvent.endDate).toLocaleTimeString("en-IN", {
+                        timeZone: "Asia/Kolkata",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </>
+                  )}{" "}
+                  <span className="text-accent-light">IST</span>
+                </span>
 
                 {nextEvent.location && (
                   <span className="flex items-center gap-1">
@@ -418,9 +386,19 @@ export function UserEvents() {
                   <option value="ALL">All Event Types</option>
                   {Object.entries(EVENT_TYPE_MAP).map(([key, val]) => (
                     <option key={key} value={key}>
-                      {val.label}
+                      {val.bullet} {val.label}
                     </option>
                   ))}
+                  {customCategories
+                    .filter((c) => !EVENT_TYPE_MAP[c.id])
+                    .map((c, i) => {
+                      const bullet = ["🔷", "🌸", "🟡", "🟣", "🟩"][i % 5]
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {bullet} {c.label}
+                        </option>
+                      )
+                    })}
                 </select>
               </div>
 
@@ -472,7 +450,23 @@ export function UserEvents() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredEvents.map((ev) => {
-                const meta = EVENT_TYPE_MAP[ev.eventType] || EVENT_TYPE_MAP.MISSION_PASS
+                const customCats = customCategories.filter((c) => !EVENT_TYPE_MAP[c.id])
+                const customIdx = customCats.findIndex((c) => c.id === ev.eventType)
+                const customColors = [
+                  "text-cyan-400 bg-cyan-400/15 border-cyan-400/30",
+                  "text-pink-400 bg-pink-400/15 border-pink-400/30",
+                  "text-amber-400 bg-amber-400/15 border-amber-400/30",
+                  "text-indigo-400 bg-indigo-400/15 border-indigo-400/30",
+                  "text-lime-400 bg-lime-400/15 border-lime-400/30",
+                ]
+                const customCat = customCategories.find((c) => c.id === ev.eventType)
+                const meta = EVENT_TYPE_MAP[ev.eventType] || {
+                  label: customCat?.label || ev.eventType.replace(/_/g, " "),
+                  icon: Sparkles,
+                  color: customColors[(customIdx >= 0 ? customIdx : 0) % customColors.length],
+                  badge: (customCat?.label || ev.eventType.replace(/_/g, " ")).toUpperCase(),
+                  bullet: ["🔷", "🌸", "🟡", "🟣", "🟩"][(customIdx >= 0 ? customIdx : 0) % 5],
+                }
                 const Icon = meta.icon
                 const isCritical = ev.urgency === "CRITICAL"
                 const isImportant = ev.urgency === "IMPORTANT"
@@ -483,7 +477,9 @@ export function UserEvents() {
                 const d = new Date(ev.eventDate)
                 const dateStrIST = d.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "short", day: "numeric" })
                 const timeStrIST = d.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" })
-                const timeStrUTC = d.toLocaleTimeString("en-US", { timeZone: "UTC", hour: "2-digit", minute: "2-digit", hour12: false })
+                const endTimeStrIST = ev.endDate
+                  ? new Date(ev.endDate).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" })
+                  : null
 
                 return (
                   <div
@@ -548,21 +544,15 @@ export function UserEvents() {
                       </div>
                     </div>
 
-                    {/* Card Time Display: Both IST and UTC */}
+                    {/* Card Time Display: Pure IST */}
                     <div className="pt-2.5 border-t border-border-subtle flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
                       <div className="flex items-center gap-2">
-                        {(timeMode === "BOTH" || timeMode === "IST") && (
-                          <span className="flex items-center gap-1 text-white font-semibold">
-                            <Clock size={12} className="text-accent-light" />
-                            {dateStrIST}, {timeStrIST} <span className="text-accent-light font-bold">IST</span>
-                          </span>
-                        )}
-
-                        {(timeMode === "BOTH" || timeMode === "UTC") && (
-                          <span className="text-[10px] font-bold text-text-dim bg-surface px-1.5 py-0.5 rounded border border-border-subtle">
-                            {timeStrUTC} UTC
-                          </span>
-                        )}
+                        <span className="flex items-center gap-1 text-white font-semibold">
+                          <Clock size={12} className="text-accent-light" />
+                          {dateStrIST}, {timeStrIST}
+                          {endTimeStrIST && ` - ${endTimeStrIST}`}{" "}
+                          <span className="text-accent-light font-bold">IST</span>
+                        </span>
                       </div>
 
                       {ev.location && (

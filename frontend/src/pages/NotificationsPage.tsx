@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import {
   Bell,
   CheckCheck,
@@ -16,7 +16,7 @@ import {
 } from "lucide-react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useNotifications, useMarkAllRead, useMarkRead } from "../hooks/useNotifications"
-import { eventsApi, type ActiveBannerData } from "../api/events.api"
+import { useActiveBanner } from "../hooks/useActiveBanner"
 import { Button, PageHeader } from "../components"
 import { useAuthStore } from "../store/authStore"
 
@@ -37,24 +37,11 @@ export function NotificationsPage() {
 
   const [activeTab, setActiveTab] = useState<string>("ALL")
   const [searchQuery, setSearchQuery] = useState("")
-  const [bannerData, setBannerData] = useState<ActiveBannerData | null>(null)
+  const { data: bannerData } = useActiveBanner()
 
   const { data, fetchNextPage, hasNextPage } = useNotifications()
   const markAllRead = useMarkAllRead()
   const markRead = useMarkRead()
-
-  // Load Live Banner Data & Mission Events
-  useEffect(() => {
-    async function loadLiveAlerts() {
-      try {
-        const banner = await eventsApi.getActiveBanner().catch(() => null)
-        setBannerData(banner)
-      } catch (err) {
-        console.error("Failed to load live broadcasts:", err)
-      }
-    }
-    loadLiveAlerts()
-  }, [])
 
   const rawNotifications: any[] = data?.pages.flatMap((p: any) => p.data || []) ?? []
   const allNotifications = rawNotifications
@@ -62,8 +49,23 @@ export function NotificationsPage() {
   // Filter based on active tab and search
   const filteredNotifications = allNotifications.filter((n) => {
     if (activeTab === "UNREAD" && n.readAt) return false
-    if (activeTab === "BROADCASTS" && n.type !== "BROADCAST" && n.type !== "CRITICAL" && n.type !== "NOTICE" && n.category !== "BROADCAST") return false
-    if (activeTab === "EVENTS" && n.type !== "PASS" && n.type !== "EVENT" && n.type !== "MISSION_PASS") return false
+    if (activeTab === "BROADCASTS") {
+      const isBc =
+        n.type === "BROADCAST" ||
+        n.type === "NOTICE" ||
+        (n.category && n.category.toUpperCase() === "BROADCAST") ||
+        (n.category && n.category.toUpperCase() === "SYSTEM")
+      if (!isBc) return false
+    }
+    if (activeTab === "EVENTS") {
+      const isEv =
+        n.type === "PASS" ||
+        n.type === "EVENT" ||
+        n.type === "MISSION_PASS" ||
+        (n.category && (n.category.toLowerCase() === "event" || n.category.toLowerCase() === "events")) ||
+        (typeof n.message === "string" && n.message.toLowerCase().includes("mission event"))
+      if (!isEv) return false
+    }
     if (activeTab === "FILES" && n.type !== "FILE_UPLOAD" && n.category !== "file") return false
 
     if (searchQuery.trim()) {
@@ -140,7 +142,7 @@ export function NotificationsPage() {
       {/* 1. TOP PRIORITY ADVISORIES & PASSES */}
       {hasLiveMarquee && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
               <Megaphone size={14} className="text-accent-light" />
               <span>Active Air-Gapped Station Advisories & Passes</span>
@@ -193,7 +195,7 @@ export function NotificationsPage() {
                         {isCritical ? "CRITICAL ADVISORY" : isImportant ? "PRIORITY NOTICE" : "STATION BULLETIN"}
                       </span>
                       <span className="text-[11px] font-mono text-text-dim">
-                        {new Date(b.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} UTC
+                        {new Date(b.createdAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })} IST
                       </span>
                     </div>
 
@@ -207,7 +209,7 @@ export function NotificationsPage() {
 
             {/* Active Mission Passes / Operational Events */}
             {activePassEvents.map((ev) => {
-              const timeStr = new Date(ev.eventDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              const timeStr = new Date(ev.eventDate).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })
 
               return (
                 <div
@@ -289,7 +291,7 @@ export function NotificationsPage() {
         </div>
 
         {/* Search Input Box */}
-        <div className="relative min-w-[280px]">
+        <div className="relative w-full sm:w-auto sm:min-w-[280px]">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
           <input
             type="text"

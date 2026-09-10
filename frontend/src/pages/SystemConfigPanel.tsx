@@ -16,6 +16,8 @@ import {
   X,
 } from "lucide-react"
 import { apiClient } from "../api/client"
+import { useQueryClient } from "@tanstack/react-query"
+import { SYSTEM_CONFIG_QUERY_KEY } from "../hooks/useSystemConfig"
 import { PageHeader, Button } from "../components"
 import { useToastStore } from "../store/toastStore"
 import { formatFileSize } from "../lib/formatFileSize"
@@ -40,6 +42,7 @@ interface DriveItem {
 
 export function SystemConfigPanel() {
   const addToast = useToastStore((s) => s.addToast)
+  const queryClient = useQueryClient()
 
   // Physical Mount State
   const [storageStatus, setStorageStatus] = useState<StorageStatus | null>(null)
@@ -233,6 +236,7 @@ export function SystemConfigPanel() {
         apiClient.put("/admin/settings/downloadRateLimitPerHour", { value: Number(downloadRateLimit) }),
         apiClient.put("/admin/settings/virusScanEnabled", { value: virusScanEnabled }),
       ])
+      queryClient.invalidateQueries({ queryKey: SYSTEM_CONFIG_QUERY_KEY })
       addToast({
         title: "Ingest Policy Saved",
         message: `Max upload size updated to ${maxUploadMB} MB (${bytes.toLocaleString()} bytes). Enforced across all upload channels.`,
@@ -823,7 +827,7 @@ export function SystemConfigPanel() {
 
       {/* CONFIRMATION MODAL 1: SAVE ARCHITECTURE DOUBLE-CHECK */}
       {isConfirmSaveOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-page/85 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-page/85 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-md rounded-2xl border border-border-default bg-card p-6 shadow-2xl space-y-5">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/30">
@@ -884,7 +888,7 @@ export function SystemConfigPanel() {
 
       {/* CONFIRMATION MODAL 2: SECONDARY DRIVE ASSIGNMENT DOUBLE-CHECK */}
       {isConfirmSecondaryOpen && pendingSecondaryDrive && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-page/85 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-page/85 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-md rounded-2xl border border-border-default bg-card p-6 shadow-2xl space-y-5">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-400/15 text-purple-300 border border-purple-400/30">
@@ -940,7 +944,7 @@ export function SystemConfigPanel() {
 
       {/* MIGRATION MODAL */}
       {isMigrationModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-page/80 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-page/80 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-lg rounded-2xl border border-border-default bg-card p-6 shadow-2xl space-y-5">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/30">

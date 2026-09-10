@@ -21,8 +21,8 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { browseApi, type SearchResultItem } from '../api/browse.api'
-import { satellitesApi, type Satellite } from '../api/satellites.api'
-import { departmentsApi, type Department } from '../api/departments.api'
+import { useSatellites } from '../hooks/useSatellites'
+import { useDepartments, useAdminDepartments } from '../hooks/useDepartments'
 import { useSearchHistoryStore } from '../store/searchHistoryStore'
 import { FileIcon } from '../components/FileIcon'
 import { formatFileSize } from '../lib/formatFileSize'
@@ -55,36 +55,18 @@ export function SearchPage() {
   const [results, setResults] = useState<SearchResultItem[]>([])
   const [totalMatches, setTotalMatches] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [loadingMeta, setLoadingMeta] = useState(true)
-  const [satellites, setSatellites] = useState<Satellite[]>([])
-  const [departments, setDepartments] = useState<Department[]>([])
-
   const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN'
 
-  const { history, addSearch, clearHistory } = useSearchHistoryStore()
+  const { data: satData, isLoading: loadingSats } = useSatellites()
+  const { data: adminDepts, isLoading: loadingAdminDepts } = useAdminDepartments()
+  const { data: userDepts, isLoading: loadingUserDepts } = useDepartments()
 
-  // Fetch Satellites & Departments for dropdown filters
-  useEffect(() => {
-    async function loadMeta() {
-      setLoadingMeta(true)
-      try {
-        const [sats, depts] = await Promise.all([
-          satellitesApi.getActiveSatellites().catch(() => []),
-          isAdmin
-            ? departmentsApi.getPublicDepartments().catch(() => [])
-            : departmentsApi.getUserDepartments().catch(() => []),
-        ])
-        setSatellites(sats || [])
-        setDepartments(depts || [])
-      } catch {
-        // silent fallback
-      } finally {
-        setLoadingMeta(false)
-      }
-    }
-    loadMeta()
-  }, [isAdmin])
+  const satellites = satData || []
+  const departments = (isAdmin ? adminDepts : userDepts) || []
+  const loadingMeta = loadingSats || (isAdmin ? loadingAdminDepts : loadingUserDepts)
+
+  const { history, addSearch, clearHistory } = useSearchHistoryStore()
 
   const hasNoDeptAccess = !isAdmin && user && !loadingMeta && departments.length === 0
 
@@ -753,7 +735,7 @@ export function SearchPage() {
         /* COMPACT TABLE VIEW */
         <div className="rounded-xl border border-border-default bg-card overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-text-secondary">
+            <table className="w-full text-left text-xs text-text-secondary min-w-[750px]">
               <thead className="bg-[#060c18] border-b border-border-default text-[10px] uppercase font-bold text-text-dim">
                 <tr>
                   <th className="px-4 py-3">File / Report</th>

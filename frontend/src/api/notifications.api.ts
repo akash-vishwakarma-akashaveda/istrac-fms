@@ -43,7 +43,13 @@ export const notificationsApi = {
     await apiClient.delete(`/notifications/${id}`)
   },
 
-  async sendBroadcast(payload: { message: string; type?: string; category?: string }): Promise<{ message: string }> {
+  async sendBroadcast(payload: {
+    message: string
+    type?: string
+    category?: string
+    target?: string
+    departmentIds?: string[]
+  }): Promise<{ message: string }> {
     const res = await apiClient.post('/admin/notifications/broadcast', payload)
     return extractData<{ message: string }>(res)
   },

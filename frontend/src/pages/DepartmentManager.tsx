@@ -229,8 +229,8 @@ export function DepartmentManager() {
               } shadow-card`}
             >
               {/* Head: identity on the left, decisions on the right. */}
-              <div className="flex items-start justify-between gap-4 border-b border-border-subtle px-4 py-3">
-                <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex items-start justify-between gap-3 border-b border-border-subtle px-4 py-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <Building2
                     size={15}
                     strokeWidth={1.7}
@@ -238,7 +238,7 @@ export function DepartmentManager() {
                     className={`shrink-0 ${dept.archived ? 'text-amber-400' : 'text-accent-light'}`}
                   />
 
-                  <p className="truncate text-[13px] font-bold text-text-primary">
+                  <p className="truncate max-w-[150px] sm:max-w-none text-[13px] font-bold text-text-primary">
                     {dept.name}
                   </p>
 
@@ -304,7 +304,7 @@ export function DepartmentManager() {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="pt-2 border-t border-border-subtle flex items-center justify-between">
+                <div className="pt-2 border-t border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   {dept.archived ? (
                     <>
                       <div className="flex items-center gap-1.5 text-[11px] text-amber-400/90 font-mono">
@@ -314,7 +314,7 @@ export function DepartmentManager() {
 
                       <Link
                         to={`/admin/files?deptId=${dept.id}`}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/20 hover:text-white transition-all shadow-sm"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/20 hover:text-white transition-all shadow-sm"
                       >
                         <FolderOpen size={13} />
                         <span>Browse Files & Folders (Admin)</span>

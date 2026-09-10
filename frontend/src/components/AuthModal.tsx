@@ -19,7 +19,7 @@ import { useToastStore } from '../store/toastStore'
 import { useAuthModalStore, type AuthMode } from '../store/authModalStore'
 import { loginSchema, registerSchema, type LoginFormData, type RegisterFormData } from '../../schemas/authSchemas'
 import { authApi } from '../api'
-import { departmentsApi, type Department } from '../api/departments.api'
+import { usePublicDepartments } from '../hooks/useDepartments'
 import { Button, Alert } from '.'
 import { useCms } from '../context/cmsContext'
 
@@ -209,7 +209,6 @@ export function AuthModal() {
   const [registerSubmitted, setRegisterSubmitted] = useState(false)
   const [registeredEmail, setRegisteredEmail] = useState('')
   const [registerError, setRegisterError] = useState<string | null>(null)
-  const [departments, setDepartments] = useState<string[]>(FALLBACK_DEPARTMENTS)
 
   // Login Form
   const {
@@ -232,17 +231,8 @@ export function AuthModal() {
     resolver: zodResolver(registerSchema),
   })
 
-  // Fetch departments for registration dropdown
-  useEffect(() => {
-    departmentsApi
-      .getPublicDepartments()
-      .then((data: Department[]) => {
-        if (data && data.length > 0) {
-          setDepartments(data.map((d) => d.name))
-        }
-      })
-      .catch(() => {})
-  }, [])
+  const { data: publicDepts } = usePublicDepartments()
+  const departments = publicDepts && publicDepts.length > 0 ? publicDepts.map((d) => d.name) : FALLBACK_DEPARTMENTS
 
   // Lockout Countdown Timer
   useEffect(() => {
@@ -365,7 +355,7 @@ export function AuthModal() {
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-8 bg-black/60 backdrop-blur-md overflow-y-auto animate-fadeIn"
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6 md:p-8 bg-black/60 backdrop-blur-md overflow-y-auto animate-fadeIn"
       onClick={handleClose}
       role="dialog"
       aria-modal="true"
@@ -373,24 +363,24 @@ export function AuthModal() {
     >
       {/* Spacious Translucent Minimalist Modal Dialog */}
       <div
-        className={`relative w-full my-8 rounded-2xl border border-white/15 bg-[#0a0f1d]/90 shadow-2xl overflow-hidden transition-all duration-300 animate-rise text-text-primary backdrop-blur-md ${
+        className={`relative w-full my-6 sm:my-8 rounded-2xl border border-white/15 bg-[#0a0f1d]/90 shadow-2xl overflow-hidden transition-all duration-300 animate-rise text-text-primary backdrop-blur-md ${
           isRegisterMode ? 'max-w-2xl' : 'max-w-lg'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Top Header */}
-        <div className="border-b border-white/10 bg-[#080d19]/85 px-8 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 border border-white/10 text-accent-light">
-              <ShieldCheck size={22} />
+        <div className="border-b border-white/10 bg-[#080d19]/85 px-5 sm:px-8 py-4 sm:py-5 flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/10 text-accent-light">
+              <ShieldCheck size={20} />
             </div>
-            <div>
-              <div className="flex items-center gap-2 text-[10px] font-mono font-semibold tracking-wider text-text-dim uppercase">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-mono font-semibold tracking-wider text-text-dim uppercase">
                 <span>ISRO · {brandTitle}{brandHighlight}</span>
                 <span>·</span>
                 <span className="text-nominal">SECURED</span>
               </div>
-              <h2 id="auth-modal-title" className="text-lg font-bold text-white mt-0.5">
+              <h2 id="auth-modal-title" className="text-base sm:text-lg font-bold text-white mt-0.5 truncate">
                 {mode === 'login' ? 'Mission Operations Login' : 'Request Operational Access'}
               </h2>
             </div>
@@ -399,7 +389,7 @@ export function AuthModal() {
           <button
             type="button"
             onClick={handleClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-text-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-text-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer ml-2"
             aria-label="Close modal (Esc)"
           >
             <X size={16} />
@@ -407,11 +397,11 @@ export function AuthModal() {
         </div>
 
         {/* Minimalist Spacious Underline Tabs */}
-        <div className="flex border-b border-white/10 bg-black/20 px-8">
+        <div className="flex border-b border-white/10 bg-black/20 px-5 sm:px-8">
           <button
             type="button"
             onClick={() => handleSwitchMode('login')}
-            className={`pb-4 pt-3.5 mr-8 flex items-center gap-2 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
+            className={`pb-3.5 sm:pb-4 pt-3 sm:pt-3.5 mr-6 sm:mr-8 flex items-center gap-2 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
               mode === 'login'
                 ? 'border-accent text-white'
                 : 'border-transparent text-text-dim hover:text-text-secondary'
@@ -424,7 +414,7 @@ export function AuthModal() {
           <button
             type="button"
             onClick={() => handleSwitchMode('register')}
-            className={`pb-4 pt-3.5 flex items-center gap-2 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
+            className={`pb-3.5 sm:pb-4 pt-3 sm:pt-3.5 flex items-center gap-2 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
               mode === 'register'
                 ? 'border-accent text-white'
                 : 'border-transparent text-text-dim hover:text-text-secondary'
@@ -436,7 +426,7 @@ export function AuthModal() {
         </div>
 
         {/* Modal Body Content */}
-        <div className="p-8 sm:p-9 space-y-7 max-h-[calc(85vh-160px)] overflow-y-auto">
+        <div className="p-5 sm:p-8 space-y-6 sm:space-y-7 max-h-[calc(85vh-160px)] overflow-y-auto">
           {/* ============================================================ */}
           {/* LOGIN FORM MODE */}
           {/* ============================================================ */}

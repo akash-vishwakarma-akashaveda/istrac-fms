@@ -152,13 +152,14 @@ export function FilePreviewModal({ file, onClose }: FilePreviewModalProps) {
               >
                 {downloading ? (
                   <>
-                    <RefreshCw size={15} className="animate-spin text-white" />
+                    <RefreshCw size={15} className="animate-spin text-white shrink-0" />
                     <span>Streaming Payload…</span>
                   </>
                 ) : (
                   <>
-                    <Download size={15} />
-                    <span>Download {file.name} ({formatFileSize(file.sizeBytes)})</span>
+                    <Download size={15} className="shrink-0" />
+                    <span className="truncate max-w-[200px] sm:max-w-[320px]">Download {file.name}</span>
+                    <span className="shrink-0">({formatFileSize(file.sizeBytes)})</span>
                   </>
                 )}
               </Button>
@@ -166,13 +167,13 @@ export function FilePreviewModal({ file, onClose }: FilePreviewModalProps) {
           )}
 
           {/* Modal Action Footer */}
-          <div className="pt-3 border-t border-border-subtle flex items-center justify-between">
+          <div className="pt-3 border-t border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-1.5 text-[11px] font-mono text-nominal">
-              <CheckCircle2 size={13} />
+              <CheckCircle2 size={13} className="shrink-0" />
               <span>Cryptographic Storage Verified</span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-end gap-2">
               <Button variant="outline" size="sm" onClick={onClose}>
                 Close
               </Button>
@@ -184,7 +185,7 @@ export function FilePreviewModal({ file, onClose }: FilePreviewModalProps) {
                   disabled={downloading}
                   className="flex items-center gap-1.5 cursor-pointer shadow-md shadow-accent/20"
                 >
-                  <Download size={13} />
+                  <Download size={13} className="shrink-0" />
                   <span>{downloading ? 'Downloading…' : 'Download PDF'}</span>
                 </Button>
               )}

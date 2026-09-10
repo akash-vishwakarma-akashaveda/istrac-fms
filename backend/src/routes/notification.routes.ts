@@ -3,6 +3,7 @@ import { prisma } from '../config/db.js'
 import { authMiddleware } from '../middleware/auth.middleware.js'
 import { adminMiddleware } from '../middleware/admin.middleware.js'
 import { notificationService } from '../services/notification.service.js'
+import { pubsub } from '../lib/pubsub.js'
 import { AppError } from '../lib/errors.js'
 
 const router = Router()
@@ -14,16 +15,28 @@ router.get('/notifications/public', async (_req, res, next) => {
   try {
     const broadcasts = await prisma.notification.findMany({
       where: {
-        type: { in: ['BROADCAST', 'SYSTEM', 'MAINTENANCE', 'PASS', 'CRITICAL', 'NOTICE', 'FILE_UPLOAD', 'TELEMETRY'] },
+        type: { in: ['BROADCAST', 'SYSTEM', 'MAINTENANCE', 'PASS', 'EVENT', 'CRITICAL', 'NOTICE', 'FILE_UPLOAD', 'TELEMETRY'] },
         deletedAt: null,
       },
-      take: 20,
+      take: 40,
       orderBy: { createdAt: 'desc' },
       distinct: ['message'],
     })
 
+    // Filter out targeted department broadcasts from public guest view
+    const publicItems = broadcasts.filter((n: any) => {
+      if (!n.metadata) return true
+      try {
+        const meta = typeof n.metadata === 'string' ? JSON.parse(n.metadata) : n.metadata
+        if (meta.target === 'departments' || meta.target === 'all_departments') {
+          return false
+        }
+      } catch {}
+      return true
+    }).slice(0, 20)
+
     res.json({
-      data: broadcasts.map((n: any) => ({
+      data: publicItems.map((n: any) => ({
         id: n.id.toString(),
         type: n.type,
         category: n.category,
@@ -217,25 +230,79 @@ router.post('/admin/notifications/broadcast', authMiddleware, adminMiddleware, a
       throw new AppError('missing_message', 'Broadcast message is required', 400)
     }
 
+    // Fetch all active admins to ensure all admins receive broadcast notifications
+    const allAdmins = await prisma.user.findMany({
+      where: { role: 'ADMIN', status: 'ACTIVE', deletedAt: null },
+      select: { id: true },
+    })
+    const adminIds = allAdmins.map((a: any) => a.id)
+
     if (target === 'departments' && Array.isArray(departmentIds) && departmentIds.length > 0) {
       const usersInDepts = await prisma.userDepartmentAccess.findMany({
         where: { departmentId: { in: departmentIds }, deletedAt: null },
         select: { userId: true },
       })
-      const recipientIds = Array.from(new Set(usersInDepts.map((u: any) => u.userId)))
-      notificationService.send({
+      const recipientIds = Array.from(new Set([
+        ...usersInDepts.map((u: any) => u.userId),
+        ...adminIds,
+        req.user!.id,
+      ]))
+
+      await notificationService.send({
         type,
         category,
         message,
         actorId: req.user!.id,
         recipientIds,
+        metadata: { target: 'departments', departmentIds },
       })
+
+      pubsub
+        .publish('notification.broadcast', {
+          type,
+          category,
+          message,
+          target: 'departments',
+          departmentIds,
+          timestamp: new Date().toISOString(),
+        })
+        .catch(() => {})
+    } else if (target === 'all_departments') {
+      const allDeptUsers = await prisma.userDepartmentAccess.findMany({
+        where: { deletedAt: null },
+        select: { userId: true },
+      })
+      const recipientIds = Array.from(new Set([
+        ...allDeptUsers.map((u: any) => u.userId),
+        ...adminIds,
+        req.user!.id,
+      ]))
+
+      await notificationService.send({
+        type,
+        category,
+        message,
+        actorId: req.user!.id,
+        recipientIds,
+        metadata: { target: 'all_departments' },
+      })
+
+      pubsub
+        .publish('notification.broadcast', {
+          type,
+          category,
+          message,
+          target: 'all_departments',
+          timestamp: new Date().toISOString(),
+        })
+        .catch(() => {})
     } else {
       await notificationService.sendBroadcast({
         type,
         category,
         message,
         actorId: req.user!.id,
+        metadata: { target: 'all' },
       })
     }
 

@@ -12,9 +12,15 @@ import {
   Clock,
   Sparkles,
   ExternalLink,
+  Lock,
+  LogIn,
 } from 'lucide-react'
 import { Modal, Button } from '.'
 import { satellitesApi, type Satellite } from '../api/satellites.api'
+import { useAuthStore } from '../store/authStore'
+import { useAuthModalStore } from '../store/authModalStore'
+import { useToastStore } from '../store/toastStore'
+import { canAccessSatellite } from '../lib/permissions'
 
 interface SatelliteInfoModalProps {
   isOpen: boolean
@@ -29,13 +35,26 @@ export function SatelliteInfoModal({
   satellite: initialSatellite,
   satelliteId,
 }: SatelliteInfoModalProps) {
+  const user = useAuthStore((s) => s.user)
+  const openLogin = useAuthModalStore((s) => s.openLogin)
+  const addToast = useToastStore((s) => s.addToast)
+
   const [satellite, setSatellite] = useState<Satellite | null>(initialSatellite || null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen || !user) return
 
     if (initialSatellite) {
+      if (user.role !== 'ADMIN' && !canAccessSatellite(user, initialSatellite)) {
+        addToast({
+          title: 'Access Restricted',
+          message: 'You are not authorized to see',
+          variant: 'warning',
+        })
+        onClose()
+        return
+      }
       setSatellite(initialSatellite)
     }
 
@@ -45,16 +64,37 @@ export function SatelliteInfoModal({
       satellitesApi
         .getPublicSatellite(idToFetch)
         .then((data) => {
+          if (user.role !== 'ADMIN' && !canAccessSatellite(user, data)) {
+            addToast({
+              title: 'Access Restricted',
+              message: 'You are not authorized to see',
+              variant: 'warning',
+            })
+            onClose()
+            return
+          }
           setSatellite(data)
         })
-        .catch((err) => {
+        .catch((err: any) => {
           console.error('Failed to load satellite details:', err)
+          if (
+            err?.response?.status === 403 ||
+            err?.message?.includes('not authorized') ||
+            err?.response?.data?.message?.includes('not authorized')
+          ) {
+            addToast({
+              title: 'Access Restricted',
+              message: 'You are not authorized to see',
+              variant: 'warning',
+            })
+            onClose()
+          }
         })
         .finally(() => {
           setLoading(false)
         })
     }
-  }, [isOpen, initialSatellite, satelliteId])
+  }, [isOpen, initialSatellite, satelliteId, user])
 
   if (!isOpen) return null
 
@@ -66,7 +106,7 @@ export function SatelliteInfoModal({
     : []
 
   const isDecommissioned =
-    satellite?.status?.toUpperCase() === 'DECOMMISSIONED' || !satellite?.isActive
+    satellite?.status?.toUpperCase() === 'DECOMMISSIONED' || !satellite?.isActive || Boolean(satellite?.deletedAt)
 
   return (
     <Modal
@@ -75,7 +115,38 @@ export function SatelliteInfoModal({
       size="lg"
       title="ISRO Spacecraft & Telemetry Dossier"
     >
-      {loading || !satellite ? (
+      {!user ? (
+        <div className="py-10 px-4 text-center space-y-5 max-w-md mx-auto">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/15 text-accent-light border border-accent/30 shadow-lg shadow-accent/10">
+            <Lock size={26} />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-base sm:text-lg font-bold text-white">
+              Restricted Mission Telemetry Dossier
+            </h3>
+            <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
+              Full orbital ephemeris, propellant reserves, payload sensor readouts, and ground pass telemetry require an active ISTRAC operator or personnel session.
+            </p>
+          </div>
+          <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button variant="outline" size="sm" onClick={onClose} className="w-full sm:w-auto">
+              Dismiss
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                onClose()
+                openLogin()
+              }}
+              className="w-full sm:w-auto shadow-md shadow-accent/25 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <LogIn size={14} />
+              <span>Sign In to Access Dossier</span>
+            </Button>
+          </div>
+        </div>
+      ) : loading || !satellite ? (
         <div className="py-16 text-center space-y-3">
           <Radio size={32} className="mx-auto text-accent-light animate-pulse" />
           <p className="num text-xs text-text-muted">Ingesting satellite telemetry data…</p>

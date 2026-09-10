@@ -18,6 +18,7 @@ import {
 import { apiClient } from '../api/client'
 import { useAuthStore } from '../store/authStore'
 import { useToastStore } from '../store/toastStore'
+import { useDebounce } from '../hooks/useDebounce'
 import { Button, Modal, Textarea } from '../components'
 import { formatFileSize } from '../lib/formatFileSize'
 import { formatDateTimeIST } from '../lib/formatDate'
@@ -83,6 +84,7 @@ export function DepartmentHub() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'files' | 'reports' | 'events' | 'satellites'>('files')
   const [fileSearch, setFileSearch] = useState('')
+  const debouncedFileSearch = useDebounce(fileSearch, 300)
 
   // Edit Page Settings Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -101,7 +103,7 @@ export function DepartmentHub() {
     setLoading(true)
     try {
       const res = await apiClient.get(`/departments/${deptId}/hub`, {
-        params: { search: fileSearch || undefined },
+        params: { search: debouncedFileSearch || undefined },
       })
       if (res.data?.data) {
         setData(res.data.data)
@@ -124,7 +126,7 @@ export function DepartmentHub() {
 
   useEffect(() => {
     fetchHubData()
-  }, [deptId, fileSearch])
+  }, [deptId, debouncedFileSearch])
 
   const handleSavePageSettings = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -368,51 +370,53 @@ export function DepartmentHub() {
             </div>
           ) : (
             <div className="rounded-xl border border-border-default bg-card overflow-hidden shadow-sm">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-border-default bg-surface text-[11px] font-bold text-text-dim uppercase tracking-wider">
-                    <th className="px-4 py-3">File / Dataset Name</th>
-                    <th className="px-4 py-3">Format</th>
-                    <th className="px-4 py-3">Size</th>
-                    <th className="px-4 py-3">Uploader</th>
-                    <th className="px-4 py-3">Uploaded Date</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-subtle text-xs">
-                  {files.map((file) => (
-                    <tr key={file.id} className="hover:bg-card-hover transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <FileText size={16} className="text-accent-light shrink-0" />
-                          <span className="font-semibold text-white truncate max-w-md">{file.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="num rounded bg-surface px-1.5 py-0.5 text-[10px] font-bold uppercase text-text-dim">
-                          {file.extension || 'DAT'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 num text-text-secondary">
-                        {formatFileSize(Number(file.sizeBytes) || 0)}
-                      </td>
-                      <td className="px-4 py-3 text-text-muted">{file.uploader}</td>
-                      <td className="px-4 py-3 num text-text-dim">
-                        {formatDateTimeIST(file.createdAt)}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <a
-                          href={`/api/files/${file.id}/download`}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border-default bg-[#0c1424] text-xs font-semibold text-text-primary hover:border-accent hover:text-white transition-all"
-                        >
-                          <Download size={12} />
-                          <span>Download</span>
-                        </a>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[750px]">
+                  <thead>
+                    <tr className="border-b border-border-default bg-surface text-[11px] font-bold text-text-dim uppercase tracking-wider">
+                      <th className="px-4 py-3">File / Dataset Name</th>
+                      <th className="px-4 py-3">Format</th>
+                      <th className="px-4 py-3">Size</th>
+                      <th className="px-4 py-3">Uploader</th>
+                      <th className="px-4 py-3">Uploaded Date</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-border-subtle text-xs">
+                    {files.map((file) => (
+                      <tr key={file.id} className="hover:bg-card-hover transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <FileText size={16} className="text-accent-light shrink-0" />
+                            <span className="font-semibold text-white truncate max-w-md">{file.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="num rounded bg-surface px-1.5 py-0.5 text-[10px] font-bold uppercase text-text-dim">
+                            {file.extension || 'DAT'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 num text-text-secondary">
+                          {formatFileSize(Number(file.sizeBytes) || 0)}
+                        </td>
+                        <td className="px-4 py-3 text-text-muted">{file.uploader}</td>
+                        <td className="px-4 py-3 num text-text-dim">
+                          {formatDateTimeIST(file.createdAt)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <a
+                            href={`/api/files/${file.id}/download`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border-default bg-[#0c1424] text-xs font-semibold text-text-primary hover:border-accent hover:text-white transition-all"
+                          >
+                            <Download size={12} />
+                            <span>Download</span>
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

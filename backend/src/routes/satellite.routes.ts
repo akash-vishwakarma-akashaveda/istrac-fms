@@ -22,26 +22,38 @@ router.get('/satellites', optionalAuthMiddleware, async (req, res, next) => {
             },
           },
         },
+        departments: {
+          select: { id: true, name: true, code: true },
+        },
       },
       orderBy: { name: 'asc' },
     })
 
-    const data = satellites.map((s) => ({
-      id: s.id,
-      satId: s.satId,
-      name: s.name,
-      code: s.code,
-      description: s.description,
-      launchDate: s.launchDate,
-      payloads: s.payloads,
-      fuelBalance: s.fuelBalance,
-      launchMass: s.launchMass,
-      orbitType: s.orbitType,
-      status: s.status,
-      isActive: s.isActive,
-      departments: s.departmentSatellites.map((ds) => ds.department),
-      createdAt: s.createdAt,
-    }))
+    const data = satellites.map((s) => {
+      const linkedDeptIds = Array.from(
+        new Set([
+          ...s.departmentSatellites.map((ds) => ds.department.id),
+          ...s.departments.map((d) => d.id),
+        ])
+      )
+      return {
+        id: s.id,
+        satId: s.satId,
+        name: s.name,
+        code: s.code,
+        description: s.description,
+        launchDate: s.launchDate,
+        payloads: s.payloads,
+        fuelBalance: s.fuelBalance,
+        launchMass: s.launchMass,
+        orbitType: s.orbitType,
+        status: s.status,
+        isActive: s.isActive,
+        departmentIds: linkedDeptIds,
+        departments: s.departmentSatellites.map((ds) => ds.department),
+        createdAt: s.createdAt,
+      }
+    })
 
     res.json({
       data,
@@ -53,18 +65,22 @@ router.get('/satellites', optionalAuthMiddleware, async (req, res, next) => {
 })
 
 // ============================================================
-// PUBLIC / OPERATIONAL: GET DETAILED SATELLITE INFO VIEW (ITEM 29)
+// OPERATIONAL: GET DETAILED SATELLITE INFO VIEW (REQUIRES AUTH)
 // ============================================================
-router.get('/satellites/:satelliteId', optionalAuthMiddleware, async (req, res, next) => {
+router.get('/satellites/:satelliteId', authMiddleware, async (req, res, next) => {
   try {
     const rawId = req.params.satelliteId
     const satelliteId = Array.isArray(rawId) ? rawId[0] : rawId
 
+    const whereClause: any = {
+      OR: [{ id: satelliteId }, { satId: satelliteId }, { code: satelliteId }],
+    }
+    if (req.user?.role !== 'ADMIN') {
+      whereClause.deletedAt = null
+    }
+
     const satellite = await prisma.satellite.findFirst({
-      where: {
-        OR: [{ id: satelliteId }, { satId: satelliteId }, { code: satelliteId }],
-        deletedAt: null,
-      },
+      where: whereClause,
       include: {
         departmentSatellites: {
           include: {
@@ -81,6 +97,13 @@ router.get('/satellites/:satelliteId', optionalAuthMiddleware, async (req, res, 
             },
           },
         },
+        departments: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
         events: {
           where: { deletedAt: null },
           orderBy: { eventDate: 'desc' },
@@ -91,6 +114,32 @@ router.get('/satellites/:satelliteId', optionalAuthMiddleware, async (req, res, 
 
     if (!satellite) {
       throw new AppError('satellite_not_found', 'Satellite program not found', 404)
+    }
+
+    const linkedDeptIds = Array.from(
+      new Set([
+        ...satellite.departmentSatellites.map((ds) => ds.department.id),
+        ...satellite.departments.map((d) => d.id),
+      ])
+    )
+
+    // Role-based authorization: Admin can see all satellites; members can only see satellites of departments they have READ_ONLY or READ_WRITE access to
+    if (req.user?.role !== 'ADMIN') {
+      const userAccess = await prisma.userDepartmentAccess.findMany({
+        where: {
+          userId: req.user!.id,
+          deletedAt: null,
+          accessLevel: { in: ['READ_ONLY', 'READ_WRITE'] },
+        },
+        select: { departmentId: true },
+      })
+      const userDeptIds = new Set(userAccess.map((a) => a.departmentId))
+
+      const hasAccess = linkedDeptIds.some((deptId) => userDeptIds.has(deptId))
+
+      if (!hasAccess) {
+        throw new AppError('forbidden', 'You are not authorized to see', 403)
+      }
     }
 
     res.json({
@@ -106,7 +155,9 @@ router.get('/satellites/:satelliteId', optionalAuthMiddleware, async (req, res, 
         launchMass: satellite.launchMass,
         orbitType: satellite.orbitType,
         status: satellite.status,
-        isActive: satellite.isActive,
+        isActive: Boolean(satellite.isActive && !satellite.deletedAt),
+        deletedAt: satellite.deletedAt,
+        departmentIds: linkedDeptIds,
         departments: satellite.departmentSatellites.map((ds) => ds.department),
         recentEvents: satellite.events,
         createdAt: satellite.createdAt,
@@ -125,7 +176,6 @@ router.get('/satellites/:satelliteId', optionalAuthMiddleware, async (req, res, 
 router.get('/admin/satellites', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     const satellites = await prisma.satellite.findMany({
-      where: { deletedAt: null },
       include: {
         departmentSatellites: {
           include: {
@@ -151,7 +201,8 @@ router.get('/admin/satellites', authMiddleware, adminMiddleware, async (req, res
         launchMass: s.launchMass,
         orbitType: s.orbitType,
         status: s.status,
-        isActive: s.isActive,
+        isActive: Boolean(s.isActive && !s.deletedAt),
+        deletedAt: s.deletedAt,
         departments: s.departmentSatellites.map((ds) => ds.department),
         departmentCount: s.departmentSatellites.length,
         createdAt: s.createdAt,
@@ -445,6 +496,35 @@ router.delete('/admin/satellites/:satelliteId', authMiddleware, adminMiddleware,
 
     res.json({
       data: { message: 'Satellite program deactivated successfully' },
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ============================================================
+// ADMIN: RESTORE / REACTIVATE SATELLITE
+// ============================================================
+router.post('/admin/satellites/:satelliteId/restore', authMiddleware, adminMiddleware, async (req, res, next) => {
+  try {
+    const rawId = req.params.satelliteId
+    const satelliteId = Array.isArray(rawId) ? rawId[0] : rawId
+
+    const restored = await prisma.satellite.update({
+      where: { id: satelliteId },
+      data: { deletedAt: null, isActive: true, status: 'OPERATIONAL' },
+    })
+
+    auditService.log({
+      userId: req.user!.id,
+      action: 'POST:/admin/satellites/:id/restore',
+      resourceType: 'satellite',
+      resourceId: satelliteId,
+    })
+
+    res.json({
+      data: restored,
       requestId: req.requestId,
     })
   } catch (err) {

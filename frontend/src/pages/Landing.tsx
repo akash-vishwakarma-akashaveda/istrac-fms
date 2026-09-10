@@ -1,4 +1,4 @@
-﻿import { useEffect } from "react"
+import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Navbar } from "../components/Navbar"
 import { Hero } from "../components/Hero"
@@ -9,7 +9,6 @@ import { MissionCalendar } from "../components/MissionCalendar"
 import { AboutSection } from "../components/AboutSection"
 import { ContactSection } from "../components/ContactSection"
 import { Footer } from "../components/Footer"
-import { AnnouncementBar } from "../components/AnnouncementBar"
 import { useCms } from "../context/cmsContext"
 
 export function Landing() {
@@ -60,7 +59,6 @@ export function Landing() {
       </a>
 
       <div id="cms-section-nav"><Navbar /></div>
-      <div id="cms-section-announcements"><AnnouncementBar /></div>
       <main id="main">
         <div id="cms-section-hero"><Hero /></div>
         <div id="cms-section-quick_stats"><QuickStatsBanner /></div>

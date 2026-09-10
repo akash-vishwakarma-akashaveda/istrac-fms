@@ -196,7 +196,38 @@ export function createWsServer(server: Server): WebSocketServer {
       } else if (channel === 'hdd.sync') {
         sendToAdmins('SYNC_COMPLETE', payload)
       } else if (channel === 'notification.broadcast') {
-        sendToAll('NOTIFICATION', payload)
+        const isEvent =
+          payload.category === 'event' ||
+          payload.type === 'EVENT' ||
+          payload.type === 'PASS' ||
+          payload.type === 'MISSION_PASS' ||
+          (typeof payload.message === 'string' && payload.message.toLowerCase().includes('mission event'))
+
+        if (isEvent) {
+          // Events are delivered to all connected logged-in users
+          sendToAll('NOTIFICATION', payload)
+        } else if (payload.target === 'departments' && Array.isArray(payload.departmentIds)) {
+          // Broadcast is delivered strictly to Admins and the target audience departments
+          clients.forEach((userClients) => {
+            userClients.forEach((c) => {
+              if (c.role === 'ADMIN' || payload.departmentIds.some((dId: string) => c.deptIds.includes(dId))) {
+                sendToWs(c.ws, 'NOTIFICATION', payload)
+              }
+            })
+          })
+        } else if (payload.target === 'all_departments') {
+          // Broadcast to all Admins and any user with division membership
+          clients.forEach((userClients) => {
+            userClients.forEach((c) => {
+              if (c.role === 'ADMIN' || (c.deptIds && c.deptIds.length > 0)) {
+                sendToWs(c.ws, 'NOTIFICATION', payload)
+              }
+            })
+          })
+        } else {
+          // General system-wide broadcast
+          sendToAll('NOTIFICATION', payload)
+        }
       }
     } catch (err) {
       logger.error('WEBSOCKET', 'Redis message parse error:', err)

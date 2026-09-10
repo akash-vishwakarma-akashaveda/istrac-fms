@@ -19,7 +19,8 @@ import {
   useApproveUser,
   useRejectUser,
 } from '../hooks/usePendingUsers'
-import { useDepartments } from '../hooks/useDepartments'
+import { useAdminDepartments } from '../hooks/useDepartments'
+import { useDebounce } from '../hooks/useDebounce'
 import { useToastStore } from '../store/toastStore'
 import { Avatar, Badge, Button, PageHeader, Modal, Textarea } from '../components'
 import { RejectModal } from '../components/RejectModal'
@@ -84,7 +85,7 @@ interface DocumentRequestRecord {
 
 export function ApprovalQueue() {
   const { data: pendingUsers, isLoading: loadingPending, refetch: refetchPending } = usePendingUsers()
-  const { data: allDepartments } = useDepartments()
+  const { data: allDepartments } = useAdminDepartments()
   const approveUser = useApproveUser()
   const rejectUser = useRejectUser()
   const addToast = useToastStore((s) => s.addToast)
@@ -96,6 +97,7 @@ export function ApprovalQueue() {
   const [history, setHistory] = useState<HistoryRecord[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [historySearch, setHistorySearch] = useState('')
+  const debouncedHistorySearch = useDebounce(historySearch, 300)
   const [historyStatusFilter, setHistoryStatusFilter] = useState('ALL')
 
   // Document Requests State
@@ -126,7 +128,7 @@ export function ApprovalQueue() {
     try {
       const res = await apiClient.get('/admin/approvals/history', {
         params: {
-          search: historySearch || undefined,
+          search: debouncedHistorySearch || undefined,
           status: historyStatusFilter !== 'ALL' ? historyStatusFilter : undefined,
         },
       })
@@ -161,7 +163,7 @@ export function ApprovalQueue() {
     } else if (activeTab === 'document_requests') {
       fetchDocRequests()
     }
-  }, [activeTab, historySearch, historyStatusFilter])
+  }, [activeTab, debouncedHistorySearch, historyStatusFilter])
 
   // Open Grant Clearance Modal for Pending User
   const handleOpenGrantModal = (user: UserProfile) => {
@@ -370,11 +372,11 @@ export function ApprovalQueue() {
       </div>
 
       {/* NAVIGATION TABS */}
-      <div className="flex items-center gap-2 border-b border-border-default pb-2 overflow-x-auto">
+      <div className="flex items-center gap-2 border-b border-border-default pb-2 overflow-x-auto scrollbar-none">
         <button
           type="button"
           onClick={() => setActiveTab('pending')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer ${
             activeTab === 'pending'
               ? 'bg-accent text-white shadow-md shadow-accent/25'
               : 'text-text-secondary hover:text-white hover:bg-card'
@@ -392,7 +394,7 @@ export function ApprovalQueue() {
         <button
           type="button"
           onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer ${
             activeTab === 'history'
               ? 'bg-accent text-white shadow-md shadow-accent/25'
               : 'text-text-secondary hover:text-white hover:bg-card'
@@ -405,7 +407,7 @@ export function ApprovalQueue() {
         <button
           type="button"
           onClick={() => setActiveTab('document_requests')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer ${
             activeTab === 'document_requests'
               ? 'bg-accent text-white shadow-md shadow-accent/25'
               : 'text-text-secondary hover:text-white hover:bg-card'

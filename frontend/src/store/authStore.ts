@@ -1,4 +1,4 @@
-﻿import { create } from "zustand"
+import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
 
 export interface User {
@@ -13,6 +13,8 @@ export interface User {
   departmentPreference?: string | null
   reasonForAccess?: string | null
   departmentAccess?: Array<{
+    id?: string
+    departmentId?: string
     department?: {
       id: string
       name: string

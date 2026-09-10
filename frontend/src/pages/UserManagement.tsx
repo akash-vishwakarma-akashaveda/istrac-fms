@@ -16,7 +16,8 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useUsers, useSuspendUser, useForceLogout } from '../hooks/useUsers'
-import { useDepartments } from '../hooks/useDepartments'
+import { useAdminDepartments } from '../hooks/useDepartments'
+import { useDebounce } from '../hooks/useDebounce'
 import { useToastStore } from '../store/toastStore'
 import { usersApi } from '../api'
 import { Badge, Button, PageHeader, Avatar, Modal } from '../components'
@@ -33,17 +34,18 @@ const statusVariant: Record<string, 'nominal' | 'warning' | 'critical' | 'neutra
 export function UserManagement() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 300)
   const [status, setStatus] = useState('')
   const [role, setRole] = useState('')
 
   const { data, isLoading, refetch } = useUsers({
     page,
-    search,
+    search: debouncedSearch,
     status,
     role,
   })
 
-  const { data: allDepartments } = useDepartments()
+  const { data: allDepartments } = useAdminDepartments()
   const suspendUser = useSuspendUser()
   const forceLogout = useForceLogout()
   const addToast = useToastStore((s) => s.addToast)
