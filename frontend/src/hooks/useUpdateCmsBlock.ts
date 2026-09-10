@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { cmsApi } from '../api'
+import { useCms } from '../context/cmsContext'
 
 /**
  * Broadcasts a CMS block update to all preview iframes via postMessage.
@@ -22,12 +23,19 @@ function broadcastToPreviewIframes(blockKey: string, content: Record<string, unk
 
 export function useUpdateCmsBlock() {
   const queryClient = useQueryClient()
+  const { updateBlockLocally } = useCms()
+
   return useMutation({
     mutationFn: ({ blockKey, content }: { blockKey: string; content: Record<string, unknown> }) =>
       cmsApi.updateBlock(blockKey, content),
     onSuccess: (_data, variables) => {
+      // 1. Immediately update CMS block in memory across the entire app
+      updateBlockLocally(variables.blockKey, variables.content)
+
+      // 2. Invalidate React Query cache
       queryClient.invalidateQueries({ queryKey: ['cms'] })
-      // Push update directly into the live preview iframe — instant, no reload
+
+      // 3. Push update directly into the live preview iframe — instant, no reload
       broadcastToPreviewIframes(variables.blockKey, variables.content)
     },
   })

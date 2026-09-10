@@ -7,7 +7,7 @@
  */
 import { useRef, useState } from 'react'
 import { Upload, X, ImageIcon, Loader2 } from 'lucide-react'
-import { useAuthStore } from '../../store/authStore'
+import { cmsApi } from '../../api'
 import { useToastStore } from '../../store/toastStore'
 
 interface CmsImageInputProps {
@@ -44,9 +44,6 @@ export function CmsImageInput({
   const [uploading, setUploading] = useState(false)
   const addToast = useToastStore((s) => s.addToast)
 
-  // Grab auth token for the upload request
-  const token = useAuthStore((s) => s.accessToken)
-
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -55,29 +52,18 @@ export function CmsImageInput({
 
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const res = await fetch('/api/cms/upload-asset', {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        credentials: 'include',
-        body: formData,
-      })
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err?.error?.message ?? `Upload failed (${res.status})`)
-      }
-
-      const json = await res.json()
-      const url: string = json?.data?.url ?? ''
+      const data = await cmsApi.uploadAsset(file)
+      const url = data?.url ?? ''
       if (!url) throw new Error('Server returned no URL')
 
       onChange(url)
       addToast({ message: 'Image uploaded successfully', variant: 'success' })
     } catch (err: any) {
-      addToast({ message: err?.message ?? 'Upload failed', variant: 'error' })
+      const errorMsg =
+        err?.response?.data?.error?.message ||
+        err?.message ||
+        'Upload failed'
+      addToast({ message: errorMsg, variant: 'error' })
     } finally {
       setUploading(false)
     }

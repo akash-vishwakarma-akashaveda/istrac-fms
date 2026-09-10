@@ -9,10 +9,16 @@ import { adminMiddleware } from '../middleware/admin.middleware.js'
 import { auditService } from '../services/audit.service.js'
 import { AppError } from '../lib/errors.js'
 
+import { fileURLToPath } from 'node:url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
 // ── CMS asset storage ────────────────────────────────────────
-// Uploads land in  <project-root>/backend/public/cms-assets/
+// Resolves to <project-root>/backend/public/cms-assets/
 // The backend serves this folder at /media/* (see index.ts)
-export const CMS_ASSETS_DIR = path.resolve('public', 'cms-assets')
+export const CMS_PUBLIC_DIR = path.resolve(__dirname, '../../public')
+export const CMS_ASSETS_DIR = path.resolve(CMS_PUBLIC_DIR, 'cms-assets')
 
 const storage = multer.diskStorage({
   destination: async (_req, _file, cb) => {
@@ -33,9 +39,9 @@ const storage = multer.diskStorage({
 
 const cmsUpload = multer({
   storage,
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB hard ceiling for multer
   fileFilter: (_req, file, cb) => {
-    const allowed = /^image\/(jpeg|png|gif|webp|svg\+xml)$/
+    const allowed = /^image\/(jpeg|png|gif|webp|svg\+xml)$/i
     if (allowed.test(file.mimetype)) {
       cb(null, true)
     } else {
@@ -146,22 +152,58 @@ router.put('/cms/blocks/:blockKey', authMiddleware, adminMiddleware, async (req,
 // ============================================================
 // ADMIN: UPLOAD A CMS ASSET (image) → returns /media/cms-assets/<filename>
 // ============================================================
-router.post('/cms/upload-asset', authMiddleware, adminMiddleware, cmsUpload.single('file'), (req, res, next) => {
-  try {
-    if (!req.file) {
-      throw new AppError('no_file', 'No file was uploaded', 400)
+router.post('/cms/upload-asset', authMiddleware, adminMiddleware, (req, res, next) => {
+  cmsUpload.single('file')(req, res, async (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return next(new AppError('file_too_large', 'Image exceeds maximum allowed upload size', 413))
+        }
+        return next(new AppError('upload_error', err.message, 400))
+      }
+      return next(err)
     }
-    const url = `/media/cms-assets/${req.file.filename}`
-    auditService.log({
-      userId: req.user!.id,
-      action: 'POST:/cms/upload-asset',
-      resourceType: 'cms_asset',
-      resourceId: req.file.filename,
-    })
-    res.json({ data: { url, filename: req.file.filename, size: req.file.size } })
-  } catch (err) {
-    next(err)
-  }
+
+    try {
+      if (!req.file) {
+        throw new AppError('no_file', 'No file was uploaded', 400)
+      }
+
+      // Enforce dynamic system upload size limit from Settings if configured
+      const configRow = await prisma.systemConfig.findUnique({
+        where: { configKey: 'maxUploadSizeBytes' },
+      })
+      const maxBytes = configRow ? Number(JSON.parse(configRow.configValue)) : 524288000
+      if (req.file.size > maxBytes) {
+        // Delete uploaded oversized file
+        await fs.unlink(req.file.path).catch(() => {})
+        const limitMb = Math.round(maxBytes / (1024 * 1024))
+        throw new AppError(
+          'file_too_large',
+          `Image (${(req.file.size / (1024 * 1024)).toFixed(1)} MB) exceeds system limit of ${limitMb} MB`,
+          413,
+        )
+      }
+
+      const url = `/media/cms-assets/${req.file.filename}`
+      auditService.log({
+        userId: req.user!.id,
+        action: 'POST:/cms/upload-asset',
+        resourceType: 'cms_asset',
+        resourceId: req.file.filename,
+      })
+
+      res.json({
+        data: {
+          url,
+          filename: req.file.filename,
+          size: req.file.size,
+        },
+      })
+    } catch (innerErr) {
+      next(innerErr)
+    }
+  })
 })
 
 export { router as cmsRouter }

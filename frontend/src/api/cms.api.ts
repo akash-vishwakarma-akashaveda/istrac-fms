@@ -15,4 +15,11 @@ export const cmsApi = {
     const res = await apiClient.put(`/cms/blocks/${blockKey}`, { content })
     return extractData(res)
   },
+
+  async uploadAsset(file: File): Promise<{ url: string; filename: string; size: number }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await apiClient.post('/cms/upload-asset', formData)
+    return extractData(res)
+  },
 }

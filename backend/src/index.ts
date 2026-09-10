@@ -79,8 +79,8 @@ app.use(auditMiddleware)
 // ============================================================
 // STATIC ASSETS — CMS uploaded images served at /media/*
 // ============================================================
-import * as path from 'node:path'
-app.use('/media', express.static(path.resolve('public'), {
+import { CMS_PUBLIC_DIR } from './routes/cms.routes.js'
+app.use('/media', express.static(CMS_PUBLIC_DIR, {
   maxAge: '7d',
   immutable: false,
   setHeaders(res) {

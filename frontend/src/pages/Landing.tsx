@@ -21,6 +21,11 @@ export function Landing() {
   console.log("🔄 LandingPage re-rendered at", Date.now())
   // ...
 
+  // Always ensure fresh CMS blocks whenever navigating to the landing page
+  useEffect(() => {
+    refetch()
+  }, [refetch])
+
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (event.origin !== window.location.origin) return

@@ -6,6 +6,7 @@ interface CmsContextValue {
   cmsBlocks: Record<string, Record<string, unknown>>
   isLoading: boolean
   refetch: () => Promise<void>
+  updateBlockLocally: (blockKey: string, content: Record<string, unknown>) => void
 }
 
 // Authoritative ISTRAC Mission & Network Default Fallbacks
@@ -167,11 +168,19 @@ const CmsContext = createContext<CmsContextValue>({
   cmsBlocks: DEFAULT_CMS_BLOCKS,
   isLoading: false,
   refetch: async () => {},
+  updateBlockLocally: () => {},
 })
 
 export function CmsProvider({ children }: { children: ReactNode }) {
   const [cmsBlocks, setCmsBlocks] = useState<Record<string, Record<string, unknown>>>(DEFAULT_CMS_BLOCKS)
   const [isLoading, setIsLoading] = useState(true)
+
+  function updateBlockLocally(blockKey: string, content: Record<string, unknown>) {
+    setCmsBlocks((prev) => ({
+      ...prev,
+      [blockKey]: content,
+    }))
+  }
 
   async function fetchBlocks() {
     try {
@@ -224,7 +233,7 @@ export function CmsProvider({ children }: { children: ReactNode }) {
   }, [cmsBlocks])
 
   return (
-    <CmsContext.Provider value={{ cmsBlocks, isLoading, refetch: fetchBlocks }}>
+    <CmsContext.Provider value={{ cmsBlocks, isLoading, refetch: fetchBlocks, updateBlockLocally }}>
       {children}
     </CmsContext.Provider>
   )
