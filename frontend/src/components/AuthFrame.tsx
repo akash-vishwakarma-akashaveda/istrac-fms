@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { useCms } from '../context/cmsContext'
 
 /**
  * Station mark — the same crosshair glyph used in the navbar and the rail,
@@ -7,16 +8,11 @@ import { Link } from 'react-router-dom'
  */
 function StationMark() {
   return (
-    <span
-      className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-accent/30 bg-accent/10 text-accent-light"
-      aria-hidden="true"
-    >
-      <span className="relative block h-3.5 w-3.5">
-        <span className="absolute top-[6px] left-0 h-px w-3.5 rotate-45 bg-current" />
-        <span className="absolute top-[6px] left-0 h-px w-3.5 -rotate-45 bg-current" />
-        <span className="absolute top-[3px] left-[3px] h-2 w-2 rounded-full border border-current" />
-      </span>
-    </span>
+    <img
+      src="/logo/isro_logo.svg"
+      alt="ISRO Logo"
+      className="h-8 w-auto object-contain shrink-0"
+    />
   )
 }
 
@@ -24,7 +20,7 @@ interface AuthFrameProps {
   /** Links or buttons for the top-right of the strip. */
   actions?: ReactNode
   /** Max width of the content column. */
-  width?: 'sm' | 'md'
+  width?: 'sm' | 'md' | 'lg' | 'xl'
   children: ReactNode
 }
 
@@ -34,6 +30,12 @@ interface AuthFrameProps {
  * a graticule and the curve of the limb. No imagery, no per-render randomness.
  */
 export function AuthFrame({ actions, width = 'sm', children }: AuthFrameProps) {
+  const { cmsBlocks } = useCms()
+  const headerBlock = cmsBlocks['nav_header']?.content as Record<string, any> | undefined
+  const brandTitle = headerBlock?.brandTitle ?? 'ISTRAC'
+  const brandHighlight = headerBlock?.brandHighlight ?? '-SIMS'
+  const brandSubtitle = headerBlock?.brandSubtitle ?? 'BLR · MOX Complex'
+
   return (
     <div className="relative isolate flex min-h-screen flex-col bg-page antialiased">
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
@@ -50,12 +52,12 @@ export function AuthFrame({ actions, width = 'sm', children }: AuthFrameProps) {
           <Link
             to="/"
             className="group flex items-center gap-2.5 text-text-primary"
-            aria-label="ISTRAC-FMS home"
+            aria-label={`${brandTitle}${brandHighlight} home`}
           >
             <StationMark />
 
             <span className="text-[13px] tracking-[0.06em]">
-              ISTRAC<span className="text-accent-light">-FMS</span>
+              {brandTitle}<span className="text-accent-light">{brandHighlight}</span>
             </span>
           </Link>
 
@@ -64,12 +66,24 @@ export function AuthFrame({ actions, width = 'sm', children }: AuthFrameProps) {
       </header>
 
       <main className="relative z-10 flex flex-1 items-center justify-center px-4 py-10 sm:px-6">
-        <div className={`w-full ${width === 'md' ? 'max-w-md' : 'max-w-sm'}`}>{children}</div>
+        <div
+          className={`w-full ${
+            width === 'xl'
+              ? 'max-w-3xl'
+              : width === 'lg'
+                ? 'max-w-2xl'
+                : width === 'md'
+                  ? 'max-w-md'
+                  : 'max-w-sm'
+          }`}
+        >
+          {children}
+        </div>
       </main>
 
       <footer className="relative z-10 border-t border-border-subtle">
         <div className="shell flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-4">
-          <p className="num text-[10px] text-text-dim">BLR · 13.03°N 77.51°E</p>
+          <p className="num text-[10px] text-text-dim">{brandSubtitle}</p>
           <p className="num text-[10px] text-text-dim">REF UTC</p>
         </div>
       </footer>

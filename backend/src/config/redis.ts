@@ -1,10 +1,33 @@
-import {Redis} from 'ioredis'
+import { Redis } from 'ioredis'
 import { env } from './env.js'
 
-export const redis = new Redis(env.REDIS_URL)  //for the client purpose separation of redis is done
-export const redisPub = new Redis(env.REDIS_URL) // for publishing purpose
-export const redisSub = new Redis(env.REDIS_URL)  // for subscribing purpose
+const redisOptions = {
+  maxRetriesPerRequest: 1,
+  retryStrategy(times: number) {
+    // Reconnect with backoff up to 3s
+    return Math.min(times * 200, 3000)
+  },
+  reconnectOnError: (err: Error) => {
+    const targetError = 'READONLY'
+    if (err.message.includes(targetError)) {
+      return true
+    }
+    return false
+  },
+  enableOfflineQueue: true,
+  lazyConnect: false,
+}
 
-redis.on('error', (err) => console.error('Redis client error:', err))
-redisPub.on('error', (err) => console.error('Redis publisher error:', err))
-redisSub.on('error', (err) => console.error('Redis subscriber error:', err))
+export const redis = new Redis(env.REDIS_URL, redisOptions)
+export const redisPub = new Redis(env.REDIS_URL, redisOptions)
+export const redisSub = new Redis(env.REDIS_URL, redisOptions)
+
+redis.on('error', (err) => {
+  if (env.NODE_ENV === 'development') {
+    // Suppress spam in local dev
+  } else {
+    console.warn('[Redis] Connection warning (falling back to memory):', err.message)
+  }
+})
+redisPub.on('error', () => {})
+redisSub.on('error', () => {})

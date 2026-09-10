@@ -1,0 +1,10 @@
+{
+  "spacecraft": "XPoSat",
+  "instrument": "POLIX",
+  "target_source": "Crab Nebula (PSR B0531+21)",
+  "observation_start": "2026-08-25T18:00:00Z",
+  "observation_end": "2026-08-25T22:30:00Z",
+  "photon_counts": 148290,
+  "polarization_degree": 0.192,
+  "polarization_angle_deg": 154.2
+}

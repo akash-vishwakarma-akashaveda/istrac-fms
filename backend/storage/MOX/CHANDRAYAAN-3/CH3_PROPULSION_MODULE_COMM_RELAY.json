@@ -1,0 +1,18 @@
+{
+  "mission": "Chandrayaan-3",
+  "module": "Propulsion Module (Orbiter)",
+  "orbit": "Lunar Polar Circular (150 km)",
+  "payloads": {
+    "SHAPE": "ACTIVE_RECORDING"
+  },
+  "link": {
+    "frequency_ghz": 2.2,
+    "snr_db": 18.4,
+    "bit_error_rate": 1.2e-7
+  },
+  "health": {
+    "battery_v": 34.2,
+    "solar_array_w": 740,
+    "thermal_status": "STABLE"
+  }
+}
