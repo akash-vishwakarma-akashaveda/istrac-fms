@@ -88,6 +88,8 @@ export function Hero() {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(true)
   const autoPlayTimerRef = useRef<any>(null)
+  const isHoveredRef = useRef(false)
+
 
   // Inline CMS Edit State
   const [editForm, setEditForm] = useState({
@@ -120,7 +122,10 @@ export function Hero() {
     const shouldPlay = isPlaying && slides.length > 1 && (hero?.carouselAutoplay ?? true)
     if (shouldPlay) {
       autoPlayTimerRef.current = setInterval(() => {
-        setCurrentSlideIndex((prev) => (prev + 1) % slides.length)
+        // Skip advancing while the user is hovering over the carousel
+        if (!isHoveredRef.current) {
+          setCurrentSlideIndex((prev) => (prev + 1) % slides.length)
+        }
       }, hero?.carouselIntervalMs ?? 4500)
     }
     return () => {
@@ -235,14 +240,14 @@ export function Hero() {
     <>
       <section
         id="hero"
-        className="relative isolate overflow-hidden border-b border-border-subtle bg-page py-14 sm:py-20"
+        className="relative isolate overflow-hidden border-b border-border-subtle/80 bg-transparent py-14 sm:py-20"
         aria-labelledby="hero-title"
       >
         {/* Graticule Background & Ambient Glow */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-          <div className="graticule absolute inset-0 opacity-30 [mask-image:radial-gradient(ellipse_at_50%_30%,black,transparent_80%)]" />
-          <div className="absolute top-1/3 left-1/4 h-[450px] w-[600px] rounded-full bg-accent/10 blur-3xl" />
-          <div className="absolute top-1/4 right-1/4 h-72 w-72 rounded-full bg-nominal/8 blur-3xl" />
+          <div className="graticule absolute inset-0 opacity-20 [mask-image:radial-gradient(ellipse_at_50%_30%,black,transparent_80%)]" />
+          <div className="absolute top-1/3 left-1/4 h-[450px] w-[600px] rounded-full bg-accent/[0.08] blur-3xl" />
+          <div className="absolute top-1/4 right-1/4 h-72 w-72 rounded-full bg-nominal/[0.06] blur-3xl" />
         </div>
 
         <div className="shell grid items-center gap-10 lg:grid-cols-12 lg:gap-14">
@@ -348,7 +353,11 @@ export function Hero() {
 
           {/* Right Column: Interactive Multi-Image Telemetry Carousel (5 cols) */}
           <div className="lg:col-span-5">
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-border-default bg-[#070c17] shadow-2xl transition-all duration-300 hover:border-accent/40 group">
+            <div
+              className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-border-default bg-[#070c17] shadow-2xl transition-all duration-300 hover:border-accent/40 group"
+              onMouseEnter={() => { isHoveredRef.current = true }}
+              onMouseLeave={() => { isHoveredRef.current = false }}
+            >
               {/* Telemetry HUD Top Header */}
               <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between border-b border-border-subtle/80 bg-[#0b1220]/80 px-4 py-2.5 backdrop-blur-md text-[11px]">
                 <span className="eyebrow flex items-center gap-1.5 text-text-secondary">
@@ -398,7 +407,7 @@ export function Hero() {
                 <ImageWithFallback
                   src={activeSlide?.url}
                   alt={activeSlide?.caption || 'Indian Deep Space Network'}
-                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  className="h-full w-full object-cover transition-transform duration-700"
                   aspectRatio="4/3"
                   fallbackIcon="satellite"
                   fallbackTitle={activeSlide?.caption || 'ISTRAC Deep Space Node'}

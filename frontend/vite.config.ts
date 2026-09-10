@@ -14,6 +14,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
+      '/media': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        // No rewrite needed — /media is served as-is by the backend
+      },
       '/ws': {
         target: 'ws://localhost:3000',
         ws: true,

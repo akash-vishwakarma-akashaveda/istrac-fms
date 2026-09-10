@@ -151,6 +151,16 @@ export const DEFAULT_CMS_BLOCKS: Record<string, Record<string, unknown>> = {
     stat4Label: 'Cryptographic Integrity',
     stat4Icon: 'shield',
   },
+  space_background: {
+    mode: 'deep_space_hybrid',
+    customImageUrl: '',
+    overlayOpacity: 45,
+    enableParallax: true,
+    parallaxSpeed: 0.35,
+    starDensity: 'medium',
+    showConstellations: true,
+    showOrbitalRings: true,
+  },
 }
 
 const CmsContext = createContext<CmsContextValue>({

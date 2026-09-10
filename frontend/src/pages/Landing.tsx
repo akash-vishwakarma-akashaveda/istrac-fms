@@ -9,11 +9,14 @@ import { MissionCalendar } from "../components/MissionCalendar"
 import { AboutSection } from "../components/AboutSection"
 import { ContactSection } from "../components/ContactSection"
 import { Footer } from "../components/Footer"
+import { SpaceParallaxBackground, type SpaceBackgroundConfig } from "../components/SpaceParallaxBackground"
 import { useCms } from "../context/cmsContext"
 
 export function Landing() {
   const queryClient = useQueryClient()
-  const { refetch } = useCms()
+  const { cmsBlocks, refetch } = useCms()
+
+  const bgConfig = cmsBlocks["space_background"] as SpaceBackgroundConfig | undefined
 
   console.log("🔄 LandingPage re-rendered at", Date.now())
   // ...
@@ -49,7 +52,10 @@ export function Landing() {
   }, [refetch, queryClient])
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-page text-text-primary antialiased">
+    <div className="min-h-screen overflow-x-hidden bg-[#030712] text-text-primary antialiased relative">
+      {/* Universal Fixed Parallax Space Canvas */}
+      <SpaceParallaxBackground config={bgConfig} />
+
       {/* Keyboard accessibility skip link */}
       <a
         href="#main"
@@ -58,17 +64,19 @@ export function Landing() {
         Skip to content
       </a>
 
-      <div id="cms-section-nav"><Navbar /></div>
-      <main id="main">
-        <div id="cms-section-hero"><Hero /></div>
-        <div id="cms-section-quick_stats"><QuickStatsBanner /></div>
-        <div id="cms-section-department_pages"><OperationalDivisions /></div>
-        <div id="cms-section-featured_reports"><FeaturedReports /></div>
-        <div id="cms-section-calendar_events"><MissionCalendar /></div>
-        <div id="cms-section-about"><AboutSection /></div>
-        <div id="cms-section-contact_info"><ContactSection /></div>
-      </main>
-      <div id="cms-section-footer"><Footer /></div>
+      <div className="relative z-10 flex flex-col min-h-screen">
+        <div id="cms-section-nav"><Navbar /></div>
+        <main id="main" className="flex-1">
+          <div id="cms-section-hero"><Hero /></div>
+          <div id="cms-section-quick_stats"><QuickStatsBanner /></div>
+          <div id="cms-section-department_pages"><OperationalDivisions /></div>
+          <div id="cms-section-featured_reports"><FeaturedReports /></div>
+          <div id="cms-section-calendar_events"><MissionCalendar /></div>
+          <div id="cms-section-about"><AboutSection /></div>
+          <div id="cms-section-contact_info"><ContactSection /></div>
+        </main>
+        <div id="cms-section-footer"><Footer /></div>
+      </div>
     </div>
   )
 }

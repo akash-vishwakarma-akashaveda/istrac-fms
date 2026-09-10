@@ -72,7 +72,7 @@ export function QuickStatsBanner() {
   const Icon4 = getStatIcon(stats?.stat4Icon, ShieldCheck)
 
   return (
-    <div className="border-b border-border-subtle bg-[#060b17] py-6 relative overflow-hidden">
+    <div className="border-b border-border-subtle/80 bg-[#060b17]/70 py-6 relative overflow-hidden">
       <div className="shell">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 divide-y sm:divide-y-0 sm:divide-x divide-border-subtle/60">
           {/* Stat 1 */}

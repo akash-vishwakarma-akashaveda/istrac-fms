@@ -77,6 +77,20 @@ app.use(httpLoggerMiddleware)
 app.use(auditMiddleware)
 
 // ============================================================
+// STATIC ASSETS — CMS uploaded images served at /media/*
+// ============================================================
+import * as path from 'node:path'
+app.use('/media', express.static(path.resolve('public'), {
+  maxAge: '7d',
+  immutable: false,
+  setHeaders(res) {
+    // Allow cross-origin reads (the React frontend is on a different port in dev)
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
+    res.setHeader('Cache-Control', 'public, max-age=604800')
+  },
+}))
+
+// ============================================================
 // ROUTE REGISTRATION
 // ============================================================
 app.use('/auth',  authRouter)

@@ -1,4 +1,4 @@
-﻿import { ArrowUpRight, Mail, Phone, MapPin, Headphones } from "lucide-react"
+import { ArrowUpRight, Mail, Phone, MapPin, Headphones } from "lucide-react"
 import { useCms, DEFAULT_CMS_BLOCKS } from "../context/cmsContext"
 
 interface ContactBlockContent {
@@ -45,7 +45,7 @@ export function ContactSection() {
   const facilityName = contactInfo?.facilityName || "Ground Facility Headquarters"
 
   return (
-    <section id="contact" className="border-b border-border-subtle bg-page py-20 sm:py-24" aria-labelledby="contact-title">
+    <section id="contact" className="border-b border-border-subtle/80 bg-[#060a15]/70 py-20 sm:py-24" aria-labelledby="contact-title">
       <div className="shell grid items-stretch gap-10 lg:grid-cols-12 lg:gap-14">
         {/* Left Side: Information */}
         <div className="flex flex-col justify-between lg:col-span-6">

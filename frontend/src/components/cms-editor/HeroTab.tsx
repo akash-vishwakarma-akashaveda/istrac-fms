@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { Plus, Trash2, Image as ImageIcon, ToggleLeft, ToggleRight, LogIn, UserPlus, Search, LayoutDashboard, ArrowRight } from "lucide-react"
 import { useCms, DEFAULT_CMS_BLOCKS } from "../../context/cmsContext"
 import { usePreviewRefresh } from "../../context/PreviewRefreshContext"
@@ -6,7 +6,7 @@ import { useUpdateCmsBlock } from "../../hooks/useUpdateCmsBlock"
 import { useToastStore } from "../../store/toastStore"
 import { Input, Panel, Button } from ".."
 import { SaveBar } from "./SaveBar"
-import { isSafeUrl } from "../../lib/sanitize"
+import { CmsImageInput } from "./CmsImageInput"
 
 interface HeroSlide {
   url: string
@@ -352,23 +352,14 @@ export function HeroTab() {
                       )}
                     </div>
 
-                    <div>
-                      <label className="block text-[11px] text-text-dim mb-1">Image URL *</label>
-                      <input
-                        type="url"
-                        value={slide.url}
-                        onChange={(e) => handleUpdateSlide(idx, "url", e.target.value)}
-                        placeholder="https://images.unsplash.com/... or /assets/..."
-                        className="w-full rounded-md border border-border-default bg-[#09101f] px-3 py-2 text-xs text-white outline-none focus:border-accent font-mono text-[11px]"
-                      />
-                      {slide.url && isSafeUrl(slide.url) && (
-                        <div className="mt-1.5 relative h-16 w-full rounded-md overflow-hidden border border-border-subtle">
-                          <img src={slide.url} alt={slide.caption ?? ""} className="h-full w-full object-cover" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                          <span className="absolute bottom-1 left-2 text-[9px] text-white/70 num">preview</span>
-                        </div>
-                      )}
-                    </div>
+                    <CmsImageInput
+                      id={`hero-slide-url-${idx}`}
+                      label="Image URL *"
+                      value={slide.url}
+                      onChange={(url) => handleUpdateSlide(idx, "url", url)}
+                      placeholder="https://... or /media/cms-assets/..."
+                      hint="Paste a URL or click Browse to upload from your computer."
+                    />
 
                     <div>
                       <label className="block text-[11px] text-text-dim mb-1">Slide Caption</label>

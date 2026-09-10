@@ -71,7 +71,7 @@ export function OperationalDivisions() {
   }, [departments, cmsConfig?.order])
 
   return (
-    <section id="departments-showcase" className="border-b border-border-subtle bg-page-soft py-16 sm:py-20" aria-labelledby="divisions-title">
+    <section id="departments-showcase" className="border-b border-border-subtle/80 bg-[#080d17]/60 py-16 sm:py-20" aria-labelledby="divisions-title">
       <div className="shell space-y-10">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 border-b border-border-subtle/70 pb-6">

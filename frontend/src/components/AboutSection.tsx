@@ -70,7 +70,7 @@ export function AboutSection() {
   return (
     <section
       id="about"
-      className="relative border-b border-border-subtle bg-page-soft py-18 sm:py-24"
+      className="relative border-b border-border-subtle/80 bg-[#080d17]/65 py-18 sm:py-24"
       aria-labelledby="about-title"
     >
       <div className="shell grid items-center gap-10 lg:grid-cols-12 lg:gap-14">

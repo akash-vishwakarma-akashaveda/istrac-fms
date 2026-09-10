@@ -153,7 +153,7 @@ export function FeaturedReports() {
     <>
       <section
         id="featured-files"
-        className="border-b border-border-subtle bg-[#080d19] py-14 sm:py-16"
+        className="border-b border-border-subtle/80 bg-[#080d19]/65 py-14 sm:py-16"
         aria-labelledby="featured-files-title"
       >
         <div className="shell">

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import {
   Sparkles, FileText, Calendar, Building2,
-  Headphones, Info, Radio, ExternalLink, BarChart3, Compass, MapPin, RefreshCw, Megaphone,
+  Headphones, Info, Radio, ExternalLink, BarChart3, Compass, MapPin, RefreshCw, Megaphone, Orbit,
 } from "lucide-react"
 import { PreviewRefreshProvider, usePreviewRefresh } from "../context/PreviewRefreshContext"
 import { LivePreviewPanel } from "../components/LivePreviewPanel"
@@ -15,8 +15,18 @@ import { QuickStatsTab } from "../components/cms-editor/QuickStatsTab"
 import { NavTab } from "../components/cms-editor/NavTab"
 import { FooterTab } from "../components/cms-editor/FooterTab"
 import { AnnouncementTab } from "../components/cms-editor/AnnouncementTab"
+import { SpaceBackgroundTab } from "../components/cms-editor/SpaceBackgroundTab"
 
 const TABS = [
+  {
+    key: "space_background",
+    label: "Space Theme & Parallax",
+    shortLabel: "Theme / BG",
+    icon: Orbit,
+    component: SpaceBackgroundTab,
+    section: "global" as const,
+    description: "Parallax starry canvas, custom wallpaper, cosmic nebula, and trajectory curves",
+  },
   {
     key: "nav",
     label: "Header & Navbar",

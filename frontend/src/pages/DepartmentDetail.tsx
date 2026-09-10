@@ -169,6 +169,7 @@ export function DepartmentDetail() {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(true)
   const autoPlayTimerRef = useRef<any>(null)
+  const isHoveredRef = useRef(false)
 
   // Modals & Preview
   const [previewFile, setPreviewFile] = useState<FileNode | null>(null)
@@ -246,7 +247,10 @@ export function DepartmentDetail() {
   useEffect(() => {
     if (isPlaying && isCarouselVisible && slides.length > 1) {
       autoPlayTimerRef.current = setInterval(() => {
-        setCurrentSlideIndex((prev) => (prev + 1) % slides.length)
+        // Pause advancing while the user is hovering over the carousel
+        if (!isHoveredRef.current) {
+          setCurrentSlideIndex((prev) => (prev + 1) % slides.length)
+        }
       }, 4500)
     }
     return () => {
@@ -613,7 +617,11 @@ export function DepartmentDetail() {
             {/* Right Column: Multi-Image Telemetry Carousel (5 cols) */}
             {isCarouselVisible && (
               <div className="lg:col-span-5">
-                <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-border-default bg-[#070c17] shadow-2xl transition-all duration-300 hover:border-accent/40 group">
+                <div
+                  className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-border-default bg-[#070c17] shadow-2xl transition-all duration-300 hover:border-accent/40 group"
+                  onMouseEnter={() => { isHoveredRef.current = true }}
+                  onMouseLeave={() => { isHoveredRef.current = false }}
+                >
                   {/* Telemetry HUD Header */}
                   <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between border-b border-white/10 bg-[#060b16]/80 px-3.5 py-2 backdrop-blur-md">
                     <div className="flex items-center gap-2">
@@ -671,7 +679,7 @@ export function DepartmentDetail() {
                     <ImageWithFallback
                       src={safeImageUrl}
                       alt={activeSlide?.caption || `${dept.name} facility`}
-                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      className="h-full w-full object-cover transition-transform duration-700"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#060b16] via-[#060b16]/30 to-transparent" />
 

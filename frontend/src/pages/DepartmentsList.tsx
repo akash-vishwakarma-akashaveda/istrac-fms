@@ -101,7 +101,7 @@ export function DepartmentsList() {
                       <ImageWithFallback
                         src={bannerImg}
                         alt={dept.name}
-                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        className="h-full w-full object-cover transition-transform duration-700"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-[#060b16] via-transparent to-transparent" />
 

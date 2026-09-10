@@ -727,7 +727,7 @@ export function MissionCalendar({
   }
 
   return (
-    <section id="calendar" className="border-b border-border-subtle bg-page py-12 sm:py-16" aria-labelledby="calendar-title">
+    <section id="calendar" className="border-b border-border-subtle/80 bg-[#04070e]/65 py-12 sm:py-16" aria-labelledby="calendar-title">
       <div className="shell">
         {calendarContent}
       </div>

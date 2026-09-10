@@ -1,10 +1,48 @@
 import { Router } from 'express'
+import multer from 'multer'
+import * as path from 'node:path'
+import * as fs from 'node:fs/promises'
 import { prisma } from '../config/db.js'
 import { pubsub } from '../lib/pubsub.js'
 import { authMiddleware } from '../middleware/auth.middleware.js'
 import { adminMiddleware } from '../middleware/admin.middleware.js'
 import { auditService } from '../services/audit.service.js'
 import { AppError } from '../lib/errors.js'
+
+// ── CMS asset storage ────────────────────────────────────────
+// Uploads land in  <project-root>/backend/public/cms-assets/
+// The backend serves this folder at /media/* (see index.ts)
+export const CMS_ASSETS_DIR = path.resolve('public', 'cms-assets')
+
+const storage = multer.diskStorage({
+  destination: async (_req, _file, cb) => {
+    try {
+      await fs.mkdir(CMS_ASSETS_DIR, { recursive: true })
+      cb(null, CMS_ASSETS_DIR)
+    } catch (err) {
+      cb(err as Error, CMS_ASSETS_DIR)
+    }
+  },
+  filename: (_req, file, cb) => {
+    // Prefix with timestamp to avoid collisions
+    const ext = path.extname(file.originalname)
+    const base = path.basename(file.originalname, ext).replace(/[^a-z0-9_-]/gi, '_').slice(0, 60)
+    cb(null, `${Date.now()}_${base}${ext}`)
+  },
+})
+
+const cmsUpload = multer({
+  storage,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = /^image\/(jpeg|png|gif|webp|svg\+xml)$/
+    if (allowed.test(file.mimetype)) {
+      cb(null, true)
+    } else {
+      cb(new AppError('invalid_type', 'Only image files are allowed (jpg, png, gif, webp, svg)', 415))
+    }
+  },
+})
 
 const router = Router()
 
@@ -100,6 +138,27 @@ router.put('/cms/blocks/:blockKey', authMiddleware, adminMiddleware, async (req,
       data: updated,
       requestId: req.requestId,
     })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ============================================================
+// ADMIN: UPLOAD A CMS ASSET (image) → returns /media/cms-assets/<filename>
+// ============================================================
+router.post('/cms/upload-asset', authMiddleware, adminMiddleware, cmsUpload.single('file'), (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new AppError('no_file', 'No file was uploaded', 400)
+    }
+    const url = `/media/cms-assets/${req.file.filename}`
+    auditService.log({
+      userId: req.user!.id,
+      action: 'POST:/cms/upload-asset',
+      resourceType: 'cms_asset',
+      resourceId: req.file.filename,
+    })
+    res.json({ data: { url, filename: req.file.filename, size: req.file.size } })
   } catch (err) {
     next(err)
   }
