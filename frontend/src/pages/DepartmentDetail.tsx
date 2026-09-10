@@ -35,10 +35,13 @@ import {
   Calendar,
 } from 'lucide-react'
 import { departmentsApi, type Department } from '../api/departments.api'
-import { satellitesApi, type Satellite as SatelliteType } from '../api/satellites.api'
+import { type Satellite as SatelliteType } from '../api/satellites.api'
+import { useDebounce } from '../hooks/useDebounce'
+import { useSatellites } from '../hooks/useSatellites'
 import { useAuthStore } from '../store/authStore'
 import { useAuthModalStore } from '../store/authModalStore'
 import { useToastStore } from '../store/toastStore'
+import { canAccessSatellite } from '../lib/permissions'
 import {
   Navbar,
   Footer,
@@ -67,6 +70,8 @@ const EXT_CONFIG: Record<string, { label: string; badge: string; icon: typeof Fi
 interface CarouselSlide {
   url: string
   caption: string
+  spacecraft?: string
+  tag?: string
 }
 
 const DEFAULT_DEPT_SLIDES: Record<string, CarouselSlide[]> = {
@@ -74,50 +79,66 @@ const DEFAULT_DEPT_SLIDES: Record<string, CarouselSlide[]> = {
     {
       url: 'https://images.unsplash.com/photo-1517976487515-56839a85703f?auto=format&fit=crop&w=1200&q=80',
       caption: '32-Meter Deep Space Tracking Antenna Dish · S/X-Band Terminal',
+      spacecraft: 'Chandrayaan-3',
+      tag: 'DEEP SPACE NETWORK',
     },
     {
       url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
       caption: 'Real-time Telemetry Acquisition & Downlink Pass Monitoring',
+      spacecraft: 'Aditya-L1',
+      tag: 'REAL-TIME TELEMETRY',
     },
   ],
   MOX: [
     {
       url: 'https://images.unsplash.com/photo-1541185933-ef5d8ed016c2?auto=format&fit=crop&w=1200&q=80',
       caption: 'Main Operations Complex Flight Control Consoles',
+      spacecraft: 'Gaganyaan',
+      tag: 'FLIGHT CONTROL',
     },
     {
       url: 'https://images.unsplash.com/photo-1516849841032-87cbac4d88f7?auto=format&fit=crop&w=1200&q=80',
       caption: 'Mission Directors Gallery & Integrated Telemetry Display',
+      spacecraft: 'NISAR',
+      tag: 'MISSION GALLERY',
     },
   ],
   FDD: [
     {
       url: 'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?auto=format&fit=crop&w=1200&q=80',
       caption: 'Lagrange Point L1 / L2 Halo Orbit Ephemeris Simulation',
+      spacecraft: 'Aditya-L1',
+      tag: 'ORBIT PROPAGATION',
     },
     {
       url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1200&q=80',
       caption: 'High-Precision Orbit Determination & State Vector Modeling',
+      spacecraft: 'Chandrayaan-3',
+      tag: 'STATE VECTOR',
     },
   ],
   NETRA: [
     {
       url: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1200&q=80',
       caption: 'IS4OM Space Situational Awareness & Debris Tracking Sensor',
+      tag: 'SSA RADAR',
     },
     {
       url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
       caption: 'Low-Earth Orbit Close Approach Conjunction Analysis',
+      tag: 'CONJUNCTION ANALYSIS',
     },
   ],
   GSO: [
     {
       url: 'https://images.unsplash.com/photo-1517976487515-56839a85703f?auto=format&fit=crop&w=1200&q=80',
       caption: 'Bengaluru Ground Station Ground Terminal & Dish Array',
+      tag: 'BLR GROUND STATION',
     },
     {
       url: 'https://images.unsplash.com/photo-1541185933-ef5d8ed016c2?auto=format&fit=crop&w=1200&q=80',
       caption: 'Antenna Control Unit (ACU) Automated Pass Steering',
+      tag: 'ACU PASS STEERING',
     },
   ],
 }
@@ -131,6 +152,8 @@ export function DepartmentDetail() {
   const [satellites, setSatellites] = useState<SatelliteType[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
+  const { data: cachedSatellites = [] } = useSatellites()
+
   // View Mode: 'card' (Grid) vs 'table' (List)
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card')
 
@@ -138,6 +161,7 @@ export function DepartmentDetail() {
   const [deptFiles, setDeptFiles] = useState<any[]>([])
   const [loadingFiles, setLoadingFiles] = useState(false)
   const [fileSearch, setFileSearch] = useState('')
+  const debouncedFileSearch = useDebounce(fileSearch, 300)
   const [fileSpacecraft, setFileSpacecraft] = useState('ALL')
   const [fileExt, setFileExt] = useState('ALL')
 
@@ -167,7 +191,8 @@ export function DepartmentDetail() {
     pageLeadOfficer: '',
     pageLeadRole: '',
     pageContact: '',
-    slides: [{ url: '', caption: '' }],
+    isCarouselVisible: true,
+    slides: [{ url: '', caption: '', spacecraft: '', tag: '' }] as CarouselSlide[],
     allowUserFolderCreation: false,
     maxFolderDepth: 5,
     includeSatellites: false,
@@ -187,27 +212,39 @@ export function DepartmentDetail() {
     )
   )
 
-  // Parse slides for carousel from dept.pageBannerUrl
-  const getCarouselSlides = (): CarouselSlide[] => {
+  // Parse carousel configuration (visibility toggle + slides array) from dept.pageBannerUrl
+  const getCarouselConfig = (): { isCarouselVisible: boolean; slides: CarouselSlide[] } => {
+    const deptCode = dept?.code?.toUpperCase() || 'TTC'
+    const defaultSlides = DEFAULT_DEPT_SLIDES[deptCode] || DEFAULT_DEPT_SLIDES['TTC']
+
     if (dept?.pageBannerUrl) {
       try {
         const parsed = JSON.parse(dept.pageBannerUrl)
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const isVisible = parsed.isCarouselVisible !== false
+          const parsedSlides = Array.isArray(parsed.slides) && parsed.slides.length > 0 ? parsed.slides : defaultSlides
+          return { isCarouselVisible: isVisible, slides: parsedSlides }
+        }
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return { isCarouselVisible: true, slides: parsed }
+        }
       } catch {
         if (dept.pageBannerUrl.startsWith('http')) {
-          return [{ url: dept.pageBannerUrl, caption: `${dept.name} Operations` }]
+          return {
+            isCarouselVisible: true,
+            slides: [{ url: dept.pageBannerUrl, caption: `${dept.name} Operations` }],
+          }
         }
       }
     }
-    const deptCode = dept?.code?.toUpperCase() || 'TTC'
-    return DEFAULT_DEPT_SLIDES[deptCode] || DEFAULT_DEPT_SLIDES['TTC']
+    return { isCarouselVisible: true, slides: defaultSlides }
   }
 
-  const slides = getCarouselSlides()
+  const { isCarouselVisible, slides } = getCarouselConfig()
 
   // Carousel Auto-play logic
   useEffect(() => {
-    if (isPlaying && slides.length > 1) {
+    if (isPlaying && isCarouselVisible && slides.length > 1) {
       autoPlayTimerRef.current = setInterval(() => {
         setCurrentSlideIndex((prev) => (prev + 1) % slides.length)
       }, 4500)
@@ -215,7 +252,7 @@ export function DepartmentDetail() {
     return () => {
       if (autoPlayTimerRef.current) clearInterval(autoPlayTimerRef.current)
     }
-  }, [isPlaying, slides.length])
+  }, [isPlaying, isCarouselVisible, slides.length])
 
   const handleNextSlide = () => {
     setCurrentSlideIndex((prev) => (prev + 1) % slides.length)
@@ -229,19 +266,18 @@ export function DepartmentDetail() {
     if (!deptId) return
     setIsLoading(true)
     try {
-      const [deptData, sats] = await Promise.all([
-        departmentsApi.getPublicDepartment(deptId).catch(() =>
-          departmentsApi.getPublicDepartments().then((list) => {
-            const found = list.find((d) => d.id === deptId || d.code?.toLowerCase() === deptId.toLowerCase())
-            if (found) return found
-            throw new Error('Department not found')
-          })
-        ),
-        satellitesApi.getActiveSatellites().catch(() => []),
-      ])
+      const deptData = await departmentsApi.getPublicDepartment(deptId).catch(() =>
+        departmentsApi.getPublicDepartments().then((list) => {
+          const found = list.find((d) => d.id === deptId || d.code?.toLowerCase() === deptId.toLowerCase())
+          if (found) return found
+          throw new Error('Department not found')
+        })
+      )
 
       setDept(deptData)
-      setSatellites(sats || [])
+      if (cachedSatellites.length > 0) {
+        setSatellites(cachedSatellites)
+      }
     } catch {
       setDept(null)
     } finally {
@@ -249,12 +285,18 @@ export function DepartmentDetail() {
     }
   }
 
+  useEffect(() => {
+    if (cachedSatellites.length > 0) {
+      setSatellites(cachedSatellites)
+    }
+  }, [cachedSatellites])
+
   const loadDeptFiles = async () => {
     if (!dept?.id && !deptId) return
     setLoadingFiles(true)
     try {
       const files = await departmentsApi.getDepartmentFiles(dept?.id || deptId!, {
-        search: fileSearch || undefined,
+        search: debouncedFileSearch || undefined,
         spacecraft: fileSpacecraft !== 'ALL' ? fileSpacecraft : undefined,
         extension: fileExt !== 'ALL' ? fileExt : undefined,
       })
@@ -274,12 +316,12 @@ export function DepartmentDetail() {
     if (dept) {
       loadDeptFiles()
     }
-  }, [dept, fileSearch, fileSpacecraft, fileExt])
+  }, [dept, debouncedFileSearch, fileSpacecraft, fileExt])
 
   // Open Edit Modal with Current Data
   const handleOpenEditModal = () => {
     if (!dept) return
-    const currentSlides = getCarouselSlides()
+    const { isCarouselVisible: currentIsVisible, slides: currentSlides } = getCarouselConfig()
     const currentSatIds = dept.satellites?.map((s) => s.id) || (dept.satelliteId ? [dept.satelliteId] : [])
 
     setEditForm({
@@ -291,7 +333,16 @@ export function DepartmentDetail() {
       pageLeadOfficer: dept.pageLeadOfficer || 'Division In-Charge, ISTRAC',
       pageLeadRole: dept.pageLeadRole || 'Head of Operational Subsystem',
       pageContact: dept.pageContact || 'Building MOX-2, 2nd Floor, ISTRAC Bengaluru',
-      slides: currentSlides.length > 0 ? currentSlides : [{ url: '', caption: '' }],
+      isCarouselVisible: currentIsVisible,
+      slides:
+        currentSlides.length > 0
+          ? currentSlides.map((s) => ({
+              url: s.url || '',
+              caption: s.caption || '',
+              spacecraft: s.spacecraft || '',
+              tag: s.tag || '',
+            }))
+          : [{ url: '', caption: '', spacecraft: '', tag: '' }],
       allowUserFolderCreation: dept.allowUserFolderCreation || false,
       maxFolderDepth: dept.maxFolderDepth || 5,
       includeSatellites: currentSatIds.length > 0,
@@ -300,10 +351,45 @@ export function DepartmentDetail() {
     setIsEditModalOpen(true)
   }
 
+  const handleOpenAddSatellitesModal = () => {
+    if (!dept) return
+    const { isCarouselVisible: currentIsVisible, slides: currentSlides } = getCarouselConfig()
+    const currentSatIds = dept.satellites?.map((s) => s.id) || (dept.satelliteId ? [dept.satelliteId] : [])
+
+    setEditForm({
+      name: dept.name,
+      code: dept.code || '',
+      description: dept.description || '',
+      pageTitle: dept.pageTitle || dept.name,
+      pageAbout: dept.pageAbout || dept.description || '',
+      pageLeadOfficer: dept.pageLeadOfficer || 'Division In-Charge, ISTRAC',
+      pageLeadRole: dept.pageLeadRole || 'Head of Operational Subsystem',
+      pageContact: dept.pageContact || 'Building MOX-2, 2nd Floor, ISTRAC Bengaluru',
+      isCarouselVisible: currentIsVisible,
+      slides:
+        currentSlides.length > 0
+          ? currentSlides.map((s) => ({
+              url: s.url || '',
+              caption: s.caption || '',
+              spacecraft: s.spacecraft || '',
+              tag: s.tag || '',
+            }))
+          : [{ url: '', caption: '', spacecraft: '', tag: '' }],
+      allowUserFolderCreation: dept.allowUserFolderCreation || false,
+      maxFolderDepth: dept.maxFolderDepth || 5,
+      includeSatellites: true,
+      satelliteIds: currentSatIds,
+    })
+    setIsEditModalOpen(true)
+    setTimeout(() => {
+      document.getElementById('dept-detail-link-satellites-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 150)
+  }
+
   const handleAddSlide = () => {
     setEditForm((prev) => ({
       ...prev,
-      slides: [...prev.slides, { url: '', caption: '' }],
+      slides: [...prev.slides, { url: '', caption: '', spacecraft: '', tag: '' }],
     }))
   }
 
@@ -314,7 +400,7 @@ export function DepartmentDetail() {
     }))
   }
 
-  const handleUpdateSlide = (index: number, field: 'url' | 'caption', val: string) => {
+  const handleUpdateSlide = (index: number, field: keyof CarouselSlide, val: string) => {
     setEditForm((prev) => {
       const nextSlides = [...prev.slides]
       nextSlides[index] = { ...nextSlides[index], [field]: val }
@@ -331,7 +417,10 @@ export function DepartmentDetail() {
     const validSlides = editForm.slides.filter(
       (s) => s.url.trim().length > 0 && isSafeUrl(s.url.trim())
     )
-    const bannerUrlPayload = validSlides.length > 0 ? JSON.stringify(validSlides) : undefined
+    const bannerPayload = JSON.stringify({
+      isCarouselVisible: editForm.isCarouselVisible,
+      slides: validSlides,
+    })
 
     try {
       const updated = await departmentsApi.updateDepartment(dept.id, {
@@ -343,7 +432,7 @@ export function DepartmentDetail() {
         pageLeadOfficer: editForm.pageLeadOfficer.trim() || undefined,
         pageLeadRole: editForm.pageLeadRole.trim() || undefined,
         pageContact: editForm.pageContact.trim() || undefined,
-        pageBannerUrl: bannerUrlPayload,
+        pageBannerUrl: bannerPayload,
         allowUserFolderCreation: editForm.allowUserFolderCreation,
         maxFolderDepth: Number(editForm.maxFolderDepth) || 5,
         satelliteIds: editForm.includeSatellites ? editForm.satelliteIds : [],
@@ -436,14 +525,14 @@ export function DepartmentDetail() {
           </div>
 
           <div className="shell grid items-center gap-10 lg:grid-cols-12 lg:gap-12">
-            {/* Left Column: Department Hero Headline & Controls (7 cols) */}
-            <div className="lg:col-span-7 space-y-4">
+            {/* Left Column: Department Hero Headline & Controls (7 cols, expands to 12 cols when carousel is hidden) */}
+            <div className={`${isCarouselVisible ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-4`}>
               {/* Status Pill */}
               <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3.5 py-1 text-xs font-semibold text-accent-light shadow-sm shadow-accent/20">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-nominal" />
                 <span className="font-mono">{dept.code || 'DIVISION'}</span>
-                <span>·</span>
-                <span>Operational Ground Division · Active 24/7 MOX Ops</span>
+                <span className="hidden sm:inline">Operational Ground Division · Active 24/7 MOX Ops</span>
+                <span className="sm:hidden">24/7 MOX Ops</span>
               </div>
 
               {/* Main Headline */}
@@ -452,7 +541,7 @@ export function DepartmentDetail() {
               </h1>
 
               {/* Subtitle / Mandate summary */}
-              <p className="max-w-xl text-sm sm:text-base leading-relaxed text-text-secondary">
+              <p className={`${isCarouselVisible ? 'max-w-xl' : 'max-w-3xl'} text-sm sm:text-base leading-relaxed text-text-secondary`}>
                 {dept.pageAbout ||
                   dept.description ||
                   'The operational division for telemetry reception, spacecraft commanding, deep space tracking, and mission data archives.'}
@@ -505,196 +594,245 @@ export function DepartmentDetail() {
                     <span>Edit Page & Carousel CMS</span>
                   </Button>
                 )}
+
+                {isAdmin && (!dept.satellites || dept.satellites.length === 0) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="md"
+                    onClick={handleOpenAddSatellitesModal}
+                    className="border-accent/40 text-accent-light hover:bg-accent/10 px-4 flex items-center gap-2"
+                  >
+                    <Plus size={13} />
+                    <span>Assign Satellites</span>
+                  </Button>
+                )}
               </div>
             </div>
 
             {/* Right Column: Multi-Image Telemetry Carousel (5 cols) */}
-            <div className="lg:col-span-5">
-              <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-border-default bg-[#070c17] shadow-2xl transition-all duration-300 hover:border-accent/40 group">
-                {/* Telemetry HUD Header */}
-                <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between border-b border-white/10 bg-[#060b16]/80 px-3.5 py-2 backdrop-blur-md">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-2 w-2 relative">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-nominal opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-nominal" />
-                    </span>
-                    <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted">
-                      {dept.code || 'OPS'} // TELEMETRY FEED
-                    </span>
-                  </div>
+            {isCarouselVisible && (
+              <div className="lg:col-span-5">
+                <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-border-default bg-[#070c17] shadow-2xl transition-all duration-300 hover:border-accent/40 group">
+                  {/* Telemetry HUD Header */}
+                  <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between border-b border-white/10 bg-[#060b16]/80 px-3.5 py-2 backdrop-blur-md">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-nominal opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-nominal" />
+                      </span>
+                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                        {dept.code || 'OPS'} // {activeSlide?.tag || 'TELEMETRY FEED'}
+                      </span>
+                    </div>
 
-                  <div className="flex items-center gap-1.5 text-[10px] font-mono text-accent-light">
-                    <span className="rounded bg-accent/20 px-1.5 py-0.5">SLIDE {currentSlideIndex + 1}/{slides.length}</span>
-                    <button
-                      type="button"
-                      onClick={() => setIsPlaying((p) => !p)}
-                      className="p-1 rounded text-text-dim hover:text-white transition-colors"
-                      title={isPlaying ? 'Pause auto-play' : 'Start auto-play'}
-                    >
-                      {isPlaying ? <Pause size={10} /> : <Play size={10} />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsLightboxOpen(true)}
-                      className="p-1 rounded text-text-dim hover:text-white hover:bg-white/10 transition-colors"
-                      title="Enlarge telemetry image"
-                      aria-label="Enlarge image in fullscreen preview"
-                    >
-                      <Maximize2 size={11} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Active Slide Image (Clickable to Enlarge) */}
-                <div
-                  className="relative h-full w-full cursor-pointer group/img"
-                  onClick={() => setIsLightboxOpen(true)}
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Click to enlarge image"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      setIsLightboxOpen(true)
-                    }
-                  }}
-                >
-                  <ImageWithFallback
-                    src={safeImageUrl}
-                    alt={activeSlide?.caption || `${dept.name} facility`}
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#060b16] via-[#060b16]/30 to-transparent" />
-
-                  {/* Hover Click to Enlarge Icon */}
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity duration-200 bg-black/25 pointer-events-none">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black/80 border border-white/25 text-white shadow-2xl backdrop-blur-md">
-                      <Maximize2 size={18} className="text-accent-light" />
+                    <div className="flex items-center gap-1.5 text-[10px] font-mono text-accent-light">
+                      {activeSlide?.spacecraft && (
+                        <span className="rounded bg-accent/20 border border-accent/40 px-1.5 py-0.5 text-accent-light text-[9px] font-semibold flex items-center gap-1">
+                          <span>🛰️</span>
+                          <span className="truncate max-w-[90px]">{activeSlide.spacecraft}</span>
+                        </span>
+                      )}
+                      <span className="rounded bg-accent/20 px-1.5 py-0.5">SLIDE {currentSlideIndex + 1}/{slides.length}</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsPlaying((p) => !p)}
+                        className="p-1 rounded text-text-dim hover:text-white transition-colors"
+                        title={isPlaying ? 'Pause auto-play' : 'Start auto-play'}
+                      >
+                        {isPlaying ? <Pause size={10} /> : <Play size={10} />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsLightboxOpen(true)}
+                        className="p-1 rounded text-text-dim hover:text-white hover:bg-white/10 transition-colors"
+                        title="Enlarge telemetry image"
+                        aria-label="Enlarge image in fullscreen preview"
+                      >
+                        <Maximize2 size={11} />
+                      </button>
                     </div>
                   </div>
-                </div>
 
-                {/* Slide Navigation Arrows */}
-                {slides.length > 1 && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handlePrevSlide}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-card/80 border border-border-default text-text-muted hover:text-white hover:bg-accent flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
-                      aria-label="Previous slide"
-                    >
-                      <ChevronLeft size={14} />
-                    </button>
+                  {/* Active Slide Image (Clickable to Enlarge) */}
+                  <div
+                    className="relative h-full w-full cursor-pointer group/img"
+                    onClick={() => setIsLightboxOpen(true)}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Click to enlarge image"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setIsLightboxOpen(true)
+                      }
+                    }}
+                  >
+                    <ImageWithFallback
+                      src={safeImageUrl}
+                      alt={activeSlide?.caption || `${dept.name} facility`}
+                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#060b16] via-[#060b16]/30 to-transparent" />
 
-                    <button
-                      type="button"
-                      onClick={handleNextSlide}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-card/80 border border-border-default text-text-muted hover:text-white hover:bg-accent flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
-                      aria-label="Next slide"
-                    >
-                      <ChevronRight size={14} />
-                    </button>
-                  </>
-                )}
+                    {/* Hover Click to Enlarge Icon */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity duration-200 bg-black/25 pointer-events-none">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black/80 border border-white/25 text-white shadow-2xl backdrop-blur-md">
+                        <Maximize2 size={18} className="text-accent-light" />
+                      </div>
+                    </div>
+                  </div>
 
-                {/* Bottom Caption & Indicators */}
-                <div className="absolute bottom-0 inset-x-0 z-20 p-3.5 bg-gradient-to-t from-[#060b16] via-[#060b16]/90 to-transparent space-y-2">
-                  <p className="text-xs font-medium text-white truncate drop-shadow-sm">
-                    {activeSlide?.caption || `${dept.name} Operations Lab`}
-                  </p>
-
-                  {/* Indicator Dots */}
+                  {/* Slide Navigation Arrows */}
                   {slides.length > 1 && (
-                    <div className="flex items-center gap-1.5">
-                      {slides.map((_, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setCurrentSlideIndex(idx)}
-                          className={`h-1 rounded-full transition-all ${
-                            idx === currentSlideIndex
-                              ? 'w-6 bg-accent-light'
-                              : 'w-2 bg-white/30 hover:bg-white/60'
-                          }`}
-                          aria-label={`Jump to slide ${idx + 1}`}
-                        />
-                      ))}
-                    </div>
+                    <>
+                      <button
+                        type="button"
+                        onClick={handlePrevSlide}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-card/80 border border-border-default text-text-muted hover:text-white hover:bg-accent flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                        aria-label="Previous slide"
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleNextSlide}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-7 w-7 rounded-full bg-card/80 border border-border-default text-text-muted hover:text-white hover:bg-accent flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                        aria-label="Next slide"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                    </>
                   )}
+
+                  {/* Bottom Caption & Indicators */}
+                  <div className="absolute bottom-0 inset-x-0 z-20 p-3.5 bg-gradient-to-t from-[#060b16] via-[#060b16]/90 to-transparent space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {activeSlide?.spacecraft && (
+                        <span className="inline-flex items-center gap-1 rounded bg-accent/25 border border-accent/40 px-2 py-0.5 text-[10px] font-mono font-semibold text-accent-light">
+                          <span>🛰️</span>
+                          <span>{activeSlide.spacecraft}</span>
+                        </span>
+                      )}
+                      {activeSlide?.tag && (
+                        <span className="inline-flex items-center rounded bg-nominal/20 border border-nominal/40 px-2 py-0.5 text-[10px] font-mono font-semibold text-nominal">
+                          {activeSlide.tag}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-xs font-medium text-white truncate drop-shadow-sm">
+                      {activeSlide?.caption || `${dept.name} Operations Lab`}
+                    </p>
+
+                    {/* Indicator Dots */}
+                    {slides.length > 1 && (
+                      <div className="flex items-center gap-1.5">
+                        {slides.map((_, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setCurrentSlideIndex(idx)}
+                            className={`h-1 rounded-full transition-all ${
+                              idx === currentSlideIndex
+                                ? 'w-6 bg-accent-light'
+                                : 'w-2 bg-white/30 hover:bg-white/60'
+                            }`}
+                            aria-label={`Jump to slide ${idx + 1}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </section>
 
         {/* ============================================================ */}
         {/* 2. ASSIGNED SPACECRAFT & SATELLITE MISSIONS */}
         {/* ============================================================ */}
-        <section className="shell mt-10 space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 border-b border-border-default pb-4">
-            <div>
-              <div className="flex items-center gap-2 text-accent-light text-xs font-mono uppercase tracking-wider font-bold">
-                <Radio size={14} />
-                <span>Spacecraft Fleet Operations</span>
+        {dept.satellites && dept.satellites.length > 0 ? (
+          <section className="shell mt-10 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 border-b border-border-default pb-4">
+              <div>
+                <div className="flex items-center gap-2 text-accent-light text-xs font-mono uppercase tracking-wider font-bold">
+                  <Radio size={14} />
+                  <span>Spacecraft Fleet Operations</span>
+                </div>
+                <h2 className="text-xl font-bold text-white mt-1 flex items-center gap-2.5">
+                  <span>Assigned Spacecraft & Satellites</span>
+                  <span className="rounded-full bg-accent/20 border border-accent/40 text-accent-light px-2.5 py-0.5 text-xs font-mono num font-bold">
+                    {dept.satellites.length} Missions
+                  </span>
+                </h2>
+                <p className="text-xs text-text-secondary mt-1 max-w-2xl">
+                  Spacecraft missions supported by {dept.name} ({dept.code || 'DIV'}) for orbital tracking, telemetry downlink, flight dynamics, and payload telemetry downlinks.
+                </p>
               </div>
-              <h2 className="text-xl font-bold text-white mt-1 flex items-center gap-2.5">
-                <span>Assigned Spacecraft & Satellites</span>
-                <span className="rounded-full bg-accent/20 border border-accent/40 text-accent-light px-2.5 py-0.5 text-xs font-mono num font-bold">
-                  {dept.satellites?.length || 0} Missions
-                </span>
-              </h2>
-              <p className="text-xs text-text-secondary mt-1 max-w-2xl">
-                Spacecraft missions supported by {dept.name} ({dept.code || 'DIV'}) for orbital tracking, telemetry downlink, flight dynamics, and payload telemetry downlinks.
-              </p>
-            </div>
 
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={handleOpenEditModal}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent-light hover:bg-accent hover:text-white transition-all self-start sm:self-auto shrink-0"
-              >
-                <Edit2 size={12} />
-                <span>Configure Satellites</span>
-              </button>
-            )}
-          </div>
-
-          {!dept.satellites || dept.satellites.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border-default bg-[#070c17]/60 p-8 text-center space-y-2">
-              <Radio size={28} className="mx-auto text-text-dim opacity-50 mb-1" />
-              <h4 className="text-xs font-bold text-white">No Satellites Directly Assigned</h4>
-              <p className="text-[11px] text-text-dim max-w-md mx-auto">
-                This operational division is currently operating as a multi-mission facility or has no direct spacecraft program assignments.
-              </p>
               {isAdmin && (
-                <Button
-                  variant="outline"
-                  size="sm"
+                <button
+                  type="button"
                   onClick={handleOpenEditModal}
-                  className="mt-2 text-xs text-accent-light border-accent/40"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent-light hover:bg-accent hover:text-white transition-all self-start sm:self-auto shrink-0"
                 >
-                  <Plus size={12} />
-                  <span>Assign Satellites Now</span>
-                </Button>
+                  <Edit2 size={12} />
+                  <span>Configure Satellites</span>
+                </button>
               )}
             </div>
-          ) : (
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {dept.satellites.map((sat) => (
-                <div
-                  key={sat.id}
-                  onClick={() => setViewingSatelliteId(sat.id)}
-                  className="flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all hover:border-accent/60 hover:bg-[#0c1527] shadow-sm group cursor-pointer hover:shadow-xl hover:shadow-accent/5"
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
+              {dept.satellites.map((sat) => {
+                const hasAccess = canAccessSatellite(user, sat, dept.id)
+
+                return (
+                  <div
+                    key={sat.id}
+                    onClick={() => {
+                      if (!user) {
+                        openLogin()
+                        return
+                      }
+                      if (!hasAccess) {
+                        addToast({
+                          title: 'Access Restricted',
+                          message: 'You are not authorized to see',
+                          variant: 'warning',
+                        })
+                        return
+                      }
                       setViewingSatelliteId(sat.id)
-                    }
-                  }}
-                >
+                    }}
+                    className={`flex flex-col justify-between rounded-xl border p-4 transition-all shadow-sm group cursor-pointer hover:shadow-xl ${
+                      hasAccess
+                        ? 'border-border-default bg-card hover:border-accent/60 hover:bg-[#0c1527] hover:shadow-accent/5'
+                        : 'border-border-subtle bg-card/60 hover:border-warning/50 hover:bg-[#120d18]'
+                    }`}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        if (!user) {
+                          openLogin()
+                          return
+                        }
+                        if (!hasAccess) {
+                          addToast({
+                            title: 'Access Restricted',
+                            message: 'You are not authorized to see',
+                            variant: 'warning',
+                          })
+                          return
+                        }
+                        setViewingSatelliteId(sat.id)
+                      }
+                    }}
+                  >
                   <div className="space-y-3">
                     {/* Header: SAT_ID badge, code, status */}
                     <div className="flex items-start justify-between gap-2">
@@ -781,18 +919,50 @@ export function DepartmentDetail() {
 
                   <div className="mt-3.5 pt-3 border-t border-border-subtle/80 flex items-center justify-between text-xs">
                     <span className="text-[11px] text-text-dim group-hover:text-accent-light transition-colors">
-                      Click to view live telemetry
+                      {!user
+                        ? 'Sign in to view telemetry'
+                        : hasAccess
+                        ? 'Click to view live telemetry'
+                        : 'Department clearance required'}
                     </span>
                     <span className="inline-flex items-center gap-1 text-xs font-bold text-accent-light group-hover:translate-x-0.5 transition-transform">
-                      <span>Mission Dossier</span>
-                      <ChevronRight size={13} />
+                      <span>
+                        {!user
+                          ? 'Sign In Required'
+                          : hasAccess
+                          ? 'Mission Dossier'
+                          : 'Restricted'}
+                      </span>
+                      {!user ? (
+                        <Lock size={12} />
+                      ) : hasAccess ? (
+                        <ChevronRight size={13} />
+                      ) : (
+                        <Lock size={12} className="text-warning" />
+                      )}
                     </span>
                   </div>
                 </div>
-              ))}
+              )
+            })}
             </div>
-          )}
-        </section>
+          </section>
+        ) : isAdmin ? (
+          <div className="shell mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-dashed border-border-default/80 bg-surface/30 px-4 py-2.5">
+            <span className="text-xs text-text-dim flex items-center gap-2">
+              <Radio size={14} className="text-accent-light/70" />
+              <span>No satellites or missions currently linked to {dept.name}.</span>
+            </span>
+            <button
+              type="button"
+              onClick={handleOpenAddSatellitesModal}
+              className="inline-flex items-center gap-1.5 rounded-md border border-accent/40 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent-light hover:bg-accent hover:text-white transition-all cursor-pointer"
+            >
+              <Plus size={12} />
+              <span>Add / Link Mission</span>
+            </button>
+          </div>
+        ) : null}
 
         {/* ============================================================ */}
         {/* 3. DEDICATED DEPARTMENT FILES EXPLORER (CARD & TABLE VIEW) */}
@@ -1362,9 +1532,10 @@ export function DepartmentDetail() {
       <Modal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        title={`Edit Department CMS & Hero Images: /${dept.code || dept.name}`}
+        title={`Edit Department CMS & Satellites: /${dept.code || dept.name}`}
+        size="lg"
       >
-        <form onSubmit={handleSaveEdit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+        <form onSubmit={handleSaveEdit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-text-primary mb-1">
@@ -1449,68 +1620,124 @@ export function DepartmentDetail() {
           </div>
 
           {/* ============================================================ */}
-          {/* HERO CAROUSEL IMAGES MANAGER */}
+          {/* HERO CAROUSEL CONFIGURATION & SLIDES MANAGER */}
           {/* ============================================================ */}
-          <div className="space-y-2.5 pt-2 border-t border-border-subtle">
+          <div className="space-y-3 pt-2 border-t border-border-subtle">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-white flex items-center gap-1.5">
-                <ImageIcon size={14} className="text-accent-light" />
-                <span>Hero Carousel Images & Feeds:</span>
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  id="enable-hero-carousel-toggle"
+                  checked={editForm.isCarouselVisible}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      isCarouselVisible: e.target.checked,
+                    }))
+                  }
+                  className="h-4 w-4 rounded border-border-default bg-surface text-accent focus:ring-accent"
+                />
+                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <ImageIcon size={14} className="text-accent-light" />
+                  <span>Enable Hero Telemetry Carousel</span>
+                </span>
               </label>
 
-              <button
-                type="button"
-                onClick={handleAddSlide}
-                className="text-xs text-accent-light hover:underline font-semibold flex items-center gap-1"
-              >
-                <Plus size={12} />
-                <span>Add Image</span>
-              </button>
+              {editForm.isCarouselVisible && (
+                <button
+                  type="button"
+                  onClick={handleAddSlide}
+                  className="text-xs text-accent-light hover:underline font-semibold flex items-center gap-1"
+                >
+                  <Plus size={12} />
+                  <span>Add Image</span>
+                </button>
+              )}
             </div>
 
-            <div className="space-y-2.5 max-h-48 overflow-y-auto p-2.5 rounded-xl border border-border-default bg-[#060c18]">
-              {editForm.slides.map((slide, idx) => (
-                <div key={idx} className="p-2.5 rounded-lg border border-border-subtle bg-surface space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase num text-accent-light">
-                      Image Slide #{idx + 1}
-                    </span>
-                    {editForm.slides.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSlide(idx)}
-                        className="text-critical hover:text-critical-hover p-0.5"
-                        title="Remove Slide"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    )}
+            <p className="text-[11px] text-text-dim leading-relaxed">
+              When enabled, the multi-slide telemetry carousel displays on the right. When disabled, the right-column carousel is completely removed and division details expand to full width.
+            </p>
+
+            {!editForm.isCarouselVisible ? (
+              <div className="p-3 rounded-xl border border-dashed border-border-subtle bg-surface/50 text-center text-xs text-text-dim">
+                Hero Telemetry Carousel is disabled for this division. The overview section will span full width (12 columns).
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-56 overflow-y-auto p-2.5 rounded-xl border border-border-default bg-[#060c18]">
+                {editForm.slides.map((slide, idx) => (
+                  <div key={idx} className="p-2.5 rounded-lg border border-border-subtle bg-surface space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase num text-accent-light flex items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                        Image Slide #{idx + 1}
+                      </span>
+                      {editForm.slides.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSlide(idx)}
+                          className="text-critical hover:text-critical-hover p-0.5 transition-colors"
+                          title="Remove Slide"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
+
+                    <input
+                      type="url"
+                      value={slide.url}
+                      onChange={(e) => handleUpdateSlide(idx, 'url', e.target.value)}
+                      placeholder="https://images.unsplash.com/... or image URL"
+                      className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent font-mono text-[11px]"
+                    />
+
+                    <input
+                      type="text"
+                      value={slide.caption}
+                      onChange={(e) => handleUpdateSlide(idx, 'caption', e.target.value)}
+                      placeholder="Slide caption, e.g. 32-Meter Deep Space Antenna Dish"
+                      className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent text-[11px]"
+                    />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-medium text-text-dim">Assigned Spacecraft (S/C)</label>
+                        <select
+                          value={slide.spacecraft || ''}
+                          onChange={(e) => handleUpdateSlide(idx, 'spacecraft', e.target.value)}
+                          className="w-full rounded-md border border-border-default bg-[#060c18] px-2 py-1 text-xs text-white outline-none focus:border-accent text-[11px]"
+                        >
+                          <option value="">No Spacecraft (General)</option>
+                          {satellites.map((sat) => (
+                            <option key={sat.id} value={sat.name}>
+                              {sat.name} {sat.code ? `(${sat.code})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-medium text-text-dim">Custom HUD Tag / Option</label>
+                        <input
+                          type="text"
+                          value={slide.tag || ''}
+                          onChange={(e) => handleUpdateSlide(idx, 'tag', e.target.value)}
+                          placeholder="e.g. S-BAND PASS, REAL-TIME"
+                          className="w-full rounded-md border border-border-default bg-[#060c18] px-2 py-1 text-xs text-white outline-none focus:border-accent text-[11px] font-mono uppercase"
+                        />
+                      </div>
+                    </div>
                   </div>
-
-                  <input
-                    type="url"
-                    value={slide.url}
-                    onChange={(e) => handleUpdateSlide(idx, 'url', e.target.value)}
-                    placeholder="https://images.unsplash.com/... or image URL"
-                    className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent font-mono text-[11px]"
-                  />
-
-                  <input
-                    type="text"
-                    value={slide.caption}
-                    onChange={(e) => handleUpdateSlide(idx, 'caption', e.target.value)}
-                    placeholder="Slide caption, e.g. 32-Meter Deep Space Antenna Dish"
-                    className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent text-[11px]"
-                  />
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* ============================================================ */}
           {/* ASSOCIATED SPACECRAFT & SATELLITE MISSIONS */}
           {/* ============================================================ */}
-          <div className="rounded-xl border border-border-default bg-[#070d1a] p-3.5 space-y-3">
+          <div id="dept-detail-link-satellites-section" className="rounded-xl border border-border-default bg-[#070d1a] p-3.5 space-y-3 scroll-mt-6">
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2.5 cursor-pointer select-none">
                 <input
@@ -1698,19 +1925,21 @@ export function DepartmentDetail() {
       </Modal>
 
       {/* Enlarged Image Preview Lightbox */}
-      <ImageLightboxModal
-        isOpen={isLightboxOpen}
-        onClose={() => setIsLightboxOpen(false)}
-        images={slides.map((s, idx) => ({
-          url: s.url,
-          title: dept?.name || 'ISTRAC Division Operations',
-          caption: s.caption || `${dept?.name} Telemetry Node Slide 0${idx + 1}`,
-          alt: s.caption || `${dept?.name} Facility`,
-          tag: `${dept?.code || 'OPS'} · SLIDE 0${idx + 1}`,
-          station: `${dept?.name} (${dept?.code || 'OPS'}) · Global Ground Station Network`,
-        }))}
-        initialIndex={currentSlideIndex}
-      />
+      {isCarouselVisible && slides.length > 0 && (
+        <ImageLightboxModal
+          isOpen={isLightboxOpen}
+          onClose={() => setIsLightboxOpen(false)}
+          images={slides.map((s, idx) => ({
+            url: s.url,
+            title: s.spacecraft ? `${dept?.name} · ${s.spacecraft}` : (dept?.name || 'ISTRAC Division Operations'),
+            caption: s.caption || `${dept?.name} Telemetry Node Slide 0${idx + 1}`,
+            alt: s.caption || `${dept?.name} Facility`,
+            tag: s.tag || (s.spacecraft ? `🛰️ ${s.spacecraft}` : `${dept?.code || 'OPS'} · SLIDE 0${idx + 1}`),
+            station: `${dept?.name} (${dept?.code || 'OPS'}) · Global Ground Station Network`,
+          }))}
+          initialIndex={currentSlideIndex}
+        />
+      )}
 
       {/* Confirmation Modal to Feature / Unfeature Mission Report */}
       <ConfirmFeatureModal

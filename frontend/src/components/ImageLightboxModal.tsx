@@ -202,12 +202,12 @@ export function ImageLightboxModal({
       {/* 1. TOP HEADER HUD — Translucent Frosted Glass */}
       {/* ============================================================ */}
       <header
-        className="relative z-30 flex items-center justify-between border-b border-white/10 bg-[#080d19]/85 px-6 py-4 backdrop-blur-md shadow-sm"
+        className="relative z-30 flex items-center justify-between border-b border-white/10 bg-[#080d19]/85 px-4 sm:px-6 py-3 sm:py-4 backdrop-blur-md shadow-sm"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3.5 min-w-0 pr-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/10 text-accent-light">
-            <Compass size={18} />
+        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 pr-2 sm:pr-4">
+          <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/10 text-accent-light">
+            <Compass size={17} />
           </div>
 
           <div className="min-w-0">
@@ -216,12 +216,12 @@ export function ImageLightboxModal({
                 {current.title || current.caption || "Telemetry Visual Feed"}
               </span>
               {current.tag && (
-                <span className="font-mono rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-semibold text-accent-light">
+                <span className="hidden sm:inline-block font-mono rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-semibold text-accent-light shrink-0">
                   {current.tag}
                 </span>
               )}
             </div>
-            <p className="text-xs text-text-dim truncate mt-0.5">
+            <p className="text-[11px] sm:text-xs text-text-dim truncate mt-0.5">
               {current.station || "ISTRAC Ground Network · Telemetry Visual Asset"}
             </p>
           </div>
@@ -319,10 +319,10 @@ export function ImageLightboxModal({
               e.stopPropagation()
               handlePrev()
             }}
-            className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-[#080d19]/80 text-white/80 hover:text-white hover:bg-accent hover:border-accent shadow-xl backdrop-blur-md transition-all cursor-pointer group"
+            className="absolute left-2 sm:left-8 top-1/2 -translate-y-1/2 z-40 flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-white/15 bg-[#080d19]/80 text-white/80 hover:text-white hover:bg-accent hover:border-accent shadow-xl backdrop-blur-md transition-all cursor-pointer group"
             aria-label="Previous image (Left Arrow)"
           >
-            <ChevronLeft size={22} className="group-hover:-translate-x-0.5 transition-transform" />
+            <ChevronLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
           </button>
         )}
 
@@ -334,10 +334,10 @@ export function ImageLightboxModal({
               e.stopPropagation()
               handleNext()
             }}
-            className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-[#080d19]/80 text-white/80 hover:text-white hover:bg-accent hover:border-accent shadow-xl backdrop-blur-md transition-all cursor-pointer group"
+            className="absolute right-2 sm:right-8 top-1/2 -translate-y-1/2 z-40 flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-white/15 bg-[#080d19]/80 text-white/80 hover:text-white hover:bg-accent hover:border-accent shadow-xl backdrop-blur-md transition-all cursor-pointer group"
             aria-label="Next image (Right Arrow)"
           >
-            <ChevronRight size={22} className="group-hover:translate-x-0.5 transition-transform" />
+            <ChevronRight size={20} className="group-hover:translate-x-0.5 transition-transform" />
           </button>
         )}
 

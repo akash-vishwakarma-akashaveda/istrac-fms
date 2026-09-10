@@ -14,7 +14,7 @@ export interface SendNotificationOpts {
 }
 
 export const notificationService = {
-  send(opts: SendNotificationOpts): void {
+  async send(opts: SendNotificationOpts): Promise<void> {
     if (!opts.recipientIds || opts.recipientIds.length === 0) return
 
     // 1. Insert notifications into DB
@@ -29,24 +29,25 @@ export const notificationService = {
       metadata: opts.metadata ? JSON.stringify(opts.metadata) : undefined,
     }))
 
-    prisma.notification
-      .createMany({ data })
-      .then(() => {
-        // 2. Publish to Redis channels for WebSocket push
-        opts.recipientIds.forEach((userId) => {
-          pubsub
-            .publish(`notification.${userId}`, {
-              type: opts.type,
-              category: opts.category,
-              message: opts.message,
-              resourceType: opts.resourceType,
-              resourceId: opts.resourceId,
-              timestamp: new Date().toISOString(),
-            })
-            .catch((err: unknown) =>logger.error('[NotificationService] Pubsub error for userId:', userId, err))
-        })
+    try {
+      await prisma.notification.createMany({ data })
+
+      // 2. Publish to Redis channels for WebSocket push
+      opts.recipientIds.forEach((userId) => {
+        pubsub
+          .publish(`notification.${userId}`, {
+            type: opts.type,
+            category: opts.category,
+            message: opts.message,
+            resourceType: opts.resourceType,
+            resourceId: opts.resourceId,
+            timestamp: new Date().toISOString(),
+          })
+          .catch((err: unknown) => logger.error('[NotificationService] Pubsub error for userId:', userId, err))
       })
-      .catch((err: unknown) => logger.error('[NotificationService] Batch insert failed:', err))
+    } catch (err: unknown) {
+      logger.error('[NotificationService] Batch insert failed:', err)
+    }
   },
 
   async sendBroadcast(opts: Omit<SendNotificationOpts, 'recipientIds'>): Promise<void> {
@@ -57,7 +58,11 @@ export const notificationService = {
       })
 
       const recipientIds = activeUsers.map((u: any) => u.id)
-      this.send({ ...opts, recipientIds })
+      if (opts.actorId && !recipientIds.includes(opts.actorId)) {
+        recipientIds.push(opts.actorId)
+      }
+
+      await this.send({ ...opts, recipientIds })
 
       // Global broadcast event for connected sockets
       pubsub

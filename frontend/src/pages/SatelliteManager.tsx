@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Radio,
   Plus,
@@ -14,19 +14,32 @@ import {
   Orbit,
   Eye,
   Activity,
+  RotateCcw,
+  Archive,
+  AlertTriangle,
 } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { satellitesApi, type Satellite } from '../api/satellites.api'
-import { departmentsApi, type Department } from '../api/departments.api'
+import { useAdminSatellites, ADMIN_SATELLITES_QUERY_KEY, SATELLITES_QUERY_KEY } from '../hooks/useSatellites'
+import { useAdminDepartments } from '../hooks/useDepartments'
+import { useDebounce } from '../hooks/useDebounce'
 import { useToastStore } from '../store/toastStore'
 import { PageHeader, Button, Input, Modal, Textarea, SatelliteInfoModal } from '../components'
 
+type Tab = 'active' | 'inactive'
+
 export function SatelliteManager() {
   const addToast = useToastStore((s) => s.addToast)
+  const queryClient = useQueryClient()
 
-  const [satellites, setSatellites] = useState<Satellite[]>([])
-  const [departments, setDepartments] = useState<Department[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: adminSats, isLoading: loading } = useAdminSatellites()
+  const { data: adminDepts } = useAdminDepartments()
+  const satellites = adminSats || []
+  const departments = adminDepts || []
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 300)
+  const [tab, setTab] = useState<Tab>('active')
+  const [restoringId, setRestoringId] = useState<string | null>(null)
 
   // Create / Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -53,29 +66,10 @@ export function SatelliteManager() {
   const [deletingSat, setDeletingSat] = useState<Satellite | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  const loadSatellitesAndDepts = async () => {
-    setLoading(true)
-    try {
-      const [satsData, deptsData] = await Promise.all([
-        satellitesApi.getAllAdminSatellites(),
-        departmentsApi.getAllAdminDepartments().catch(() => []),
-      ])
-      setSatellites(satsData || [])
-      setDepartments(deptsData || [])
-    } catch {
-      addToast({
-        title: 'Error',
-        message: 'Failed to load satellite programs or department registries',
-        variant: 'error',
-      })
-    } finally {
-      setLoading(false)
-    }
+  const invalidateSatellites = () => {
+    queryClient.invalidateQueries({ queryKey: ADMIN_SATELLITES_QUERY_KEY })
+    queryClient.invalidateQueries({ queryKey: SATELLITES_QUERY_KEY })
   }
-
-  useEffect(() => {
-    loadSatellitesAndDepts()
-  }, [])
 
   const openCreateModal = (prefilledValues?: Partial<typeof formData>) => {
     setEditingSat(null)
@@ -178,7 +172,7 @@ export function SatelliteManager() {
         })
       }
       setIsModalOpen(false)
-      loadSatellitesAndDepts()
+      invalidateSatellites()
     } catch (err: any) {
       addToast({
         title: 'Operation Failed',
@@ -201,7 +195,7 @@ export function SatelliteManager() {
         variant: 'success',
       })
       setDeletingSat(null)
-      loadSatellitesAndDepts()
+      invalidateSatellites()
     } catch (err: any) {
       addToast({
         title: 'Deactivation Failed',
@@ -213,14 +207,50 @@ export function SatelliteManager() {
     }
   }
 
-  const filteredSatellites = satellites.filter(
+  const handleRestore = async (sat: Satellite) => {
+    setRestoringId(sat.id)
+    try {
+      await satellitesApi.restoreSatellite(sat.id)
+      addToast({
+        title: 'Satellite Reactivated',
+        message: `${sat.name} has been restored to active operational status.`,
+        variant: 'success',
+      })
+      invalidateSatellites()
+    } catch (err: any) {
+      addToast({
+        title: 'Reactivation Failed',
+        message: err.response?.data?.error?.message || 'Could not reactivate satellite',
+        variant: 'error',
+      })
+    } finally {
+      setRestoringId(null)
+    }
+  }
+
+  const isSatActive = (s: Satellite) =>
+    Boolean(s.isActive && !s.deletedAt && s.status !== 'DECOMMISSIONED')
+
+  const activeCount = satellites.filter(isSatActive).length
+  const inactiveCount = satellites.filter((s) => !isSatActive(s)).length
+
+  const TABS: { id: Tab; label: string; count: number }[] = [
+    { id: 'active', label: 'Active Fleet', count: activeCount },
+    { id: 'inactive', label: 'Inactive & Decommissioned', count: inactiveCount },
+  ]
+
+  const tabSatellites = satellites.filter((s) =>
+    tab === 'active' ? isSatActive(s) : !isSatActive(s)
+  )
+
+  const filteredSatellites = tabSatellites.filter(
     (s) =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      (s.satId && s.satId.toLowerCase().includes(search.toLowerCase())) ||
-      (s.code && s.code.toLowerCase().includes(search.toLowerCase())) ||
-      (s.description && s.description.toLowerCase().includes(search.toLowerCase())) ||
-      (s.orbitType && s.orbitType.toLowerCase().includes(search.toLowerCase())) ||
-      (s.payloads && s.payloads.toLowerCase().includes(search.toLowerCase()))
+      s.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      (s.satId && s.satId.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+      (s.code && s.code.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+      (s.description && s.description.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+      (s.orbitType && s.orbitType.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+      (s.payloads && s.payloads.toLowerCase().includes(debouncedSearch.toLowerCase()))
   )
 
   const getStatusBadge = (status?: string | null, isActive?: boolean) => {
@@ -290,6 +320,45 @@ export function SatelliteManager() {
         </Button>
       </div>
 
+      {/* Tabs */}
+      <div className="-mt-2 flex items-center gap-1 border-b border-border-subtle">
+        {TABS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setTab(item.id)}
+            aria-pressed={tab === item.id}
+            className={`flex items-center gap-2 border-b-2 px-3 pb-2.5 text-[11px] font-bold tracking-[0.1em] uppercase transition-colors duration-150 cursor-pointer ${
+              tab === item.id
+                ? 'border-b-accent text-accent-light'
+                : 'border-b-transparent text-text-muted hover:text-text-primary'
+            }`}
+          >
+            <span>{item.label}</span>
+            <span
+              className={`rounded px-1.5 py-0.5 text-[10px] font-mono font-bold ${
+                tab === item.id
+                  ? 'bg-accent/20 text-accent-light'
+                  : 'bg-surface text-text-dim'
+              }`}
+            >
+              {item.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Inactive Tab Informational Notice */}
+      {tab === 'inactive' && (
+        <div className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-xs text-text-secondary">
+          <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warning" />
+          <div>
+            <span className="font-semibold text-warning">Inactive Mission Archive:</span>{' '}
+            These spacecraft have been decommissioned or marked inactive. They are hidden from regular station members and public department pages. Station administrators can review their telemetry dossiers or click <strong className="text-white">Reactivate</strong> at any time to return them to active flight service.
+          </div>
+        </div>
+      )}
+
       {/* Search Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
@@ -304,7 +373,7 @@ export function SatelliteManager() {
         </div>
 
         <span className="text-xs text-text-dim">
-          Showing {filteredSatellites.length} of {satellites.length} Satellites
+          Showing {filteredSatellites.length} of {tabSatellites.length} {tab === 'active' ? 'Active' : 'Inactive'} Satellites
         </span>
       </div>
 
@@ -317,14 +386,22 @@ export function SatelliteManager() {
         </div>
       ) : filteredSatellites.length === 0 ? (
         <div className="rounded-xl border border-border-subtle bg-card p-12 text-center">
-          <Radio size={36} className="mx-auto text-text-dim opacity-50 mb-3" />
-          <h3 className="text-sm font-bold text-white">No Satellites Found</h3>
+          {tab === 'active' ? (
+            <Radio size={36} className="mx-auto text-text-dim opacity-50 mb-3" />
+          ) : (
+            <Archive size={36} className="mx-auto text-text-dim opacity-50 mb-3" />
+          )}
+          <h3 className="text-sm font-bold text-white">
+            {tab === 'active' ? 'No Active Satellites Found' : 'No Inactive Satellites Found'}
+          </h3>
           <p className="text-xs text-text-muted mt-1 max-w-sm mx-auto">
             {search
-              ? 'No satellite programs match your search filters.'
-              : 'No satellites currently registered in the database.'}
+              ? `No ${tab === 'active' ? 'active' : 'inactive'} satellite programs match your search filters.`
+              : tab === 'active'
+              ? 'No active satellites currently registered in the database.'
+              : 'There are currently no decommissioned or inactive spacecraft in the archive.'}
           </p>
-          {!search && (
+          {!search && tab === 'active' && (
             <Button variant="primary" size="sm" onClick={() => openCreateModal()} className="mt-4">
               <Plus size={14} />
               <span>Add Your First Satellite</span>
@@ -464,40 +541,67 @@ export function SatelliteManager() {
                   </button>
 
                   <div className="flex items-center gap-1.5">
-                    {/* Item 28: Add Satellite Action on Card */}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openCreateModal({
-                          orbitType: sat.orbitType || '',
-                          departmentIds: sat.departments?.map((d) => d.id) || [],
-                        })
-                      }
-                      className="inline-flex items-center gap-1 rounded-lg border border-border-default bg-[#09101f] px-2 py-1.5 text-xs font-semibold text-text-muted hover:border-accent hover:text-white transition-all"
-                      title="Add a new satellite program with shared orbital baseline"
-                    >
-                      <Plus size={12} />
-                      <span>Add Sat</span>
-                    </button>
+                    {tab === 'inactive' ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(sat)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border-default bg-[#09101f] px-2 py-1.5 text-xs font-semibold text-text-muted hover:border-accent hover:text-white transition-all cursor-pointer"
+                          title="Edit satellite configuration"
+                        >
+                          <Edit2 size={12} />
+                          <span>Edit</span>
+                        </button>
 
-                    <button
-                      type="button"
-                      onClick={() => openEditModal(sat)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-border-default bg-[#09101f] px-2 py-1.5 text-xs font-semibold text-text-muted hover:border-accent hover:text-white transition-all"
-                      title="Edit satellite configuration"
-                    >
-                      <Edit2 size={12} />
-                      <span>Edit</span>
-                    </button>
+                        <button
+                          type="button"
+                          disabled={restoringId === sat.id}
+                          onClick={() => handleRestore(sat)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-nominal/30 bg-nominal/10 px-2.5 py-1.5 text-xs font-semibold text-nominal hover:bg-nominal/25 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                          title="Reactivate spacecraft to active flight status"
+                        >
+                          <RotateCcw size={12} className={restoringId === sat.id ? 'animate-spin' : ''} />
+                          <span>Reactivate</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {/* Item 28: Add Satellite Action on Card */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openCreateModal({
+                              orbitType: sat.orbitType || '',
+                              departmentIds: sat.departments?.map((d) => d.id) || [],
+                            })
+                          }
+                          className="inline-flex items-center gap-1 rounded-lg border border-border-default bg-[#09101f] px-2 py-1.5 text-xs font-semibold text-text-muted hover:border-accent hover:text-white transition-all cursor-pointer"
+                          title="Add a new satellite program with shared orbital baseline"
+                        >
+                          <Plus size={12} />
+                          <span>Add Sat</span>
+                        </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setDeletingSat(sat)}
-                      className="inline-flex items-center p-1.5 rounded-lg border border-critical/20 bg-critical/5 text-critical hover:bg-critical/20 transition-all"
-                      title="Deactivate satellite"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(sat)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border-default bg-[#09101f] px-2 py-1.5 text-xs font-semibold text-text-muted hover:border-accent hover:text-white transition-all cursor-pointer"
+                          title="Edit satellite configuration"
+                        >
+                          <Edit2 size={12} />
+                          <span>Edit</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeletingSat(sat)}
+                          className="inline-flex items-center p-1.5 rounded-lg border border-critical/20 bg-critical/5 text-critical hover:bg-critical/20 transition-all cursor-pointer"
+                          title="Deactivate satellite"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -515,8 +619,9 @@ export function SatelliteManager() {
             ? `Edit Satellite Mission: ${editingSat.name}`
             : 'Register New Spacecraft / Mission'
         }
+        size="lg"
       >
-        <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Row 1: SAT_ID and Mission Code */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input

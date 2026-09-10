@@ -8,10 +8,159 @@ import {
   ArrowRight,
   Activity,
   Layers,
+  Clock,
+  Ban,
+  AlertTriangle,
+  Satellite,
 } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useCms } from "../context/cmsContext"
 import { eventsApi } from "../api/events.api"
+import { useAuthStore } from "../store/authStore"
+import { useToastStore } from "../store/toastStore"
+
+export interface CategoryMeta {
+  id: string
+  label: string
+  dotClass: string
+  textClass: string
+  badgeClass: string
+  borderClass: string
+  calendarDateClass: string
+  priority: number
+}
+
+export const DEFAULT_CATEGORY_METAS: Record<string, CategoryMeta> = {
+  MISSION_PASS: {
+    id: "MISSION_PASS",
+    label: "Spacecraft Tracking Pass",
+    dotClass: "bg-nominal shadow-sm shadow-nominal/40",
+    textClass: "text-nominal",
+    badgeClass: "bg-nominal/20 text-nominal border border-nominal/30",
+    borderClass: "border-nominal",
+    calendarDateClass: "rounded-full bg-nominal/30 text-white font-bold",
+    priority: 1,
+  },
+  ORBIT_MANEUVER: {
+    id: "ORBIT_MANEUVER",
+    label: "Orbital Maneuver / Station Keeping",
+    dotClass: "bg-orange-400 shadow-sm shadow-orange-400/40",
+    textClass: "text-orange-400",
+    badgeClass: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
+    borderClass: "border-orange-400",
+    calendarDateClass: "rounded-full bg-orange-500 text-white font-bold shadow-md shadow-orange-500/30",
+    priority: 3,
+  },
+  MAINTENANCE: {
+    id: "MAINTENANCE",
+    label: "Ground Station Maintenance",
+    dotClass: "bg-accent shadow-sm shadow-accent/40",
+    textClass: "text-accent-light",
+    badgeClass: "bg-accent/20 text-accent-light border border-accent/30",
+    borderClass: "border-accent",
+    calendarDateClass: "rounded-full bg-accent text-white font-bold shadow-md shadow-accent/30",
+    priority: 4,
+  },
+  LAUNCH: {
+    id: "LAUNCH",
+    label: "Mission Launch Activity",
+    dotClass: "bg-purple-500 shadow-sm shadow-purple-500/40",
+    textClass: "text-purple-400",
+    badgeClass: "bg-purple-500/20 text-purple-400 border border-purple-500/30",
+    borderClass: "border-purple-500",
+    calendarDateClass: "rounded-full bg-purple-600 text-white font-bold shadow-md shadow-purple-600/30",
+    priority: 5,
+  },
+  SEMINAR: {
+    id: "SEMINAR",
+    label: "Operational Review",
+    dotClass: "bg-emerald-400 shadow-sm shadow-emerald-400/40",
+    textClass: "text-emerald-400",
+    badgeClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
+    borderClass: "border-emerald-400",
+    calendarDateClass: "rounded-full bg-emerald-600 text-white font-bold shadow-md shadow-emerald-600/30",
+    priority: 2,
+  },
+  ANOMALY: {
+    id: "ANOMALY",
+    label: "Telemetry Anomaly Review",
+    dotClass: "bg-red-500 shadow-sm shadow-red-500/40",
+    textClass: "text-red-400",
+    badgeClass: "bg-red-500/20 text-red-400 border border-red-500/30",
+    borderClass: "border-red-500",
+    calendarDateClass: "rounded-full bg-red-600 text-white font-bold shadow-md shadow-red-600/30",
+    priority: 6,
+  },
+}
+
+export const CUSTOM_PALETTES = [
+  {
+    dotClass: "bg-cyan-400 shadow-sm shadow-cyan-400/50",
+    textClass: "text-cyan-300",
+    badgeClass: "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30",
+    borderClass: "border-cyan-400",
+    calendarDateClass: "rounded-full bg-cyan-400 text-black font-bold shadow-md shadow-cyan-400/40",
+  },
+  {
+    dotClass: "bg-pink-400 shadow-sm shadow-pink-400/50",
+    textClass: "text-pink-300",
+    badgeClass: "bg-pink-500/20 text-pink-400 border border-pink-500/30",
+    borderClass: "border-pink-400",
+    calendarDateClass: "rounded-full bg-pink-400 text-black font-bold shadow-md shadow-pink-400/40",
+  },
+  {
+    dotClass: "bg-amber-400 shadow-sm shadow-amber-400/50",
+    textClass: "text-amber-300",
+    badgeClass: "bg-amber-500/20 text-amber-400 border border-amber-500/30",
+    borderClass: "border-amber-400",
+    calendarDateClass: "rounded-full bg-amber-400 text-black font-bold shadow-md shadow-amber-400/40",
+  },
+  {
+    dotClass: "bg-indigo-400 shadow-sm shadow-indigo-400/50",
+    textClass: "text-indigo-300",
+    badgeClass: "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30",
+    borderClass: "border-indigo-400",
+    calendarDateClass: "rounded-full bg-indigo-500 text-white font-bold shadow-md shadow-indigo-500/40",
+  },
+  {
+    dotClass: "bg-lime-400 shadow-sm shadow-lime-400/50",
+    textClass: "text-lime-300",
+    badgeClass: "bg-lime-500/20 text-lime-400 border border-lime-500/30",
+    borderClass: "border-lime-400",
+    calendarDateClass: "rounded-full bg-lime-400 text-black font-bold shadow-md shadow-lime-400/40",
+  },
+  {
+    dotClass: "bg-fuchsia-400 shadow-sm shadow-fuchsia-400/50",
+    textClass: "text-fuchsia-300",
+    badgeClass: "bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30",
+    borderClass: "border-fuchsia-400",
+    calendarDateClass: "rounded-full bg-fuchsia-500 text-white font-bold shadow-md shadow-fuchsia-500/40",
+  },
+]
+
+export function resolveCategoryMeta(
+  id: string,
+  label?: string,
+  customIdx = 0
+): CategoryMeta {
+  if (DEFAULT_CATEGORY_METAS[id]) {
+    return {
+      ...DEFAULT_CATEGORY_METAS[id],
+      label: label || DEFAULT_CATEGORY_METAS[id].label,
+    }
+  }
+  const palette = CUSTOM_PALETTES[customIdx % CUSTOM_PALETTES.length]
+  return {
+    id,
+    label: label || id.replace(/_/g, " "),
+    dotClass: palette.dotClass,
+    textClass: palette.textClass,
+    badgeClass: palette.badgeClass,
+    borderClass: palette.borderClass,
+    calendarDateClass: palette.calendarDateClass,
+    priority: 4,
+  }
+}
 
 export interface MissionEvent {
   id: string
@@ -19,11 +168,19 @@ export interface MissionEvent {
   subtitle?: string
   date: string // YYYY-MM-DD
   time: string
-  category: "PASS" | "MANEUVER" | "MAINTENANCE" | "SPECIAL" | "OTHER"
+  category: "PASS" | "MANEUVER" | "MAINTENANCE" | "SPECIAL" | "CUSTOM" | "OTHER"
+  categoryLabel?: string
+  rawEventType?: string
   department?: string
-  station?: string
+  departmentName?: string | null
+  departmentCode?: string | null
+  station?: string | null
+  satelliteName?: string | null
+  satelliteCode?: string | null
   description?: string
   urgency?: "NORMAL" | "IMPORTANT" | "CRITICAL"
+  status?: "UPCOMING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "TIMED_OUT" | string
+  meta?: CategoryMeta
 }
 
 const MONTH_NAMES = [
@@ -64,24 +221,68 @@ export function MissionCalendar({
   const showQuickStats = calConfig?.showQuickStats !== false
 
   const [serverEvents, setServerEvents] = useState<MissionEvent[]>([])
+  const [allCategories, setAllCategories] = useState<Array<{ id: string; label: string }>>([])
 
-  // Fetch real events directly from backend API
+  // Fetch real events and event categories directly from backend API
   useEffect(() => {
-    eventsApi
-      .getEvents()
-      .then((data) => {
+    Promise.all([
+      eventsApi.getEvents().catch(() => []),
+      eventsApi.getEventConfig().catch(() => ({ locations: [], categories: [] })),
+    ])
+      .then(([data, config]) => {
+        const configCats: Array<{ id: string; label: string }> =
+          config?.categories && config.categories.length > 0
+            ? config.categories
+            : [
+                { id: "MISSION_PASS", label: "Spacecraft Tracking Pass" },
+                { id: "LAUNCH", label: "Mission Launch Activity" },
+                { id: "ORBIT_MANEUVER", label: "Orbital Maneuver / Station Keeping" },
+                { id: "MAINTENANCE", label: "Ground Station Maintenance" },
+                { id: "SEMINAR", label: "Operational Review" },
+                { id: "ANOMALY", label: "Telemetry Anomaly Review" },
+              ]
+        setAllCategories(configCats)
+
+        const customCats = configCats.filter((c) => !DEFAULT_CATEGORY_METAS[c.id])
+
         if (data && data.length > 0) {
           const mapped: MissionEvent[] = data.map((ev) => {
             const dateObj = new Date(ev.eventDate)
-            const dateStr = dateObj.toISOString().split("T")[0]
-            const timeStr =
-              dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }) +
-              " IST"
+            const dateStr = dateObj.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
+            const startTimeStr = dateObj.toLocaleTimeString("en-IN", {
+              timeZone: "Asia/Kolkata",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+
+            let timeStr = `${startTimeStr} IST`
+            if (ev.endDate) {
+              const endObj = new Date(ev.endDate)
+              const endTimeStr = endObj.toLocaleTimeString("en-IN", {
+                timeZone: "Asia/Kolkata",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+              const endDateStr = endObj.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
+              if (endDateStr !== dateStr) {
+                const startMonthDay = dateObj.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "short", day: "numeric" })
+                const endMonthDay = endObj.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "short", day: "numeric" })
+                timeStr = `${startMonthDay} ${startTimeStr} - ${endMonthDay} ${endTimeStr} IST`
+              } else {
+                timeStr = `${startTimeStr} - ${endTimeStr} IST`
+              }
+            }
+
+            const customIdx = customCats.findIndex((c) => c.id === ev.eventType)
+            const catLabel = configCats.find((c) => c.id === ev.eventType)?.label || ev.eventType.replace(/_/g, " ")
+            const meta = resolveCategoryMeta(ev.eventType, catLabel, customIdx >= 0 ? customIdx : 0)
 
             let cat: MissionEvent["category"] = "PASS"
             if (ev.eventType === "ORBIT_MANEUVER") cat = "MANEUVER"
             else if (ev.eventType === "MAINTENANCE") cat = "MAINTENANCE"
-            else if (ev.eventType === "SEMINAR" || ev.eventType === "LAUNCH") cat = "SPECIAL"
+            else if (ev.eventType === "SEMINAR" || ev.eventType === "LAUNCH" || ev.eventType === "ANOMALY") cat = "SPECIAL"
+            else if (ev.eventType === "MISSION_PASS") cat = "PASS"
+            else cat = "CUSTOM"
 
             return {
               id: ev.id,
@@ -90,10 +291,18 @@ export function MissionCalendar({
               date: dateStr,
               time: timeStr,
               category: cat,
+              categoryLabel: catLabel,
+              rawEventType: ev.eventType,
               department: ev.department?.code || ev.department?.name || "Operations",
+              departmentName: ev.department?.name,
+              departmentCode: ev.department?.code,
               station: ev.location || "ISTRAC Bengaluru",
+              satelliteName: ev.satellite?.name,
+              satelliteCode: ev.satellite?.code,
               description: ev.description || undefined,
               urgency: ev.urgency,
+              status: ev.status,
+              meta,
             }
           })
           setServerEvents(mapped)
@@ -105,6 +314,60 @@ export function MissionCalendar({
         setServerEvents([])
       })
   }, [])
+
+  const user = useAuthStore((s) => s.user)
+  const addToast = useToastStore((s) => s.addToast)
+  const isAdmin = user?.role === "ADMIN"
+
+  const [cancellingEvent, setCancellingEvent] = useState<MissionEvent | null>(null)
+  const [cancelLoading, setCancelLoading] = useState(false)
+
+  const handleConfirmCancel = async () => {
+    if (!cancellingEvent) return
+    try {
+      setCancelLoading(true)
+      await eventsApi.cancelEvent(cancellingEvent.id)
+      addToast({
+        title: "Event Cancelled",
+        message: `"${cancellingEvent.title}" has been cancelled.`,
+        variant: "success",
+      })
+
+      // Update local state
+      setServerEvents((prev) =>
+        prev.map((e) => (e.id === cancellingEvent.id ? { ...e, status: "CANCELLED" } : e))
+      )
+      setSelectedDateEvents((prev) =>
+        prev
+          ? {
+              ...prev,
+              events: prev.events.map((e) =>
+                e.id === cancellingEvent.id ? { ...e, status: "CANCELLED" } : e
+              ),
+            }
+          : null
+      )
+      setCancellingEvent(null)
+    } catch (err: any) {
+      addToast({
+        title: "Cancellation Failed",
+        message: err.response?.data?.error?.message || "Could not cancel mission event",
+        variant: "error",
+      })
+    } finally {
+      setCancelLoading(false)
+    }
+  }
+
+  const legendCategories: CategoryMeta[] = useMemo(() => {
+    let customCounter = 0
+    return allCategories.map((c) => {
+      const isDefault = Boolean(DEFAULT_CATEGORY_METAS[c.id])
+      const meta = resolveCategoryMeta(c.id, c.label, isDefault ? 0 : customCounter)
+      if (!isDefault) customCounter++
+      return meta
+    })
+  }, [allCategories])
 
   // Dual-month navigation
   const [baseDate, setBaseDate] = useState(() => new Date())
@@ -170,6 +433,9 @@ export function MissionCalendar({
     return [...serverEvents].sort((a, b) => a.date.localeCompare(b.date))
   }, [serverEvents])
 
+  const todayStr = useMemo(() => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }), [])
+  const todayEvents = useMemo(() => eventsByDate[todayStr] || [], [eventsByDate, todayStr])
+
   const calendarContent = (
     <div className={`rounded-2xl border border-border-default bg-[#0b1220]/95 p-6 shadow-2xl backdrop-blur-md ${className}`}>
       {/* Header */}
@@ -184,7 +450,34 @@ export function MissionCalendar({
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {todayEvents.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedDateEvents({ date: todayStr, events: todayEvents })}
+              className="num inline-flex items-center gap-1.5 rounded-full bg-nominal/15 border border-nominal/40 px-2.5 py-1 text-[11px] font-bold text-nominal hover:bg-nominal/25 transition-colors cursor-pointer shadow-xs animate-pulse"
+              title="View Today's Scheduled Events"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-nominal" />
+              <span>Today: {todayEvents.length} Event{todayEvents.length > 1 ? "s" : ""}</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setBaseDate(new Date())
+              if (todayEvents.length > 0) {
+                setSelectedDateEvents({ date: todayStr, events: todayEvents })
+              }
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface/80 hover:bg-card-hover px-2.5 py-1 text-xs font-semibold text-text-primary hover:text-white transition-all cursor-pointer shadow-xs"
+            title="Jump to Current Date (IST)"
+          >
+            <Clock size={12} className="text-accent-light" />
+            <span>Today</span>
+          </button>
+
           {showQuickStats && serverEvents.length > 0 && (
             <span className="num hidden sm:inline-flex items-center gap-1 rounded-full bg-accent/15 border border-accent/30 px-2.5 py-1 text-[11px] font-bold text-accent-light">
               <Activity size={12} />
@@ -260,14 +553,35 @@ export function MissionCalendar({
                     className="p-3 rounded-xl border border-border-subtle bg-[#0d1629] hover:border-accent/40 hover:bg-[#111c34] cursor-pointer transition-all space-y-1.5 shadow-sm"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-accent/20 text-accent-light">
-                        {ev.category}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border ${
+                          ev.meta?.badgeClass || "bg-accent/20 text-accent-light border-accent/30"
+                        }`}>
+                          {ev.meta?.label || ev.categoryLabel || ev.category}
+                        </span>
+                        {ev.satelliteName && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                            🛰️ {ev.satelliteName}
+                          </span>
+                        )}
+                        {ev.urgency === "CRITICAL" && (
+                          <span className="text-[9px] font-bold uppercase px-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                            CRITICAL
+                          </span>
+                        )}
+                        {ev.status === "CANCELLED" && (
+                          <span className="text-[9px] font-bold uppercase px-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                            CANCELLED
+                          </span>
+                        )}
+                      </div>
                       <span className="num text-[10px] text-text-dim">{ev.date} · {ev.time}</span>
                     </div>
-                    <div className="text-xs font-semibold text-white truncate">{ev.title}</div>
-                    <div className="flex items-center gap-2 text-[10px] text-text-dim num">
-                      <span>📍 {ev.station}</span>
+                    <div className={`text-xs font-semibold truncate ${
+                      ev.status === "CANCELLED" ? "text-text-muted line-through" : "text-white"
+                    }`}>{ev.title}</div>
+                    <div className="flex items-center gap-2 text-[10px] text-text-dim num flex-wrap">
+                      <span>📍 {ev.station || "ISTRAC Bengaluru"}</span>
                       <span>·</span>
                       <span className="text-accent-light font-semibold">{ev.department}</span>
                     </div>
@@ -296,24 +610,41 @@ export function MissionCalendar({
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between border-b border-border-subtle pb-2">
-                      <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold uppercase num ${
-                        ev.category === "PASS" ? "bg-nominal/20 text-nominal border border-nominal/30" :
-                        ev.category === "MANEUVER" ? "bg-orange-500/20 text-orange-400 border border-orange-500/30" :
-                        ev.category === "MAINTENANCE" ? "bg-accent/20 text-accent-light border border-accent/30" :
-                        "bg-purple-500/20 text-purple-400 border border-purple-500/30"
-                      }`}>
-                        {ev.category}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold uppercase num border ${
+                          ev.meta?.badgeClass || "bg-accent/20 text-accent-light border-accent/30"
+                        }`}>
+                          {ev.meta?.label || ev.categoryLabel || ev.category}
+                        </span>
+                        {ev.satelliteName && (
+                          <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                            🛰️ {ev.satelliteName}
+                          </span>
+                        )}
+                        {ev.urgency === "CRITICAL" && (
+                          <span className="text-[9px] font-bold uppercase px-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                            CRITICAL
+                          </span>
+                        )}
+                        {ev.status === "CANCELLED" && (
+                          <span className="text-[9px] font-bold uppercase px-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                            CANCELLED
+                          </span>
+                        )}
+                      </div>
                       <span className="num text-[11px] text-text-dim font-semibold">{ev.date}</span>
                     </div>
-                    <h3 className="text-xs font-bold text-white leading-snug line-clamp-2">{ev.title}</h3>
+                    <h3 className={`text-xs font-bold leading-snug line-clamp-2 ${
+                      ev.status === "CANCELLED" ? "text-text-muted line-through" : "text-white"
+                    }`}>{ev.title}</h3>
                     {ev.description && (
                       <p className="text-[11px] text-text-secondary line-clamp-2 leading-relaxed">{ev.description}</p>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between text-[10px] text-text-dim pt-2 border-t border-border-subtle/60 num">
+                  <div className="flex items-center justify-between text-[10px] text-text-dim pt-2 border-t border-border-subtle/60 num flex-wrap gap-1">
                     <span>🕒 {ev.time}</span>
+                    <span>📍 {ev.station || "ISTRAC Bengaluru"}</span>
                     <span className="text-accent-light font-semibold">{ev.department}</span>
                   </div>
                 </div>
@@ -323,30 +654,57 @@ export function MissionCalendar({
         </div>
       )}
 
-      {/* Bottom Legend */}
+      {/* Bottom Legend: Shows all dropdown items of the category event type */}
       {showLegend && (
-        <div className="mt-8 flex flex-wrap items-center gap-6 border-t border-border-subtle/70 pt-5 text-xs text-text-muted">
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-nominal" />
-            <span>Pass Window</span>
-          </span>
-
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-orange-400" />
-            <span>Maneuver</span>
-          </span>
-
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-accent" />
-            <span>Maintenance Window</span>
-          </span>
-
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-purple-500" />
-            <span>Special Activity / Launch</span>
-          </span>
+        <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-border-subtle/70 pt-5 text-xs text-text-muted">
+          {legendCategories.map((cat) => (
+            <span key={cat.id} className="flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${cat.dotClass}`} />
+              <span className={cat.textClass || "text-text-secondary"}>{cat.label}</span>
+            </span>
+          ))}
         </div>
       )}
+    </div>
+  )
+
+  const cancelConfirmationModal = cancellingEvent && (
+    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in-50 duration-150">
+      <div className="w-full max-w-sm rounded-2xl border border-red-500/40 bg-[#0d1629] p-5 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 shrink-0">
+            <AlertTriangle size={18} />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-white">Cancel Mission Event</h3>
+            <p className="text-xs text-text-muted mt-1 leading-relaxed">
+              Are you sure you want to cancel <strong className="text-white">"{cancellingEvent.title}"</strong>?
+            </p>
+            <p className="text-[11px] text-red-400/90 mt-1 font-mono">
+              Action: Status → CANCELLED (Admin Only)
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border-subtle">
+          <button
+            type="button"
+            disabled={cancelLoading}
+            onClick={() => setCancellingEvent(null)}
+            className="px-3 py-1.5 rounded-lg border border-border-default bg-surface text-xs font-semibold text-text-primary hover:bg-card-hover cursor-pointer"
+          >
+            Keep Active
+          </button>
+          <button
+            type="button"
+            disabled={cancelLoading}
+            onClick={handleConfirmCancel}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-red-600 text-xs font-bold text-white hover:bg-red-500 shadow-md shadow-red-600/30 cursor-pointer disabled:opacity-50"
+          >
+            {cancelLoading ? "Cancelling…" : "Yes, Cancel Event"}
+          </button>
+        </div>
+      </div>
     </div>
   )
 
@@ -359,8 +717,11 @@ export function MissionCalendar({
             date={selectedDateEvents.date}
             events={selectedDateEvents.events}
             onClose={() => setSelectedDateEvents(null)}
+            isAdmin={isAdmin}
+            onCancelEvent={(ev) => setCancellingEvent(ev)}
           />
         )}
+        {cancelConfirmationModal}
       </div>
     )
   }
@@ -376,8 +737,11 @@ export function MissionCalendar({
           date={selectedDateEvents.date}
           events={selectedDateEvents.events}
           onClose={() => setSelectedDateEvents(null)}
+          isAdmin={isAdmin}
+          onCancelEvent={(ev) => setCancellingEvent(ev)}
         />
       )}
+      {cancelConfirmationModal}
     </section>
   )
 }
@@ -438,9 +802,12 @@ function MonthBlock({
         {days.map((cd, idx) => {
           const dayEvents = eventsByDate[cd.dateString] || []
           const hasEvents = dayEvents.length > 0
+          const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
+          const isToday = cd.dateString === todayStr
 
-          const isMaintenance = dayEvents.some((e) => e.category === "MAINTENANCE")
-          const isSpecial = dayEvents.some((e) => e.category === "SPECIAL")
+          const topEvent = hasEvents
+            ? [...dayEvents].sort((a, b) => (b.meta?.priority || 0) - (a.meta?.priority || 0))[0]
+            : null
 
           return (
             <div
@@ -452,19 +819,23 @@ function MonthBlock({
             >
               <div className="relative">
                 <span
-                  className={`num flex h-7 w-7 items-center justify-center text-xs font-semibold transition-all ${
+                  className={`num flex h-7 w-7 items-center justify-center text-xs font-semibold transition-all relative ${
                     !cd.isCurrentMonth
                       ? "text-text-dim/40"
-                      : isSpecial
-                      ? "rounded-full bg-purple-600 text-white font-bold shadow-md shadow-purple-600/30"
-                      : isMaintenance
-                      ? "rounded-full bg-accent text-white font-bold shadow-md shadow-accent/30"
+                      : isToday
+                      ? "rounded-full bg-accent text-white font-bold ring-2 ring-accent-light ring-offset-2 ring-offset-[#0d1629] shadow-md shadow-accent/40"
+                      : topEvent?.meta?.calendarDateClass
+                      ? topEvent.meta.calendarDateClass
                       : hasEvents
                       ? "text-text-primary font-bold group-hover:text-accent-light"
                       : "text-text-secondary group-hover:text-text-primary"
                   }`}
+                  title={isToday ? "Today (Current Date)" : undefined}
                 >
                   {cd.dayNumber}
+                  {isToday && (
+                    <span className="absolute -bottom-1 h-1.5 w-1.5 rounded-full bg-accent-light animate-ping" />
+                  )}
                 </span>
 
                 {/* Multiple Event Count Badge on Date (e.g. +3) */}
@@ -476,22 +847,12 @@ function MonthBlock({
               </div>
 
               {/* Indicator Dots Below Day */}
-              {cd.isCurrentMonth && hasEvents && !isMaintenance && !isSpecial && (
+              {cd.isCurrentMonth && hasEvents && (
                 <div className="mt-1 flex items-center justify-center gap-1 flex-wrap max-w-[32px]">
                   {dayEvents.slice(0, 4).map((ev, i) => (
                     <span
                       key={i}
-                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                        ev.category === "PASS"
-                          ? "bg-nominal"
-                          : ev.category === "MANEUVER"
-                          ? "bg-orange-400"
-                          : ev.category === "MAINTENANCE"
-                          ? "bg-accent"
-                          : ev.category === "SPECIAL"
-                          ? "bg-purple-500"
-                          : "bg-text-muted"
-                      }`}
+                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${ev.meta?.dotClass || "bg-accent"}`}
                     />
                   ))}
                 </div>
@@ -506,9 +867,14 @@ function MonthBlock({
                   </div>
                   <div className="space-y-1.5 max-h-36 overflow-hidden">
                     {dayEvents.map((ev, i) => (
-                      <div key={i} className="space-y-0.5 border-l-2 border-accent pl-1.5">
-                        <p className="font-bold text-white text-[11px] truncate">{ev.title}</p>
-                        <p className="num text-[9px] text-text-dim">{ev.time} · {ev.station || ev.department}</p>
+                      <div
+                        key={i}
+                        className={`space-y-0.5 border-l-2 pl-1.5 ${ev.meta?.borderClass || "border-accent"}`}
+                      >
+                        <p className={`font-bold text-[11px] truncate ${ev.status === "CANCELLED" ? "text-text-muted line-through" : "text-white"}`}>
+                          {ev.title}
+                        </p>
+                        <p className="num text-[9px] text-text-dim">{ev.time} · {ev.meta?.label || ev.categoryLabel || ev.station || ev.department}</p>
                       </div>
                     ))}
                   </div>
@@ -529,13 +895,17 @@ function MultiEventModal({
   date,
   events,
   onClose,
+  isAdmin = false,
+  onCancelEvent,
 }: {
   date: string
   events: MissionEvent[]
   onClose: () => void
+  isAdmin?: boolean
+  onCancelEvent?: (ev: MissionEvent) => void
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-page/85 backdrop-blur-sm animate-rise">
+    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-page/85 backdrop-blur-sm animate-rise">
       <div
         className="relative w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden rounded-2xl border border-border-default bg-[#0d1629] shadow-2xl"
         role="dialog"
@@ -566,7 +936,7 @@ function MultiEventModal({
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="rounded-lg p-1.5 text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors"
+            className="rounded-lg p-1.5 text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -579,40 +949,94 @@ function MultiEventModal({
               key={ev.id || index}
               className="rounded-xl border border-border-subtle bg-[#060c18] p-4 space-y-3 hover:border-accent/40 transition-colors"
             >
-              <div className="flex items-center justify-between border-b border-border-subtle pb-2">
-                <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold uppercase num ${
-                    ev.category === "PASS" ? "bg-nominal/20 text-nominal border border-nominal/30" :
-                    ev.category === "MANEUVER" ? "bg-orange-500/20 text-orange-400 border border-orange-500/30" :
-                    ev.category === "MAINTENANCE" ? "bg-accent/20 text-accent-light border border-accent/30" :
-                    "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border-subtle pb-2.5 gap-2">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold uppercase num ${
+                      ev.meta?.badgeClass || "bg-accent/20 text-accent-light border border-accent/30"
+                    }`}>
+                      {ev.meta?.label || ev.categoryLabel || ev.category}
+                    </span>
+
+                    {ev.satelliteName && (
+                      <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                        <Satellite size={11} className="text-cyan-400" />
+                        <span>{ev.satelliteName}</span>
+                      </span>
+                    )}
+
+                    {ev.urgency === "CRITICAL" && (
+                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse">
+                        CRITICAL
+                      </span>
+                    )}
+
+                    {ev.urgency === "IMPORTANT" && (
+                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        PRIORITY
+                      </span>
+                    )}
+
+                    {ev.status === "CANCELLED" && (
+                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase bg-red-500/20 text-red-400 border border-red-500/30">
+                        CANCELLED
+                      </span>
+                    )}
+                  </div>
+
+                  <h4 className={`text-base font-bold leading-snug pt-0.5 ${
+                    ev.status === "CANCELLED" ? "text-text-muted line-through" : "text-white"
                   }`}>
-                    {ev.category}
-                  </span>
-                  <h4 className="text-sm font-bold text-white truncate max-w-sm">
                     {ev.title}
                   </h4>
                 </div>
-                <span className="num text-xs font-semibold text-accent-light shrink-0">
-                  {ev.time}
-                </span>
+
+                <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
+                  <span className="num text-xs font-semibold text-accent-light bg-surface px-2.5 py-1 rounded-md border border-border-subtle">
+                    {ev.time}
+                  </span>
+
+                  {isAdmin && ev.status !== "CANCELLED" && ev.status !== "COMPLETED" && onCancelEvent && (
+                    <button
+                      type="button"
+                      onClick={() => onCancelEvent(ev)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 text-xs font-semibold transition-colors cursor-pointer"
+                      title="Cancel this mission event (Admin Only)"
+                    >
+                      <Ban size={12} />
+                      <span>Cancel Event</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="flex items-center gap-2 text-text-secondary">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-[#0b1426] p-3 rounded-lg border border-border-subtle/70">
+                <div className="flex items-center gap-2 text-text-secondary min-w-0">
                   <MapPin size={14} className="text-accent-light shrink-0" />
-                  <span className="truncate">{ev.station || "ISTRAC Bengaluru"}</span>
+                  <div className="truncate">
+                    <span className="text-[10px] uppercase text-text-dim block leading-tight">Ground Station / Location</span>
+                    <span className="font-semibold text-white">{ev.station || "ISTRAC Bengaluru"}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-text-secondary">
+
+                <div className="flex items-center gap-2 text-text-secondary min-w-0">
                   <Layers size={14} className="text-accent-light shrink-0" />
-                  <span>Division: <strong className="text-white">{ev.department}</strong></span>
+                  <div className="truncate">
+                    <span className="text-[10px] uppercase text-text-dim block leading-tight">Operational Division</span>
+                    <span className="font-semibold text-white">
+                      {ev.departmentName ? `${ev.departmentName} (${ev.departmentCode || ev.department})` : ev.department || "Operations"}
+                    </span>
+                  </div>
                 </div>
               </div>
 
               {ev.description && (
-                <p className="text-xs text-text-secondary leading-relaxed bg-[#0b1220] p-2.5 rounded-lg border border-border-subtle/50">
-                  {ev.description}
-                </p>
+                <div className="bg-[#0b1220] p-3 rounded-lg border border-border-subtle/50 space-y-1">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-text-dim block">Operation Details & Notes</span>
+                  <p className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap">
+                    {ev.description}
+                  </p>
+                </div>
               )}
             </div>
           ))}
@@ -624,7 +1048,7 @@ function MultiEventModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 rounded-lg border border-border-default bg-surface text-xs font-semibold text-white hover:bg-card-hover"
+            className="px-4 py-1.5 rounded-lg border border-border-default bg-surface text-xs font-semibold text-white hover:bg-card-hover cursor-pointer"
           >
             Close
           </button>

@@ -15,30 +15,12 @@ import {
 import { useAuthStore } from "../store/authStore"
 import { useCms } from "../context/cmsContext"
 import { apiClient } from "../api/client"
-import { formatFileSize } from "../lib/formatFileSize"
 import { FilePreviewModal } from "./FilePreviewModal"
 import { ConfirmFeatureModal } from "./ConfirmFeatureModal"
 import type { FileNode } from "../types/file"
+import { useFeaturedReports, type FeaturedReportItem } from "../hooks/useFeaturedReports"
 
-export interface FeaturedReportItem {
-  id: string
-  title: string
-  filename: string
-  department: string
-  departmentName?: string
-  departmentCode?: string
-  departmentId?: string
-  satellite: string
-  fileSize: string
-  extension: string
-  mimeType?: string | null
-  date: string
-  classification?: string
-  description?: string
-  isFeatured?: boolean
-  versionCount?: number
-  versionLabel?: string
-}
+export type { FeaturedReportItem }
 
 const EXT_CONFIG: Record<
   string,
@@ -65,55 +47,22 @@ export function FeaturedReports() {
   const user = useAuthStore((s) => s.user)
   const { cmsBlocks } = useCms()
 
-  const [dbFiles, setDbFiles] = useState<FeaturedReportItem[]>([])
+  const { data: dbFilesData, refetch: refetchFeatured } = useFeaturedReports()
+  const dbFiles = dbFilesData || []
   const [selectedDept, setSelectedDept] = useState<string>("ALL")
   const [previewFile, setPreviewFile] = useState<FileNode | null>(null)
   const [featureConfirmFile, setFeatureConfirmFile] = useState<{ id: string; name: string; isFeatured?: boolean } | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const carouselRef = useRef<HTMLDivElement>(null)
 
-  const fetchFeaturedFiles = () => {
-    apiClient
-      .get("/files/featured-list")
-      .then((res) => {
-        if (res.data?.data && res.data.data.length > 0) {
-          const mapped: FeaturedReportItem[] = res.data.data.map((f: any) => ({
-            id: f.id,
-            title: f.title || f.name.replace(/\.[^/.]+$/, "").replace(/_/g, " "),
-            filename: f.filename || f.name,
-            department: f.department || f.departmentCode || "TTC",
-            departmentName: f.departmentName,
-            departmentCode: f.departmentCode,
-            departmentId: f.departmentId,
-            satellite: f.satellite || "Primary Fleet",
-            fileSize: formatFileSize(Number(f.sizeBytes) || 0),
-            extension: (f.extension || "DAT").toUpperCase(),
-            mimeType: f.mimeType || null,
-            date: f.date || (f.createdAt ? f.createdAt.split("T")[0] : new Date().toISOString().split("T")[0]),
-            classification: f.classification || "RESTRICTED",
-            description: f.description || `Official telemetry archive and observation report for ${f.satellite || f.department}.`,
-            isFeatured: Boolean(f.isFeatured),
-          }))
-          setDbFiles(mapped)
-        } else {
-          setDbFiles([])
-        }
-      })
-      .catch(() => {
-        setDbFiles([])
-      })
-  }
-
   useEffect(() => {
-    fetchFeaturedFiles()
-
     const handleRefresh = () => {
-      fetchFeaturedFiles()
+      refetchFeatured()
     }
 
     const handleMessage = (e: MessageEvent) => {
       if (e.data?.type === "REFRESH_FEATURED" || e.data?.type === "CMS_SCROLL_TO") {
-        fetchFeaturedFiles()
+        refetchFeatured()
       }
     }
 
@@ -123,7 +72,7 @@ export function FeaturedReports() {
       window.removeEventListener("istrac:featured-refresh", handleRefresh)
       window.removeEventListener("message", handleMessage)
     }
-  }, [cmsBlocks])
+  }, [refetchFeatured])
 
   const rawReports = dbFiles.filter((r) => r.isFeatured)
   const departments = ["ALL", ...Array.from(new Set(rawReports.map((r) => r.department)))]
@@ -299,7 +248,7 @@ export function FeaturedReports() {
                     <div
                       key={item.id}
                       onClick={() => handleOpenPreview(item)}
-                      className="group relative flex w-[320px] sm:w-[350px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-2xl border border-border-default bg-[#0d1629] p-5 shadow-card transition-all duration-300 hover:border-accent/50 hover:bg-[#101c36] hover:shadow-2xl cursor-pointer"
+                      className="group relative flex w-[82vw] max-w-[350px] sm:w-[350px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-2xl border border-border-default bg-[#0d1629] p-5 shadow-card transition-all duration-300 hover:border-accent/50 hover:bg-[#101c36] hover:shadow-2xl cursor-pointer"
                     >
                       <div>
                         {/* Top Row: Extension badge, Satellite tag, and Star action */}
@@ -430,7 +379,7 @@ export function FeaturedReports() {
         file={featureConfirmFile}
         onClose={() => setFeatureConfirmFile(null)}
         onSuccess={() => {
-          fetchFeaturedFiles()
+          refetchFeatured()
         }}
       />
     </>

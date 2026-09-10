@@ -29,7 +29,8 @@ import {
 import { Link, useSearchParams } from 'react-router-dom'
 import { apiClient } from '../api/client'
 import { useAdminDepartments } from '../hooks/useDepartments'
-import { satellitesApi, type Satellite } from '../api/satellites.api'
+import { useAdminSatellites } from '../hooks/useSatellites'
+import { useDebounce } from '../hooks/useDebounce'
 import { useToastStore } from '../store/toastStore'
 import { PageHeader, Button, Modal, Textarea } from '../components'
 import { VersionHistoryPanel } from '../components/VersionHistoryPanel'
@@ -96,11 +97,13 @@ export function AdminFileManager() {
   const deptIdParam = searchParams.get('deptId')
 
   const { data: departments } = useAdminDepartments()
+  const { data: adminSats } = useAdminSatellites()
+  const satellites = adminSats || []
 
   const [files, setFiles] = useState<AdminFileRecord[]>([])
-  const [satellites, setSatellites] = useState<Satellite[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebounce(search, 300)
   const [selectedDept, setSelectedDept] = useState(deptIdParam || 'ALL')
   const [selectedExt, setSelectedExt] = useState('ALL')
   const [selectedSat, setSelectedSat] = useState('ALL')
@@ -152,28 +155,24 @@ export function AdminFileManager() {
   const fetchFiles = async () => {
     setLoading(true)
     try {
-      const [filesRes, satsRes] = await Promise.all([
-        apiClient.get('/admin/files', {
-          params: {
-            search: search || undefined,
-            departmentId: selectedDept !== 'ALL' ? selectedDept : undefined,
-            satelliteId: selectedSat !== 'ALL' ? selectedSat : undefined,
-            extension: selectedExt !== 'ALL' ? selectedExt : undefined,
-            category: selectedCategory !== 'ALL' ? selectedCategory : undefined,
-            dateFilter: dateFilter !== 'ALL' ? dateFilter : undefined,
-            sortBy,
-            sortOrder,
-            isFeatured: filterFeatured ? 'true' : undefined,
-            includeArchived: includeArchived ? 'true' : undefined,
-          },
-        }),
-        satellitesApi.getAllAdminSatellites().catch(() => []),
-      ])
+      const filesRes = await apiClient.get('/admin/files', {
+        params: {
+          search: debouncedSearch || undefined,
+          departmentId: selectedDept !== 'ALL' ? selectedDept : undefined,
+          satelliteId: selectedSat !== 'ALL' ? selectedSat : undefined,
+          extension: selectedExt !== 'ALL' ? selectedExt : undefined,
+          category: selectedCategory !== 'ALL' ? selectedCategory : undefined,
+          dateFilter: dateFilter !== 'ALL' ? dateFilter : undefined,
+          sortBy,
+          sortOrder,
+          isFeatured: filterFeatured ? 'true' : undefined,
+          includeArchived: includeArchived ? 'true' : undefined,
+        },
+      })
 
       if (filesRes.data?.data) {
         setFiles(filesRes.data.data)
       }
-      setSatellites(satsRes || [])
     } catch {
       addToast({ title: 'Error', message: 'Failed to load master file repository', variant: 'error' })
     } finally {
@@ -183,7 +182,7 @@ export function AdminFileManager() {
 
   useEffect(() => {
     fetchFiles()
-  }, [search, selectedDept, selectedExt, selectedSat, selectedCategory, dateFilter, sortBy, sortOrder, filterFeatured, includeArchived])
+  }, [debouncedSearch, selectedDept, selectedExt, selectedSat, selectedCategory, dateFilter, sortBy, sortOrder, filterFeatured, includeArchived])
 
   const handleToggleSort = (field: 'createdAt' | 'sizeBytes' | 'name' | 'versionCount') => {
     if (sortBy === field) {

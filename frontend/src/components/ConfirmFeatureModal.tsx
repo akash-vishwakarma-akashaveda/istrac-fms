@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Star, AlertTriangle, RefreshCw, CheckCircle2, ShieldAlert } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Modal, Button } from '.'
 import { filesApi } from '../api/files.api'
 import { useToastStore } from '../store/toastStore'
@@ -12,6 +13,7 @@ interface ConfirmFeatureModalProps {
 }
 
 export function ConfirmFeatureModal({ isOpen, file, onClose, onSuccess }: ConfirmFeatureModalProps) {
+  const queryClient = useQueryClient()
   const addToast = useToastStore((s) => s.addToast)
   const [loading, setLoading] = useState(false)
 
@@ -24,6 +26,9 @@ export function ConfirmFeatureModal({ isOpen, file, onClose, onSuccess }: Confir
     setLoading(true)
     try {
       const res = await filesApi.toggleFeature(file.id, !isCurrentlyFeatured)
+      queryClient.invalidateQueries({ queryKey: ['featured-reports'] })
+      queryClient.invalidateQueries({ queryKey: ['dept-files'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-files'] })
       addToast({
         title: isCurrentlyFeatured ? 'Removed from Featured' : 'Featured in Mission Reports',
         message: res.message || (isCurrentlyFeatured ? `${file.name} removed from public showcase` : `${file.name} is now showcased in public Mission Reports`),

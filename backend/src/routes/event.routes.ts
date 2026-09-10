@@ -71,10 +71,10 @@ router.get('/events/active-banner', optionalAuthMiddleware, async (req, res, nex
     // 2. Fetch latest broadcast notifications across all priority types
     const recentBroadcasts = await prisma.notification.findMany({
       where: {
-        type: { in: ['BROADCAST', 'CRITICAL', 'SYSTEM', 'MAINTENANCE', 'NOTICE', 'PASS', 'FILE_UPLOAD', 'TELEMETRY'] },
+        type: { in: ['BROADCAST', 'CRITICAL', 'SYSTEM', 'MAINTENANCE', 'NOTICE', 'PASS', 'EVENT', 'FILE_UPLOAD', 'TELEMETRY'] },
         deletedAt: null,
       },
-      take: 6,
+      take: 20,
       orderBy: { createdAt: 'desc' },
       distinct: ['message'],
       select: {
@@ -87,10 +87,60 @@ router.get('/events/active-banner', optionalAuthMiddleware, async (req, res, nex
       },
     })
 
+    // Filter broadcasts so that:
+    // - Events are visible to all users
+    // - Targeted broadcasts are only visible to Admins and the target department audience
+    let allowedBroadcasts = recentBroadcasts
+    const user = req.user
+
+    if (!user || user.role !== 'ADMIN') {
+      let userDeptIds: string[] = []
+      if (user) {
+        const userDepts = await prisma.userDepartmentAccess.findMany({
+          where: { userId: user.id, deletedAt: null },
+          select: { departmentId: true },
+        })
+        userDeptIds = userDepts.map((d: any) => d.departmentId)
+      }
+
+      allowedBroadcasts = recentBroadcasts.filter((b) => {
+        // Events are visible to all users
+        if (
+          b.category === 'event' ||
+          b.type === 'EVENT' ||
+          b.type === 'PASS' ||
+          (typeof b.message === 'string' && b.message.toLowerCase().includes('mission event'))
+        ) {
+          return true
+        }
+
+        if (!b.metadata) return true
+
+        let meta: any = b.metadata
+        if (typeof meta === 'string') {
+          try {
+            meta = JSON.parse(meta)
+          } catch {
+            return true
+          }
+        }
+
+        if (meta.target === 'departments' && Array.isArray(meta.departmentIds)) {
+          return userDeptIds.some((dId) => meta.departmentIds.includes(dId))
+        }
+
+        if (meta.target === 'all_departments') {
+          return userDeptIds.length > 0
+        }
+
+        return true
+      })
+    }
+
     res.json({
       data: {
         events: activeEvents,
-        broadcasts: recentBroadcasts.map((b) => ({
+        broadcasts: allowedBroadcasts.slice(0, 6).map((b) => ({
           id: b.id.toString(),
           message: b.message,
           createdAt: b.createdAt,
@@ -235,6 +285,81 @@ router.put('/events/:id', authMiddleware, adminMiddleware, async (req, res, next
       newValue: updated as unknown as Record<string, unknown>,
     })
 
+    // Broadcast event update to all logged-in operators and live banners
+    notificationService.sendBroadcast({
+      type: 'EVENT',
+      category: 'event',
+      actorId: req.user!.id,
+      message: `Mission Event Updated: ${updated.title} (${updated.location || 'ISTRAC MOX'})`,
+      resourceType: 'mission_event',
+      resourceId: updated.id,
+    }).catch(() => {})
+
+    res.json({
+      data: updated,
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ============================================================
+// CANCEL MISSION EVENT (ADMIN ONLY)
+// ============================================================
+router.patch('/events/:id/cancel', authMiddleware, adminMiddleware, async (req, res, next) => {
+  try {
+    const rawId = req.params.id
+    const id = Array.isArray(rawId) ? rawId[0] : rawId
+
+    const existing = await prisma.missionEvent.findUnique({
+      where: { id, deletedAt: null },
+      include: {
+        satellite: { select: { id: true, name: true, code: true } },
+        department: { select: { id: true, name: true, code: true } },
+      },
+    })
+
+    if (!existing) {
+      throw new AppError('event_not_found', 'Mission event not found', 404)
+    }
+
+    if (existing.status === 'CANCELLED') {
+      return res.json({
+        data: existing,
+        requestId: req.requestId,
+      })
+    }
+
+    const updated = await prisma.missionEvent.update({
+      where: { id },
+      data: {
+        status: 'CANCELLED',
+      },
+      include: {
+        satellite: { select: { id: true, name: true, code: true } },
+        department: { select: { id: true, name: true, code: true } },
+      },
+    })
+
+    auditService.log({
+      userId: req.user!.id,
+      action: 'EVENT:CANCEL',
+      resourceType: 'mission_event',
+      resourceId: updated.id,
+      oldValue: { status: existing.status, title: existing.title },
+      newValue: { status: 'CANCELLED', title: updated.title },
+    })
+
+    notificationService.sendBroadcast({
+      type: 'CRITICAL',
+      category: 'event',
+      actorId: req.user!.id,
+      message: `Mission Event Cancelled: ${updated.title} (${updated.location || 'ISTRAC'})`,
+      resourceType: 'mission_event',
+      resourceId: updated.id,
+    }).catch(() => {})
+
     res.json({
       data: updated,
       requestId: req.requestId,
@@ -272,6 +397,16 @@ router.delete('/events/:id', authMiddleware, adminMiddleware, async (req, res, n
       resourceId: id,
     })
 
+    // Broadcast event deletion to all logged-in operators
+    notificationService.sendBroadcast({
+      type: 'CRITICAL',
+      category: 'event',
+      actorId: req.user!.id,
+      message: `Mission Event Purged: ${existing.title}`,
+      resourceType: 'mission_event',
+      resourceId: id,
+    }).catch(() => {})
+
     res.json({
       data: { id, deleted: true },
       requestId: req.requestId,
@@ -281,5 +416,202 @@ router.delete('/events/:id', authMiddleware, adminMiddleware, async (req, res, n
   }
 })
 
+// ============================================================
+// DYNAMIC EVENT CONFIGURATION: LOCATIONS & CATEGORIES
+// ============================================================
+
+const DEFAULT_LOCATIONS = [
+  'ISTRAC MOX Bengaluru',
+  'IDSN Byalalu (32m)',
+  'IDSN Byalalu (18m)',
+  'TTC Ground Station Port Blair',
+  'TTC Ground Station Mauritius',
+  'TTC Ground Station Sriharikota (SHAR)',
+  'IS4OM NETRA Control Centre',
+]
+
+const DEFAULT_CATEGORIES = [
+  { id: 'MISSION_PASS', label: 'Spacecraft Tracking Pass' },
+  { id: 'LAUNCH', label: 'Rocket Launch Window' },
+  { id: 'ORBIT_MANEUVER', label: 'Orbit Correction Maneuver' },
+  { id: 'MAINTENANCE', label: 'Ground Station / RAID Maintenance' },
+  { id: 'SEMINAR', label: 'Operational Review / Seminar' },
+  { id: 'ANOMALY', label: 'Spacecraft Anomaly Investigation' },
+]
+
+async function getStoredEventConfig() {
+  const [locationsRow, categoriesRow] = await Promise.all([
+    prisma.systemConfig.findUnique({ where: { configKey: 'event_locations' } }),
+    prisma.systemConfig.findUnique({ where: { configKey: 'event_categories' } }),
+  ])
+
+  let locations: string[] = [...DEFAULT_LOCATIONS]
+  if (locationsRow?.configValue) {
+    try {
+      const parsed = JSON.parse(locationsRow.configValue)
+      if (Array.isArray(parsed) && parsed.length > 0) locations = parsed
+    } catch {}
+  }
+
+  let categories: Array<{ id: string; label: string }> = [...DEFAULT_CATEGORIES]
+  if (categoriesRow?.configValue) {
+    try {
+      const parsed = JSON.parse(categoriesRow.configValue)
+      if (Array.isArray(parsed) && parsed.length > 0) categories = parsed
+    } catch {}
+  }
+
+  return { locations, categories }
+}
+
+router.get('/events/config', optionalAuthMiddleware, async (req, res, next) => {
+  try {
+    const config = await getStoredEventConfig()
+    res.json({
+      data: config,
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.post('/events/config/locations', authMiddleware, adminMiddleware, async (req, res, next) => {
+  try {
+    const { location } = req.body
+    if (!location || typeof location !== 'string' || !location.trim()) {
+      throw new AppError('invalid_location', 'Location name is required', 400)
+    }
+
+    const trimmed = location.trim()
+    const config = await getStoredEventConfig()
+
+    if (!config.locations.includes(trimmed)) {
+      config.locations.push(trimmed)
+      await prisma.systemConfig.upsert({
+        where: { configKey: 'event_locations' },
+        update: {
+          configValue: JSON.stringify(config.locations),
+          updatedBy: req.user!.id,
+        },
+        create: {
+          configKey: 'event_locations',
+          configValue: JSON.stringify(config.locations),
+          updatedBy: req.user!.id,
+        },
+      })
+    }
+
+    res.status(201).json({
+      data: config.locations,
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.delete('/events/config/locations/:location', authMiddleware, adminMiddleware, async (req, res, next) => {
+  try {
+    const rawLoc = req.params.location
+    const locToDelete = decodeURIComponent(Array.isArray(rawLoc) ? rawLoc[0] : rawLoc).trim()
+
+    const config = await getStoredEventConfig()
+    config.locations = config.locations.filter((l) => l.toLowerCase() !== locToDelete.toLowerCase())
+
+    await prisma.systemConfig.upsert({
+      where: { configKey: 'event_locations' },
+      update: {
+        configValue: JSON.stringify(config.locations),
+        updatedBy: req.user!.id,
+      },
+      create: {
+        configKey: 'event_locations',
+        configValue: JSON.stringify(config.locations),
+        updatedBy: req.user!.id,
+      },
+    })
+
+    res.json({
+      data: config.locations,
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.post('/events/config/categories', authMiddleware, adminMiddleware, async (req, res, next) => {
+  try {
+    const { id, label } = req.body
+    if (!label || typeof label !== 'string' || !label.trim()) {
+      throw new AppError('invalid_category', 'Category label is required', 400)
+    }
+
+    const trimmedLabel = label.trim()
+    const catId = (id && typeof id === 'string' && id.trim())
+      ? id.trim().toUpperCase().replace(/\s+/g, '_')
+      : trimmedLabel.toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_').slice(0, 30)
+
+    const config = await getStoredEventConfig()
+    const existingIndex = config.categories.findIndex((c) => c.id === catId)
+
+    if (existingIndex >= 0) {
+      config.categories[existingIndex].label = trimmedLabel
+    } else {
+      config.categories.push({ id: catId, label: trimmedLabel })
+    }
+
+    await prisma.systemConfig.upsert({
+      where: { configKey: 'event_categories' },
+      update: {
+        configValue: JSON.stringify(config.categories),
+        updatedBy: req.user!.id,
+      },
+      create: {
+        configKey: 'event_categories',
+        configValue: JSON.stringify(config.categories),
+        updatedBy: req.user!.id,
+      },
+    })
+
+    res.status(201).json({
+      data: config.categories,
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.delete('/events/config/categories/:categoryId', authMiddleware, adminMiddleware, async (req, res, next) => {
+  try {
+    const rawId = req.params.categoryId
+    const catIdToDelete = decodeURIComponent(Array.isArray(rawId) ? rawId[0] : rawId).trim()
+
+    const config = await getStoredEventConfig()
+    config.categories = config.categories.filter((c) => c.id !== catIdToDelete)
+
+    await prisma.systemConfig.upsert({
+      where: { configKey: 'event_categories' },
+      update: {
+        configValue: JSON.stringify(config.categories),
+        updatedBy: req.user!.id,
+      },
+      create: {
+        configKey: 'event_categories',
+        configValue: JSON.stringify(config.categories),
+        updatedBy: req.user!.id,
+      },
+    })
+
+    res.json({
+      data: config.categories,
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
 
 export { router as eventRouter }

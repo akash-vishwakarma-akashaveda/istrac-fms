@@ -26,14 +26,14 @@ export function Modal({ isOpen, onClose, title, size = 'sm', children }: ModalPr
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-page/85 p-3 sm:p-4 backdrop-blur-[2px]"
+      className="fixed inset-0 z-[500] flex items-center justify-center bg-page/85 p-3 sm:p-4 backdrop-blur-[2px]"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`w-full ${sizeStyles[size]} max-h-[94vh] flex flex-col overflow-hidden rounded-xl border border-border-default bg-card shadow-2xl`}
+        className={`w-full ${sizeStyles[size]} max-h-[90vh] sm:max-h-[92vh] flex flex-col overflow-hidden rounded-xl border border-border-default bg-card shadow-2xl my-auto`}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (

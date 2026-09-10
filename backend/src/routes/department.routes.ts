@@ -36,6 +36,7 @@ router.get('/departments/public', async (_req, res, next) => {
                 launchMass: true,
                 orbitType: true,
                 status: true,
+                departmentSatellites: { select: { departmentId: true } },
               },
             },
           },
@@ -52,7 +53,12 @@ router.get('/departments/public', async (_req, res, next) => {
         code: d.code,
         description: d.description,
         satellite: d.satellite,
-        satellites: d.departmentSatellites.map((ds: any) => ds.satellite),
+        satellites: d.departmentSatellites.map((ds: any) => ({
+          ...ds.satellite,
+          departmentIds: ds.satellite?.departmentSatellites
+            ? ds.satellite.departmentSatellites.map((x: any) => x.departmentId)
+            : [d.id],
+        })),
         fileCount: d._count.files,
         pageTitle: d.pageTitle,
         pageAbout: d.pageAbout,
@@ -125,6 +131,7 @@ router.get('/departments/public/:deptId', async (req, res, next) => {
                 launchMass: true,
                 orbitType: true,
                 status: true,
+                departmentSatellites: { select: { departmentId: true } },
               },
             },
           },
@@ -144,7 +151,12 @@ router.get('/departments/public/:deptId', async (req, res, next) => {
         code: department.code,
         description: department.description,
         satellite: department.satellite,
-        satellites: department.departmentSatellites.map((ds: any) => ds.satellite),
+        satellites: department.departmentSatellites.map((ds: any) => ({
+          ...ds.satellite,
+          departmentIds: ds.satellite?.departmentSatellites
+            ? ds.satellite.departmentSatellites.map((x: any) => x.departmentId)
+            : [department.id],
+        })),
         fileCount: department._count.files,
         pageTitle: department.pageTitle,
         pageAbout: department.pageAbout,

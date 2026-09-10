@@ -344,7 +344,7 @@ export function PdfPreview({ fileUrl, fileName = 'telemetry_document.pdf', onDow
   return (
     <div
       className={`flex flex-col rounded-2xl border border-border-default bg-[#060a14] overflow-hidden shadow-2xl transition-all ${
-        isFullscreen ? 'fixed inset-4 z-50' : 'w-full'
+        isFullscreen ? 'fixed inset-4 z-[500]' : 'w-full'
       }`}
     >
       {/* ============================================================ */}

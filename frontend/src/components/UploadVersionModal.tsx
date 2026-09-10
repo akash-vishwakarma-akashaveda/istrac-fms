@@ -16,9 +16,15 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react'
-import { satellitesApi, type Satellite } from '../api/satellites.api'
-import { departmentsApi, type Department } from '../api/departments.api'
-import { reportPresetsApi, type CategoryPreset, type NamingPreset } from '../api/reportPresets.api'
+import { useQueryClient } from '@tanstack/react-query'
+import { useSatellites } from '../hooks/useSatellites'
+import { useDepartments } from '../hooks/useDepartments'
+import {
+  useReportCategories,
+  useNamingPresets,
+  useCreateCategory,
+  useCreateNamingPreset,
+} from '../hooks/useReportPresets'
 import { useAuthStore } from '../store/authStore'
 import { useToastStore } from '../store/toastStore'
 import { apiClient } from '../api/client'
@@ -105,12 +111,18 @@ export function UploadVersionModal({
   const user = useAuthStore((s) => s.user)
   const addToast = useToastStore((s) => s.addToast)
 
-  // Remote collections
-  const [satellites, setSatellites] = useState<Satellite[]>([])
-  const [departments, setDepartments] = useState<Department[]>([])
-  const [categories, setCategories] = useState<CategoryPreset[]>([])
-  const [namingPresets, setNamingPresets] = useState<NamingPreset[]>([])
-  const [loadingInitial, setLoadingInitial] = useState(true)
+  const queryClient = useQueryClient()
+
+  // Remote collections via cached TanStack Query hooks
+  const { data: satellites = [], isLoading: loadingSats } = useSatellites()
+  const { data: departments = [], isLoading: loadingDepts } = useDepartments()
+  const { data: categories = [], isLoading: loadingCats } = useReportCategories()
+  const { data: namingPresets = [], isLoading: loadingPresets } = useNamingPresets()
+
+  const createCategoryMutation = useCreateCategory()
+  const createNamingPresetMutation = useCreateNamingPreset()
+
+  const loadingInitial = loadingSats || loadingDepts || loadingCats || loadingPresets
 
   // Form State
   const [selectedSat, setSelectedSat] = useState<string>('')
@@ -150,106 +162,78 @@ export function UploadVersionModal({
   const { data: systemConfig } = useSystemConfig()
   const maxUploadBytes = systemConfig?.maxUploadSizeBytes || 524288000
 
-  // Load satellites, departments, categories, naming presets
+  // Synchronize modal state with target file or defaults when opened or data resolves
   useEffect(() => {
     if (!isOpen) return
 
-    const loadData = async () => {
-      setLoadingInitial(true)
-      try {
-        const [sats, depts, cats, presets] = await Promise.all([
-          satellitesApi.getActiveSatellites().catch(() => []),
-          departmentsApi.getUserDepartments().catch(() => departmentsApi.getPublicDepartments().catch(() => [])),
-          reportPresetsApi.getCategories().catch(() => []),
-          reportPresetsApi.getNamingPresets().catch(() => []),
-        ])
-
-        const satList = sats || []
-        const deptList = depts || []
-        const catList = cats || []
-        const presetList = presets || []
-
-        setSatellites(satList)
-        setDepartments(deptList)
-        setCategories(catList)
-        setNamingPresets(presetList)
-
-        // Pre-fill / Synchronize with target file if provided
-        if (file) {
-          // Spacecraft matching
-          const matchedSat = satList.find(
-            (s) =>
-              s.name.toLowerCase() === (file.spacecraft || '').toLowerCase() ||
-              (s.code && s.code.toLowerCase() === (file.spacecraft || '').toLowerCase())
-          )
-          if (matchedSat) {
-            setSelectedSat(matchedSat.id)
-          } else {
-            const generalSat = satList.find((s) => s.code === 'GENERAL')
-            setSelectedSat(generalSat ? generalSat.id : satList[0]?.id || '')
-          }
-
-          // Department matching
-          if (file.departmentId) {
-            setSelectedDept(file.departmentId)
-          } else if (defaultDeptId) {
-            setSelectedDept(defaultDeptId)
-          } else if (deptList[0]?.id) {
-            setSelectedDept(deptList[0].id)
-          }
-
-          // Category matching
-          if (file.category) {
-            const matchedCat = catList.find(
-              (c) => c.code.toUpperCase() === file.category?.toUpperCase() || c.name.toLowerCase() === file.category?.toLowerCase()
-            )
-            if (matchedCat) {
-              setSelectedCategoryCode(matchedCat.code)
-            } else {
-              setSelectedCategoryCode(catList[0]?.code || 'DAILYOPS')
-            }
-          }
-
-          // Title & Description
-          setReportTitle(file.title || file.name.replace(/\.[^/.]+$/, ''))
-          setDescription(file.description || '')
-          setIsFeatured(Boolean(file.isFeatured))
-
-          // Auto-calculate next revision label
-          const { minor } = calculateNextVersion(file.versionLabel, file.versionCount ?? 1)
-          setVersion(minor)
-          setChangeLog('')
-          setIsVisible(true)
-        } else {
-          // New file mode
-          const generalSat = satList.find((s) => s.code === 'GENERAL')
-          setSelectedSat(generalSat ? generalSat.id : satList[0]?.id || '')
-          if (defaultDeptId) {
-            setSelectedDept(defaultDeptId)
-          } else if (deptList[0]?.id) {
-            setSelectedDept(deptList[0].id)
-          }
-          setSelectedCategoryCode(catList[0]?.code || 'DAILYOPS')
-          setReportTitle('')
-          setVersion('V1.0')
-          setDescription('')
-          setChangeLog('')
-          setIsFeatured(false)
-          setIsVisible(true)
-        }
-
-        setAuthor(user?.name || '')
-        setUploadedFile(null)
-        setUploadProgress(0)
-      } catch (err) {
-        console.error('Failed to load metadata in upload modal:', err)
-      } finally {
-        setLoadingInitial(false)
+    // Pre-fill / Synchronize with target file if provided
+    if (file) {
+      // Spacecraft matching
+      const matchedSat = satellites.find(
+        (s) =>
+          s.name.toLowerCase() === (file.spacecraft || '').toLowerCase() ||
+          (s.code && s.code.toLowerCase() === (file.spacecraft || '').toLowerCase())
+      )
+      if (matchedSat) {
+        setSelectedSat(matchedSat.id)
+      } else {
+        const generalSat = satellites.find((s) => s.code === 'GENERAL')
+        setSelectedSat(generalSat ? generalSat.id : satellites[0]?.id || '')
       }
+
+      // Department matching
+      if (file.departmentId) {
+        setSelectedDept(file.departmentId)
+      } else if (defaultDeptId) {
+        setSelectedDept(defaultDeptId)
+      } else if (departments[0]?.id) {
+        setSelectedDept(departments[0].id)
+      }
+
+      // Category matching
+      if (file.category) {
+        const matchedCat = categories.find(
+          (c) => c.code.toUpperCase() === file.category?.toUpperCase() || c.name.toLowerCase() === file.category?.toLowerCase()
+        )
+        if (matchedCat) {
+          setSelectedCategoryCode(matchedCat.code)
+        } else {
+          setSelectedCategoryCode(categories[0]?.code || 'DAILYOPS')
+        }
+      }
+
+      // Title & Description
+      setReportTitle(file.title || file.name.replace(/\.[^/.]+$/, ''))
+      setDescription(file.description || '')
+      setIsFeatured(Boolean(file.isFeatured))
+
+      // Auto-calculate next revision label
+      const { minor } = calculateNextVersion(file.versionLabel, file.versionCount ?? 1)
+      setVersion(minor)
+      setChangeLog('')
+      setIsVisible(true)
+    } else {
+      // New file mode
+      const generalSat = satellites.find((s) => s.code === 'GENERAL')
+      setSelectedSat(generalSat ? generalSat.id : satellites[0]?.id || '')
+      if (defaultDeptId) {
+        setSelectedDept(defaultDeptId)
+      } else if (departments[0]?.id) {
+        setSelectedDept(departments[0].id)
+      }
+      setSelectedCategoryCode(categories[0]?.code || 'DAILYOPS')
+      setReportTitle('')
+      setVersion('V1.0')
+      setDescription('')
+      setChangeLog('')
+      setIsFeatured(false)
+      setIsVisible(true)
     }
 
-    loadData()
-  }, [isOpen, file, defaultDeptId, user])
+    setAuthor(user?.name || '')
+    setUploadedFile(null)
+    setUploadProgress(0)
+  }, [isOpen, file, defaultDeptId, user, satellites, departments, categories])
 
   // Compute live ISRO standard filename
   const satObj = satellites.find((s) => s.id === selectedSat)
@@ -316,13 +300,12 @@ export function UploadVersionModal({
 
     setSavingCategory(true)
     try {
-      const created = await reportPresetsApi.createCategory({
+      const created = await createCategoryMutation.mutateAsync({
         name: customCatName.trim(),
         code: customCatCode.trim().toUpperCase(),
         description: customCatDesc.trim() || undefined,
       })
       addToast({ title: 'Category Created', message: `${created.name} (${created.code}) is now active`, variant: 'success' })
-      setCategories((prev) => [...prev, created])
       setSelectedCategoryCode(created.code)
       setIsCategoryModalOpen(false)
       setCustomCatName('')
@@ -349,12 +332,11 @@ export function UploadVersionModal({
 
     setSavingPreset(true)
     try {
-      const created = await reportPresetsApi.createNamingPreset({
+      const created = await createNamingPresetMutation.mutateAsync({
         name: customPresetName.trim(),
         template: activeTemplate.trim(),
       })
       addToast({ title: 'Naming Preset Saved', message: `${created.name} added to template roster`, variant: 'success' })
-      setNamingPresets((prev) => [...prev, created])
       setSelectedPresetId(created.id)
       setIsCustomTemplate(false)
       setCustomPresetName('')
@@ -472,6 +454,12 @@ export function UploadVersionModal({
         })
       }
 
+      queryClient.invalidateQueries({ queryKey: ['dept-files'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-files'] })
+      queryClient.invalidateQueries({ queryKey: ['featured-reports'] })
+      queryClient.invalidateQueries({ queryKey: ['file-versions'] })
+      queryClient.invalidateQueries({ queryKey: ['file-detail'] })
+
       onSuccess?.()
       onClose()
     } catch (err: any) {
@@ -489,29 +477,29 @@ export function UploadVersionModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-page/85 backdrop-blur-[2px]">
+    <div className="fixed inset-0 z-[500] flex items-center justify-center p-3 sm:p-5 bg-page/85 backdrop-blur-[2px]">
       <div
         className="relative w-full max-w-5xl rounded-2xl border border-border-default bg-card shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-border-subtle bg-surface px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-accent/15 border border-accent/30 text-accent-light">
+        <div className="flex items-center justify-between border-b border-border-subtle bg-surface px-4 sm:px-6 py-3.5 sm:py-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 rounded-xl bg-accent/15 border border-accent/30 text-accent-light shrink-0">
               {file ? <Layers size={22} /> : <Upload size={22} />}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-accent-light">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-accent-light shrink-0">
                   {file ? 'SPOA Revision Pipeline' : 'SPOA Ingest Architecture'}
                 </span>
                 {file && (
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-accent/10 border border-accent/30 text-accent-light">
+                  <span className="truncate max-w-[140px] sm:max-w-[280px] text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-accent/10 border border-accent/30 text-accent-light">
                     Updating: {file.name}
                   </span>
                 )}
               </div>
-              <h2 className="text-base sm:text-lg font-bold text-white">
+              <h2 className="text-sm sm:text-lg font-bold text-white truncate">
                 {file ? 'Upload New File Version' : 'Upload Mission Report / File'}
               </h2>
             </div>
@@ -521,7 +509,7 @@ export function UploadVersionModal({
             type="button"
             onClick={onClose}
             disabled={uploading}
-            className="rounded-lg p-1.5 text-text-muted hover:bg-card-hover hover:text-white transition-colors"
+            className="rounded-lg p-1.5 text-text-muted hover:bg-card-hover hover:text-white transition-colors shrink-0 ml-2"
           >
             <X size={18} />
           </button>

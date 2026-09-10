@@ -4,7 +4,7 @@ export interface MissionEventItem {
   id: string
   title: string
   description?: string | null
-  eventType: 'MISSION_PASS' | 'LAUNCH' | 'ORBIT_MANEUVER' | 'MAINTENANCE' | 'SEMINAR' | 'ANOMALY'
+  eventType: 'MISSION_PASS' | 'LAUNCH' | 'ORBIT_MANEUVER' | 'MAINTENANCE' | 'SEMINAR' | 'ANOMALY' | string
   satelliteId?: string | null
   satellite?: { id: string; name: string; code?: string | null } | null
   departmentId?: string | null
@@ -60,4 +60,35 @@ export const eventsApi = {
     const res = await apiClient.delete(`/events/${id}`)
     return extractData(res)
   },
+
+  async cancelEvent(id: string): Promise<MissionEventItem> {
+    const res = await apiClient.patch(`/events/${id}/cancel`)
+    return extractData(res)
+  },
+
+  async getEventConfig(): Promise<{ locations: string[]; categories: Array<{ id: string; label: string }> }> {
+    const res = await apiClient.get('/events/config')
+    return extractData(res)
+  },
+
+  async addLocation(location: string): Promise<string[]> {
+    const res = await apiClient.post('/events/config/locations', { location })
+    return extractData(res)
+  },
+
+  async deleteLocation(location: string): Promise<string[]> {
+    const res = await apiClient.delete(`/events/config/locations/${encodeURIComponent(location)}`)
+    return extractData(res)
+  },
+
+  async addCategory(category: { id?: string; label: string }): Promise<Array<{ id: string; label: string }>> {
+    const res = await apiClient.post('/events/config/categories', category)
+    return extractData(res)
+  },
+
+  async deleteCategory(categoryId: string): Promise<Array<{ id: string; label: string }>> {
+    const res = await apiClient.delete(`/events/config/categories/${encodeURIComponent(categoryId)}`)
+    return extractData(res)
+  },
 }
+

@@ -10,6 +10,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useCms } from "../../context/cmsContext"
 import { usePreviewRefresh } from "../../context/PreviewRefreshContext"
 import { useUpdateCmsBlock } from "../../hooks/useUpdateCmsBlock"
+import { useDebounce } from "../../hooks/useDebounce"
 import { useToastStore } from "../../store/toastStore"
 import { Panel, Input, Textarea } from ".."
 import { SaveBar } from "./SaveBar"
@@ -49,6 +50,7 @@ export function ReportsTab() {
   const [repoFiles, setRepoFiles] = useState<RepositoryFile[]>([])
   const [repoLoading, setRepoLoading] = useState(false)
   const [fileSearch, setFileSearch] = useState("")
+  const debouncedFileSearch = useDebounce(fileSearch, 300)
   const [filterFeaturedOnly, setFilterFeaturedOnly] = useState(false)
   const [featureConfirmFile, setFeatureConfirmFile] = useState<{
     id: string
@@ -70,7 +72,7 @@ export function ReportsTab() {
     try {
       const res = await apiClient.get("/admin/files/repository-list", {
         params: {
-          search: fileSearch || undefined,
+          search: debouncedFileSearch || undefined,
         },
       })
       if (res.data?.data) {
@@ -85,7 +87,7 @@ export function ReportsTab() {
 
   useEffect(() => {
     fetchRepoFiles()
-  }, [fileSearch])
+  }, [debouncedFileSearch])
 
   // Save Header CMS Block
   function handleSaveHeader() {

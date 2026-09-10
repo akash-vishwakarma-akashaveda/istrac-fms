@@ -14,9 +14,16 @@ import {
   Star,
 } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { satellitesApi, type Satellite } from '../api/satellites.api'
-import { departmentsApi, type Department } from '../api/departments.api'
-import { reportPresetsApi, type CategoryPreset, type NamingPreset } from '../api/reportPresets.api'
+import { useQueryClient } from '@tanstack/react-query'
+import { useSatellites } from '../hooks/useSatellites'
+import { useDepartments } from '../hooks/useDepartments'
+import {
+  useReportCategories,
+  useNamingPresets,
+  useCreateCategory,
+  useDeleteCategory,
+  useCreateNamingPreset,
+} from '../hooks/useReportPresets'
 import { useAuthStore } from '../store/authStore'
 import { useToastStore } from '../store/toastStore'
 import { apiClient } from '../api/client'
@@ -42,13 +49,19 @@ export function UploadReport() {
   const deptIdParam = searchParams.get('deptId')
   const user = useAuthStore((s) => s.user)
   const addToast = useToastStore((s) => s.addToast)
+  const queryClient = useQueryClient()
 
-  // Remote collections
-  const [satellites, setSatellites] = useState<Satellite[]>([])
-  const [departments, setDepartments] = useState<Department[]>([])
-  const [categories, setCategories] = useState<CategoryPreset[]>([])
-  const [namingPresets, setNamingPresets] = useState<NamingPreset[]>([])
-  const [loadingInitial, setLoadingInitial] = useState(true)
+  // Remote collections via cached TanStack Query hooks
+  const { data: satellites = [], isLoading: loadingSats } = useSatellites()
+  const { data: departments = [], isLoading: loadingDepts } = useDepartments()
+  const { data: categories = [], isLoading: loadingCats } = useReportCategories()
+  const { data: namingPresets = [], isLoading: loadingPresets } = useNamingPresets()
+
+  const createCategoryMutation = useCreateCategory()
+  const deleteCategoryMutation = useDeleteCategory()
+  const createNamingPresetMutation = useCreateNamingPreset()
+
+  const loadingInitial = loadingSats || loadingDepts || loadingCats || loadingPresets
 
   // Form State
   const [selectedSat, setSelectedSat] = useState<string>('')
@@ -89,43 +102,38 @@ export function UploadReport() {
   const { data: systemConfig } = useSystemConfig()
   const maxUploadBytes = systemConfig?.maxUploadSizeBytes || 524288000
 
-  const loadData = async () => {
-    try {
-      const [sats, depts, cats, presets] = await Promise.all([
-        satellitesApi.getActiveSatellites().catch(() => []),
-        departmentsApi.getUserDepartments().catch(() => departmentsApi.getPublicDepartments().catch(() => [])),
-        reportPresetsApi.getCategories().catch(() => []),
-        reportPresetsApi.getNamingPresets().catch(() => []),
-      ])
+  // Auto-initialize form defaults once cached data is ready
+  useEffect(() => {
+    if (!selectedSat && satellites.length > 0) {
+      setSelectedSat(satellites[0].id)
+    }
+  }, [satellites, selectedSat])
 
-      setSatellites(sats || [])
-      setDepartments(depts || [])
-      setCategories(cats || [])
-      setNamingPresets(presets || [])
-
-      if (sats && sats.length > 0) setSelectedSat(sats[0].id)
-      if (depts && depts.length > 0) {
-        if (deptIdParam && depts.some((d) => d.id === deptIdParam)) {
-          setSelectedDept(deptIdParam)
-        } else {
-          setSelectedDept(depts[0].id)
-        }
+  useEffect(() => {
+    if (!selectedDept && departments.length > 0) {
+      if (deptIdParam && departments.some((d) => d.id === deptIdParam)) {
+        setSelectedDept(deptIdParam)
+      } else {
+        setSelectedDept(departments[0].id)
       }
-      if (cats && cats.length > 0) setSelectedCategoryCode(cats[0].code)
+    }
+  }, [departments, deptIdParam, selectedDept])
 
-      const defPreset = presets?.find((p) => p.isDefault) || presets?.[0]
+  useEffect(() => {
+    if (categories.length > 0 && (!selectedCategoryCode || !categories.some((c) => c.code === selectedCategoryCode))) {
+      setSelectedCategoryCode(categories[0].code)
+    }
+  }, [categories, selectedCategoryCode])
+
+  useEffect(() => {
+    if (namingPresets.length > 0 && selectedPresetId === 'default') {
+      const defPreset = namingPresets.find((p) => p.isDefault) || namingPresets[0]
       if (defPreset) {
         setSelectedPresetId(defPreset.id)
         setActiveTemplate(defPreset.template)
       }
-    } finally {
-      setLoadingInitial(false)
     }
-  }
-
-  useEffect(() => {
-    loadData()
-  }, [])
+  }, [namingPresets, selectedPresetId])
 
   // Derive tokens for naming template replacement
   const activeSatObj = satellites.find((s) => s.id === selectedSat)
@@ -198,13 +206,12 @@ export function UploadReport() {
 
     setSavingCategory(true)
     try {
-      const created = await reportPresetsApi.createCategory({
+      const created = await createCategoryMutation.mutateAsync({
         name: customCatName.trim(),
         code: customCatCode.trim(),
         description: customCatDesc.trim() || undefined,
       })
       addToast({ title: 'Category Saved', message: `${created.name} added to presets`, variant: 'success' })
-      setCategories((prev) => [...prev, created])
       setSelectedCategoryCode(created.code)
       setIsCategoryModalOpen(false)
       setCustomCatName('')
@@ -226,12 +233,8 @@ export function UploadReport() {
     if (!deletingCategoryTarget) return
     const { id, name } = deletingCategoryTarget
     try {
-      await reportPresetsApi.deleteCategory(id)
+      await deleteCategoryMutation.mutateAsync(id)
       addToast({ title: 'Category Removed', message: `${name} deleted`, variant: 'info' })
-      setCategories((prev) => prev.filter((c) => c.id !== id))
-      if (categories.length > 0) {
-        setSelectedCategoryCode(categories[0].code)
-      }
       setDeletingCategoryTarget(null)
     } catch (err: any) {
       addToast({
@@ -253,12 +256,11 @@ export function UploadReport() {
 
     setSavingPreset(true)
     try {
-      const created = await reportPresetsApi.createNamingPreset({
+      const created = await createNamingPresetMutation.mutateAsync({
         name: customPresetName.trim(),
         template: activeTemplate.trim(),
       })
       addToast({ title: 'Naming Preset Saved', message: `${created.name} added to template roster`, variant: 'success' })
-      setNamingPresets((prev) => [...prev, created])
       setSelectedPresetId(created.id)
       setIsCustomTemplate(false)
       setIsNamingModalOpen(false)
@@ -351,6 +353,11 @@ export function UploadReport() {
       })
 
       setUploadProgress(100)
+      queryClient.invalidateQueries({ queryKey: ['dept-files'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-files'] })
+      if (isFeatured) {
+        queryClient.invalidateQueries({ queryKey: ['featured-reports'] })
+      }
       addToast({
         title: 'Report Uploaded Successfully',
         message: `${finalFileName} ingested to ${activeSatObj?.name || 'Department Repository'}`,

@@ -20,8 +20,8 @@ import { authApi } from '../api'
 import { useCms } from '../context/cmsContext'
 
 /** Vertical hairline between readout fields. */
-function FieldDivider() {
-  return <span aria-hidden="true" className="h-4 w-px shrink-0 bg-border-subtle" />
+function FieldDivider({ className = '' }: { className?: string }) {
+  return <span aria-hidden="true" className={`h-4 w-px shrink-0 bg-border-subtle ${className}`} />
 }
 
 export function Topbar() {
@@ -84,7 +84,7 @@ export function Topbar() {
 
   return (
     <>
-      <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border-subtle bg-surface px-4">
+      <header className="relative z-50 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border-subtle bg-surface px-4">
         {/* Readout strip — everything here is machine-produced, so it's all mono. */}
         <div className="flex min-w-0 items-center gap-3">
           <span className="readout text-text-secondary">
@@ -92,18 +92,19 @@ export function Topbar() {
               aria-hidden="true"
               className="h-1.5 w-1.5 shrink-0 rounded-full bg-nominal animate-tick"
             />
-            <span className="truncate">{utcTime}</span>
+            <span className="hidden sm:inline truncate">{utcTime}</span>
+            <span className="sm:hidden font-mono text-xs truncate">{utcTime.slice(11)}</span>
             <span className="text-text-dim">UTC</span>
           </span>
 
-          <FieldDivider />
+          <FieldDivider className="hidden sm:inline-block" />
 
-          <span className="readout hidden text-text-dim sm:inline-flex">
+          <span className="readout hidden sm:inline-flex text-text-dim">
             ACCESS
             <span className="text-text-secondary font-bold">{user?.role ?? '—'}</span>
           </span>
 
-          <FieldDivider />
+          <FieldDivider className="hidden md:inline-block" />
 
           <span
             className="readout hidden md:inline-flex text-white font-bold truncate cursor-default"
@@ -159,12 +160,12 @@ export function Topbar() {
                 <button
                   type="button"
                   aria-label="Close notifications"
-                  className="fixed inset-0 z-10 cursor-default"
+                  className="fixed inset-0 z-40 cursor-default"
                   onClick={() => setBellMenuOpen(false)}
                 />
 
                 <div
-                  className="absolute top-full right-0 z-20 mt-2 w-80 overflow-hidden rounded-xl border border-border-default bg-card shadow-2xl animate-fadeIn"
+                  className="absolute top-full right-0 z-[60] mt-2 w-80 overflow-hidden rounded-xl border border-border-default bg-card shadow-2xl animate-fadeIn"
                   role="menu"
                 >
                   <div className="flex items-center justify-between border-b border-border-subtle bg-surface px-3.5 py-2.5">
@@ -243,12 +244,12 @@ export function Topbar() {
                 <button
                   type="button"
                   aria-label="Close user menu"
-                  className="fixed inset-0 z-10 cursor-default"
+                  className="fixed inset-0 z-40 cursor-default"
                   onClick={() => setMenuOpen(false)}
                 />
 
                 <div
-                  className="absolute top-full right-0 z-20 mt-2 w-60 overflow-hidden rounded-xl border border-border-default bg-card shadow-2xl animate-fadeIn divide-y divide-border-subtle"
+                  className="absolute top-full right-0 z-[60] mt-2 w-60 overflow-hidden rounded-xl border border-border-default bg-card shadow-2xl animate-fadeIn divide-y divide-border-subtle"
                   role="menu"
                 >
                   {/* User Bio Header */}

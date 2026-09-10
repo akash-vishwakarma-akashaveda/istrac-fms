@@ -20,8 +20,8 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAdminStats } from '../hooks/useAdminStats'
-import { StatCard, AuditFeed, SetupWizardModal } from '../components'
-import { usersApi } from '../api/users.api'
+import { usePendingUsers, useApproveUser, useRejectUser } from '../hooks/usePendingUsers'
+import { StatCard, SetupWizardModal } from '../components'
 import { apiClient } from '../api/client'
 import { useToastStore } from '../store/toastStore'
 import { useCms } from '../context/cmsContext'
@@ -47,8 +47,11 @@ export function AdminHome() {
   const { data: stats, isLoading, refetch } = useAdminStats()
   const addToast = useToastStore((s) => s.addToast)
 
-  const [pendingUsers, setPendingUsers] = useState<any[]>([])
-  const [loadingPending, setLoadingPending] = useState(true)
+  const { data: pendingUsersData, isLoading: loadingPending, refetch: refetchPending } = usePendingUsers()
+  const pendingUsers = pendingUsersData || []
+  const approveUser = useApproveUser()
+  const rejectUser = useRejectUser()
+
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [isWizardOpen, setIsWizardOpen] = useState(false)
   const [storageStatus, setStorageStatus] = useState<{
@@ -56,17 +59,6 @@ export function AdminHome() {
     mountPath?: string
     writable?: boolean
   }>({ mounted: true, mountPath: 'D:\\istrac_storage' })
-
-  const fetchPending = () => {
-    setLoadingPending(true)
-    usersApi
-      .getPendingUsers()
-      .then((data) => {
-        setPendingUsers(data || [])
-      })
-      .catch(() => {})
-      .finally(() => setLoadingPending(false))
-  }
 
   const fetchStorageStatus = () => {
     apiClient
@@ -80,20 +72,18 @@ export function AdminHome() {
   }
 
   useEffect(() => {
-    fetchPending()
     fetchStorageStatus()
   }, [])
 
   const handleApprove = async (id: string, name: string) => {
     setProcessingId(id)
     try {
-      await usersApi.approveUser(id)
+      await approveUser.mutateAsync({ userId: id })
       addToast({
         title: 'User Approved',
         message: `${name}'s account has been activated with member privileges.`,
         variant: 'success',
       })
-      fetchPending()
       refetch()
     } catch {
       addToast({
@@ -109,13 +99,13 @@ export function AdminHome() {
   const handleReject = async (id: string, name: string) => {
     setProcessingId(id)
     try {
-      await usersApi.rejectUser(id)
+      await rejectUser.mutateAsync({ userId: id, reason: 'Registration declined by administrator.' })
       addToast({
         title: 'User Rejected',
         message: `${name}'s access request was declined.`,
         variant: 'warning',
       })
-      fetchPending()
+      refetch()
     } catch {
       addToast({
         title: 'Action Failed',
@@ -186,7 +176,7 @@ export function AdminHome() {
             type="button"
             onClick={() => {
               refetch()
-              fetchPending()
+              refetchPending()
               fetchStorageStatus()
             }}
             className="p-1.5 rounded-lg border border-border-default bg-card text-text-dim hover:text-text-primary hover:border-border-bright transition-all"
@@ -637,11 +627,6 @@ export function AdminHome() {
             </div>
           </Link>
         </div>
-      </div>
-
-      {/* Real-Time Audit Feed */}
-      <div className="pt-2">
-        <AuditFeed />
       </div>
 
       {/* Setup & Storage Mount Wizard Modal */}

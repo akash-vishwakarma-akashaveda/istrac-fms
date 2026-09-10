@@ -269,9 +269,10 @@ sudo ./setup-rhel.sh
 
 ## 📚 Documentation Index
 
-For in-depth architectural, deployment, and configuration guides, refer to the [`documents/`](file:///D:/istrac-fms/documents) directory:
+For in-depth operational manuals, architectural, deployment, and configuration guides, refer to the [`documents/`](documents/) directory:
 
-- 📄 [**Software Requirements Specification (IEEE 830 SRS)**](file:///D:/istrac-fms/documents/SOFTWARE_REQUIREMENTS_SPECIFICATION.md)
+- 📘 [**Software System Operational Handbook & Client Guide (IEEE 1063 / ISO 26514)**](documents/CLIENT_SYSTEM_AND_OPERATIONAL_HANDBOOK.md) *(Authoritative IEEE-compliant operational manual for directors, facility leads, and console operators)*
+- 📄 [**Software Requirements Specification (IEEE 830 SRS)**](documents/SOFTWARE_REQUIREMENTS_SPECIFICATION.md)
 - 🌐 [**Air-Gapped Intranet Server Deployment & Operations Guide**](file:///D:/istrac-fms/documents/INTRANET_SERVER_SETUP_GUIDE.md)
 - 🔑 [**Seeded Test Accounts & Credentials Reference**](file:///D:/istrac-fms/documents/TEST_CREDENTIALS_AND_ACCOUNTS.md)
 - 🛡️ [**Backend Security Audit & Vulnerability Review**](file:///D:/istrac-fms/documents/BACKEND_SECURITY_AUDIT.md)

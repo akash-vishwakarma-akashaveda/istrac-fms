@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react"
-import { Building2, Layers, ExternalLink, CheckCircle2 } from "lucide-react"
+import { useEffect, useState, useMemo } from "react"
+import { Building2, Layers, ExternalLink, CheckCircle2, ArrowUp, ArrowDown, RotateCcw } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useCms } from "../../context/cmsContext"
 import { usePreviewRefresh } from "../../context/PreviewRefreshContext"
@@ -25,6 +25,7 @@ export interface DepartmentPagesBlock {
   sectionSubtitle?: string
   showFileCount?: boolean
   showLeadOfficer?: boolean
+  order?: string[]
   customContent?: Record<string, DepartmentCmsData>
 }
 
@@ -36,6 +37,7 @@ export function DepartmentPagesTab() {
 
   const [departments, setDepartments] = useState<Department[]>([])
   const [selectedDeptId, setSelectedDeptId] = useState<string>("")
+  const [deptOrder, setDeptOrder] = useState<string[]>([])
 
   const existing = cmsBlocks["department_pages"] as DepartmentPagesBlock | undefined
 
@@ -54,8 +56,18 @@ export function DepartmentPagesTab() {
   useEffect(() => {
     departmentsApi.getPublicDepartments().then((list) => {
       setDepartments(list || [])
-      if (list && list.length > 0 && !selectedDeptId) {
-        setSelectedDeptId(list[0].id)
+      if (list && list.length > 0) {
+        if (!selectedDeptId) {
+          setSelectedDeptId(list[0].id)
+        }
+        setDeptOrder((prev) => {
+          if (prev.length > 0) {
+            const existingSet = new Set(prev)
+            const missing = list.map((d) => d.id).filter((id) => !existingSet.has(id))
+            return [...prev.filter((id) => list.some((d) => d.id === id)), ...missing]
+          }
+          return list.map((d) => d.id)
+        })
       }
     })
   }, [])
@@ -68,8 +80,47 @@ export function DepartmentPagesTab() {
       if (existing.showFileCount !== undefined) setShowFileCount(existing.showFileCount)
       if (existing.showLeadOfficer !== undefined) setShowLeadOfficer(existing.showLeadOfficer)
       if (existing.customContent) setAllContent(existing.customContent)
+      if (existing.order && Array.isArray(existing.order) && existing.order.length > 0) {
+        setDeptOrder(existing.order)
+      }
     }
   }, [existing])
+
+  // Departments arranged according to custom display order
+  const orderedDepartmentsList = useMemo(() => {
+    if (departments.length === 0) return []
+    if (deptOrder.length === 0) return departments
+    const map = new Map(departments.map((d) => [d.id, d]))
+    const ordered: Department[] = []
+    for (const id of deptOrder) {
+      const d = map.get(id)
+      if (d) {
+        ordered.push(d)
+        map.delete(id)
+      }
+    }
+    for (const remaining of map.values()) {
+      ordered.push(remaining)
+    }
+    return ordered
+  }, [departments, deptOrder])
+
+  function moveDept(fromIndex: number, direction: -1 | 1) {
+    const toIndex = fromIndex + direction
+    if (toIndex < 0 || toIndex >= orderedDepartmentsList.length) return
+    const currentIds = orderedDepartmentsList.map((d) => d.id)
+    const copy = [...currentIds]
+    const temp = copy[fromIndex]
+    copy[fromIndex] = copy[toIndex]
+    copy[toIndex] = temp
+    setDeptOrder(copy)
+  }
+
+  function resetAlphabetical() {
+    const sorted = [...departments].sort((a, b) => a.name.localeCompare(b.name)).map((d) => d.id)
+    setDeptOrder(sorted)
+    addToast({ message: "Reset to standard alphabetical order", variant: "info" })
+  }
 
   const selectedDept = departments.find((d) => d.id === selectedDeptId)
   const currentData = selectedDeptId ? allContent[selectedDeptId] || {} : {}
@@ -94,6 +145,7 @@ export function DepartmentPagesTab() {
   }
 
   function handleSave() {
+    const finalOrder = deptOrder.length > 0 ? deptOrder : orderedDepartmentsList.map((d) => d.id)
     updateBlock.mutate(
       {
         blockKey: "department_pages",
@@ -103,6 +155,7 @@ export function DepartmentPagesTab() {
           sectionSubtitle,
           showFileCount,
           showLeadOfficer,
+          order: finalOrder,
           customContent: allContent,
         },
       },
@@ -219,6 +272,91 @@ export function DepartmentPagesTab() {
         </div>
       </Panel>
 
+      {/* SECTION: DEPARTMENT CARD DISPLAY ORDER (HOME PAGE) */}
+      <Panel title="Department Card Display Order (Home Page)" meta="rearrange-cards">
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <p className="text-xs text-text-secondary leading-relaxed">
+              Rearrange the order of division cards displayed on the Home page operational showcase. Use <strong>Move Up</strong> and <strong>Move Down</strong> to prioritize key mission divisions over standard alphabetical order.
+            </p>
+            <button
+              type="button"
+              onClick={resetAlphabetical}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-default bg-surface hover:border-accent hover:text-white text-xs font-semibold text-text-dim transition-all self-start sm:self-auto shrink-0 cursor-pointer"
+              title="Reset order to alphabetical by division name"
+            >
+              <RotateCcw size={12} />
+              <span>Alphabetical Order</span>
+            </button>
+          </div>
+
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            {orderedDepartmentsList.map((d, idx) => {
+              const customD = allContent[d.id] || {}
+              const title = customD.title || d.name
+              const code = customD.code || d.code || "DIV"
+
+              return (
+                <div
+                  key={d.id}
+                  className="flex items-center justify-between p-3 rounded-xl border border-border-default bg-[#070c18] hover:border-accent/40 transition-all"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/20 border border-accent/30 text-[11px] font-mono font-bold text-accent-light shrink-0">
+                      #{idx + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-accent-light px-1.5 py-0.2 rounded bg-surface border border-border-subtle">
+                          {code}
+                        </span>
+                        <span className="text-xs font-bold text-white truncate">
+                          {title}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-text-dim truncate block mt-0.5">
+                        {customD.labLead || d.pageLeadOfficer || "Division Lead"} · {d.fileCount ?? 0} files
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      disabled={idx === 0}
+                      onClick={() => moveDept(idx, -1)}
+                      className={`p-1.5 rounded-lg border transition-all ${
+                        idx === 0
+                          ? "border-border-subtle/40 bg-surface/30 text-text-dim/40 cursor-not-allowed"
+                          : "border-border-default bg-surface text-text-secondary hover:border-accent hover:text-white cursor-pointer"
+                      }`}
+                      title="Move Up in Card Order"
+                      aria-label={`Move ${code} up`}
+                    >
+                      <ArrowUp size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={idx === orderedDepartmentsList.length - 1}
+                      onClick={() => moveDept(idx, 1)}
+                      className={`p-1.5 rounded-lg border transition-all ${
+                        idx === orderedDepartmentsList.length - 1
+                          ? "border-border-subtle/40 bg-surface/30 text-text-dim/40 cursor-not-allowed"
+                          : "border-border-default bg-surface text-text-secondary hover:border-accent hover:text-white cursor-pointer"
+                      }`}
+                      title="Move Down in Card Order"
+                      aria-label={`Move ${code} down`}
+                    >
+                      <ArrowDown size={14} />
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </Panel>
+
       {/* SECTION 2: INDIVIDUAL DIVISION CONTENT CUSTOMIZER */}
       <Panel title="Individual Division Card & Portal Content" meta="block:department_pages">
         <div className="space-y-5">
@@ -226,7 +364,7 @@ export function DepartmentPagesTab() {
           <div>
             <label className="col-label block mb-2">Select Division to Edit</label>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-              {departments.map((d) => {
+              {orderedDepartmentsList.map((d) => {
                 const isSelected = selectedDeptId === d.id
                 const customD = allContent[d.id] || {}
                 const title = customD.title || d.name

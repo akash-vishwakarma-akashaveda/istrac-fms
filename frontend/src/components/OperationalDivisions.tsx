@@ -1,13 +1,18 @@
-import { useState, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { Link } from "react-router-dom"
 import {
   Radio,
   Sparkles,
   ArrowRight,
   Layers,
+  Lock,
 } from "lucide-react"
-import { departmentsApi, type Department } from "../api/departments.api"
+import { usePublicDepartments } from "../hooks/useDepartments"
 import { useCms } from "../context/cmsContext"
+import { useAuthStore } from "../store/authStore"
+import { useAuthModalStore } from "../store/authModalStore"
+import { useToastStore } from "../store/toastStore"
+import { canAccessSatellite } from "../lib/permissions"
 import { SatelliteInfoModal } from "./SatelliteInfoModal"
 
 interface DepartmentCmsData {
@@ -26,6 +31,7 @@ interface DepartmentPagesBlock {
   sectionSubtitle?: string
   showFileCount?: boolean
   showLeadOfficer?: boolean
+  order?: string[]
   customContent?: Record<string, DepartmentCmsData>
 }
 
@@ -40,24 +46,29 @@ export function OperationalDivisions() {
   const showLeadOfficer = cmsConfig?.showLeadOfficer !== false
   const customCmsContent = cmsConfig?.customContent || {}
 
-  const [departments, setDepartments] = useState<Department[]>([])
-  const [loading, setLoading] = useState(true)
+  const user = useAuthStore((s) => s.user)
+  const openLogin = useAuthModalStore((s) => s.openLogin)
+  const addToast = useToastStore((s) => s.addToast)
+
+  const { data: deptsData, isLoading: loading } = usePublicDepartments()
+  const departments = deptsData || []
   const [viewingSatelliteId, setViewingSatelliteId] = useState<string | null>(null)
 
-  useEffect(() => {
-    setLoading(true)
-    departmentsApi
-      .getPublicDepartments()
-      .then((data) => {
-        setDepartments(data || [])
-      })
-      .catch(() => {
-        setDepartments([])
-      })
-      .finally(() => {
-        setLoading(false)
-      })
-  }, [])
+  // Rearrange department cards according to custom CMS order, falling back to database default
+  const orderedDepartments = useMemo(() => {
+    if (!cmsConfig?.order || !Array.isArray(cmsConfig.order) || cmsConfig.order.length === 0) {
+      return departments
+    }
+    const order = cmsConfig.order
+    return [...departments].sort((a, b) => {
+      const idxA = order.indexOf(a.id)
+      const idxB = order.indexOf(b.id)
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB
+      if (idxA !== -1) return -1
+      if (idxB !== -1) return 1
+      return a.name.localeCompare(b.name)
+    })
+  }, [departments, cmsConfig?.order])
 
   return (
     <section id="departments-showcase" className="border-b border-border-subtle bg-page-soft py-16 sm:py-20" aria-labelledby="divisions-title">
@@ -98,7 +109,7 @@ export function OperationalDivisions() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {departments.map((dept) => {
+            {orderedDepartments.map((dept) => {
               const cmsData = customCmsContent[dept.id] || {}
               const title = cmsData.title || dept.name
               const code = cmsData.code || dept.code || "DIV"
@@ -152,24 +163,51 @@ export function OperationalDivisions() {
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
-                          {dept.satellites.slice(0, 3).map((sat) => (
-                            <button
-                              key={sat.id}
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                setViewingSatelliteId(sat.id)
-                              }}
-                              className="inline-flex items-center gap-1 rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent-light hover:bg-accent hover:text-white transition-all cursor-pointer shadow-sm"
-                              title={`Click to view live telemetry dossier for ${sat.name}`}
-                            >
-                              <span className="h-1.5 w-1.5 rounded-full bg-nominal" />
-                              <span className="font-mono font-semibold">
-                                {sat.satId || sat.code || sat.name}
-                              </span>
-                            </button>
-                          ))}
+                          {dept.satellites.slice(0, 3).map((sat) => {
+                            const hasAccess = canAccessSatellite(user, sat, dept.id)
+
+                            return (
+                              <button
+                                key={sat.id}
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  if (!user) {
+                                    openLogin()
+                                    return
+                                  }
+                                  if (!hasAccess) {
+                                    addToast({
+                                      title: 'Access Restricted',
+                                      message: 'You are not authorized to see',
+                                      variant: 'warning',
+                                    })
+                                    return
+                                  }
+                                  setViewingSatelliteId(sat.id)
+                                }}
+                                className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium transition-all cursor-pointer shadow-sm ${
+                                  hasAccess
+                                    ? 'border-accent/30 bg-accent/10 text-accent-light hover:bg-accent hover:text-white'
+                                    : 'border-border-subtle bg-surface/80 text-text-dim hover:border-warning/40 hover:text-warning'
+                                }`}
+                                title={
+                                  !user
+                                    ? `Sign in to view live telemetry dossier for ${sat.name}`
+                                    : hasAccess
+                                    ? `Click to view live telemetry dossier for ${sat.name}`
+                                    : `Restricted: You are not authorized to see telemetry for ${sat.name}`
+                                }
+                              >
+                                <span className={`h-1.5 w-1.5 rounded-full ${hasAccess ? 'bg-nominal' : 'bg-warning/70'}`} />
+                                <span className="font-mono font-semibold">
+                                  {sat.satId || sat.code || sat.name}
+                                </span>
+                                {!hasAccess && <Lock size={9} className="opacity-70 ml-0.5 text-warning" />}
+                              </button>
+                            )
+                          })}
                           {dept.satellites.length > 3 && (
                             <span className="rounded-md border border-border-subtle bg-surface px-1.5 py-0.5 text-[10px] text-text-dim font-mono">
                               +{dept.satellites.length - 3} more

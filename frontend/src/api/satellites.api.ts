@@ -23,7 +23,9 @@ export interface Satellite {
   orbitType?: string | null
   status?: string | null
   isActive: boolean
+  deletedAt?: string | null
   departmentCount?: number
+  departmentIds?: string[]
   departments?: SatelliteDepartment[]
   recentEvents?: Array<{
     id: string
@@ -100,6 +102,11 @@ export const satellitesApi = {
   async deleteSatellite(id: string): Promise<{ message: string }> {
     const res = await apiClient.delete(`/admin/satellites/${id}`)
     return extractData<{ message: string }>(res)
+  },
+
+  async restoreSatellite(id: string): Promise<Satellite> {
+    const res = await apiClient.post(`/admin/satellites/${id}/restore`)
+    return extractData<Satellite>(res)
   },
 }
 
