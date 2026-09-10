@@ -30,10 +30,18 @@ const storage = multer.diskStorage({
     }
   },
   filename: (_req, file, cb) => {
-    // Prefix with timestamp to avoid collisions
-    const ext = path.extname(file.originalname)
-    const base = path.basename(file.originalname, ext).replace(/[^a-z0-9_-]/gi, '_').slice(0, 60)
-    cb(null, `${Date.now()}_${base}${ext}`)
+    // Sanitize and normalize filename
+    const rawExt = path.extname(file.originalname).trim().toLowerCase()
+    const ext = rawExt === '.jpeg' ? '.jpg' : rawExt
+    const rawBase = path.basename(file.originalname, rawExt).trim()
+    const cleanBase = rawBase
+      .toLowerCase()
+      .replace(/\s+/g, '_')            // convert spaces to single underscore
+      .replace(/[^a-z0-9_-]/g, '')     // remove non-alphanumeric chars
+      .replace(/_+/g, '_')             // collapse consecutive underscores
+      .replace(/^_+|_+$/g, '')         // trim leading/trailing underscores
+      .slice(0, 50) || 'asset'
+    cb(null, `${Date.now()}_${cleanBase}${ext}`)
   },
 })
 

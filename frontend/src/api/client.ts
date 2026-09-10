@@ -34,6 +34,18 @@ let refreshQueue: Array<(token: string) => void> = []
 
 apiClient.interceptors.response.use(
   (response) => {
+    // Detect when an API endpoint returned an HTML document (e.g. Nginx SPA fallback or 502/404 HTML)
+    if (
+      typeof response.data === 'string' &&
+      (response.data.trim().startsWith('<!doctype') ||
+        response.data.trim().startsWith('<!DOCTYPE') ||
+        response.data.trim().startsWith('<html'))
+    ) {
+      const error = new Error(
+        `API endpoint returned HTML instead of JSON (${response.config.url || 'unknown'}). Ensure backend service is running and reverse proxy is active.`
+      )
+      return Promise.reject(error)
+    }
     return response
   },
   async (error: AxiosError) => {

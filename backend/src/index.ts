@@ -84,28 +84,40 @@ app.use('/media', express.static(CMS_PUBLIC_DIR, {
   maxAge: '7d',
   immutable: false,
   setHeaders(res) {
-    // Allow cross-origin reads (the React frontend is on a different port in dev)
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
+    res.setHeader('Cache-Control', 'public, max-age=604800')
+  },
+}))
+app.use('/api/media', express.static(CMS_PUBLIC_DIR, {
+  maxAge: '7d',
+  immutable: false,
+  setHeaders(res) {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
     res.setHeader('Cache-Control', 'public, max-age=604800')
   },
 }))
 
 // ============================================================
-// ROUTE REGISTRATION
+// ROUTE REGISTRATION (Dual mount: '/' and '/api' for proxy resilience)
 // ============================================================
-app.use('/auth',  authRouter)
-app.use(satelliteRouter)
-app.use( departmentRouter)
-app.use( userRouter)
-app.use( fileRouter)
-app.use(browseRouter)
-app.use(notificationRouter)
-app.use(cmsRouter)
-app.use(adminRouter)
-app.use(reportPresetRouter)
-app.use( eventRouter)
-app.use( healthRouter)
-app.use(schedulerRouter)
+const apiRouter = express.Router()
+apiRouter.use('/auth', authRouter)
+apiRouter.use(satelliteRouter)
+apiRouter.use(departmentRouter)
+apiRouter.use(userRouter)
+apiRouter.use(fileRouter)
+apiRouter.use(browseRouter)
+apiRouter.use(notificationRouter)
+apiRouter.use(cmsRouter)
+apiRouter.use(adminRouter)
+apiRouter.use(reportPresetRouter)
+apiRouter.use(eventRouter)
+apiRouter.use(healthRouter)
+apiRouter.use(schedulerRouter)
+
+// Mount both with and without /api prefix
+app.use('/api', apiRouter)
+app.use(apiRouter)
 app.use(globalRateLimiter) // Apply global rate limiter after all routes to catch any unhandled requests
 // ============================================================
 // GLOBAL ERROR HANDLER (MUST BE REGISTERED LAST)

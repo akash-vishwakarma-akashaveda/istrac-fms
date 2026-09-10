@@ -11,9 +11,9 @@ import { CmsImageInput } from './CmsImageInput'
 
 const PRESET_WALLPAPERS = [
   {
-    name: 'ISRO Deep Space Network Dish at Byalalu',
-    url: 'https://images.unsplash.com/photo-1517976487515-56839a85703f?auto=format&fit=crop&w=1920&q=80',
-    thumb: 'https://images.unsplash.com/photo-1517976487515-56839a85703f?auto=format&fit=crop&w=200&q=80',
+    name: 'ISRO Deep Space Ground Station Dish',
+    url: 'https://images.unsplash.com/photo-1541185933-ef5d8ed016c2?auto=format&fit=crop&w=1920&q=80',
+    thumb: 'https://images.unsplash.com/photo-1541185933-ef5d8ed016c2?auto=format&fit=crop&w=200&q=80',
   },
   {
     name: 'Earth Horizon & LEO Orbital Constellation',

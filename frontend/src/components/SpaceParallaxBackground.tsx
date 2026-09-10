@@ -15,11 +15,33 @@ interface SpaceParallaxBackgroundProps {
   config?: SpaceBackgroundConfig
 }
 
+function getResolvedMediaUrl(url?: string): string {
+  if (!url) return ''
+  const trimmed = url.trim()
+  if (!trimmed) return ''
+  if (/^(https?:\/\/|blob:)/i.test(trimmed)) return trimmed
+
+  if (trimmed.startsWith('/media/') || trimmed.startsWith('/cms-assets/')) {
+    const apiUrl = import.meta.env.VITE_API_URL
+    if (apiUrl && /^https?:\/\//i.test(apiUrl)) {
+      try {
+        const origin = new URL(apiUrl).origin
+        return `${origin}${trimmed}`
+      } catch {
+        // Fall back to relative URL
+      }
+    }
+  }
+  return trimmed
+}
+
 export function SpaceParallaxBackground({ config }: SpaceParallaxBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const wallpaperRef = useRef<HTMLDivElement | null>(null)
 
   const mode = config?.mode || 'deep_space_hybrid'
   const customImageUrl = config?.customImageUrl
+  const resolvedWallpaper = getResolvedMediaUrl(customImageUrl)
   const overlayOpacity = typeof config?.overlayOpacity === 'number' ? config?.overlayOpacity : 40
   const enableParallax = config?.enableParallax !== false
   const parallaxSpeed = config?.parallaxSpeed ?? 0.35
@@ -181,6 +203,11 @@ export function SpaceParallaxBackground({ config }: SpaceParallaxBackgroundProps
         }
       }
 
+      // Parallax scroll for photographic wallpaper
+      if (wallpaperRef.current && enableParallax) {
+        wallpaperRef.current.style.transform = `translate3d(0, ${-(scrollY * parallaxSpeed * 0.25)}px, 0)`
+      }
+
       ctx.globalAlpha = 1.0
       animationFrameId = requestAnimationFrame(render)
     }
@@ -200,12 +227,13 @@ export function SpaceParallaxBackground({ config }: SpaceParallaxBackgroundProps
       className="pointer-events-none fixed inset-0 z-0 overflow-hidden select-none bg-[#030712]"
     >
       {/* 1. Optional Custom Background Image with Parallax or Fixed Cinema Mode */}
-      {customImageUrl && (mode === 'custom_image' || mode === 'deep_space_hybrid') && (
+      {resolvedWallpaper && (mode === 'custom_image' || mode === 'deep_space_hybrid') && (
         <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-700"
+          ref={wallpaperRef}
+          className="absolute inset-0 -top-[15%] h-[130%] w-full bg-cover bg-center bg-no-repeat transition-opacity duration-700 will-change-transform"
           style={{
-            backgroundImage: `url("${customImageUrl}")`,
-            transform: enableParallax ? 'translate3d(0, 0, 0)' : undefined,
+            backgroundImage: `url("${resolvedWallpaper}")`,
+            opacity: mode === 'custom_image' ? 0.95 : 0.65,
           }}
         />
       )}
