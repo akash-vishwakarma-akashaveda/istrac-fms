@@ -8,6 +8,11 @@ import { authMiddleware } from '../middleware/auth.middleware.js'
 import { adminMiddleware } from '../middleware/admin.middleware.js'
 import { auditService } from '../services/audit.service.js'
 import { AppError } from '../lib/errors.js'
+import {
+  isUnsafeSvgContent,
+  validateImageMagicBytes,
+  sanitizeCmsContent,
+} from '../lib/security.js'
 
 import { fileURLToPath } from 'node:url'
 
@@ -119,15 +124,17 @@ router.put('/cms/blocks/:blockKey', authMiddleware, adminMiddleware, async (req,
       throw new AppError('missing_content', 'Block content is required', 400)
     }
 
+    const cleanContent = sanitizeCmsContent(content)
+
     const updated = await prisma.cmsBlock.upsert({
       where: { blockKey },
       update: {
-        content: content as any,
+        content: cleanContent as any,
         updatedBy: req.user!.id,
       },
       create: {
         blockKey,
-        content: content as any,
+        content: cleanContent as any,
         updatedBy: req.user!.id,
       },
     })
@@ -142,7 +149,7 @@ router.put('/cms/blocks/:blockKey', authMiddleware, adminMiddleware, async (req,
     pubsub
       .publish('cms.update', {
         blockKey,
-        content,
+        content: cleanContent,
         updatedBy: req.user!.name,
         timestamp: new Date().toISOString(),
       })
@@ -177,7 +184,35 @@ router.post('/cms/upload-asset', authMiddleware, adminMiddleware, (req, res, nex
         throw new AppError('no_file', 'No file was uploaded', 400)
       }
 
-      // Enforce dynamic system upload size limit from Settings if configured
+      // 1. Verify Magic Bytes against claimed extension to prevent MIME confusion / masquerading
+      const rawExt = path.extname(req.file.originalname).toLowerCase()
+      const fileHandle = await fs.open(req.file.path, 'r')
+      const headerBuf = Buffer.alloc(Math.min(req.file.size, 4096))
+      await fileHandle.read(headerBuf, 0, headerBuf.length, 0)
+      await fileHandle.close()
+
+      if (!validateImageMagicBytes(headerBuf, rawExt)) {
+        await fs.unlink(req.file.path).catch(() => {})
+        throw new AppError('invalid_image_data', 'File binary signature does not match the specified image format', 415)
+      }
+
+      // 2. Scan SVG files for Stored XSS vectors (script tags, event handlers, XXE entities)
+      if (rawExt === '.svg' || req.file.mimetype === 'image/svg+xml') {
+        const fullContent = await fs.readFile(req.file.path, 'utf8')
+        const scan = isUnsafeSvgContent(fullContent)
+        if (scan.unsafe) {
+          await fs.unlink(req.file.path).catch(() => {})
+          auditService.log({
+            userId: req.user!.id,
+            action: 'SECURITY:BLOCKED_UNSAFE_SVG',
+            resourceType: 'cms_asset',
+            resourceId: req.file.filename,
+          })
+          throw new AppError('unsafe_svg_payload', `Security violation: ${scan.reason}`, 400)
+        }
+      }
+
+      // 3. Enforce dynamic system upload size limit from Settings if configured
       const configRow = await prisma.systemConfig.findUnique({
         where: { configKey: 'maxUploadSizeBytes' },
       })

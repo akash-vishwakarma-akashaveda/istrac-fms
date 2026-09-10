@@ -2,6 +2,7 @@ import { ArrowRight, LayoutDashboard } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useCms, DEFAULT_CMS_BLOCKS } from '../context/cmsContext'
 import { useAuthStore } from '../store/authStore'
+import { safeHref } from '../lib/sanitize'
 import { Button } from '.'
 
 interface BannerContent {
@@ -21,7 +22,8 @@ export function Banner() {
 
   if (banner?.visible === false) return null
 
-  const targetHref = user ? (user.role === 'ADMIN' ? '/admin' : '/dashboard') : (banner.ctaHref ?? '/register')
+  const rawTargetHref = user ? (user.role === 'ADMIN' ? '/admin' : '/dashboard') : (banner.ctaHref ?? '/register')
+  const targetHref = safeHref(rawTargetHref, '/register')
   const buttonLabel = user ? 'Go To Dashboard' : (banner.ctaText ?? 'Deploy Workstation')
 
   return (

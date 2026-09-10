@@ -40,27 +40,35 @@ export function sanitizeFilename(name: string): string {
  */
 export function isSafeUrl(url: string | null | undefined): boolean {
   if (!url) return false
-  const trimmed = url.trim().toLowerCase()
+  // Strip control characters, null bytes, and non-printable chars
+  const cleaned = url.replace(/[\x00-\x1f\x7f]/g, '').trim()
+  const lower = cleaned.toLowerCase()
 
-  // Disallow javascript:, vbscript:, data:, and file: schemes
+  // Disallow dangerous schemes: javascript:, vbscript:, data:, file:, blob:
   if (
-    trimmed.startsWith('javascript:') ||
-    trimmed.startsWith('vbscript:') ||
-    trimmed.startsWith('data:') ||
-    trimmed.startsWith('file:')
+    lower.startsWith('javascript:') ||
+    lower.startsWith('vbscript:') ||
+    lower.startsWith('data:') ||
+    lower.startsWith('file:') ||
+    lower.startsWith('blob:')
   ) {
     return false
   }
 
-  // Relative URLs starting with '/' are safe
-  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
+  // Anchor links (#hero, #main, etc.) are safe
+  if (cleaned.startsWith('#')) {
     return true
   }
 
-  // Absolute HTTP/HTTPS/mailto URLs
+  // Relative URLs starting with '/' are safe (e.g. /media/..., /dashboard)
+  if (cleaned.startsWith('/') && !cleaned.startsWith('//')) {
+    return true
+  }
+
+  // Absolute HTTP/HTTPS/mailto/tel URLs
   try {
-    const parsed = new URL(url, window.location.origin)
-    return ['http:', 'https:', 'mailto:'].includes(parsed.protocol)
+    const parsed = new URL(cleaned, window.location.origin)
+    return ['http:', 'https:', 'mailto:', 'tel:'].includes(parsed.protocol)
   } catch {
     return false
   }

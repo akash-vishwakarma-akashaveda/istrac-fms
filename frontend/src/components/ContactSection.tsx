@@ -1,5 +1,6 @@
 import { ArrowUpRight, Mail, Phone, MapPin, Headphones } from "lucide-react"
 import { useCms, DEFAULT_CMS_BLOCKS } from "../context/cmsContext"
+import { safeHref } from "../lib/sanitize"
 
 interface ContactBlockContent {
   sectionEyebrow?: string
@@ -91,7 +92,7 @@ export function ContactSection() {
           <div className="divide-y divide-border-subtle flex-1 flex flex-col justify-around">
             {email && (
               <a
-                href={`mailto:${email}`}
+                href={safeHref(`mailto:${email.trim().replace(/[\x00-\x1f\x7f]/g, '')}`, '#')}
                 className="group flex items-center gap-4 px-6 py-6 transition-colors duration-150 hover:bg-card-hover"
               >
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface border border-border-subtle text-accent-light shadow-inner">
@@ -114,7 +115,7 @@ export function ContactSection() {
 
             {phone && (
               <a
-                href={`tel:${phone}`}
+                href={safeHref(`tel:${phone.trim().replace(/[\x00-\x1f\x7f]/g, '')}`, '#')}
                 className="group flex items-center gap-4 px-6 py-6 transition-colors duration-150 hover:bg-card-hover"
               >
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface border border-border-subtle text-nominal shadow-inner">

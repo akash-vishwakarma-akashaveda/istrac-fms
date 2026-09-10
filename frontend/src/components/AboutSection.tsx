@@ -3,6 +3,7 @@ import { ArrowUpRight, Check, Compass, Radio, Maximize2 } from 'lucide-react'
 import { useCms, DEFAULT_CMS_BLOCKS } from '../context/cmsContext'
 import { ImageWithFallback } from './ImageWithFallback'
 import { ImageLightboxModal } from './ImageLightboxModal'
+import { safeHref } from '../lib/sanitize'
 
 export function AboutSection() {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
@@ -185,7 +186,7 @@ export function AboutSection() {
 
           <a
             className="group mt-8 inline-flex items-center gap-2 text-sm font-semibold text-accent-light transition-colors hover:text-text-primary"
-            href={ctaHref}
+            href={safeHref(ctaHref, '#')}
           >
             <span>{ctaText}</span>
             <ArrowUpRight

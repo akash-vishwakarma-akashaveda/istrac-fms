@@ -15,6 +15,7 @@
   import { hddService } from '../services/hdd.service.js'
   import { auditService } from '../services/audit.service.js'
   import { AppError } from '../lib/errors.js'
+  import { sanitizeSafeFilename } from '../lib/security.js'
   import express from 'express'
   const router = Router()
   router.use('/files', express.json({ limit: '50mb' }))
@@ -410,9 +411,10 @@
           throw new AppError('missing_chunk_params', 'fileName, chunkIndex, departmentId required', 400)
         }
 
-        const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const safeName = sanitizeSafeFilename(path.basename(fileName))
+        const safeDeptId = String(departmentId).replace(/[^a-zA-Z0-9_-]/g, '_')
     
-        const chunksDir = path.join(os.tmpdir(), 'istrac-chunks', `${departmentId}_${safeName}`)
+        const chunksDir = path.join(os.tmpdir(), 'istrac-chunks', `${safeDeptId}_${safeName}`)
         await fs.mkdir(chunksDir, { recursive: true })
 
         const chunkPath = path.join(chunksDir, `part_${String(chunkIndex).padStart(5, '0')}`)
@@ -456,23 +458,9 @@
           throw new AppError('invalid_chunk_count', 'totalChunks must be between 1 and 1000', 400)
         }
 
-        const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
-        const chunksDir = path.join(os.tmpdir(), 'istrac-chunks', `${departmentId}_${safeName}`)
-
-        // // Concatenate all chunks
-
-        // const chunkBuffers: Buffer[] = []
-        // for (let i = 0; i < totalChunksNum; i++) {
-        //   const chunkPath = path.join(chunksDir, `part_${String(i).padStart(5, '0')}`)
-        //   try {
-        //     const buf = await fs.readFile(chunkPath)
-        //     chunkBuffers.push(buf)
-        //   } catch {
-        //     throw new AppError('missing_chunk_file', `Chunk ${i} is missing on server`, 400)
-        //   }
-        // }
-
-        // const fullBuffer = Buffer.concat(chunkBuffers)
+        const safeName = sanitizeSafeFilename(path.basename(fileName))
+        const safeDeptId = String(departmentId).replace(/[^a-zA-Z0-9_-]/g, '_')
+        const chunksDir = path.join(os.tmpdir(), 'istrac-chunks', `${safeDeptId}_${safeName}`)
 
       // Temporary file used to assemble the upload.
       const assembledDir = path.join(
@@ -482,7 +470,7 @@
 
       assembledPath = path.join(
         assembledDir,
-        `${departmentId}_${safeName}_${Date.now()}.uploading`,
+        `${safeDeptId}_${safeName}_${Date.now()}.uploading`,
       )
 
       // --------------------------------------------------------
@@ -647,8 +635,16 @@
 
         const stream = await hddService.streamFile(filePath)
 
+        const cleanName = downloadName.replace(/[\x00-\x1f\x7f"\\]/g, '_').trim() || 'download'
+        const safeAscii = cleanName.replace(/[^\x20-\x7E]/g, '_')
+
         res.setHeader('Content-Type', mimeType)
-        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(downloadName)}"`)
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="${safeAscii}"; filename*=UTF-8''${encodeURIComponent(cleanName)}`
+        )
+        res.setHeader('X-Content-Type-Options', 'nosniff')
+        res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox")
         res.setHeader('Cache-Control', 'private, max-age=3600')
         if (sizeBytes) {
           res.setHeader('Content-Length', sizeBytes.toString())
@@ -825,6 +821,22 @@
           throw new AppError('missing_file', 'No file uploaded in form-data', 400)
         }
 
+        // Validate file size against dynamic systemConfig limit
+        const configRow = await prisma.systemConfig.findUnique({
+          where: { configKey: 'maxUploadSizeBytes' },
+        })
+        const maxBytes = configRow
+          ? Number(JSON.parse(configRow.configValue))
+          : 524288000 // default 500MB
+        if (req.file.size > maxBytes) {
+          const limitMb = Math.round(maxBytes / (1024 * 1024))
+          throw new AppError(
+            'file_too_large',
+            `Uploaded file (${(req.file.size / (1024 * 1024)).toFixed(1)} MB) exceeds configured system limit of ${limitMb} MB`,
+            413,
+          )
+        }
+
         const rawId = req.params.fileId
         const fileId = Array.isArray(rawId) ? rawId[0] : rawId
 
@@ -989,8 +1001,16 @@
         const stream = await hddService.streamFile(version.hddPath)
         const downloadName = version.name || version.file.name
 
+        const cleanName = downloadName.replace(/[\x00-\x1f\x7f"\\]/g, '_').trim() || 'download'
+        const safeAscii = cleanName.replace(/[^\x20-\x7E]/g, '_')
+
         res.setHeader('Content-Type', version.mimeType || version.file.mimeType || 'application/octet-stream')
-        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(downloadName)}"`)
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="${safeAscii}"; filename*=UTF-8''${encodeURIComponent(cleanName)}`
+        )
+        res.setHeader('X-Content-Type-Options', 'nosniff')
+        res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox")
         res.setHeader('Cache-Control', 'private, max-age=3600')
         if (version.sizeBytes) {
           res.setHeader('Content-Length', version.sizeBytes.toString())
@@ -1034,9 +1054,17 @@
         throw new AppError('folder_creation_disabled', 'Folder creation is disabled for members in this department', 403)
       }
 
-      const safeName = name.replace(/[^a-zA-Z0-9._-]/g, '_')
-      const deptFolder = dept.code || (dept.hddPath ? path.basename(dept.hddPath) : 'GENERAL')
-      const folderPath = path.join(path.resolve(env.HDD_MOUNT_PATH), deptFolder, safeName)
+      const safeName = sanitizeSafeFilename(path.basename(name))
+      if (!safeName || safeName === 'unnamed_file') {
+        throw new AppError('invalid_folder_name', 'A valid folder name is required', 400)
+      }
+      const deptFolder = (dept.code || (dept.hddPath ? path.basename(dept.hddPath) : 'GENERAL')).replace(/[^a-zA-Z0-9_-]/g, '_')
+      const baseMount = path.resolve(env.HDD_MOUNT_PATH)
+      const folderPath = path.join(baseMount, deptFolder, safeName)
+
+      if (!path.resolve(folderPath).startsWith(baseMount)) {
+        throw new AppError('path_traversal_denied', 'Invalid folder path', 403)
+      }
 
       await fs.mkdir(folderPath, { recursive: true })
 

@@ -1,4 +1,5 @@
 import * as path from 'node:path'
+import * as fs from 'node:fs/promises'
 import { prisma } from '../config/db.js'
 import { env } from '../config/env.js'
 import { hddService } from './hdd.service.js'
@@ -7,6 +8,7 @@ import { notificationService } from './notification.service.js'
 import { AppError } from '../lib/errors.js'
 import { createReadStream, createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
+import { isUnsafeSvgContent, sanitizeSafeFilename } from '../lib/security.js'
 
 export function incrementVersionLabel(currentLabel?: string | null, versionNum = 1): string {
   if (!currentLabel) return `V${versionNum}.0`
@@ -99,6 +101,20 @@ if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
   throw new AppError('unsupported_file_type', `File type .${ext} is not permitted. Contact your administrator to add support for this format.`, 415)
 }
 
+// D2: Scan SVG files for Stored XSS / XXE payload
+if (ext === 'svg') {
+  let svgContent = ''
+  if (params.fileBuffer) {
+    svgContent = params.fileBuffer.toString('utf8')
+  } else if (params.filePath) {
+    svgContent = await fs.readFile(params.filePath, 'utf8')
+  }
+  const scan = isUnsafeSvgContent(svgContent)
+  if (scan.unsafe) {
+    throw new AppError('unsafe_svg_payload', `SVG upload rejected: ${scan.reason}`, 400)
+  }
+}
+
     // 1. Validate department
     
     const dept = await prisma.department.findFirst({
@@ -121,17 +137,24 @@ if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
     }
 
     // 3. Build physical destination path in hierarchy: Mount / Department / Spacecraft / Folder / File
-    const sanitizedFilename = params.originalName.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const rawFilename = path.basename(params.originalName)
+    const sanitizedFilename = sanitizeSafeFilename(rawFilename)
     const satFolder = (params.spacecraft || 'GENERAL').replace(/[^a-zA-Z0-9_-]/g, '_')
-    const deptFolder = dept.code || (dept.hddPath ? path.basename(dept.hddPath) : 'GENERAL')
+    const deptFolder = (dept.code || (dept.hddPath ? path.basename(dept.hddPath) : 'GENERAL')).replace(/[^a-zA-Z0-9_-]/g, '_')
+    const cleanParentPath = parentPath ? sanitizeSafeFilename(path.basename(parentPath)) : ''
     const storageConfig = await prisma.systemConfig.findFirst({
       where: { configKey: { in: ['STORAGE_PRIMARY_PATH', 'STORAGE_MOUNT_PATH'] } },
     })
     const baseMount = storageConfig?.configValue
       ? path.resolve(storageConfig.configValue)
       : path.resolve(env.HDD_MOUNT_PATH)
-    const destDir = path.join(baseMount, deptFolder, satFolder, parentPath)
+    const destDir = path.join(baseMount, deptFolder, satFolder, cleanParentPath)
     const destPath = path.join(destDir, sanitizedFilename)
+
+    // Security check: ensure path never escapes baseMount
+    if (!path.resolve(destPath).startsWith(baseMount)) {
+      throw new AppError('path_traversal_denied', 'Path traversal attempt detected', 403)
+    }
 
     // Check if an active file already exists at this path OR if targetFileId was passed
     let existingFile = null
@@ -171,6 +194,10 @@ if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
     const versionedPath = existingFile
       ? path.join(targetDir, `.v${versionNum}_${sanitizedFilename}`)
       : destPath
+
+    if (!path.resolve(versionedPath).startsWith(baseMount)) {
+      throw new AppError('path_traversal_denied', 'Path traversal attempt detected in version path', 403)
+    }
 
     // 4. Write to physical storage
     if (params.filePath) {

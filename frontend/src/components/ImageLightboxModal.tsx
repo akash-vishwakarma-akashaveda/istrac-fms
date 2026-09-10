@@ -11,7 +11,7 @@ import {
   Image as ImageIcon,
   RefreshCw,
 } from "lucide-react"
-import { isSafeUrl } from "../lib/sanitize"
+import { isSafeUrl, safeHref } from "../lib/sanitize"
 
 export interface LightboxImage {
   url: string
@@ -278,7 +278,7 @@ export function ImageLightboxModal({
           {/* Open in New Tab */}
           {activeSrc && (
             <a
-              href={activeSrc}
+              href={safeHref(activeSrc, '#')}
               target="_blank"
               rel="noopener noreferrer"
               className="p-2 rounded-lg border border-white/10 bg-white/5 text-text-muted hover:text-white hover:border-white/25 transition-all"

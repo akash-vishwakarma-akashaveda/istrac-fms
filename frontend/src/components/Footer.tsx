@@ -1,6 +1,7 @@
 import { ArrowUp, Radio, ShieldCheck } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useCms } from "../context/cmsContext"
+import { safeHref } from "../lib/sanitize"
 
 interface FooterBlockContent {
   brandTitle?: string
@@ -83,7 +84,8 @@ export function Footer() {
           {/* Clean Functional Links */}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-text-muted">
             {linksList.map((label) => {
-              const href = linkHrefMap[label] || `/#${label.toLowerCase()}`
+              const rawHref = linkHrefMap[label] || `/#${label.toLowerCase().trim()}`
+              const href = safeHref(rawHref, '#')
               const isInternalRoute = href.startsWith("/")
               if (isInternalRoute) {
                 return (

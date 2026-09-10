@@ -86,6 +86,8 @@ app.use('/media', express.static(CMS_PUBLIC_DIR, {
   setHeaders(res) {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
     res.setHeader('Cache-Control', 'public, max-age=604800')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox")
   },
 }))
 app.use('/api/media', express.static(CMS_PUBLIC_DIR, {
@@ -94,6 +96,8 @@ app.use('/api/media', express.static(CMS_PUBLIC_DIR, {
   setHeaders(res) {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
     res.setHeader('Cache-Control', 'public, max-age=604800')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox")
   },
 }))
 
