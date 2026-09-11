@@ -74,62 +74,62 @@ export function QuickStatsBanner() {
   return (
     <div className="border-b border-border-subtle/80 bg-[#060b17]/70 py-6 relative overflow-hidden">
       <div className="shell">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 divide-y sm:divide-y-0 sm:divide-x divide-border-subtle/60">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 lg:gap-5">
           {/* Stat 1 */}
-          <div className="flex items-center gap-3.5 pt-4 sm:pt-0 sm:px-4 first:pl-0">
+          <div className="flex items-center gap-3.5 rounded-xl border border-border-subtle/40 bg-[#070e1c]/50 p-3.5 sm:p-4 hover:border-accent/40 transition-colors">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/15 border border-accent/30 text-accent-light">
               <Icon1 size={20} />
             </div>
-            <div>
-              <span className="num text-xl sm:text-2xl font-black text-white block leading-tight">
+            <div className="min-w-0">
+              <span className="num text-xl sm:text-2xl font-black text-white block leading-tight truncate">
                 {stat1Val}
               </span>
-              <span className="text-[11px] text-text-dim block uppercase font-bold tracking-wider">
+              <span className="text-[11px] text-text-dim block uppercase font-bold tracking-wider truncate">
                 {stats?.stat1Label || 'Global Ground Network'}
               </span>
             </div>
           </div>
 
           {/* Stat 2 */}
-          <div className="flex items-center gap-3.5 pt-4 sm:pt-0 sm:px-4">
+          <div className="flex items-center gap-3.5 rounded-xl border border-border-subtle/40 bg-[#070e1c]/50 p-3.5 sm:p-4 hover:border-nominal/40 transition-colors">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-nominal/15 border border-nominal/30 text-nominal">
               <Icon2 size={20} className={stats?.stat2Icon ? undefined : 'animate-pulse'} />
             </div>
-            <div>
-              <span className="num text-xl sm:text-2xl font-black text-white block leading-tight">
+            <div className="min-w-0">
+              <span className="num text-xl sm:text-2xl font-black text-white block leading-tight truncate">
                 {stat2Val}
               </span>
-              <span className="text-[11px] text-text-dim block uppercase font-bold tracking-wider">
+              <span className="text-[11px] text-text-dim block uppercase font-bold tracking-wider truncate">
                 {stats?.stat2Label || 'Deep Space & LEO'}
               </span>
             </div>
           </div>
 
           {/* Stat 3 */}
-          <div className="flex items-center gap-3.5 pt-4 sm:pt-0 sm:px-4">
+          <div className="flex items-center gap-3.5 rounded-xl border border-border-subtle/40 bg-[#070e1c]/50 p-3.5 sm:p-4 hover:border-purple-500/40 transition-colors">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400">
               <Icon3 size={20} />
             </div>
-            <div>
-              <span className="num text-xl sm:text-2xl font-black text-white block leading-tight">
+            <div className="min-w-0">
+              <span className="num text-xl sm:text-2xl font-black text-white block leading-tight truncate">
                 {stat3Val}
               </span>
-              <span className="text-[11px] text-text-dim block uppercase font-bold tracking-wider">
+              <span className="text-[11px] text-text-dim block uppercase font-bold tracking-wider truncate">
                 {stats?.stat3Label || 'Continuous Telemetry'}
               </span>
             </div>
           </div>
 
           {/* Stat 4 */}
-          <div className="flex items-center gap-3.5 pt-4 sm:pt-0 sm:px-4 last:pr-0">
+          <div className="flex items-center gap-3.5 rounded-xl border border-border-subtle/40 bg-[#070e1c]/50 p-3.5 sm:p-4 hover:border-yellow-500/40 transition-colors">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-yellow-500/15 border border-yellow-500/30 text-yellow-400">
               <Icon4 size={20} />
             </div>
-            <div>
-              <span className="num text-xl sm:text-2xl font-black text-white block leading-tight">
+            <div className="min-w-0">
+              <span className="num text-xl sm:text-2xl font-black text-white block leading-tight truncate">
                 {stat4Val}
               </span>
-              <span className="text-[11px] text-text-dim block uppercase font-bold tracking-wider">
+              <span className="text-[11px] text-text-dim block uppercase font-bold tracking-wider truncate">
                 {stats?.stat4Label || 'Cryptographic Integrity'}
               </span>
             </div>

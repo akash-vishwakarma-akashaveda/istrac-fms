@@ -31,7 +31,7 @@ import { AdminFileManager } from "./pages/AdminFileManager"
 import { UserHome } from "./pages/UserHome"
 import { UserEvents } from "./pages/UserEvents"
 import { DeptFileBrowser } from "./pages/DeptFileBrowser"
-import { DevIndex } from "./pages/DevIndex"
+
 import { SearchPage } from "./pages/SearchPage"
 import { Landing } from "./pages/Landing"
 import { NotificationsPage } from "./pages/NotificationsPage"
@@ -70,7 +70,7 @@ export default function App() {
         <ToastContainer />
         <AuthModal />
         <Routes>
-          <Route path="/dev" element={<DevIndex />} />
+          
 
           {/* Public routes */}
           <Route element={<PublicLayout />}>

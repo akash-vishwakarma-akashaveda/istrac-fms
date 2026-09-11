@@ -134,7 +134,7 @@ export function AdminFileManager() {
     title: '',
     description: '',
     spacecraft: '',
-    category: 'DAILY_REPORT',
+    category: '',
     classificationLevel: 'RESTRICTED',
     broadcastAlert: false,
     broadcastMessage: '',
@@ -143,7 +143,7 @@ export function AdminFileManager() {
 
   // Quick Broadcast Form State
   const [broadcastMessage, setBroadcastMessage] = useState('')
-  const [broadcastUrgency, setBroadcastUrgency] = useState('NORMAL')
+  const [broadcastUrgency, setBroadcastUrgency] = useState('')
   const [broadcasting, setBroadcasting] = useState(false)
 
   // Delete Action State
@@ -227,7 +227,7 @@ export function AdminFileManager() {
       title: file.report?.title || file.name,
       description: file.description || '',
       spacecraft: file.report?.spacecraft || file.department?.satellite?.name || '',
-      category: file.report?.category || 'DAILY_REPORT',
+      category: file.report?.category || '',
       classificationLevel: file.report?.classificationLevel || 'RESTRICTED',
       broadcastAlert: false,
       broadcastMessage: `[UPDATE] Telemetry dataset ${file.name} modified in /${file.department?.code || 'OPS'}.`,
@@ -271,6 +271,15 @@ export function AdminFileManager() {
   const handleQuickBroadcast = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!broadcastingFile) return
+
+    if (!broadcastUrgency) {
+      addToast({
+        title: 'Validation Required',
+        message: 'Please select an urgency level for the broadcast bulletin',
+        variant: 'warning',
+      })
+      return
+    }
 
     setBroadcasting(true)
     try {
@@ -878,6 +887,7 @@ export function AdminFileManager() {
                             type="button"
                             onClick={() => {
                               setBroadcastingFile(file)
+                              setBroadcastUrgency('')
                               setBroadcastMessage(
                                 `[NOTICE] Spacecraft telemetry archive ${file.name} updated in /${file.department?.code || 'TTC'}.`
                               )
@@ -1028,13 +1038,15 @@ export function AdminFileManager() {
 
           <div>
             <label className="block text-xs font-semibold text-text-primary mb-1">
-              Urgency Level
+              Urgency Level *
             </label>
             <select
               value={broadcastUrgency}
               onChange={(e) => setBroadcastUrgency(e.target.value)}
               className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
+              required
             >
+              <option value="">-- Select Urgency Level * --</option>
               <option value="NORMAL">NORMAL BULLETIN</option>
               <option value="IMPORTANT">IMPORTANT NOTICE (Saffron Alert)</option>
               <option value="CRITICAL">CRITICAL / ANOMALY (Red Alert)</option>
@@ -1148,8 +1160,8 @@ export function AdminFileManager() {
           name: uploadVersionFile.name,
           departmentId: uploadVersionFile.department?.id,
           departmentName: uploadVersionFile.department?.name,
-          spacecraft: uploadVersionFile.report?.spacecraft || uploadVersionFile.department?.satellite?.name || 'General',
-          category: uploadVersionFile.report?.category || 'DAILY_REPORT',
+          spacecraft: uploadVersionFile.report?.spacecraft || uploadVersionFile.department?.satellite?.name || '',
+          category: uploadVersionFile.report?.category || '',
           title: uploadVersionFile.report?.title || uploadVersionFile.name,
           description: uploadVersionFile.description || '',
           versionCount: uploadVersionFile.versionCount,

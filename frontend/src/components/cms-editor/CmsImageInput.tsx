@@ -25,7 +25,7 @@ function isSafeUrl(url: string) {
   return /^(https?:\/\/|\/|blob:)/i.test(trimmed)
 }
 
-function getResolvedMediaUrl(url: string): string {
+export function getResolvedMediaUrl(url?: string): string {
   if (!url) return ''
   const trimmed = url.trim()
   if (!trimmed) return ''

@@ -208,10 +208,10 @@ export function Navbar() {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <div className="hidden h-full items-center gap-1 md:flex">
+          <div className="hidden h-full items-center gap-0.5 lg:gap-1 md:flex">
             <a
               href="/#hero"
-              className="eyebrow flex h-full items-center px-3.5 text-text-muted transition-colors hover:text-text-primary"
+              className="eyebrow flex h-full items-center px-2 lg:px-3.5 text-text-muted transition-colors hover:text-text-primary"
             >
               {homeLabel}
             </a>
@@ -225,7 +225,7 @@ export function Navbar() {
                 type="button"
                 onClick={() => setDeptOpen((prev) => !prev)}
                 onMouseEnter={() => setDeptOpen(true)}
-                className="eyebrow flex h-full items-center gap-1 px-3.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+                className="eyebrow flex h-full items-center gap-1 px-2 lg:px-3.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
               >
                 <span>{departmentsLabel}</span>
                 <ChevronDown
@@ -285,37 +285,38 @@ export function Navbar() {
 
             <a
               href="/#calendar"
-              className="eyebrow flex h-full items-center px-3.5 text-text-muted transition-colors hover:text-text-primary"
+              className="eyebrow flex h-full items-center px-2 lg:px-3.5 text-text-muted transition-colors hover:text-text-primary"
             >
               {calendarLabel}
             </a>
 
             <a
               href="/#about"
-              className="eyebrow flex h-full items-center px-3.5 text-text-muted transition-colors hover:text-text-primary"
+              className="eyebrow flex h-full items-center px-2 lg:px-3.5 text-text-muted transition-colors hover:text-text-primary"
             >
               {aboutLabel}
             </a>
 
             <a
               href="/#contact"
-              className="eyebrow flex h-full items-center px-3.5 text-text-muted transition-colors hover:text-text-primary"
+              className="eyebrow flex h-full items-center px-2 lg:px-3.5 text-text-muted transition-colors hover:text-text-primary"
             >
               {contactLabel}
             </a>
           </div>
 
           {/* Desktop Right Actions */}
-          <div className="hidden items-center gap-3 md:flex">
+          <div className="hidden items-center gap-2 lg:gap-3 md:flex">
             {showSearchButton && (
               <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
-                className="flex items-center gap-2 rounded-xl border border-[#1a2336] bg-[#02050f] px-3 py-1.5 text-xs text-text-muted hover:border-accent/50 hover:text-text-primary transition-all cursor-pointer shadow-inner"
+                className="flex items-center gap-1.5 lg:gap-2 rounded-xl border border-[#1a2336] bg-[#02050f] px-2.5 lg:px-3 py-1.5 text-xs text-text-muted hover:border-accent/50 hover:text-text-primary transition-all cursor-pointer shadow-inner"
               >
                 <Search size={13} className="text-accent-light" />
-                <span>Search Repository</span>
-                <kbd className="num rounded bg-[#090f1d] px-1.5 py-0.5 text-[10px] text-text-dim border border-[#1e293b] font-mono">
+                <span className="hidden lg:inline">Search Repository</span>
+                <span className="lg:hidden">Search</span>
+                <kbd className="num hidden xl:inline-block rounded bg-[#090f1d] px-1.5 py-0.5 text-[10px] text-text-dim border border-[#1e293b] font-mono">
                   Ctrl K
                 </kbd>
               </button>

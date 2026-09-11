@@ -127,7 +127,7 @@ export function UploadVersionModal({
   // Form State
   const [selectedSat, setSelectedSat] = useState<string>('')
   const [selectedDept, setSelectedDept] = useState<string>('')
-  const [selectedCategoryCode, setSelectedCategoryCode] = useState<string>('DAILYOPS')
+  const [selectedCategoryCode, setSelectedCategoryCode] = useState<string>('')
   const [reportTitle, setReportTitle] = useState<string>('')
   const [reportDate, setReportDate] = useState<string>(new Date().toISOString().split('T')[0])
   const [version, setVersion] = useState<string>('V1.0')
@@ -177,8 +177,7 @@ export function UploadVersionModal({
       if (matchedSat) {
         setSelectedSat(matchedSat.id)
       } else {
-        const generalSat = satellites.find((s) => s.code === 'GENERAL')
-        setSelectedSat(generalSat ? generalSat.id : satellites[0]?.id || '')
+        setSelectedSat('')
       }
 
       // Department matching
@@ -186,8 +185,8 @@ export function UploadVersionModal({
         setSelectedDept(file.departmentId)
       } else if (defaultDeptId) {
         setSelectedDept(defaultDeptId)
-      } else if (departments[0]?.id) {
-        setSelectedDept(departments[0].id)
+      } else {
+        setSelectedDept('')
       }
 
       // Category matching
@@ -198,8 +197,10 @@ export function UploadVersionModal({
         if (matchedCat) {
           setSelectedCategoryCode(matchedCat.code)
         } else {
-          setSelectedCategoryCode(categories[0]?.code || 'DAILYOPS')
+          setSelectedCategoryCode('')
         }
+      } else {
+        setSelectedCategoryCode('')
       }
 
       // Title & Description
@@ -213,15 +214,10 @@ export function UploadVersionModal({
       setChangeLog('')
       setIsVisible(true)
     } else {
-      // New file mode
-      const generalSat = satellites.find((s) => s.code === 'GENERAL')
-      setSelectedSat(generalSat ? generalSat.id : satellites[0]?.id || '')
-      if (defaultDeptId) {
-        setSelectedDept(defaultDeptId)
-      } else if (departments[0]?.id) {
-        setSelectedDept(departments[0].id)
-      }
-      setSelectedCategoryCode(categories[0]?.code || 'DAILYOPS')
+      // New file mode: do not select any option by default
+      setSelectedSat('')
+      setSelectedDept(defaultDeptId || '')
+      setSelectedCategoryCode('')
       setReportTitle('')
       setVersion('V1.0')
       setDescription('')
@@ -395,8 +391,16 @@ export function UploadVersionModal({
       addToast({ title: 'Validation', message: 'Please select a file to upload', variant: 'warning' })
       return
     }
+    if (!selectedSat) {
+      addToast({ title: 'Validation', message: 'Please select a spacecraft / satellite', variant: 'warning' })
+      return
+    }
     if (!selectedDept) {
       addToast({ title: 'Validation', message: 'Please select a destination department', variant: 'warning' })
+      return
+    }
+    if (!selectedCategoryCode) {
+      addToast({ title: 'Validation', message: 'Please select a report category', variant: 'warning' })
       return
     }
 
@@ -545,6 +549,7 @@ export function UploadVersionModal({
                           onChange={(e) => setSelectedSat(e.target.value)}
                           required
                         >
+                          <option value="">-- Select Spacecraft / Satellite * --</option>
                           {satellites
                             .slice()
                             .sort((a, b) => (a.code === 'GENERAL' ? -1 : b.code === 'GENERAL' ? 1 : a.name.localeCompare(b.name)))
@@ -566,6 +571,7 @@ export function UploadVersionModal({
                           onChange={(e) => setSelectedDept(e.target.value)}
                           required
                         >
+                          <option value="">-- Select Operational Division * --</option>
                           {departments.map((d) => (
                             <option key={d.id} value={d.id}>
                               {d.name}
@@ -601,7 +607,9 @@ export function UploadVersionModal({
                             setSelectedCategoryCode(e.target.value)
                           }
                         }}
+                        required
                       >
+                        <option value="">-- Select Report Category * --</option>
                         {categories
                           .slice()
                           .sort((a, b) => (a.code === 'GENERAL' ? -1 : b.code === 'GENERAL' ? 1 : a.name.localeCompare(b.name)))

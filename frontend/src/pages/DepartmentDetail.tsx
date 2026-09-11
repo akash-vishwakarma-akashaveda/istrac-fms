@@ -59,6 +59,7 @@ import { ImageWithFallback } from '../components/ImageWithFallback'
 import { formatFileSize } from '../lib/formatFileSize'
 import type { FileNode } from '../types/file'
 import { isSafeUrl } from '../lib/sanitize'
+import { CmsImageInput } from '../components/cms-editor/CmsImageInput'
 
 const EXT_CONFIG: Record<string, { label: string; badge: string; icon: typeof FileText }> = {
   BIN: { label: 'BIN', badge: 'bg-accent/15 text-accent-light border-accent/30', icon: FileCode },
@@ -1785,9 +1786,9 @@ export function DepartmentDetail() {
                 Hero Telemetry Carousel is disabled for this division. The overview section will span full width (12 columns).
               </div>
             ) : (
-              <div className="space-y-3 max-h-56 overflow-y-auto p-2.5 rounded-xl border border-border-default bg-[#060c18]">
+              <div className="space-y-3 max-h-72 sm:max-h-80 overflow-y-auto p-2.5 rounded-xl border border-border-default bg-[#060c18]">
                 {editForm.slides.map((slide, idx) => (
-                  <div key={idx} className="p-2.5 rounded-lg border border-border-subtle bg-surface space-y-2">
+                  <div key={idx} className="p-3 rounded-lg border border-border-subtle bg-surface space-y-2.5">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold uppercase num text-accent-light flex items-center gap-1.5">
                         <span className="h-1.5 w-1.5 rounded-full bg-accent" />
@@ -1797,7 +1798,7 @@ export function DepartmentDetail() {
                         <button
                           type="button"
                           onClick={() => handleRemoveSlide(idx)}
-                          className="text-critical hover:text-critical-hover p-0.5 transition-colors"
+                          className="text-critical hover:text-critical p-1 rounded hover:bg-critical/10 transition-colors"
                           title="Remove Slide"
                         >
                           <Trash2 size={12} />
@@ -1805,21 +1806,25 @@ export function DepartmentDetail() {
                       )}
                     </div>
 
-                    <input
-                      type="url"
+                    <CmsImageInput
+                      id={`dept-slide-url-${idx}`}
+                      label="Image URL *"
                       value={slide.url}
-                      onChange={(e) => handleUpdateSlide(idx, 'url', e.target.value)}
-                      placeholder="https://images.unsplash.com/... or image URL"
-                      className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-white outline-none focus:border-accent font-mono text-[11px]"
+                      onChange={(url) => handleUpdateSlide(idx, 'url', url)}
+                      placeholder="https://... or /media/cms-assets/..."
+                      hint="Paste a URL or click Browse to upload from your computer."
                     />
 
-                    <input
-                      type="text"
-                      value={slide.caption}
-                      onChange={(e) => handleUpdateSlide(idx, 'caption', e.target.value)}
-                      placeholder="Slide caption, e.g. 32-Meter Deep Space Antenna Dish"
-                      className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-white outline-none focus:border-accent text-[11px]"
-                    />
+                    <div>
+                      <label className="block text-[11px] font-medium text-text-dim mb-1">Slide Caption</label>
+                      <input
+                        type="text"
+                        value={slide.caption}
+                        onChange={(e) => handleUpdateSlide(idx, 'caption', e.target.value)}
+                        placeholder="Slide caption, e.g. 32-Meter Deep Space Antenna Dish"
+                        className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-white outline-none focus:border-accent text-[11px]"
+                      />
+                    </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
                       <div className="space-y-1">

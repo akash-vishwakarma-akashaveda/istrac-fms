@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Satellite, Building, Radio } from 'lucide-react'
+import { getResolvedMediaUrl } from './cms-editor/CmsImageInput'
 
 interface ImageWithFallbackProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   fallbackLabel?: string
@@ -23,9 +24,10 @@ export function ImageWithFallback({
   const [hasError, setHasError] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const imgRef = useRef<HTMLImageElement | null>(null)
+  const resolvedSrc = getResolvedMediaUrl(src)
 
   useEffect(() => {
-    if (!src) {
+    if (!resolvedSrc) {
       setHasError(true)
       setIsLoading(false)
       return
@@ -36,7 +38,7 @@ export function ImageWithFallback({
 
     // Check if the image is already in browser cache
     const testImg = new window.Image()
-    testImg.src = src
+    testImg.src = resolvedSrc
 
     if (testImg.complete) {
       if (testImg.naturalWidth > 0) {
@@ -114,7 +116,7 @@ export function ImageWithFallback({
       )}
       <img
         ref={imgRef}
-        src={src}
+        src={resolvedSrc}
         alt={alt}
         loading="lazy"
         onLoad={() => setIsLoading(false)}

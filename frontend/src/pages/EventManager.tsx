@@ -101,13 +101,13 @@ export function EventManager() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    eventType: "MISSION_PASS",
+    eventType: "",
     satelliteId: "",
     departmentId: "",
     eventDate: "",
     endDate: "",
-    location: "ISTRAC MOX Bengaluru",
-    urgency: "NORMAL" as any,
+    location: "",
+    urgency: "" as any,
     status: "UPCOMING" as any,
     showOnBanner: true,
   })
@@ -127,6 +127,16 @@ export function EventManager() {
   const [deletingDropdownItem, setDeletingDropdownItem] = useState(false)
 
   const getCategoryMeta = (typeId: string) => {
+    if (!typeId) {
+      return {
+        id: "",
+        label: "Select Category",
+        icon: Sparkles,
+        color: "text-text-dim bg-surface border-border-default",
+        dot: "bg-text-dim",
+        bullet: "⚪",
+      }
+    }
     const cat = categories.find((c) => c.id === typeId)
     const defaults = DEFAULT_CATEGORY_MAP[typeId]
     if (defaults) {
@@ -309,13 +319,13 @@ export function EventManager() {
     setFormData({
       title: "",
       description: "",
-      eventType: categories[0]?.id || "MISSION_PASS",
+      eventType: "", // Do not select any category by default
       satelliteId: "",
       departmentId: "", // Explicitly empty: defaults to All-Facility (no hardcoded FDD)
       eventDate: formatISTForInput(new Date()),
       endDate: "",
-      location: locations[0] || "ISTRAC MOX Bengaluru",
-      urgency: "NORMAL",
+      location: "", // Do not select any location by default
+      urgency: "" as any, // Do not select any urgency by default
       status: "UPCOMING",
       showOnBanner: true,
     })
@@ -391,18 +401,18 @@ export function EventManager() {
         const updated = await eventsApi.deleteCategory(dropdownDeleteTarget.id)
         setCategories(updated)
         if (formData.eventType === dropdownDeleteTarget.id) {
-          setFormData((prev) => ({ ...prev, eventType: updated[0]?.id || "MISSION_PASS" }))
+          setFormData((prev) => ({ ...prev, eventType: "" }))
         }
         addToast({
           title: "Category Deleted",
           message: `Removed "${dropdownDeleteTarget.label}" from event categories`,
           variant: "info",
         })
-      } else {
+      } else if (dropdownDeleteTarget.type === "location") {
         const updated = await eventsApi.deleteLocation(dropdownDeleteTarget.id)
         setLocations(updated)
         if (formData.location === dropdownDeleteTarget.id) {
-          setFormData((prev) => ({ ...prev, location: updated[0] || "" }))
+          setFormData((prev) => ({ ...prev, location: "" }))
         }
         addToast({
           title: "Location Deleted",
@@ -413,7 +423,7 @@ export function EventManager() {
       setDropdownDeleteTarget(null)
     } catch (err: any) {
       addToast({
-        title: "Error",
+        title: "Delete Failed",
         message: err.response?.data?.error?.message || "Failed to delete item",
         variant: "error",
       })
@@ -426,6 +436,21 @@ export function EventManager() {
     e.preventDefault()
     if (!formData.title.trim() || !formData.eventDate) {
       addToast({ title: "Validation Error", message: "Title and Event Date are required", variant: "warning" })
+      return
+    }
+
+    if (!formData.eventType) {
+      addToast({ title: "Validation Error", message: "Please select an event category", variant: "warning" })
+      return
+    }
+
+    if (!formData.location) {
+      addToast({ title: "Validation Error", message: "Please select a station location", variant: "warning" })
+      return
+    }
+
+    if (!formData.urgency) {
+      addToast({ title: "Validation Error", message: "Please select an urgency priority", variant: "warning" })
       return
     }
 
@@ -788,7 +813,7 @@ export function EventManager() {
                   onChange={(e) => setFormData({ ...formData, satelliteId: e.target.value })}
                   className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-base sm:text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer transition-all min-h-[42px] sm:min-h-[38px]"
                 >
-                  <option value="">No Spacecraft (Ground Facility Pass)</option>
+                  <option value="">-- Select Spacecraft (or Ground Facility Pass) --</option>
                   {satellites.map((s) => {
                     const hasCode = s.code && s.name.toLowerCase().includes(s.code.toLowerCase())
                     const label = s.code && !hasCode ? `${s.name} (${s.code})` : s.name
@@ -811,7 +836,7 @@ export function EventManager() {
                   onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
                   className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-base sm:text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer transition-all min-h-[42px] sm:min-h-[38px]"
                 >
-                  <option value="">All-Facility / Multi-Division</option>
+                  <option value="">-- Select Operational Division (or All-Facility) --</option>
                   {departments?.map((d) => {
                     const label = d.code && !d.name.includes(`(${d.code})`) ? `${d.name} (${d.code})` : d.name
                     return (
@@ -879,13 +904,14 @@ export function EventManager() {
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-1.5">
+                    <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
                       <select
                         value={formData.eventType}
                         onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
                         className="flex-1 min-w-0 rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-base sm:text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer truncate transition-all min-h-[42px] sm:min-h-[38px]"
                       >
+                        <option value="">-- Select Category (Event Type) * --</option>
                         {categories.map((c) => {
                           const meta = getCategoryMeta(c.id)
                           return (
@@ -895,7 +921,7 @@ export function EventManager() {
                           )
                         })}
                       </select>
-                      {categories.length > 1 && (
+                      {formData.eventType && categories.length > 1 && (
                         <button
                           type="button"
                           onClick={() =>
@@ -914,13 +940,15 @@ export function EventManager() {
                     </div>
 
                     {/* Live Category Style Preview Badge */}
-                    <div className="flex items-center gap-2 px-1">
-                      <span className="text-[10px] uppercase font-bold text-text-dim">Preview:</span>
-                      <span className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-bold uppercase border ${getCategoryMeta(formData.eventType).color}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${getCategoryMeta(formData.eventType).dot}`} />
-                        <span>{getCategoryMeta(formData.eventType).label}</span>
-                      </span>
-                    </div>
+                    {formData.eventType ? (
+                      <div className="flex items-center gap-2 px-1">
+                        <span className="text-[10px] uppercase font-bold text-text-dim">Preview:</span>
+                        <span className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-bold uppercase border ${getCategoryMeta(formData.eventType).color}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${getCategoryMeta(formData.eventType).dot}`} />
+                          <span>{getCategoryMeta(formData.eventType).label}</span>
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -982,13 +1010,14 @@ export function EventManager() {
                       onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                       className="flex-1 min-w-0 rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-base sm:text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer truncate transition-all min-h-[42px] sm:min-h-[38px]"
                     >
+                      <option value="">-- Select Station Location * --</option>
                       {locations.map((loc) => (
                         <option key={loc} value={loc}>
                           {loc}
                         </option>
                       ))}
                     </select>
-                    {locations.length > 1 && (
+                    {formData.location && locations.length > 1 && (
                       <button
                         type="button"
                         onClick={() =>
@@ -1059,6 +1088,7 @@ export function EventManager() {
                   onChange={(e) => setFormData({ ...formData, urgency: e.target.value as any })}
                   className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-base sm:text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer transition-all min-h-[42px] sm:min-h-[38px]"
                 >
+                  <option value="">-- Select Urgency Priority * --</option>
                   <option value="NORMAL">Normal</option>
                   <option value="IMPORTANT">Important</option>
                   <option value="CRITICAL">Critical</option>

@@ -6,6 +6,7 @@ import { useToastStore } from "../../store/toastStore"
 import { usePreviewRefresh } from "../../context/PreviewRefreshContext"
 import { Input, Panel, Textarea, Button } from ".."
 import { SaveBar } from "./SaveBar"
+import { CmsImageInput } from "./CmsImageInput"
 
 interface AssuranceItem {
   title?: string
@@ -346,15 +347,14 @@ export function InfoTab() {
             Showcase Image & Station Tags
           </h4>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 items-start">
+            <CmsImageInput
               id="about-image-url"
               label="Facility Image URL"
               value={aboutImageUrl}
-              onChange={(e) => setAboutImageUrl(e.target.value)}
-              placeholder="https://images.unsplash.com/photo-..."
-              className="num text-xs"
-              hint="Recommended aspect ratio 4:3."
+              onChange={setAboutImageUrl}
+              placeholder="https://... or /media/cms-assets/..."
+              hint="Recommended aspect ratio 4:3. Paste an image URL or click Browse to upload from your computer."
             />
 
             <Input
