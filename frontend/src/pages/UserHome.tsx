@@ -741,7 +741,7 @@ export function UserHome() {
             <select
               value={selectedSpacecraft}
               onChange={(e) => setSelectedSpacecraft(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-white outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All Spacecraft</option>
               {availableSpacecraftList.map((sat) => (
@@ -758,7 +758,7 @@ export function UserHome() {
               type="date"
               value={filterDateFrom}
               onChange={(e) => setFilterDateFrom(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-white outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent [color-scheme:dark]"
             />
           </div>
 
@@ -768,7 +768,7 @@ export function UserHome() {
               type="date"
               value={filterDateTo}
               onChange={(e) => setFilterDateTo(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-white outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent [color-scheme:dark]"
             />
           </div>
 
@@ -777,7 +777,7 @@ export function UserHome() {
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-white outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All Categories</option>
               <option value="DAILY_REPORT">Daily Operations</option>
@@ -797,7 +797,7 @@ export function UserHome() {
               placeholder="Search by report title, author, spacecraft, or file name…"
               value={searchKeywords}
               onChange={(e) => setSearchKeywords(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-base sm:text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
             />
           </div>
         </div>

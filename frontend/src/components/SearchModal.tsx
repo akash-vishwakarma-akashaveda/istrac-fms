@@ -109,7 +109,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                   : "Search files in your authorized division repositories..."
                 : "Sign in to search ISTRAC telemetry archives..."
             }
-            className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-dim focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full bg-transparent text-base sm:text-sm text-text-primary placeholder:text-text-dim focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
           />
 
           {query && (

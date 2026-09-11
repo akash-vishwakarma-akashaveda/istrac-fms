@@ -468,7 +468,7 @@ export function Navbar() {
 
       {/* Mobile Full-Screen Navigation Drawer (Outside Header to eliminate overflow & stacking context clipping) */}
       {mobileOpen && (
-        <div className="fixed inset-0 top-16 z-[999] bg-[#010309]/98 backdrop-blur-2xl md:hidden overflow-y-auto animate-fade-in flex flex-col justify-between p-5 space-y-6">
+        <div className="fixed inset-0 top-16 z-[999] bg-[#010309]/98 backdrop-blur-2xl md:hidden overflow-y-auto animate-fade-in flex flex-col justify-between p-5 pb-12 space-y-6">
           <div className="space-y-4">
             {/* Quick Search Bar in Mobile Menu */}
             {showSearchButton && (

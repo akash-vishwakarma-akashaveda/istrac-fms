@@ -368,7 +368,7 @@ export function SatelliteManager() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by SAT_ID, name, payload, orbit type..."
-            className="w-full rounded-lg border border-border-default bg-[#09101f] pl-10 pr-4 py-2 text-xs text-text-primary outline-none hover:border-border-bright focus:border-accent"
+            className="w-full rounded-lg border border-border-default bg-[#09101f] pl-10 pr-4 py-2 text-base sm:text-xs text-text-primary outline-none hover:border-border-bright focus:border-accent"
           />
         </div>
 
@@ -664,7 +664,7 @@ export function SatelliteManager() {
                 type="date"
                 value={formData.launchDate}
                 onChange={(e) => setFormData({ ...formData, launchDate: e.target.value })}
-                className="w-full rounded-md border border-border-default bg-surface px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
+                className="w-full rounded-md border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent [color-scheme:dark]"
               />
             </div>
 
@@ -678,7 +678,7 @@ export function SatelliteManager() {
                 placeholder="e.g. Sun-Earth L1 Halo, Polar SSO, GEO"
                 value={formData.orbitType}
                 onChange={(e) => setFormData({ ...formData, orbitType: e.target.value })}
-                className="w-full rounded-md border border-border-default bg-surface px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
+                className="w-full rounded-md border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent"
               />
             </div>
           </div>
@@ -711,7 +711,7 @@ export function SatelliteManager() {
               id="sat-status"
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              className="w-full rounded-md border border-border-default bg-surface px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
+              className="w-full rounded-md border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent"
             >
               <option value="OPERATIONAL">OPERATIONAL (Active 24/7 Telemetry)</option>
               <option value="IN_ORBIT">IN_ORBIT (Nominal Mission Trajectory)</option>

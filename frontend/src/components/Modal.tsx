@@ -33,7 +33,7 @@ export function Modal({ isOpen, onClose, title, size = 'sm', children }: ModalPr
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`w-full ${sizeStyles[size]} max-h-[90vh] sm:max-h-[92vh] flex flex-col overflow-hidden rounded-xl border border-border-default bg-card shadow-2xl my-auto`}
+        className={`w-full ${sizeStyles[size]} max-h-[90dvh] sm:max-h-[92vh] flex flex-col overflow-hidden rounded-xl border border-border-default bg-card shadow-2xl my-auto`}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
@@ -44,9 +44,9 @@ export function Modal({ isOpen, onClose, title, size = 'sm', children }: ModalPr
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="-mr-1 shrink-0 rounded-md p-1 text-text-muted transition-colors duration-150 hover:bg-card-hover hover:text-text-primary"
+              className="-mr-1 shrink-0 rounded-lg p-1.5 text-text-muted transition-colors duration-150 hover:bg-card-hover hover:text-text-primary min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
             >
-              <X size={15} strokeWidth={1.8} />
+              <X size={16} strokeWidth={1.8} />
             </button>
           </header>
         )}

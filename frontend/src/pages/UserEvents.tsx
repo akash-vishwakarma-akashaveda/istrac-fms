@@ -72,6 +72,7 @@ export type TimelineTab = "ACTIVE_UPCOMING" | "PAST"
 export function UserEvents() {
   const [searchParams] = useSearchParams()
   const targetEventId = searchParams.get("eventId")
+  const urlTab = searchParams.get("tab")
 
   const { data: satData } = useSatellites()
   const satellites = useMemo(() => satData || [], [satData])
@@ -80,7 +81,7 @@ export function UserEvents() {
   const [customCategories, setCustomCategories] = useState<Array<{ id: string; label: string }>>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
-  const [timelineTab, setTimelineTab] = useState<TimelineTab>("ACTIVE_UPCOMING")
+  const [timelineTab, setTimelineTab] = useState<TimelineTab>(urlTab?.toUpperCase() === "PAST" ? "PAST" : "ACTIVE_UPCOMING")
   const [typeFilter, setTypeFilter] = useState("ALL")
   const [satelliteFilter, setSatelliteFilter] = useState("ALL")
   const [viewMode, setViewMode] = useState<"calendar" | "cards" | "both">("both")
@@ -90,7 +91,7 @@ export function UserEvents() {
       try {
         setLoading(true)
         const [evData, cfgData] = await Promise.all([
-          eventsApi.getEvents(),
+          eventsApi.getEvents({ limit: 200 }),
           eventsApi.getEventConfig().catch(() => ({ locations: [], categories: [] })),
         ])
         setEvents(evData || [])
@@ -105,17 +106,6 @@ export function UserEvents() {
     }
     loadData()
   }, [])
-
-  useEffect(() => {
-    if (targetEventId && !loading && events.length > 0) {
-      setTimeout(() => {
-        const el = document.getElementById(`event-card-${targetEventId}`)
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" })
-        }
-      }, 200)
-    }
-  }, [targetEventId, loading, events])
 
   const { activeUpcomingEvents, pastEvents } = useMemo(() => {
     const now = new Date()
@@ -146,6 +136,62 @@ export function UserEvents() {
 
     return { activeUpcomingEvents: active, pastEvents: past }
   }, [events])
+
+  // Automatically switch tab to PAST or ACTIVE_UPCOMING and scroll to card when eventId is present
+  useEffect(() => {
+    if (!targetEventId || loading) return
+
+    let isMounted = true
+    const targetEvent = events.find((ev) => ev.id === targetEventId)
+
+    if (!targetEvent && events.length > 0) {
+      eventsApi
+        .getEventById(targetEventId)
+        .then((fetched) => {
+          if (!isMounted || !fetched) return
+          setEvents((prev) => {
+            if (prev.some((e) => e.id === fetched.id)) return prev
+            return [...prev, fetched]
+          })
+        })
+        .catch(() => {})
+      return
+    }
+
+    if (!targetEvent) return
+
+    const isPast = pastEvents.some((ev) => ev.id === targetEventId)
+    const isActive = activeUpcomingEvents.some((ev) => ev.id === targetEventId)
+
+    if (isPast) {
+      setTimelineTab("PAST")
+    } else if (isActive) {
+      setTimelineTab("ACTIVE_UPCOMING")
+    }
+
+    if (viewMode === "calendar") {
+      setViewMode("both")
+    }
+
+    if (typeFilter !== "ALL" && targetEvent.eventType !== typeFilter) {
+      setTypeFilter("ALL")
+    }
+    if (satelliteFilter !== "ALL" && targetEvent.satelliteId !== satelliteFilter) {
+      setSatelliteFilter("ALL")
+    }
+
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`event-card-${targetEventId}`)
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" })
+      }
+    }, 250)
+
+    return () => {
+      isMounted = false
+      clearTimeout(timer)
+    }
+  }, [targetEventId, loading, events, pastEvents, activeUpcomingEvents])
 
   const currentTabEvents = timelineTab === "ACTIVE_UPCOMING" ? activeUpcomingEvents : pastEvents
 
@@ -334,11 +380,11 @@ export function UserEvents() {
         <div className="space-y-6 animate-in fade-in-50 duration-200">
           {/* Timeline Tabs */}
           <div className="flex items-center justify-between border-b border-border-subtle gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto -mb-px">
               <button
                 type="button"
                 onClick={() => setTimelineTab("ACTIVE_UPCOMING")}
-                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   timelineTab === "ACTIVE_UPCOMING"
                     ? "border-accent text-accent-light bg-accent/10 rounded-t-lg"
                     : "border-transparent text-text-dim hover:text-white"
@@ -346,7 +392,7 @@ export function UserEvents() {
               >
                 <Zap size={14} className={timelineTab === "ACTIVE_UPCOMING" ? "animate-pulse text-accent-light" : ""} />
                 <span>Live & Future Events</span>
-                <span className="num rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent-light">
+                <span className="num rounded-full bg-accent/20 px-1.5 sm:px-2 py-0.5 text-[10px] font-bold text-accent-light">
                   {activeUpcomingEvents.length}
                 </span>
               </button>
@@ -354,7 +400,7 @@ export function UserEvents() {
               <button
                 type="button"
                 onClick={() => setTimelineTab("PAST")}
-                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   timelineTab === "PAST"
                     ? "border-accent text-accent-light bg-accent/10 rounded-t-lg"
                     : "border-transparent text-text-dim hover:text-white"
@@ -362,7 +408,7 @@ export function UserEvents() {
               >
                 <History size={14} />
                 <span>Past & Completed Events</span>
-                <span className="num rounded-full bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim">
+                <span className="num rounded-full bg-surface px-1.5 sm:px-2 py-0.5 text-[10px] font-bold text-text-dim">
                   {pastEvents.length}
                 </span>
               </button>

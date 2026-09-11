@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useActiveBanner } from '../hooks/useActiveBanner'
+import { useAuthStore } from '../store/authStore'
 
 export function DynamicAlertBanner() {
   const navigate = useNavigate()
@@ -74,6 +75,9 @@ export function DynamicAlertBanner() {
   const isCritical = activeItem.urgency === 'CRITICAL'
   const isImportant = activeItem.urgency === 'IMPORTANT'
 
+  const user = useAuthStore((s) => s.user)
+  const isAdmin = user?.role === 'ADMIN'
+
   const handleDismiss = (e: React.MouseEvent) => {
     e.stopPropagation()
     setDismissedIds((prev) => [...prev, activeItem.id])
@@ -81,7 +85,23 @@ export function DynamicAlertBanner() {
 
   const handleItemClick = () => {
     if (activeItem.type === 'EVENT') {
-      navigate(`/dashboard/events?eventId=${activeItem.id}`)
+      const targetUrl = isAdmin ? '/admin/events' : '/dashboard/events'
+      let tabParam = ''
+      if (activeItem.rawEvent) {
+        const ev = activeItem.rawEvent
+        const now = new Date()
+        const evDate = new Date(ev.eventDate)
+        const endDate = ev.endDate ? new Date(ev.endDate) : null
+        const status = ev.status as string
+        const isTerminal = status === 'COMPLETED' || status === 'CANCELLED' || status === 'TIMED_OUT'
+        const isDateExpired = endDate ? endDate < now : evDate < now
+        if (isTerminal || (status !== 'IN_PROGRESS' && isDateExpired)) {
+          tabParam = '&tab=PAST'
+        } else {
+          tabParam = '&tab=LIVE'
+        }
+      }
+      navigate(`${targetUrl}?eventId=${activeItem.id}${tabParam}`)
     } else {
       navigate(`/notifications?highlight=${activeItem.id}`)
     }

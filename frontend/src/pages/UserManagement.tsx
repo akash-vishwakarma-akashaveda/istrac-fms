@@ -297,7 +297,7 @@ export function UserManagement() {
                 setSearch(e.target.value)
                 setPage(1)
               }}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-base sm:text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
             />
           </div>
 
@@ -309,7 +309,7 @@ export function UserManagement() {
                 setStatus(e.target.value)
                 setPage(1)
               }}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent"
             >
               <option value="">All Account Statuses</option>
               <option value="ACTIVE">ACTIVE</option>
@@ -327,7 +327,7 @@ export function UserManagement() {
                 setRole(e.target.value)
                 setPage(1)
               }}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent"
             >
               <option value="">All Roles</option>
               <option value="ADMIN">ADMIN</option>
@@ -597,7 +597,7 @@ export function UserManagement() {
                 required
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
               />
             </div>
 
@@ -610,7 +610,7 @@ export function UserManagement() {
                 value={editBadgeId}
                 onChange={(e) => setEditBadgeId(e.target.value)}
                 placeholder="e.g. ISRO-TTC-042"
-                className="num font-mono w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                className="num font-mono w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
               />
             </div>
           </div>
@@ -625,7 +625,7 @@ export function UserManagement() {
                 value={editDesignation}
                 onChange={(e) => setEditDesignation(e.target.value)}
                 placeholder="e.g. Lead Astrodynamics Specialist"
-                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
               />
             </div>
 
@@ -638,7 +638,7 @@ export function UserManagement() {
                 value={editPhone}
                 onChange={(e) => setEditPhone(e.target.value)}
                 placeholder="e.g. +91 80 2838 4001"
-                className="num font-mono w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                className="num font-mono w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
               />
             </div>
           </div>
@@ -651,7 +651,7 @@ export function UserManagement() {
               <select
                 value={editRole}
                 onChange={(e) => setEditRole(e.target.value as 'MEMBER' | 'ADMIN')}
-                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
               >
                 <option value="MEMBER">MEMBER (Standard User)</option>
                 <option value="ADMIN">ADMIN (Division / System Administrator)</option>
@@ -665,7 +665,7 @@ export function UserManagement() {
               <select
                 value={editStatus}
                 onChange={(e) => setEditStatus(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
               >
                 <option value="ACTIVE">ACTIVE</option>
                 <option value="SUSPENDED">SUSPENDED</option>

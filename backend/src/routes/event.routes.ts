@@ -23,7 +23,7 @@ router.get('/events', optionalAuthMiddleware, async (req, res, next) => {
       ...(satelliteId && { satelliteId: String(satelliteId) }),
     }
 
-    const take = limit ? Math.min(100, Math.max(1, Number(limit))) : 50
+    const take = limit ? Math.min(500, Math.max(1, Number(limit))) : 200
 
     const events = await prisma.missionEvent.findMany({
       where,
@@ -469,6 +469,35 @@ router.get('/events/config', optionalAuthMiddleware, async (req, res, next) => {
     const config = await getStoredEventConfig()
     res.json({
       data: config,
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ============================================================
+// GET SINGLE MISSION EVENT BY ID
+// ============================================================
+router.get('/events/:id', optionalAuthMiddleware, async (req, res, next) => {
+  try {
+    const rawId = req.params.id
+    const id = Array.isArray(rawId) ? rawId[0] : rawId
+
+    const event = await prisma.missionEvent.findUnique({
+      where: { id, deletedAt: null },
+      include: {
+        satellite: { select: { id: true, name: true, code: true } },
+        department: { select: { id: true, name: true, code: true } },
+      },
+    })
+
+    if (!event) {
+      throw new AppError('event_not_found', 'Mission event not found', 404)
+    }
+
+    res.json({
+      data: event,
       requestId: req.requestId,
     })
   } catch (err) {

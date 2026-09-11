@@ -31,9 +31,9 @@ interface AuthFrameProps {
  */
 export function AuthFrame({ actions, width = 'sm', children }: AuthFrameProps) {
   const { cmsBlocks } = useCms()
-  const headerBlock = cmsBlocks['nav_header']?.content as Record<string, any> | undefined
+  const headerBlock = (cmsBlocks['nav_header']?.content || cmsBlocks['nav_header'] || cmsBlocks['nav_footer']) as Record<string, any> | undefined
   const brandTitle = headerBlock?.brandTitle ?? 'ISTRAC'
-  const brandHighlight = headerBlock?.brandHighlight ?? '-SIMS'
+  const brandHighlight = headerBlock?.brandHighlight !== undefined ? headerBlock.brandHighlight : '-SIMS'
   const brandSubtitle = headerBlock?.brandSubtitle ?? 'BLR · MOX Complex'
 
   return (

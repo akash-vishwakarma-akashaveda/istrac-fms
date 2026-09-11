@@ -283,7 +283,7 @@ export function SearchPage() {
               onBlur={() => setTimeout(() => setShowHistory(false), 200)}
               placeholder="Search reports, telemetry files, spacecraft, authors, or categories…"
               aria-label="Search query"
-              className="w-full rounded-xl border border-border-default bg-[#081226] py-3.5 pr-10 pl-11 text-sm text-white shadow-inner outline-none transition-all placeholder:text-text-dim hover:border-accent/40 focus:border-accent focus:bg-[#0c1a36]"
+              className="w-full rounded-xl border border-border-default bg-[#081226] py-3.5 pr-10 pl-11 text-base sm:text-sm text-white shadow-inner outline-none transition-all placeholder:text-text-dim hover:border-accent/40 focus:border-accent focus:bg-[#0c1a36]"
             />
 
             {query && (
@@ -400,7 +400,7 @@ export function SearchPage() {
               <select
                 value={satelliteFilter}
                 onChange={(e) => setSatelliteFilter(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent cursor-pointer"
+                className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-white outline-none focus:border-accent cursor-pointer"
               >
                 <option value="ALL">All Spacecraft</option>
                 {satellites.map((s) => (
@@ -417,7 +417,7 @@ export function SearchPage() {
               <select
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent cursor-pointer"
+                className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-white outline-none focus:border-accent cursor-pointer"
               >
                 <option value="ALL">All Divisions</option>
                 {departments.map((d) => (
@@ -435,7 +435,7 @@ export function SearchPage() {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent cursor-pointer"
+                className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-white outline-none focus:border-accent cursor-pointer"
               >
                 <option value="ALL">All Categories</option>
                 <option value="DAILY_REPORT">Daily Ops Report</option>
@@ -452,7 +452,7 @@ export function SearchPage() {
               <select
                 value={extensionFilter}
                 onChange={(e) => setExtensionFilter(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent cursor-pointer"
+                className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-white outline-none focus:border-accent cursor-pointer"
               >
                 <option value="ALL">All Formats</option>
                 <option value="pdf">PDF Documents</option>
@@ -470,7 +470,7 @@ export function SearchPage() {
               <select
                 value={classificationFilter}
                 onChange={(e) => setClassificationFilter(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent cursor-pointer"
+                className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-white outline-none focus:border-accent cursor-pointer"
               >
                 <option value="ALL">All Tiers</option>
                 <option value="ISRO_LEVEL">ISRO Level</option>
@@ -486,7 +486,7 @@ export function SearchPage() {
               <select
                 value={datePreset}
                 onChange={(e) => setDatePreset(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent cursor-pointer"
+                className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-white outline-none focus:border-accent cursor-pointer"
               >
                 <option value="ALL">All Time</option>
                 <option value="TODAY">Today</option>
@@ -522,7 +522,7 @@ export function SearchPage() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-transparent text-xs text-white outline-none cursor-pointer"
+              className="bg-transparent text-base sm:text-xs text-white outline-none cursor-pointer"
             >
               <option value="updatedAt" className="bg-[#060c18]">Recent Update</option>
               <option value="createdAt" className="bg-[#060c18]">Ingestion Date</option>

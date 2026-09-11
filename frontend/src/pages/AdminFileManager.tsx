@@ -394,7 +394,7 @@ export function AdminFileManager() {
               placeholder="Search by name, hash, parameter…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-base sm:text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
             />
           </div>
 
@@ -410,7 +410,7 @@ export function AdminFileManager() {
                   setSearchParams({})
                 }
               }}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All Active Divisions</option>
               {departments?.some((d) => !d.archived && d.isActive !== false) && (
@@ -442,7 +442,7 @@ export function AdminFileManager() {
             <select
               value={selectedSat}
               onChange={(e) => setSelectedSat(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All Spacecraft & Satellites</option>
               {satellites
@@ -460,7 +460,7 @@ export function AdminFileManager() {
             <select
               value={selectedExt}
               onChange={(e) => setSelectedExt(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All File Formats</option>
               <option value="PDF">PDF (Mission Reports)</option>
@@ -479,7 +479,7 @@ export function AdminFileManager() {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All Mission Categories</option>
               <option value="DAILY_REPORT">Daily Operations Report</option>
@@ -496,7 +496,7 @@ export function AdminFileManager() {
             <select
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All Upload Dates</option>
               <option value="today">Uploaded Today</option>
@@ -513,7 +513,7 @@ export function AdminFileManager() {
                 setSortBy(f)
                 setSortOrder(o)
               }}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer font-medium"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer font-medium"
             >
               <option value="createdAt-desc">Date Uploaded: Newest ↓</option>
               <option value="createdAt-asc">Date Uploaded: Oldest ↑</option>
@@ -924,7 +924,7 @@ export function AdminFileManager() {
               required
               value={editForm.name}
               onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-              className="num font-mono w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+              className="num font-mono w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
             />
           </div>
 
@@ -939,7 +939,7 @@ export function AdminFileManager() {
                 value={editForm.spacecraft}
                 onChange={(e) => setEditForm({ ...editForm, spacecraft: e.target.value })}
                 placeholder="e.g. Aditya-L1 or General"
-                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
               />
               <datalist id="spacecraft-options">
                 <option value="General" />
@@ -956,7 +956,7 @@ export function AdminFileManager() {
               <select
                 value={editForm.classificationLevel}
                 onChange={(e) => setEditForm({ ...editForm, classificationLevel: e.target.value })}
-                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
               >
                 <option value="RESTRICTED">RESTRICTED</option>
                 <option value="CONFIDENTIAL">CONFIDENTIAL</option>
@@ -997,7 +997,7 @@ export function AdminFileManager() {
                   value={editForm.broadcastMessage}
                   onChange={(e) => setEditForm({ ...editForm, broadcastMessage: e.target.value })}
                   placeholder="Enter notice text to display across top announcement ticker..."
-                  className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-1.5 text-xs text-white outline-none focus:border-accent"
+                  className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-1.5 text-base sm:text-xs text-white outline-none focus:border-accent"
                 />
               </div>
             )}
@@ -1033,7 +1033,7 @@ export function AdminFileManager() {
             <select
               value={broadcastUrgency}
               onChange={(e) => setBroadcastUrgency(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
             >
               <option value="NORMAL">NORMAL BULLETIN</option>
               <option value="IMPORTANT">IMPORTANT NOTICE (Saffron Alert)</option>

@@ -479,7 +479,7 @@ export function UploadVersionModal({
   return (
     <div className="fixed inset-0 z-[500] flex items-center justify-center p-3 sm:p-5 bg-page/85 backdrop-blur-[2px]">
       <div
-        className="relative w-full max-w-5xl rounded-2xl border border-border-default bg-card shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+        className="relative w-full max-w-5xl rounded-2xl border border-border-default bg-card shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[92vh] my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -755,7 +755,7 @@ export function UploadVersionModal({
                               setSelectedPresetId('custom')
                             }}
                             placeholder="{SAT}_{TYPE}_{YYYYMMDD}_{VER}"
-                            className="num w-full rounded-lg border border-border-default bg-[#050b16] px-3 py-1.5 text-xs text-accent-light outline-none focus:border-accent font-mono"
+                            className="num w-full rounded-lg border border-border-default bg-[#050b16] px-3 py-1.5 text-base sm:text-xs text-accent-light outline-none focus:border-accent font-mono"
                           />
                           {isCustomTemplate && (
                             <Button

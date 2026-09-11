@@ -20,6 +20,7 @@ import { useDepartments } from "../hooks/useDepartments"
 import { useAdminSatellites } from "../hooks/useSatellites"
 import { useToastStore } from "../store/toastStore"
 import { useQueryClient } from "@tanstack/react-query"
+import { useSearchParams } from "react-router-dom"
 import { PageHeader, Button, Modal, Textarea } from "../components"
 import { schedulerApi } from "../api/schedule.api"
 
@@ -83,9 +84,13 @@ export function EventManager() {
   const [isAddingCategory, setIsAddingCategory] = useState(false)
   const [newCategoryLabel, setNewCategoryLabel] = useState("")
 
+  const [searchParams] = useSearchParams()
+  const targetEventId = searchParams.get("eventId")
+  const urlTab = searchParams.get("tab")
+
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
-  const [tabMode, setTabMode] = useState<EventTabMode>("LIVE_FUTURE")
+  const [tabMode, setTabMode] = useState<EventTabMode>(urlTab?.toUpperCase() === "PAST" ? "PAST" : "LIVE_FUTURE")
   const [statusFilter, setStatusFilter] = useState("ALL")
   const [typeFilter, setTypeFilter] = useState("ALL")
   const queryClient = useQueryClient()
@@ -151,7 +156,7 @@ export function EventManager() {
     setLoading(true)
     try {
       const [eventsData, schedulerData, configData] = await Promise.all([
-        eventsApi.getEvents(),
+        eventsApi.getEvents({ limit: 200 }),
         schedulerApi.getMissionEventScheduler().catch(() => null),
         eventsApi.getEventConfig().catch(() => ({ locations: [], categories: [] })),
       ])
@@ -226,6 +231,59 @@ export function EventManager() {
 
     return { liveFutureEvents: live, pastEvents: past }
   }, [events])
+
+  // Automatically navigate to PAST or LIVE_FUTURE tab and scroll to card when eventId is present in URL
+  useEffect(() => {
+    if (!targetEventId || loading) return
+
+    let isMounted = true
+    const targetEvent = events.find((ev) => ev.id === targetEventId)
+
+    if (!targetEvent && events.length > 0) {
+      eventsApi
+        .getEventById(targetEventId)
+        .then((fetched) => {
+          if (!isMounted || !fetched) return
+          setEvents((prev) => {
+            if (prev.some((e) => e.id === fetched.id)) return prev
+            return [...prev, fetched]
+          })
+        })
+        .catch(() => {})
+      return
+    }
+
+    if (!targetEvent) return
+
+    const isPast = pastEvents.some((ev) => ev.id === targetEventId)
+    const isLive = liveFutureEvents.some((ev) => ev.id === targetEventId)
+
+    if (isPast) {
+      setTabMode("PAST")
+    } else if (isLive) {
+      setTabMode("LIVE_FUTURE")
+    }
+
+    // Clear filters if they would hide the targeted event
+    if (statusFilter !== "ALL" && targetEvent.status !== statusFilter) {
+      setStatusFilter("ALL")
+    }
+    if (typeFilter !== "ALL" && targetEvent.eventType !== typeFilter) {
+      setTypeFilter("ALL")
+    }
+
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`event-card-${targetEventId}`)
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" })
+      }
+    }, 250)
+
+    return () => {
+      isMounted = false
+      clearTimeout(timer)
+    }
+  }, [targetEventId, loading, events, pastEvents, liveFutureEvents])
 
   const currentTabList = tabMode === "LIVE_FUTURE" ? liveFutureEvents : pastEvents
 
@@ -442,20 +500,20 @@ export function EventManager() {
           variant="primary"
           size="md"
           onClick={openCreateModal}
-          className="shadow-md shadow-accent/25 shrink-0"
+          className="shadow-md shadow-accent/25 shrink-0 w-full sm:w-auto justify-center"
         >
           <Plus size={14} />
           <span>Schedule Mission Event</span>
         </Button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center justify-between border-b border-border-subtle gap-2">
-        <div className="flex items-center gap-2">
+      {/* Tabs & Scheduler Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border-subtle gap-3 pb-2 sm:pb-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto -mb-px">
           <button
             type="button"
             onClick={() => setTabMode("LIVE_FUTURE")}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               tabMode === "LIVE_FUTURE"
                 ? "border-accent text-accent-light bg-accent/10 rounded-t-lg"
                 : "border-transparent text-text-dim hover:text-white"
@@ -463,7 +521,7 @@ export function EventManager() {
           >
             <Zap size={14} className={tabMode === "LIVE_FUTURE" ? "animate-pulse text-accent-light" : ""} />
             <span>Live & Future Events</span>
-            <span className="num rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent-light">
+            <span className="num rounded-full bg-accent/20 px-1.5 sm:px-2 py-0.5 text-[10px] font-bold text-accent-light">
               {liveFutureEvents.length}
             </span>
           </button>
@@ -471,7 +529,7 @@ export function EventManager() {
           <button
             type="button"
             onClick={() => setTabMode("PAST")}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               tabMode === "PAST"
                 ? "border-accent text-accent-light bg-accent/10 rounded-t-lg"
                 : "border-transparent text-text-dim hover:text-white"
@@ -479,15 +537,15 @@ export function EventManager() {
           >
             <History size={14} />
             <span>Past & Completed Events</span>
-            <span className="num rounded-full bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim">
+            <span className="num rounded-full bg-surface px-1.5 sm:px-2 py-0.5 text-[10px] font-bold text-text-dim">
               {pastEvents.length}
             </span>
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-1 sm:pt-0 border-t border-border-subtle/40 sm:border-t-0">
           <div className="flex items-center gap-2">
-            <Clock size={13} className="text-accent-light" />
+            <Clock size={13} className="text-accent-light shrink-0" />
             <span className="text-[11px] font-semibold text-text-dim whitespace-nowrap">
               Status Check
             </span>
@@ -495,7 +553,7 @@ export function EventManager() {
               value={schedulerInterval}
               onChange={handleSchedulerChange}
               disabled={schedulerSaving}
-              className="rounded-lg border border-border-default bg-[#060c18] px-2.5 py-2 text-[11px] font-semibold text-white outline-none focus:border-accent cursor-pointer disabled:opacity-50"
+              className="rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 sm:py-2 text-[11px] font-semibold text-white outline-none focus:border-accent cursor-pointer disabled:opacity-50"
             >
               <option value={1}>Every 1 min</option>
               <option value={5}>Every 5 min</option>
@@ -575,6 +633,7 @@ export function EventManager() {
             const Icon = meta.icon
             const isPast = tabMode === "PAST"
             const status = ev.status as string
+            const isTarget = targetEventId === ev.id
 
             const d = new Date(ev.eventDate)
             const dateStrIST = d.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", month: "short", day: "numeric", year: "numeric" })
@@ -589,8 +648,11 @@ export function EventManager() {
             return (
               <div
                 key={ev.id}
+                id={`event-card-${ev.id}`}
                 className={`rounded-xl border p-4.5 flex flex-col justify-between space-y-4 shadow-sm transition-all ${
-                  isPast
+                  isTarget
+                    ? "border-accent ring-2 ring-accent/60 bg-[#0a1738] shadow-lg shadow-accent/15 scale-[1.01]"
+                    : isPast
                     ? "border-border-subtle bg-[#080e1a] opacity-80 hover:opacity-100"
                     : "border-border-default bg-card hover:border-accent/40"
                 }`}
@@ -629,7 +691,7 @@ export function EventManager() {
 
                 {/* Card Timestamps: Pure IST */}
                 <div className="space-y-2 pt-3 border-t border-border-subtle text-xs">
-                  <div className="flex items-center justify-between text-[11px] font-mono">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px] font-mono">
                     <div className="flex items-center gap-1.5 text-white">
                       <Clock size={12} className="text-accent-light shrink-0" />
                       <span>
@@ -648,8 +710,8 @@ export function EventManager() {
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 text-[11px]">
-                    <div className="flex items-center gap-2 truncate max-w-[200px]">
+                  <div className="flex items-center justify-between pt-1 text-[11px] gap-2">
+                    <div className="flex items-center gap-2 truncate min-w-0 flex-1">
                       {ev.satellite && (
                         <span className="font-mono text-cyan-400 shrink-0 font-semibold text-[10px] bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">
                           {ev.satellite.code || ev.satellite.name}
@@ -661,11 +723,11 @@ export function EventManager() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
                         onClick={() => openEditModal(ev)}
-                        className="p-1.5 rounded-lg border border-border-subtle text-text-dim hover:text-white hover:bg-card-hover transition-colors cursor-pointer"
+                        className="p-2 sm:p-1.5 rounded-lg border border-border-subtle text-text-dim hover:text-white hover:bg-card-hover transition-colors cursor-pointer min-h-[32px] min-w-[32px] flex items-center justify-center"
                         title="Edit Event"
                       >
                         <Edit2 size={13} />
@@ -673,7 +735,7 @@ export function EventManager() {
                       <button
                         type="button"
                         onClick={() => setDeletingEvent(ev)}
-                        className="p-1.5 rounded-lg border border-border-subtle text-text-dim hover:text-critical hover:bg-critical/10 transition-colors cursor-pointer"
+                        className="p-2 sm:p-1.5 rounded-lg border border-border-subtle text-text-dim hover:text-critical hover:bg-critical/10 transition-colors cursor-pointer min-h-[32px] min-w-[32px] flex items-center justify-center"
                         title="Delete Event"
                       >
                         <Trash2 size={13} />
@@ -698,7 +760,7 @@ export function EventManager() {
           <form onSubmit={handleSubmit} className="space-y-4 pt-1">
             {/* Event Title */}
             <div>
-              <label className="block text-xs font-bold text-text-dim uppercase mb-1.5 flex items-center justify-between">
+              <label className="block text-xs font-bold text-text-dim uppercase mb-1.5 flex flex-wrap items-center justify-between gap-1">
                 <span>
                   Event Title <span className="text-critical">*</span>
                 </span>
@@ -710,7 +772,7 @@ export function EventManager() {
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 placeholder="e.g. Aditya-L1 Halo Orbit Maneuver Burn"
-                className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-xs text-white placeholder:text-text-dim/60 outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
+                className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-base sm:text-xs text-white placeholder:text-text-dim/60 outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all min-h-[42px] sm:min-h-[38px]"
               />
             </div>
 
@@ -724,7 +786,7 @@ export function EventManager() {
                 <select
                   value={formData.satelliteId}
                   onChange={(e) => setFormData({ ...formData, satelliteId: e.target.value })}
-                  className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer transition-all"
+                  className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-base sm:text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer transition-all min-h-[42px] sm:min-h-[38px]"
                 >
                   <option value="">No Spacecraft (Ground Facility Pass)</option>
                   {satellites.map((s) => {
@@ -747,7 +809,7 @@ export function EventManager() {
                 <select
                   value={formData.departmentId}
                   onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
-                  className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer transition-all"
+                  className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-base sm:text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer transition-all min-h-[42px] sm:min-h-[38px]"
                 >
                   <option value="">All-Facility / Multi-Division</option>
                   {departments?.map((d) => {
@@ -783,7 +845,7 @@ export function EventManager() {
                 </div>
 
                 {isAddingCategory ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                     <input
                       type="text"
                       placeholder="e.g. Deep Space Calibration"
@@ -795,23 +857,26 @@ export function EventManager() {
                           handleAddCategory()
                         }
                       }}
-                      className="flex-1 min-w-0 rounded-lg border border-accent bg-[#060c18] px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-accent"
+                      className="flex-1 min-w-0 rounded-lg border border-accent bg-[#060c18] px-3.5 py-2 text-base sm:text-xs text-white outline-none focus:ring-1 focus:ring-accent min-h-[42px] sm:min-h-[36px]"
                       autoFocus
                     />
-                    <Button type="button" size="sm" variant="primary" onClick={handleAddCategory}>
-                      Add
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setIsAddingCategory(false)
-                        setNewCategoryLabel("")
-                      }}
-                    >
-                      Cancel
-                    </Button>
+                    <div className="flex items-center gap-2 justify-end shrink-0">
+                      <Button type="button" size="sm" variant="primary" onClick={handleAddCategory} className="flex-1 sm:flex-none justify-center">
+                        Add
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setIsAddingCategory(false)
+                          setNewCategoryLabel("")
+                        }}
+                        className="flex-1 sm:flex-none justify-center"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-1.5">
@@ -819,7 +884,7 @@ export function EventManager() {
                       <select
                         value={formData.eventType}
                         onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
-                        className="flex-1 min-w-0 rounded-lg border border-border-default bg-[#060c18] px-3 py-2.5 text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer truncate transition-all"
+                        className="flex-1 min-w-0 rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-base sm:text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer truncate transition-all min-h-[42px] sm:min-h-[38px]"
                       >
                         {categories.map((c) => {
                           const meta = getCategoryMeta(c.id)
@@ -841,7 +906,7 @@ export function EventManager() {
                             })
                           }
                           title={`Delete category "${categories.find((c) => c.id === formData.eventType)?.label || formData.eventType}"`}
-                          className="h-[38px] w-[38px] shrink-0 flex items-center justify-center rounded-lg border border-border-default bg-[#060c18] text-text-dim hover:text-critical hover:border-critical/40 hover:bg-critical/10 transition-colors cursor-pointer"
+                          className="h-[42px] w-[42px] sm:h-[38px] sm:w-[38px] shrink-0 flex items-center justify-center rounded-lg border border-border-default bg-[#060c18] text-text-dim hover:text-critical hover:border-critical/40 hover:bg-critical/10 transition-colors cursor-pointer"
                         >
                           <Trash2 size={13} />
                         </button>
@@ -877,7 +942,7 @@ export function EventManager() {
                 </div>
 
                 {isAddingLocation ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                     <input
                       type="text"
                       placeholder="e.g. Svalbard Ground Station"
@@ -889,30 +954,33 @@ export function EventManager() {
                           handleAddLocation()
                         }
                       }}
-                      className="flex-1 min-w-0 rounded-lg border border-accent bg-[#060c18] px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-accent"
+                      className="flex-1 min-w-0 rounded-lg border border-accent bg-[#060c18] px-3.5 py-2 text-base sm:text-xs text-white outline-none focus:ring-1 focus:ring-accent min-h-[42px] sm:min-h-[36px]"
                       autoFocus
                     />
-                    <Button type="button" size="sm" variant="primary" onClick={handleAddLocation}>
-                      Add
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setIsAddingLocation(false)
-                        setNewLocationInput("")
-                      }}
-                    >
-                      Cancel
-                    </Button>
+                    <div className="flex items-center gap-2 justify-end shrink-0">
+                      <Button type="button" size="sm" variant="primary" onClick={handleAddLocation} className="flex-1 sm:flex-none justify-center">
+                        Add
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setIsAddingLocation(false)
+                          setNewLocationInput("")
+                        }}
+                        className="flex-1 sm:flex-none justify-center"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
                     <select
                       value={formData.location}
                       onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                      className="flex-1 min-w-0 rounded-lg border border-border-default bg-[#060c18] px-3 py-2.5 text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer truncate transition-all"
+                      className="flex-1 min-w-0 rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-base sm:text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer truncate transition-all min-h-[42px] sm:min-h-[38px]"
                     >
                       {locations.map((loc) => (
                         <option key={loc} value={loc}>
@@ -931,7 +999,7 @@ export function EventManager() {
                           })
                         }
                         title={`Delete station location "${formData.location}"`}
-                        className="h-[38px] w-[38px] shrink-0 flex items-center justify-center rounded-lg border border-border-default bg-[#060c18] text-text-dim hover:text-critical hover:border-critical/40 hover:bg-critical/10 transition-colors cursor-pointer"
+                        className="h-[42px] w-[42px] sm:h-[38px] sm:w-[38px] shrink-0 flex items-center justify-center rounded-lg border border-border-default bg-[#060c18] text-text-dim hover:text-critical hover:border-critical/40 hover:bg-critical/10 transition-colors cursor-pointer"
                       >
                         <Trash2 size={13} />
                       </button>
@@ -963,7 +1031,7 @@ export function EventManager() {
                     required
                     value={formData.eventDate}
                     onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
-                    className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2 text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent num transition-all"
+                    className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-base sm:text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent num transition-all min-h-[42px] sm:min-h-[38px] [color-scheme:dark]"
                   />
                 </div>
 
@@ -976,7 +1044,7 @@ export function EventManager() {
                     type="datetime-local"
                     value={formData.endDate}
                     onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                    className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2 text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent num transition-all"
+                    className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-base sm:text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent num transition-all min-h-[42px] sm:min-h-[38px] [color-scheme:dark]"
                   />
                 </div>
               </div>
@@ -989,7 +1057,7 @@ export function EventManager() {
                 <select
                   value={formData.urgency}
                   onChange={(e) => setFormData({ ...formData, urgency: e.target.value as any })}
-                  className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer transition-all"
+                  className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-base sm:text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer transition-all min-h-[42px] sm:min-h-[38px]"
                 >
                   <option value="NORMAL">Normal</option>
                   <option value="IMPORTANT">Important</option>
@@ -1003,7 +1071,7 @@ export function EventManager() {
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                    className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer transition-all"
+                    className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-base sm:text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent cursor-pointer transition-all min-h-[42px] sm:min-h-[38px]"
                   >
                     <option value="UPCOMING">Upcoming</option>
                     <option value="IN_PROGRESS">In Progress</option>
@@ -1023,16 +1091,28 @@ export function EventManager() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Telemetry correlation parameters, antenna elevation angles, and pass acquisition timeline…"
-                className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all resize-none"
+                className="w-full rounded-lg border border-border-default bg-[#060c18] px-3.5 py-2.5 text-base sm:text-xs text-white outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all resize-none min-h-[80px]"
               />
             </div>
 
             {/* Sticky Action Footer (Always visible) */}
-            <div className="sticky bottom-0 -mx-4 sm:-mx-5 -mb-4 sm:-mb-5 px-4 sm:px-5 py-3.5 border-t border-border-subtle bg-[#080e1b]/95 backdrop-blur-md flex items-center justify-end gap-2.5 z-10">
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsModalOpen(false)}>
+            <div className="sticky bottom-0 -mx-4 sm:-mx-5 -mb-4 sm:-mb-5 px-4 sm:px-5 py-3 border-t border-border-subtle bg-[#080e1b]/95 backdrop-blur-md flex items-center justify-end gap-2.5 z-10">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsModalOpen(false)}
+                className="flex-1 sm:flex-none justify-center"
+              >
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" size="sm" disabled={submitting}>
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                disabled={submitting}
+                className="flex-1 sm:flex-none justify-center font-bold"
+              >
                 {submitting ? "Saving…" : editingEvent ? "Update Event" : "Schedule Event"}
               </Button>
             </div>
