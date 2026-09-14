@@ -29,6 +29,7 @@ import { SearchModal } from './SearchModal'
 import { ImageWithFallback } from './ImageWithFallback'
 import { ImageLightboxModal } from './ImageLightboxModal'
 import { isSafeUrl } from '../lib/sanitize'
+import { CmsImageInput } from './cms-editor/CmsImageInput'
 
 interface ExtendedHeroContent extends HeroContent {
   badgeText?: string
@@ -359,10 +360,10 @@ export function Hero() {
               onMouseLeave={() => { isHoveredRef.current = false }}
             >
               {/* Telemetry HUD Top Header */}
-              <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between border-b border-border-subtle/80 bg-[#0b1220]/80 px-4 py-2.5 backdrop-blur-md text-[11px]">
-                <span className="eyebrow flex items-center gap-1.5 text-text-secondary">
-                  <Compass size={13} className="text-accent-light" />
-                  IDSN BYALALU DEEP SPACE NODE
+              <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between border-b border-border-subtle/80 bg-[#0b1220]/80 px-3 sm:px-4 py-2.5 backdrop-blur-md text-[11px] gap-2">
+                <span className="eyebrow flex items-center gap-1.5 text-text-secondary min-w-0">
+                  <Compass size={13} className="text-accent-light shrink-0" />
+                  <span className="truncate max-w-[120px] sm:max-w-none">IDSN BYALALU DEEP SPACE NODE</span>
                 </span>
 
                 <div className="flex items-center gap-2 text-[10px] font-mono text-accent-light">
@@ -552,18 +553,19 @@ export function Hero() {
               </button>
             </div>
 
-            <div className="space-y-2.5 max-h-48 overflow-y-auto p-2.5 rounded-xl border border-border-default bg-[#060c18]">
+            <div className="space-y-3 max-h-72 sm:max-h-80 overflow-y-auto p-2.5 rounded-xl border border-border-default bg-[#060c18]">
               {editForm.slides.map((slide, idx) => (
-                <div key={idx} className="p-2.5 rounded-lg border border-border-subtle bg-surface space-y-2">
+                <div key={idx} className="p-3 rounded-lg border border-border-subtle bg-surface space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase num text-accent-light">
+                    <span className="text-[10px] font-bold uppercase num text-accent-light flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-accent" />
                       Slide #{idx + 1}
                     </span>
                     {editForm.slides.length > 1 && (
                       <button
                         type="button"
                         onClick={() => handleRemoveSlide(idx)}
-                        className="text-critical hover:text-critical-hover p-0.5"
+                        className="text-critical hover:text-critical p-1 rounded hover:bg-critical/10 transition-colors"
                         title="Remove Slide"
                       >
                         <Trash2 size={12} />
@@ -571,21 +573,25 @@ export function Hero() {
                     )}
                   </div>
 
-                  <input
-                    type="url"
+                  <CmsImageInput
+                    id={`hero-slide-url-${idx}`}
+                    label="Image URL *"
                     value={slide.url}
-                    onChange={(e) => handleUpdateSlide(idx, 'url', e.target.value)}
-                    placeholder="https://images.unsplash.com/... or image URL"
-                    className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent font-mono text-[11px]"
+                    onChange={(url) => handleUpdateSlide(idx, 'url', url)}
+                    placeholder="https://... or /media/cms-assets/..."
+                    hint="Paste a URL or click Browse to upload from your computer."
                   />
 
-                  <input
-                    type="text"
-                    value={slide.caption || ''}
-                    onChange={(e) => handleUpdateSlide(idx, 'caption', e.target.value)}
-                    placeholder="Slide caption, e.g. IDSN 32-Meter Deep Space Antenna"
-                    className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent text-[11px]"
-                  />
+                  <div>
+                    <label className="block text-[11px] font-medium text-text-dim mb-1">Slide Caption</label>
+                    <input
+                      type="text"
+                      value={slide.caption || ''}
+                      onChange={(e) => handleUpdateSlide(idx, 'caption', e.target.value)}
+                      placeholder="Slide caption, e.g. IDSN 32-Meter Deep Space Antenna"
+                      className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-white outline-none focus:border-accent text-[11px]"
+                    />
+                  </div>
                 </div>
               ))}
             </div>

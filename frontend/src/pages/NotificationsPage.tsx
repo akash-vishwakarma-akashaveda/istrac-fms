@@ -15,8 +15,10 @@ import {
   FileText,
 } from "lucide-react"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
 import { useNotifications, useMarkAllRead, useMarkRead } from "../hooks/useNotifications"
 import { useActiveBanner } from "../hooks/useActiveBanner"
+import { eventsApi, type MissionEventItem } from "../api/events.api"
 import { Button, PageHeader } from "../components"
 import { useAuthStore } from "../store/authStore"
 
@@ -90,13 +92,39 @@ export function NotificationsPage() {
   const activePassEvents = bannerData?.events || []
   const hasLiveMarquee = priorityBroadcasts.length > 0 || activePassEvents.length > 0
 
+  const { data: allEvents } = useQuery<MissionEventItem[]>({
+    queryKey: ["events"],
+    queryFn: () => eventsApi.getEvents({ limit: 200 }),
+    staleTime: 30_000,
+  })
+
   const handleNavigateEvent = (eventId?: string) => {
     const targetUrl = isAdmin ? "/admin/events" : "/dashboard/events"
-    if (eventId) {
-      navigate(`${targetUrl}?eventId=${eventId}`)
-    } else {
+    if (!eventId) {
       navigate(targetUrl)
+      return
     }
+
+    let tabParam = ""
+    if (allEvents && allEvents.length > 0) {
+      const ev = allEvents.find((e) => e.id === eventId)
+      if (ev) {
+        const now = new Date()
+        const evDate = new Date(ev.eventDate)
+        const endDate = ev.endDate ? new Date(ev.endDate) : null
+        const status = ev.status as string
+        const isTerminal = status === "COMPLETED" || status === "CANCELLED" || status === "TIMED_OUT"
+        const isDateExpired = endDate ? endDate < now : evDate < now
+
+        if (isTerminal || (status !== "IN_PROGRESS" && isDateExpired)) {
+          tabParam = "&tab=PAST"
+        } else {
+          tabParam = "&tab=LIVE"
+        }
+      }
+    }
+
+    navigate(`${targetUrl}?eventId=${eventId}${tabParam}`)
   }
 
   const handleNavigateFile = () => {
@@ -320,7 +348,13 @@ export function NotificationsPage() {
             const isUnread = !n.readAt
             const isHighlighted = String(n.id) === highlightId
             const isCritical = n.category === "CRITICAL" || n.type === "EMERGENCY" || n.message?.includes("[CRITICAL")
-            const isPass = n.type === "PASS" || n.type === "EVENT" || n.type === "MISSION_PASS"
+            const isPass =
+              n.type === "PASS" ||
+              n.type === "EVENT" ||
+              n.type === "MISSION_PASS" ||
+              n.resourceType === "mission_event" ||
+              (n.category && (n.category.toLowerCase() === "event" || n.category.toLowerCase() === "events")) ||
+              (typeof n.message === "string" && n.message.toLowerCase().includes("mission event"))
             const isFile = n.type === "FILE_UPLOAD" || n.category === "file" || n.message?.includes("uploaded")
             const isImportant = n.type === "WARNING" || n.message?.includes("[IMPORTANT")
 

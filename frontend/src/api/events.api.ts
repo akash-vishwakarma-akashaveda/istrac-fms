@@ -41,6 +41,11 @@ export const eventsApi = {
     return extractData(res)
   },
 
+  async getEventById(id: string): Promise<MissionEventItem> {
+    const res = await apiClient.get(`/events/${id}`)
+    return extractData(res)
+  },
+
   async getActiveBanner(): Promise<ActiveBannerData> {
     const res = await apiClient.get('/events/active-banner')
     return extractData(res)

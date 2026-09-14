@@ -165,7 +165,7 @@ export function Topbar() {
                 />
 
                 <div
-                  className="absolute top-full right-0 z-[60] mt-2 w-80 overflow-hidden rounded-xl border border-border-default bg-card shadow-2xl animate-fadeIn"
+                  className="absolute top-full right-0 z-[60] mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border-default bg-card shadow-2xl animate-fadeIn"
                   role="menu"
                 >
                   <div className="flex items-center justify-between border-b border-border-subtle bg-surface px-3.5 py-2.5">
@@ -249,7 +249,7 @@ export function Topbar() {
                 />
 
                 <div
-                  className="absolute top-full right-0 z-[60] mt-2 w-60 overflow-hidden rounded-xl border border-border-default bg-card shadow-2xl animate-fadeIn divide-y divide-border-subtle"
+                  className="absolute top-full right-0 z-[60] mt-2 w-60 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border-default bg-card shadow-2xl animate-fadeIn divide-y divide-border-subtle"
                   role="menu"
                 >
                   {/* User Bio Header */}

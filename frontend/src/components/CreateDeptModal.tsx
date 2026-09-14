@@ -178,13 +178,13 @@ export function CreateDeptModal({
           </label>
 
           <div className="flex w-full overflow-hidden rounded-md border border-border-default bg-surface transition-colors duration-150 focus-within:border-accent">
-            <span className="num flex shrink-0 items-center border-r border-border-default bg-card px-3 py-2 text-xs text-text-dim font-mono">
+            <span className="num flex shrink-0 items-center border-r border-border-default bg-card px-3 py-2 text-xs text-text-dim font-mono max-w-[130px] sm:max-w-none truncate">
               {mountRoot}
             </span>
 
             <input
               id="folderName"
-              className="num font-mono min-w-0 flex-1 bg-transparent px-3 py-2 text-xs text-text-primary outline-none placeholder:text-text-dim"
+              className="num font-mono min-w-0 flex-1 bg-transparent px-3 py-2 text-base sm:text-xs text-text-primary outline-none placeholder:text-text-dim"
               placeholder="ttc"
               {...register('folderName')}
             />
@@ -215,7 +215,7 @@ export function CreateDeptModal({
           <textarea
             id="pageAbout"
             rows={2}
-            className="w-full rounded-md border border-border-default bg-surface px-3 py-2 text-xs text-text-primary outline-none transition-colors duration-150 placeholder:text-text-dim focus:border-accent"
+            className="w-full rounded-md border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-text-primary outline-none transition-colors duration-150 placeholder:text-text-dim focus:border-accent"
             placeholder="Describe the operational mandate and mission responsibilities..."
             {...register('pageAbout')}
           />

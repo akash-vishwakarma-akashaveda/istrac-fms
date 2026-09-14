@@ -8,7 +8,6 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
-  FolderOpen,
   Star,
   Sparkles,
 } from "lucide-react"
@@ -43,7 +42,12 @@ function isViewableFormat(ext: string, mime?: string | null): boolean {
   return false
 }
 
-export function FeaturedReports() {
+export interface FeaturedReportsProps {
+  department?: string
+  hideDepartmentFilter?: boolean
+}
+
+export function FeaturedReports({ department, hideDepartmentFilter }: FeaturedReportsProps = {}) {
   const user = useAuthStore((s) => s.user)
   const { cmsBlocks } = useCms()
 
@@ -74,13 +78,36 @@ export function FeaturedReports() {
     }
   }, [refetchFeatured])
 
-  const rawReports = dbFiles.filter((r) => r.isFeatured)
+  const rawReports = dbFiles.filter((r) => {
+    if (!r.isFeatured) return false
+    if (department) {
+      const d = department.toUpperCase()
+      return (
+        r.department?.toUpperCase() === d ||
+        r.departmentCode?.toUpperCase() === d ||
+        r.departmentName?.toUpperCase() === d ||
+        r.departmentId === department
+      )
+    }
+    return true
+  })
+
+  // Completely hide section if no featured reports are available
+  if (rawReports.length === 0) {
+    return null
+  }
+
   const departments = ["ALL", ...Array.from(new Set(rawReports.map((r) => r.department)))]
 
   const filtered =
     selectedDept === "ALL"
       ? rawReports
       : rawReports.filter((r) => r.department.toUpperCase() === selectedDept.toUpperCase())
+
+  // If filtered results are empty, hide the section entirely
+  if (filtered.length === 0) {
+    return null
+  }
 
   const handleDownload = async (e: React.MouseEvent, item: FeaturedReportItem) => {
     e.stopPropagation()
@@ -180,25 +207,27 @@ export function FeaturedReports() {
             {/* Right Controls: Department Filter Chips & Navigation Arrows */}
             {rawReports.length > 0 && (
               <div className="flex flex-wrap items-center gap-3">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="eyebrow mr-1 text-text-dim flex items-center gap-1 text-[11px]">
-                    <Filter size={11} /> Dept:
-                  </span>
-                  {departments.map((dept) => (
-                    <button
-                      key={dept}
-                      type="button"
-                      onClick={() => setSelectedDept(dept)}
-                      className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors ${
-                        selectedDept === dept
-                          ? "bg-accent text-white shadow-sm shadow-accent/30"
-                          : "border border-border-subtle bg-surface text-text-muted hover:border-border-default hover:text-text-primary"
-                      }`}
-                    >
-                      {dept}
-                    </button>
-                  ))}
-                </div>
+                {!hideDepartmentFilter && !department && departments.length > 2 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="eyebrow mr-1 text-text-dim flex items-center gap-1 text-[11px]">
+                      <Filter size={11} /> Dept:
+                    </span>
+                    {departments.map((dept) => (
+                      <button
+                        key={dept}
+                        type="button"
+                        onClick={() => setSelectedDept(dept)}
+                        className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors ${
+                          selectedDept === dept
+                            ? "bg-accent text-white shadow-sm shadow-accent/30"
+                            : "border border-border-subtle bg-surface text-text-muted hover:border-border-default hover:text-text-primary"
+                        }`}
+                      >
+                        {dept}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 <div className="flex items-center gap-1.5 pl-2 border-l border-border-subtle">
                   <button
@@ -223,16 +252,7 @@ export function FeaturedReports() {
           </div>
 
           {/* Carousel / List */}
-          {filtered.length === 0 ? (
-            <div className="mt-8 rounded-2xl border border-dashed border-border-subtle bg-[#0d1629]/50 p-12 text-center">
-              <FolderOpen size={32} className="mx-auto text-text-dim mb-3" />
-              <h3 className="text-sm font-semibold text-white">No Featured Mission Reports Available</h3>
-              <p className="text-xs text-text-muted max-w-sm mx-auto mt-1">
-                Operators with R/W permission can feature reports using the Star button in their department repository or during file upload.
-              </p>
-            </div>
-          ) : (
-            <div className="relative mt-8">
+          <div className="relative mt-8">
               <div
                 ref={carouselRef}
                 className="flex items-stretch gap-4 overflow-x-auto pb-4 scrollbar-none snap-x"
@@ -361,9 +381,8 @@ export function FeaturedReports() {
                     </div>
                   )
                 })}
-              </div>
             </div>
-          )}
+          </div>
         </div>
       </section>
 

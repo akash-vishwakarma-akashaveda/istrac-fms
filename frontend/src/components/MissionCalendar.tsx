@@ -437,7 +437,7 @@ export function MissionCalendar({
   const todayEvents = useMemo(() => eventsByDate[todayStr] || [], [eventsByDate, todayStr])
 
   const calendarContent = (
-    <div className={`rounded-2xl border border-border-default bg-[#0b1220]/95 p-6 shadow-2xl backdrop-blur-md ${className}`}>
+    <div className={`rounded-2xl border border-border-default bg-[#0b1220]/95 p-4 sm:p-6 shadow-2xl backdrop-blur-md ${className}`}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border-subtle/70 pb-4 gap-2">
         <div className="flex items-center gap-2.5 text-text-primary">
@@ -905,28 +905,28 @@ function MultiEventModal({
   onCancelEvent?: (ev: MissionEvent) => void
 }) {
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-page/85 backdrop-blur-sm animate-rise">
+    <div className="fixed inset-0 z-[500] flex items-center justify-center p-3 sm:p-4 bg-page/85 backdrop-blur-sm animate-rise">
       <div
-        className="relative w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden rounded-2xl border border-border-default bg-[#0d1629] shadow-2xl"
+        className="relative w-full max-w-xl max-h-[88dvh] sm:max-h-[85vh] flex flex-col overflow-hidden rounded-2xl border border-border-default bg-[#0d1629] shadow-2xl my-auto"
         role="dialog"
         aria-modal="true"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border-subtle bg-[#111c34] px-6 py-4 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 border border-accent/30 text-accent-light shrink-0">
-              <CalendarIcon size={20} />
+        <div className="flex items-center justify-between border-b border-border-subtle bg-[#111c34] px-4 sm:px-6 py-3.5 sm:py-4 shrink-0 gap-2">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-accent/15 border border-accent/30 text-accent-light shrink-0">
+              <CalendarIcon size={18} />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-sm font-bold text-white leading-snug">
                   Mission Events on {date}
                 </h3>
-                <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent-light">
+                <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent-light shrink-0">
                   {events.length} Event{events.length > 1 ? "s" : ""}
                 </span>
               </div>
-              <p className="text-xs text-text-dim mt-0.5">
+              <p className="text-xs text-text-dim mt-0.5 line-clamp-1 sm:line-clamp-none">
                 Detailed telemetry passes, maintenance, and flight operations scheduled for this date.
               </p>
             </div>
@@ -936,14 +936,14 @@ function MultiEventModal({
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="rounded-lg p-1.5 text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors cursor-pointer"
+            className="rounded-lg p-1.5 text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors cursor-pointer shrink-0 min-h-[36px] min-w-[36px] flex items-center justify-center"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Scrollable Events List for this date */}
-        <div className="p-6 overflow-y-auto space-y-4 flex-1 scrollbar-none">
+        <div className="p-3.5 sm:p-6 overflow-y-auto space-y-3.5 sm:space-y-4 flex-1 scrollbar-none">
           {events.map((ev, index) => (
             <div
               key={ev.id || index}

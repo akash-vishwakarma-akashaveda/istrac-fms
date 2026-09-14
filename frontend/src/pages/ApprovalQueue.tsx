@@ -111,7 +111,7 @@ export function ApprovalQueue() {
 
   // Approve & Clearance Grant Modal State
   const [grantingUser, setGrantingUser] = useState<UserProfile | null>(null)
-  const [grantRole, setGrantRole] = useState<'MEMBER' | 'ADMIN'>('MEMBER')
+  const [grantRole, setGrantRole] = useState<'MEMBER' | 'ADMIN' | ''>('')
   const [grantBadgeId, setGrantBadgeId] = useState('')
   const [selectedDeptAccess, setSelectedDeptAccess] = useState<Record<string, 'READ_ONLY' | 'READ_WRITE'>>({})
   const [savingGrant, setSavingGrant] = useState(false)
@@ -168,7 +168,7 @@ export function ApprovalQueue() {
   // Open Grant Clearance Modal for Pending User
   const handleOpenGrantModal = (user: UserProfile) => {
     setGrantingUser(user)
-    setGrantRole('MEMBER')
+    setGrantRole('')
     setGrantBadgeId(user.employeeId || '')
     
     // Check if user requested a specific department
@@ -239,6 +239,15 @@ export function ApprovalQueue() {
     e.preventDefault()
     if (!grantingUser) return
 
+    if (!grantRole) {
+      addToast({
+        title: 'Validation Required',
+        message: 'Please select a system role for the user',
+        variant: 'warning',
+      })
+      return
+    }
+
     setSavingGrant(true)
     const departmentsPayload = Object.entries(selectedDeptAccess).map(([departmentId, accessLevel]) => ({
       departmentId,
@@ -273,6 +282,15 @@ export function ApprovalQueue() {
   const handleSaveModifiedAccess = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingUserAccess) return
+
+    if (!grantRole) {
+      addToast({
+        title: 'Validation Required',
+        message: 'Please select a system role for the user',
+        variant: 'warning',
+      })
+      return
+    }
 
     setSavingGrant(true)
     const departmentsPayload = Object.entries(selectedDeptAccess).map(([departmentId, accessLevel]) => ({
@@ -496,7 +514,7 @@ export function ApprovalQueue() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0 self-end lg:self-center">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
                       <Button
                         variant="primary"
                         size="sm"
@@ -868,13 +886,15 @@ export function ApprovalQueue() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-text-primary mb-1">
-                System Role
+                System Role *
               </label>
               <select
+                required
                 value={grantRole}
                 onChange={(e) => setGrantRole(e.target.value as 'MEMBER' | 'ADMIN')}
                 className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
               >
+                <option value="">-- Select System Role * --</option>
                 <option value="MEMBER">MEMBER (Standard User)</option>
                 <option value="ADMIN">ADMIN (Division / System Administrator)</option>
               </select>
@@ -1005,13 +1025,15 @@ export function ApprovalQueue() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-text-primary mb-1">
-                System Role
+                System Role *
               </label>
               <select
+                required
                 value={grantRole}
                 onChange={(e) => setGrantRole(e.target.value as 'MEMBER' | 'ADMIN')}
                 className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
               >
+                <option value="">-- Select System Role * --</option>
                 <option value="MEMBER">MEMBER (Standard User)</option>
                 <option value="ADMIN">ADMIN (Division / System Administrator)</option>
               </select>

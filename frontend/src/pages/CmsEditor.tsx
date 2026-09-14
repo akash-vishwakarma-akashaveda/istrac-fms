@@ -181,7 +181,7 @@ function CmsEditorInner() {
         </div>
 
         {/* Live sync badge & Quick Action Buttons */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <div className="inline-flex items-center gap-1.5 rounded-full border border-nominal/40 bg-nominal/10 px-3 py-1 text-xs font-mono font-medium text-nominal">
             <span className="h-2 w-2 rounded-full bg-nominal animate-pulse" />
             <span>Real-Time Sync</span>
@@ -242,7 +242,7 @@ function CmsEditorInner() {
       </div>
 
       {/* Active Tab Subheader Description */}
-      <div className="flex items-center gap-2 px-1 text-xs text-text-secondary">
+      <div className="flex flex-wrap items-center gap-2 px-1 text-xs text-text-secondary">
         <currentTab.icon size={13} className="text-accent-light" />
         <span className="font-semibold text-text-primary">{currentTab.label}</span>
         <span className="text-text-dim">·</span>
@@ -261,20 +261,20 @@ function CmsEditorInner() {
         </div>
 
         {/* Right Column: Interactive Live Preview Frame */}
-        <div className="xl:col-span-6 sticky top-20">
+        <div className="xl:col-span-6 xl:sticky xl:top-20">
           <LivePreviewPanel />
         </div>
       </div>
 
       {/* Footer Status Strip */}
-      <div className="flex items-center justify-between rounded-lg border border-border-subtle bg-surface/50 px-4 py-2 text-[11px] text-text-dim">
-        <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-nominal" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-border-subtle bg-surface/50 px-4 py-2 text-[11px] text-text-dim">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-nominal shrink-0" />
           <span>Live WebSocket sync active</span>
-          <span>·</span>
+          <span className="hidden sm:inline">·</span>
           <span>Changes publish instantly to the public landing portal</span>
         </div>
-        <div className="num font-mono text-[10px]">31 Aug 2026 UTC</div>
+        <div className="num font-mono text-[10px] shrink-0">31 Aug 2026 UTC</div>
       </div>
     </div>
   )

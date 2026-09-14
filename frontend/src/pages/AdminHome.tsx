@@ -38,10 +38,10 @@ function formatBytes(bytes: number) {
 }
 
 export function AdminHome() {
-  const { cmsBlocks } = useCms()
-  const headerBlock = cmsBlocks['nav_header']?.content as Record<string, any> | undefined
+  const { cmsBlocks, refetch: refetchCms } = useCms()
+  const headerBlock = (cmsBlocks['nav_header']?.content || cmsBlocks['nav_header'] || cmsBlocks['nav_footer']) as Record<string, any> | undefined
   const brandTitle = headerBlock?.brandTitle ?? 'ISTRAC'
-  const brandHighlight = headerBlock?.brandHighlight ?? '-SIMS'
+  const brandHighlight = headerBlock?.brandHighlight !== undefined ? headerBlock.brandHighlight : '-SIMS'
   const brandSubtitle = headerBlock?.brandSubtitle ?? 'ISRO Ground Network'
 
   const { data: stats, isLoading, refetch } = useAdminStats()
@@ -73,6 +73,7 @@ export function AdminHome() {
 
   useEffect(() => {
     fetchStorageStatus()
+    refetchCms()
   }, [])
 
   const handleApprove = async (id: string, name: string) => {

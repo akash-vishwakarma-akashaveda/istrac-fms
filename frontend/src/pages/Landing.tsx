@@ -11,10 +11,13 @@ import { ContactSection } from "../components/ContactSection"
 import { Footer } from "../components/Footer"
 import { SpaceParallaxBackground, type SpaceBackgroundConfig } from "../components/SpaceParallaxBackground"
 import { useCms } from "../context/cmsContext"
+import { useFeaturedReports } from "../hooks/useFeaturedReports"
 
 export function Landing() {
   const queryClient = useQueryClient()
   const { cmsBlocks, refetch } = useCms()
+  const { data: featuredData } = useFeaturedReports()
+  const hasFeaturedReports = Boolean(featuredData && featuredData.some((f) => f.isFeatured))
 
   const bgConfig = cmsBlocks["space_background"] as SpaceBackgroundConfig | undefined
 
@@ -75,7 +78,9 @@ export function Landing() {
           <div id="cms-section-hero"><Hero /></div>
           <div id="cms-section-quick_stats"><QuickStatsBanner /></div>
           <div id="cms-section-department_pages"><OperationalDivisions /></div>
-          <div id="cms-section-featured_reports"><FeaturedReports /></div>
+          {hasFeaturedReports && (
+            <div id="cms-section-featured_reports"><FeaturedReports /></div>
+          )}
           <div id="cms-section-calendar_events"><MissionCalendar /></div>
           <div id="cms-section-about"><AboutSection /></div>
           <div id="cms-section-contact_info"><ContactSection /></div>

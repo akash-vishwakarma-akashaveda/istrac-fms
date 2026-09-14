@@ -22,7 +22,7 @@ export function Textarea({ label, error, hint, className = '', id, ...props }: T
         id={id}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
-        className={`w-full resize-y rounded-md border bg-surface px-3 py-2.5 text-sm leading-6 text-text-primary outline-none transition-colors duration-150 placeholder:text-text-dim hover:border-border-bright focus:bg-card-hover disabled:cursor-not-allowed disabled:bg-card disabled:text-text-muted ${
+        className={`w-full resize-y rounded-md border bg-surface px-3 py-2.5 text-base sm:text-sm leading-6 text-text-primary outline-none transition-colors duration-150 placeholder:text-text-dim hover:border-border-bright focus:bg-card-hover disabled:cursor-not-allowed disabled:bg-card disabled:text-text-muted ${
           error
             ? 'border-critical focus:border-critical'
             : 'border-border-default focus:border-accent'

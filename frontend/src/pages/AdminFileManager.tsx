@@ -134,7 +134,7 @@ export function AdminFileManager() {
     title: '',
     description: '',
     spacecraft: '',
-    category: 'DAILY_REPORT',
+    category: '',
     classificationLevel: 'RESTRICTED',
     broadcastAlert: false,
     broadcastMessage: '',
@@ -143,7 +143,7 @@ export function AdminFileManager() {
 
   // Quick Broadcast Form State
   const [broadcastMessage, setBroadcastMessage] = useState('')
-  const [broadcastUrgency, setBroadcastUrgency] = useState('NORMAL')
+  const [broadcastUrgency, setBroadcastUrgency] = useState('')
   const [broadcasting, setBroadcasting] = useState(false)
 
   // Delete Action State
@@ -227,7 +227,7 @@ export function AdminFileManager() {
       title: file.report?.title || file.name,
       description: file.description || '',
       spacecraft: file.report?.spacecraft || file.department?.satellite?.name || '',
-      category: file.report?.category || 'DAILY_REPORT',
+      category: file.report?.category || '',
       classificationLevel: file.report?.classificationLevel || 'RESTRICTED',
       broadcastAlert: false,
       broadcastMessage: `[UPDATE] Telemetry dataset ${file.name} modified in /${file.department?.code || 'OPS'}.`,
@@ -271,6 +271,15 @@ export function AdminFileManager() {
   const handleQuickBroadcast = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!broadcastingFile) return
+
+    if (!broadcastUrgency) {
+      addToast({
+        title: 'Validation Required',
+        message: 'Please select an urgency level for the broadcast bulletin',
+        variant: 'warning',
+      })
+      return
+    }
 
     setBroadcasting(true)
     try {
@@ -394,7 +403,7 @@ export function AdminFileManager() {
               placeholder="Search by name, hash, parameter…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-base sm:text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
             />
           </div>
 
@@ -410,7 +419,7 @@ export function AdminFileManager() {
                   setSearchParams({})
                 }
               }}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All Active Divisions</option>
               {departments?.some((d) => !d.archived && d.isActive !== false) && (
@@ -442,7 +451,7 @@ export function AdminFileManager() {
             <select
               value={selectedSat}
               onChange={(e) => setSelectedSat(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All Spacecraft & Satellites</option>
               {satellites
@@ -460,7 +469,7 @@ export function AdminFileManager() {
             <select
               value={selectedExt}
               onChange={(e) => setSelectedExt(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All File Formats</option>
               <option value="PDF">PDF (Mission Reports)</option>
@@ -479,7 +488,7 @@ export function AdminFileManager() {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All Mission Categories</option>
               <option value="DAILY_REPORT">Daily Operations Report</option>
@@ -496,7 +505,7 @@ export function AdminFileManager() {
             <select
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All Upload Dates</option>
               <option value="today">Uploaded Today</option>
@@ -513,7 +522,7 @@ export function AdminFileManager() {
                 setSortBy(f)
                 setSortOrder(o)
               }}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer font-medium"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer font-medium"
             >
               <option value="createdAt-desc">Date Uploaded: Newest ↓</option>
               <option value="createdAt-asc">Date Uploaded: Oldest ↑</option>
@@ -878,6 +887,7 @@ export function AdminFileManager() {
                             type="button"
                             onClick={() => {
                               setBroadcastingFile(file)
+                              setBroadcastUrgency('')
                               setBroadcastMessage(
                                 `[NOTICE] Spacecraft telemetry archive ${file.name} updated in /${file.department?.code || 'TTC'}.`
                               )
@@ -924,7 +934,7 @@ export function AdminFileManager() {
               required
               value={editForm.name}
               onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-              className="num font-mono w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+              className="num font-mono w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
             />
           </div>
 
@@ -939,7 +949,7 @@ export function AdminFileManager() {
                 value={editForm.spacecraft}
                 onChange={(e) => setEditForm({ ...editForm, spacecraft: e.target.value })}
                 placeholder="e.g. Aditya-L1 or General"
-                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
               />
               <datalist id="spacecraft-options">
                 <option value="General" />
@@ -956,7 +966,7 @@ export function AdminFileManager() {
               <select
                 value={editForm.classificationLevel}
                 onChange={(e) => setEditForm({ ...editForm, classificationLevel: e.target.value })}
-                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
               >
                 <option value="RESTRICTED">RESTRICTED</option>
                 <option value="CONFIDENTIAL">CONFIDENTIAL</option>
@@ -997,7 +1007,7 @@ export function AdminFileManager() {
                   value={editForm.broadcastMessage}
                   onChange={(e) => setEditForm({ ...editForm, broadcastMessage: e.target.value })}
                   placeholder="Enter notice text to display across top announcement ticker..."
-                  className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-1.5 text-xs text-white outline-none focus:border-accent"
+                  className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-1.5 text-base sm:text-xs text-white outline-none focus:border-accent"
                 />
               </div>
             )}
@@ -1028,13 +1038,15 @@ export function AdminFileManager() {
 
           <div>
             <label className="block text-xs font-semibold text-text-primary mb-1">
-              Urgency Level
+              Urgency Level *
             </label>
             <select
               value={broadcastUrgency}
               onChange={(e) => setBroadcastUrgency(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
+              required
             >
+              <option value="">-- Select Urgency Level * --</option>
               <option value="NORMAL">NORMAL BULLETIN</option>
               <option value="IMPORTANT">IMPORTANT NOTICE (Saffron Alert)</option>
               <option value="CRITICAL">CRITICAL / ANOMALY (Red Alert)</option>
@@ -1148,8 +1160,8 @@ export function AdminFileManager() {
           name: uploadVersionFile.name,
           departmentId: uploadVersionFile.department?.id,
           departmentName: uploadVersionFile.department?.name,
-          spacecraft: uploadVersionFile.report?.spacecraft || uploadVersionFile.department?.satellite?.name || 'General',
-          category: uploadVersionFile.report?.category || 'DAILY_REPORT',
+          spacecraft: uploadVersionFile.report?.spacecraft || uploadVersionFile.department?.satellite?.name || '',
+          category: uploadVersionFile.report?.category || '',
           title: uploadVersionFile.report?.title || uploadVersionFile.name,
           description: uploadVersionFile.description || '',
           versionCount: uploadVersionFile.versionCount,

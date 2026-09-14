@@ -192,9 +192,9 @@ const FALLBACK_DEPARTMENTS = [
 
 export function AuthModal() {
   const { cmsBlocks } = useCms()
-  const headerBlock = cmsBlocks['nav_header']?.content as Record<string, any> | undefined
+  const headerBlock = (cmsBlocks['nav_header']?.content || cmsBlocks['nav_header'] || cmsBlocks['nav_footer']) as Record<string, any> | undefined
   const brandTitle = headerBlock?.brandTitle ?? 'ISTRAC'
-  const brandHighlight = headerBlock?.brandHighlight ?? '-SIMS'
+  const brandHighlight = headerBlock?.brandHighlight !== undefined ? headerBlock.brandHighlight : '-SIMS'
 
   const { isOpen, mode, setMode, closeModal } = useAuthModalStore()
   const navigate = useNavigate()

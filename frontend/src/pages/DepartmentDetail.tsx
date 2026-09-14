@@ -54,10 +54,12 @@ import {
 } from '../components'
 import { VersionHistoryPanel } from '../components/VersionHistoryPanel'
 import { FilePreviewModal } from '../components/FilePreviewModal'
+import { UploadVersionModal } from '../components/UploadVersionModal'
 import { ImageWithFallback } from '../components/ImageWithFallback'
 import { formatFileSize } from '../lib/formatFileSize'
 import type { FileNode } from '../types/file'
 import { isSafeUrl } from '../lib/sanitize'
+import { CmsImageInput } from '../components/cms-editor/CmsImageInput'
 
 const EXT_CONFIG: Record<string, { label: string; badge: string; icon: typeof FileText }> = {
   BIN: { label: 'BIN', badge: 'bg-accent/15 text-accent-light border-accent/30', icon: FileCode },
@@ -202,8 +204,18 @@ export function DepartmentDetail() {
   const [savingEdit, setSavingEdit] = useState(false)
   const [featureConfirmFile, setFeatureConfirmFile] = useState<{ id: string; name: string; isFeatured?: boolean } | null>(null)
   const [featuredOnly, setFeaturedOnly] = useState<boolean>(false)
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false)
 
   const isAdmin = user?.role === 'ADMIN'
+  const hasDeptAccess = Boolean(
+    isAdmin ||
+    user?.departmentAccess?.some(
+      (da: any) =>
+        da.departmentId === dept?.id ||
+        da.department?.id === dept?.id ||
+        da.department?.code?.toUpperCase() === dept?.code?.toUpperCase()
+    )
+  )
   const isWriteAllowed = Boolean(
     isAdmin ||
     user?.departmentAccess?.some(
@@ -297,6 +309,12 @@ export function DepartmentDetail() {
 
   const loadDeptFiles = async () => {
     if (!dept?.id && !deptId) return
+    // If authenticated user is not admin and has no access to this department, quietly clear files and return
+    if (user && !isAdmin && !hasDeptAccess) {
+      setDeptFiles([])
+      setLoadingFiles(false)
+      return
+    }
     setLoadingFiles(true)
     try {
       const files = await departmentsApi.getDepartmentFiles(dept?.id || deptId!, {
@@ -306,7 +324,8 @@ export function DepartmentDetail() {
       })
       setDeptFiles(files)
     } catch {
-      addToast({ title: 'Error', message: 'Failed to load department files', variant: 'error' })
+      // Do not show an error toast if user has no access or files cannot be retrieved
+      setDeptFiles([])
     } finally {
       setLoadingFiles(false)
     }
@@ -320,7 +339,13 @@ export function DepartmentDetail() {
     if (dept) {
       loadDeptFiles()
     }
-  }, [dept, debouncedFileSearch, fileSpacecraft, fileExt])
+  }, [dept, debouncedFileSearch, fileSpacecraft, fileExt, user, hasDeptAccess])
+
+  useEffect(() => {
+    if (featuredOnly && !deptFiles.some((f) => f.isFeatured)) {
+      setFeaturedOnly(false)
+    }
+  }, [deptFiles, featuredOnly])
 
   // Open Edit Modal with Current Data
   const handleOpenEditModal = () => {
@@ -577,13 +602,17 @@ export function DepartmentDetail() {
 
               {/* Action Buttons */}
               <div className="pt-3 flex flex-wrap items-center gap-3">
-                {isAdmin && (
-                  <Link to="/admin/upload">
-                    <Button variant="primary" size="md" className="shadow-lg shadow-accent/25 px-5 flex items-center gap-2">
-                      <Upload size={14} />
-                      <span>Upload to {dept.code || 'Dept'}</span>
-                    </Button>
-                  </Link>
+                {isWriteAllowed && (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="md"
+                    onClick={() => setIsUploadModalOpen(true)}
+                    className="shadow-lg shadow-accent/25 px-5 flex items-center gap-2 font-bold cursor-pointer"
+                  >
+                    <Upload size={14} />
+                    <span>Upload to {dept.code || 'Dept'}</span>
+                  </Button>
                 )}
 
                 {isAdmin && (
@@ -975,24 +1004,104 @@ export function DepartmentDetail() {
         {/* ============================================================ */}
         {/* 3. DEDICATED DEPARTMENT FILES EXPLORER (CARD & TABLE VIEW) */}
         {/* ============================================================ */}
-        <section className="shell mt-10 space-y-6">
-          {/* Header & Controls Toolbar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border-default pb-4">
-            <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <HardDrive size={18} className="text-accent-light" />
-                <span>{dept.code || dept.name} Repository Datasets</span>
-                <span className="rounded-full bg-accent/20 border border-accent/40 text-accent-light px-2 py-0.5 text-xs font-mono num font-bold">
-                  {deptFiles.length} files
-                </span>
-              </h2>
-              <p className="text-xs text-text-dim mt-0.5">
-                Browse and download all telemetry passes, state vectors, and flight reports.
-              </p>
+        {user && !isAdmin && !hasDeptAccess ? null : loadingFiles ? (
+          <section className="shell mt-10 space-y-6">
+            <div className="h-48 rounded-xl border border-border-subtle bg-card p-8 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2">
+                <RefreshCw size={20} className="animate-spin text-accent-light" />
+                <p className="text-xs text-text-dim">Loading repository catalog…</p>
+              </div>
             </div>
+          </section>
+        ) : deptFiles.length === 0 ? (
+          user && !isWriteAllowed ? null : !user ? (
+            <section className="shell mt-10 space-y-4">
+              <div className="border-b border-border-default pb-4">
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <HardDrive size={18} className="text-accent-light" />
+                  <span>{dept.code || dept.name} Repository Datasets</span>
+                </h2>
+                <p className="text-xs text-text-dim mt-0.5">
+                  Browse and download all telemetry passes, state vectors, and flight reports.
+                </p>
+              </div>
+              <div className="py-8 text-center text-sm text-text-muted">
+                No files are there
+              </div>
+            </section>
+          ) : (
+            <section className="shell mt-10 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border-default pb-4">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <HardDrive size={18} className="text-accent-light" />
+                    <span>{dept.code || dept.name} Repository Datasets</span>
+                    <span className="rounded-full bg-accent/20 border border-accent/40 text-accent-light px-2 py-0.5 text-xs font-mono num font-bold">
+                      0 files
+                    </span>
+                  </h2>
+                  <p className="text-xs text-text-dim mt-0.5">
+                    Browse and download all telemetry passes, state vectors, and flight reports.
+                  </p>
+                </div>
 
-            {/* View Mode Switcher (Card Grid vs Table List) */}
-            <div className="flex items-center gap-1.5 p-1 rounded-lg border border-border-default bg-[#060c18] shrink-0 self-start sm:self-auto">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setIsUploadModalOpen(true)}
+                  className="flex items-center gap-1.5 font-bold shadow-md shadow-accent/20 cursor-pointer"
+                >
+                  <Plus size={14} />
+                  <span>Add File</span>
+                </Button>
+              </div>
+
+              <div className="rounded-xl border border-border-default/60 bg-card/40 p-10 text-center space-y-3">
+                <p className="text-sm text-text-muted">No files are there</p>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setIsUploadModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 font-bold shadow-md shadow-accent/20 cursor-pointer"
+                >
+                  <Plus size={14} />
+                  <span>Add File</span>
+                </Button>
+              </div>
+            </section>
+          )
+        ) : (
+          <section className="shell mt-10 space-y-6">
+            {/* Header & Controls Toolbar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border-default pb-4">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <HardDrive size={18} className="text-accent-light" />
+                  <span>{dept.code || dept.name} Repository Datasets</span>
+                  <span className="rounded-full bg-accent/20 border border-accent/40 text-accent-light px-2 py-0.5 text-xs font-mono num font-bold">
+                    {deptFiles.length} files
+                  </span>
+                </h2>
+                <p className="text-xs text-text-dim mt-0.5">
+                  Browse and download all telemetry passes, state vectors, and flight reports.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
+                {isWriteAllowed && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setIsUploadModalOpen(true)}
+                    className="flex items-center gap-1.5 font-bold shadow-md shadow-accent/20 cursor-pointer"
+                  >
+                    <Plus size={13} />
+                    <span>Add File</span>
+                  </Button>
+                )}
+
+                {/* View Mode Switcher (Card Grid vs Table List) */}
+                <div className="flex items-center gap-1.5 p-1 rounded-lg border border-border-default bg-[#060c18]">
               <button
                 type="button"
                 onClick={() => setViewMode('card')}
@@ -1022,6 +1131,7 @@ export function DepartmentDetail() {
               </button>
             </div>
           </div>
+          </div>
 
           {/* Filters Bar */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-4 rounded-xl border border-border-default bg-card shadow-sm">
@@ -1032,7 +1142,7 @@ export function DepartmentDetail() {
                 placeholder={`Search within ${dept.code || 'department'} datasets, reports, checksums…`}
                 value={fileSearch}
                 onChange={(e) => setFileSearch(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-base sm:text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
               />
             </div>
 
@@ -1040,7 +1150,7 @@ export function DepartmentDetail() {
               <select
                 value={fileSpacecraft}
                 onChange={(e) => setFileSpacecraft(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent"
               >
                 <option value="ALL">All Spacecraft & Satellites</option>
                 {satellites.map((s) => (
@@ -1055,7 +1165,7 @@ export function DepartmentDetail() {
               <select
                 value={fileExt}
                 onChange={(e) => setFileExt(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent"
               >
                 <option value="ALL">All File Formats</option>
                 <option value="BIN">BIN (Raw Telemetry)</option>
@@ -1118,13 +1228,16 @@ export function DepartmentDetail() {
               <p className="text-xs text-text-secondary max-w-sm mx-auto">
                 No telemetry passes or reports match the selected spacecraft and format filters.
               </p>
-              {isAdmin && (
-                <Link to="/admin/upload" className="inline-block pt-2">
-                  <Button variant="primary" size="sm">
-                    <Upload size={13} />
-                    <span>Upload Telemetry to {dept.code || 'Dept'}</span>
-                  </Button>
-                </Link>
+              {isWriteAllowed && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setIsUploadModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 font-bold shadow-md shadow-accent/20 cursor-pointer pt-2"
+                >
+                  <Upload size={13} />
+                  <span>Upload Telemetry to {dept.code || 'Dept'}</span>
+                </Button>
               )}
             </div>
           ) : viewMode === 'card' ? (
@@ -1532,6 +1645,7 @@ export function DepartmentDetail() {
             </div>
           )}
         </section>
+      )}
       </main>
 
       {/* ============================================================ */}
@@ -1568,7 +1682,7 @@ export function DepartmentDetail() {
                 value={editForm.code}
                 onChange={(e) => setEditForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))}
                 placeholder="e.g. TTC, MOX, FDD"
-                className="num font-mono w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                className="num font-mono w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
               />
             </div>
           </div>
@@ -1582,7 +1696,7 @@ export function DepartmentDetail() {
               value={editForm.pageTitle}
               onChange={(e) => setEditForm((prev) => ({ ...prev, pageTitle: e.target.value }))}
               placeholder="e.g. Telemetry, Tracking & Command (TTC) Complex"
-              className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
             />
           </div>
 
@@ -1609,7 +1723,7 @@ export function DepartmentDetail() {
                 value={editForm.pageLeadOfficer}
                 onChange={(e) => setEditForm((prev) => ({ ...prev, pageLeadOfficer: e.target.value }))}
                 placeholder="e.g. Dr. Vikram Sharma"
-                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
               />
             </div>
 
@@ -1622,7 +1736,7 @@ export function DepartmentDetail() {
                 value={editForm.pageContact}
                 onChange={(e) => setEditForm((prev) => ({ ...prev, pageContact: e.target.value }))}
                 placeholder="e.g. Building MOX-2, ISTRAC Bengaluru"
-                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
               />
             </div>
           </div>
@@ -1672,9 +1786,9 @@ export function DepartmentDetail() {
                 Hero Telemetry Carousel is disabled for this division. The overview section will span full width (12 columns).
               </div>
             ) : (
-              <div className="space-y-3 max-h-56 overflow-y-auto p-2.5 rounded-xl border border-border-default bg-[#060c18]">
+              <div className="space-y-3 max-h-72 sm:max-h-80 overflow-y-auto p-2.5 rounded-xl border border-border-default bg-[#060c18]">
                 {editForm.slides.map((slide, idx) => (
-                  <div key={idx} className="p-2.5 rounded-lg border border-border-subtle bg-surface space-y-2">
+                  <div key={idx} className="p-3 rounded-lg border border-border-subtle bg-surface space-y-2.5">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold uppercase num text-accent-light flex items-center gap-1.5">
                         <span className="h-1.5 w-1.5 rounded-full bg-accent" />
@@ -1684,7 +1798,7 @@ export function DepartmentDetail() {
                         <button
                           type="button"
                           onClick={() => handleRemoveSlide(idx)}
-                          className="text-critical hover:text-critical-hover p-0.5 transition-colors"
+                          className="text-critical hover:text-critical p-1 rounded hover:bg-critical/10 transition-colors"
                           title="Remove Slide"
                         >
                           <Trash2 size={12} />
@@ -1692,21 +1806,25 @@ export function DepartmentDetail() {
                       )}
                     </div>
 
-                    <input
-                      type="url"
+                    <CmsImageInput
+                      id={`dept-slide-url-${idx}`}
+                      label="Image URL *"
                       value={slide.url}
-                      onChange={(e) => handleUpdateSlide(idx, 'url', e.target.value)}
-                      placeholder="https://images.unsplash.com/... or image URL"
-                      className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent font-mono text-[11px]"
+                      onChange={(url) => handleUpdateSlide(idx, 'url', url)}
+                      placeholder="https://... or /media/cms-assets/..."
+                      hint="Paste a URL or click Browse to upload from your computer."
                     />
 
-                    <input
-                      type="text"
-                      value={slide.caption}
-                      onChange={(e) => handleUpdateSlide(idx, 'caption', e.target.value)}
-                      placeholder="Slide caption, e.g. 32-Meter Deep Space Antenna Dish"
-                      className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent text-[11px]"
-                    />
+                    <div>
+                      <label className="block text-[11px] font-medium text-text-dim mb-1">Slide Caption</label>
+                      <input
+                        type="text"
+                        value={slide.caption}
+                        onChange={(e) => handleUpdateSlide(idx, 'caption', e.target.value)}
+                        placeholder="Slide caption, e.g. 32-Meter Deep Space Antenna Dish"
+                        className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-white outline-none focus:border-accent text-[11px]"
+                      />
+                    </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
                       <div className="space-y-1">
@@ -1714,7 +1832,7 @@ export function DepartmentDetail() {
                         <select
                           value={slide.spacecraft || ''}
                           onChange={(e) => handleUpdateSlide(idx, 'spacecraft', e.target.value)}
-                          className="w-full rounded-md border border-border-default bg-[#060c18] px-2 py-1 text-xs text-white outline-none focus:border-accent text-[11px]"
+                          className="w-full rounded-md border border-border-default bg-[#060c18] px-2 py-1 text-base sm:text-xs text-white outline-none focus:border-accent text-[11px]"
                         >
                           <option value="">No Spacecraft (General)</option>
                           {satellites.map((sat) => (
@@ -1732,7 +1850,7 @@ export function DepartmentDetail() {
                           value={slide.tag || ''}
                           onChange={(e) => handleUpdateSlide(idx, 'tag', e.target.value)}
                           placeholder="e.g. S-BAND PASS, REAL-TIME"
-                          className="w-full rounded-md border border-border-default bg-[#060c18] px-2 py-1 text-xs text-white outline-none focus:border-accent text-[11px] font-mono uppercase"
+                          className="w-full rounded-md border border-border-default bg-[#060c18] px-2 py-1 text-base sm:text-xs text-white outline-none focus:border-accent text-[11px] font-mono uppercase"
                         />
                       </div>
                     </div>
@@ -1967,6 +2085,18 @@ export function DepartmentDetail() {
         isOpen={Boolean(viewingSatelliteId)}
         onClose={() => setViewingSatelliteId(null)}
       />
+
+      {/* Upload Modal (For Adding New Files or Revisions) */}
+      {dept && (
+        <UploadVersionModal
+          isOpen={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)}
+          defaultDeptId={dept.id}
+          onSuccess={() => {
+            loadDeptFiles()
+          }}
+        />
+      )}
 
       <Footer />
     </div>

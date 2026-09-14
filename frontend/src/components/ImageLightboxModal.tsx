@@ -12,6 +12,7 @@ import {
   RefreshCw,
 } from "lucide-react"
 import { isSafeUrl, safeHref } from "../lib/sanitize"
+import { getResolvedMediaUrl } from "./cms-editor/CmsImageInput"
 
 export interface LightboxImage {
   url: string
@@ -64,7 +65,7 @@ export function ImageLightboxModal({
     if (!isOpen || !current) return
 
     const rawUrl = current.url && isSafeUrl(current.url) ? current.url : ""
-    const initialUrl = rawUrl || DEFAULT_FALLBACK_IMAGE
+    const initialUrl = getResolvedMediaUrl(rawUrl) || DEFAULT_FALLBACK_IMAGE
 
     setActiveSrc(initialUrl)
     setZoom(1)

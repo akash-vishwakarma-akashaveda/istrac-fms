@@ -66,7 +66,7 @@ export function UploadReport() {
   // Form State
   const [selectedSat, setSelectedSat] = useState<string>('')
   const [selectedDept, setSelectedDept] = useState<string>('')
-  const [selectedCategoryCode, setSelectedCategoryCode] = useState<string>('DAILYOPS')
+  const [selectedCategoryCode, setSelectedCategoryCode] = useState<string>('')
   const [reportTitle, setReportTitle] = useState<string>('')
   const [reportDate, setReportDate] = useState<string>(
     new Date().toISOString().split('T')[0],
@@ -102,28 +102,12 @@ export function UploadReport() {
   const { data: systemConfig } = useSystemConfig()
   const maxUploadBytes = systemConfig?.maxUploadSizeBytes || 524288000
 
-  // Auto-initialize form defaults once cached data is ready
+  // Auto-initialize department from URL query param if present
   useEffect(() => {
-    if (!selectedSat && satellites.length > 0) {
-      setSelectedSat(satellites[0].id)
-    }
-  }, [satellites, selectedSat])
-
-  useEffect(() => {
-    if (!selectedDept && departments.length > 0) {
-      if (deptIdParam && departments.some((d) => d.id === deptIdParam)) {
-        setSelectedDept(deptIdParam)
-      } else {
-        setSelectedDept(departments[0].id)
-      }
+    if (!selectedDept && deptIdParam && departments.some((d) => d.id === deptIdParam)) {
+      setSelectedDept(deptIdParam)
     }
   }, [departments, deptIdParam, selectedDept])
-
-  useEffect(() => {
-    if (categories.length > 0 && (!selectedCategoryCode || !categories.some((c) => c.code === selectedCategoryCode))) {
-      setSelectedCategoryCode(categories[0].code)
-    }
-  }, [categories, selectedCategoryCode])
 
   useEffect(() => {
     if (namingPresets.length > 0 && selectedPresetId === 'default') {
@@ -319,8 +303,16 @@ export function UploadReport() {
       addToast({ title: 'Validation', message: 'Please select a file to upload', variant: 'warning' })
       return
     }
+    if (!selectedSat) {
+      addToast({ title: 'Validation', message: 'Please select a spacecraft / satellite', variant: 'warning' })
+      return
+    }
     if (!selectedDept) {
       addToast({ title: 'Validation', message: 'Please select a destination department', variant: 'warning' })
+      return
+    }
+    if (!selectedCategoryCode) {
+      addToast({ title: 'Validation', message: 'Please select a report category', variant: 'warning' })
       return
     }
 
@@ -416,6 +408,7 @@ export function UploadReport() {
                       onChange={(e) => setSelectedSat(e.target.value)}
                       required
                     >
+                      <option value="">-- Select Spacecraft / Satellite * --</option>
                       {satellites
                         .slice()
                         .sort((a, b) => (a.code === 'GENERAL' ? -1 : b.code === 'GENERAL' ? 1 : a.name.localeCompare(b.name)))
@@ -437,6 +430,7 @@ export function UploadReport() {
                       onChange={(e) => setSelectedDept(e.target.value)}
                       required
                     >
+                      <option value="">-- Select Operational Division * --</option>
                       {departments.map((d) => (
                         <option key={d.id} value={d.id}>
                           {d.name}
@@ -472,7 +466,9 @@ export function UploadReport() {
                         setSelectedCategoryCode(e.target.value)
                       }
                     }}
+                    required
                   >
+                    <option value="">-- Select Report Category * --</option>
                     {categories
                       .slice()
                       .sort((a, b) => (a.code === 'GENERAL' ? -1 : b.code === 'GENERAL' ? 1 : a.name.localeCompare(b.name)))
