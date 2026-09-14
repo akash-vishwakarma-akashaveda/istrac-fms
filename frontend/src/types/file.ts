@@ -9,6 +9,12 @@ export interface FileNode {
   status: 'ACTIVE' | 'ORPHANED' | 'DELETED' | 'UNREGISTERED'
   createdAt: string
   versionCount?: number
+  versionLabel?: string | null
+  title?: string | null
+  description?: string | null
+  isFeatured?: boolean
+  spacecraft?: string | null
+  category?: string | null
 }
 
 export type SortField = 'name' | 'createdAt' | 'sizeBytes'

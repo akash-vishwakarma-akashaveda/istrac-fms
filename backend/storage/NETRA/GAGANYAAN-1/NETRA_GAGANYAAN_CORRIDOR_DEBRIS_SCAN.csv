@@ -1,0 +1,4 @@
+debris_norad_id,closest_approach_epoch,miss_distance_m,radial_miss_m,collision_prob,risk_level
+58492,2026-08-27T04:12:18Z,4280,1820,1.2e-07,LOW
+49201,2026-08-27T11:45:02Z,8900,4200,4.1e-08,NEGLIGIBLE
+39120,2026-08-28T01:22:45Z,2140,490,3.8e-06,EVALUATION

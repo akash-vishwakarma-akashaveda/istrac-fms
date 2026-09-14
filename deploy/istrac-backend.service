@@ -1,0 +1,20 @@
+[Unit]
+Description=ISTRAC FMS Backend API Server
+After=network.target mariadb.service redis.service
+Wants=mariadb.service redis.service
+
+[Service]
+Type=simple
+User=istrac
+Group=istrac
+WorkingDirectory=/opt/istrac-fms/backend
+ExecStart=/usr/bin/node dist/src/index.js
+Restart=always
+RestartSec=5
+LimitNOFILE=65535
+StandardOutput=journal
+StandardError=journal
+EnvironmentFile=/opt/istrac-fms/backend/.env
+
+[Install]
+WantedBy=multi-user.target

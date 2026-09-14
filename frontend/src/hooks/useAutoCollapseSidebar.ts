@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useUIStore } from '../store/uiStore'
 
-const MOBILE_BREAKPOINT = 768
+const TABLET_BREAKPOINT = 1024
 
 export function useAutoCollapseSidebar() {
   const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed)
@@ -10,7 +10,7 @@ export function useAutoCollapseSidebar() {
   useEffect(() => {
     function handleResize() {
       if (sidebarManuallySet) return
-      setSidebarCollapsed(window.innerWidth < MOBILE_BREAKPOINT)
+      setSidebarCollapsed(window.innerWidth < TABLET_BREAKPOINT)
     }
     handleResize()
     window.addEventListener('resize', handleResize)

@@ -1,37 +1,63 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api } from '../lib/axios'
+import {
+  departmentsApi,
+  type Department,
+  type CreateDepartmentPayload,
+  type UpdateDepartmentPayload,
+} from '../api'
 
-interface Department {
-  id: string
-  name: string
-  hddPath: string
-  archived: boolean
-}
+export type { Department }
+
+export const PUBLIC_DEPARTMENTS_QUERY_KEY = ['public-departments'] as const
+export const USER_DEPARTMENTS_QUERY_KEY = ['departments'] as const
+export const ADMIN_DEPARTMENTS_QUERY_KEY = ['admin-departments'] as const
 
 export function useDepartments() {
   return useQuery({
-    queryKey: ['departments'],
-    queryFn: async () => {
-      const { data } = await api.get<Department[]>('/departments')
-      return data
-    },
+    queryKey: USER_DEPARTMENTS_QUERY_KEY,
+    queryFn: () => departmentsApi.getUserDepartments(),
+  })
+}
+
+export function usePublicDepartments() {
+  return useQuery({
+    queryKey: PUBLIC_DEPARTMENTS_QUERY_KEY,
+    queryFn: () => departmentsApi.getPublicDepartments(),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  })
+}
+
+export function useAdminDepartments(satelliteId?: string) {
+  return useQuery({
+    queryKey: ['admin-departments', satelliteId],
+    queryFn: () => departmentsApi.getAllAdminDepartments(satelliteId),
   })
 }
 
 export function useCreateDepartment() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (payload: { name: string; hddPath: string }) => api.post('/departments', payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['departments'] }),
+    mutationFn: (payload: CreateDepartmentPayload) => departmentsApi.createDepartment(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USER_DEPARTMENTS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: ADMIN_DEPARTMENTS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: PUBLIC_DEPARTMENTS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: ['user-departments'] })
+    },
   })
 }
 
 export function useUpdateDepartment() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...payload }: { id: string; name?: string; hddPath?: string }) =>
-      api.put(`/departments/${id}`, payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['departments'] }),
+    mutationFn: ({ id, ...payload }: { id: string } & UpdateDepartmentPayload) =>
+      departmentsApi.updateDepartment(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USER_DEPARTMENTS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: ADMIN_DEPARTMENTS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: PUBLIC_DEPARTMENTS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: ['user-departments'] })
+    },
   })
 }
 
@@ -39,7 +65,12 @@ export function useArchiveDepartment() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
-      api.put(`/departments/${id}`, { archived }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['departments'] }),
+      departmentsApi.updateDepartment(id, { archived }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USER_DEPARTMENTS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: ADMIN_DEPARTMENTS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: PUBLIC_DEPARTMENTS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: ['user-departments'] })
+    },
   })
 }

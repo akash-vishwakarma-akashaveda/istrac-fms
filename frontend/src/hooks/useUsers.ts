@@ -1,51 +1,51 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api } from '../lib/axios'
+import { usersApi, type UserProfile, type PaginatedUsersResponse } from '../api'
 
-export interface User {
+export interface User extends Partial<UserProfile> {
   id: string
   name: string
   email: string
-  employeeId: string
-  role: string
+  employeeId?: string | null
+  role: 'ADMIN' | 'MEMBER' | any
   status: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'REJECTED'
   createdAt: string
 }
 
-export interface UsersResponse {
-  data: User[]
-  pagination: { total: number; page: number; pageSize: number; totalPages: number }
-}
+export type UsersResponse = PaginatedUsersResponse
 
 interface UseUsersParams {
-  page: number  
+  page: number
   search: string
   status: string
   role: string
-  
 }
 
 export function useUsers({ page, search, status, role }: UseUsersParams) {
   return useQuery({
     queryKey: ['users', page, search, status, role],
-    queryFn: async () => {
-      const { data } = await api.get<UsersResponse>('/users', {
-        params: { page, pageSize: 20, search: search || undefined, status: status || undefined, role: role || undefined },
-      })
-      return data
-    },
+    queryFn: () =>
+      usersApi.getUsers({
+        page,
+        pageSize: 20,
+        search: search || undefined,
+        status: status || undefined,
+        role: role || undefined,
+      }),
   })
 }
 
 export function useSuspendUser() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (userId: string) => api.post(`/users/${userId}/suspend`),
+    mutationFn: (userId: string) => usersApi.suspendUser(userId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   })
 }
 
 export function useForceLogout() {
+  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (userId: string) => api.post(`/users/${userId}/force-logout`),
+    mutationFn: (userId: string) => usersApi.forceLogout(userId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   })
 }

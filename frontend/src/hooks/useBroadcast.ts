@@ -1,14 +1,23 @@
-import { useMutation } from '@tanstack/react-query'
-import { api } from '../lib/axios'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { notificationsApi } from '../api'
 
 interface BroadcastPayload {
   message: string
-  target: 'all' | 'departments'
+  type?: string
+  category?: string
+  target?: string
   departmentIds?: string[]
 }
 
 export function useBroadcast() {
+  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (payload: BroadcastPayload) => api.post('/admin/broadcast', payload),
+    mutationFn: (payload: BroadcastPayload) => notificationsApi.sendBroadcast(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['active-banner'] })
+      queryClient.invalidateQueries({ queryKey: ['public-notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+    },
   })
 }
