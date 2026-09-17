@@ -65,6 +65,7 @@ Copy-Item "$RootDir\setup-offline.sh" "$OutDir\setup-offline.sh"
 Copy-Item "$RootDir\manage-services-rhel.sh" "$OutDir\manage-services-rhel.sh"
 Copy-Item "$RootDir\OFFLINE_RHEL_SETUP_GUIDE.md" "$OutDir\OFFLINE_RHEL_SETUP_GUIDE.md"
 Copy-Item "$RootDir\UBUNTU_24_OFFLINE_SETUP_GUIDE.md" "$OutDir\UBUNTU_24_OFFLINE_SETUP_GUIDE.md"
+Copy-Item "$RootDir\CUSTOM_DOMAIN_SETUP_GUIDE.md" "$OutDir\CUSTOM_DOMAIN_SETUP_GUIDE.md"
 Copy-Item "$RootDir\STARTUP_GUIDE.md" "$OutDir\STARTUP_GUIDE.md"
 if (Test-Path "$RootDir\backup_before_v1.sql") {
     Copy-Item "$RootDir\backup_before_v1.sql" "$OutDir\backup_before_v1.sql"
