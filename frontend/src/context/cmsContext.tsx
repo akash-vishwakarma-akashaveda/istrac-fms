@@ -25,6 +25,7 @@ export const DEFAULT_CMS_BLOCKS: Record<string, Record<string, unknown>> = {
     subtitle: 'The nerve centre for spacecraft operations, deep space tracking, launch vehicle telemetry, and orbit determination across all Indian space missions.',
     ctaText: 'Enter Mission Portal',
     badgeText: 'ISTRAC Ground Network Active · 24/7 Mission Operations',
+    cardHeadline: 'IDSN BYALALU DEEP SPACE NODE',
     imageUrl: 'https://images.unsplash.com/photo-1517976487515-56839a85703f?auto=format&fit=crop&w=1200&q=80',
     imageAlt: 'Indian Deep Space Network (IDSN) 32-Meter Antenna Dish at Byalalu',
     slides: [

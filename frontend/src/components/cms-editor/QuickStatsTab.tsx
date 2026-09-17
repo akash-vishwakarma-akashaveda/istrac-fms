@@ -35,6 +35,9 @@ const STAT_ICONS = [
   { id: "lock", label: "Lock (Secure)", icon: Lock },
 ]
 
+export const STAT_TITLE_MAX_LENGTH = 24
+export const STAT_DESC_MAX_LENGTH = 60
+
 export function QuickStatsTab() {
   const { cmsBlocks } = useCms()
   const updateBlock = useUpdateCmsBlock()
@@ -82,17 +85,17 @@ export function QuickStatsTab() {
       {
         blockKey: "quick_stats",
         content: {
-          stat1Value,
-          stat1Label,
+          stat1Value: stat1Value.slice(0, STAT_TITLE_MAX_LENGTH),
+          stat1Label: stat1Label.slice(0, STAT_DESC_MAX_LENGTH),
           stat1Icon,
-          stat2Value,
-          stat2Label,
+          stat2Value: stat2Value.slice(0, STAT_TITLE_MAX_LENGTH),
+          stat2Label: stat2Label.slice(0, STAT_DESC_MAX_LENGTH),
           stat2Icon,
-          stat3Value,
-          stat3Label,
+          stat3Value: stat3Value.slice(0, STAT_TITLE_MAX_LENGTH),
+          stat3Label: stat3Label.slice(0, STAT_DESC_MAX_LENGTH),
           stat3Icon,
-          stat4Value,
-          stat4Label,
+          stat4Value: stat4Value.slice(0, STAT_TITLE_MAX_LENGTH),
+          stat4Label: stat4Label.slice(0, STAT_DESC_MAX_LENGTH),
           stat4Icon,
         },
       },
@@ -153,21 +156,25 @@ export function QuickStatsTab() {
         <div className="flex items-start gap-2.5 p-3 rounded-lg bg-accent/[0.05] border border-accent/20">
           <TrendingUp size={14} className="text-accent-light shrink-0 mt-0.5" />
           <p className="text-xs text-text-secondary">
-            These 4 statistics appear as a highlight strip directly below the hero section. Each stat has a selectable icon, bold metric value, and a short descriptive label.
+            These 4 statistics appear as a highlight strip directly below the hero section. Card dimensions are fixed to maintain uniform size. Metric values support a high limit of up to 24 characters (auto-minimized font), and description labels support up to 60 characters displayed across up to 2 lines without ellipsis truncation.
           </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {stats.map((stat) => (
-            <div key={stat.key} className="rounded-xl border border-border-default bg-[#060c18] p-3.5 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold uppercase text-accent-light bg-accent/10 border border-accent/30 px-2 py-0.5 rounded">
+            <div key={stat.key} className="rounded-xl border border-border-default bg-[#060c18] p-3.5 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-mono font-bold uppercase text-accent-light bg-accent/10 border border-accent/30 px-2 py-0.5 rounded shrink-0">
                   Stat #{stat.key}
                 </span>
                 {stat.value && (
-                  <div className="text-right">
-                    <div className="text-sm font-bold text-text-primary num">{stat.value}</div>
-                    <div className="text-[9px] text-text-dim">{stat.label}</div>
+                  <div className="text-right max-w-[65%] min-w-0">
+                    <div className="text-sm font-bold text-text-primary num break-words leading-tight">
+                      {stat.value}
+                    </div>
+                    <div className="text-[9px] text-text-dim line-clamp-2 leading-tight mt-0.5">
+                      {stat.label}
+                    </div>
                   </div>
                 )}
               </div>
@@ -193,21 +200,61 @@ export function QuickStatsTab() {
                 </select>
               </div>
 
-              <Input
-                id={`stat-${stat.key}-value`}
-                label="Metric Value"
-                value={stat.value}
-                onChange={(e) => stat.setValue(e.target.value)}
-                placeholder="e.g. 5 Stations"
-              />
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label
+                    htmlFor={`stat-${stat.key}-value`}
+                    className="block text-[11px] font-semibold text-text-secondary"
+                  >
+                    Metric Value (Title)
+                  </label>
+                  <span
+                    className={`num text-[10px] font-mono ${
+                      stat.value.length >= STAT_TITLE_MAX_LENGTH
+                        ? "text-warning font-bold"
+                        : "text-text-dim"
+                    }`}
+                  >
+                    {stat.value.length}/{STAT_TITLE_MAX_LENGTH}
+                  </span>
+                </div>
+                <Input
+                  id={`stat-${stat.key}-value`}
+                  value={stat.value}
+                  maxLength={STAT_TITLE_MAX_LENGTH}
+                  onChange={(e) => stat.setValue(e.target.value.slice(0, STAT_TITLE_MAX_LENGTH))}
+                  placeholder="e.g. 5 Stations"
+                  hint="High limit (max 24 chars) • Auto-minimizes font to fit card without dots"
+                />
+              </div>
 
-              <Input
-                id={`stat-${stat.key}-label`}
-                label="Description Label"
-                value={stat.label}
-                onChange={(e) => stat.setLabel(e.target.value)}
-                placeholder="e.g. Global Ground Network"
-              />
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label
+                    htmlFor={`stat-${stat.key}-label`}
+                    className="block text-[11px] font-semibold text-text-secondary"
+                  >
+                    Description Label
+                  </label>
+                  <span
+                    className={`num text-[10px] font-mono ${
+                      stat.label.length >= STAT_DESC_MAX_LENGTH
+                        ? "text-warning font-bold"
+                        : "text-text-dim"
+                    }`}
+                  >
+                    {stat.label.length}/{STAT_DESC_MAX_LENGTH} (max 2 lines)
+                  </span>
+                </div>
+                <Input
+                  id={`stat-${stat.key}-label`}
+                  value={stat.label}
+                  maxLength={STAT_DESC_MAX_LENGTH}
+                  onChange={(e) => stat.setLabel(e.target.value.slice(0, STAT_DESC_MAX_LENGTH))}
+                  placeholder="e.g. Global Ground Network"
+                  hint="High limit (max 60 chars) • Formats up to 2 lines without dots"
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -221,14 +268,26 @@ export function QuickStatsTab() {
             {stats.map((stat) => {
               const matchedIcon = STAT_ICONS.find((i) => i.id === stat.icon) || STAT_ICONS[0]
               const IconComponent = matchedIcon.icon
+              const valLen = (stat.value || "").trim().length
 
               return (
-                <div key={stat.key} className="text-center p-2 rounded bg-card/40 border border-border-subtle/50">
-                  <div className="flex justify-center mb-1 text-accent-light">
+                <div
+                  key={stat.key}
+                  className="h-[84px] text-center p-2 rounded bg-card/40 border border-border-subtle/50 flex flex-col justify-center items-center overflow-hidden"
+                >
+                  <div className="flex justify-center mb-1 text-accent-light shrink-0">
                     <IconComponent size={16} />
                   </div>
-                  <div className="text-sm font-extrabold text-white num">{stat.value || "—"}</div>
-                  <div className="text-[10px] text-text-dim mt-0.5">{stat.label || "—"}</div>
+                  <div
+                    className={`font-extrabold text-white num leading-tight break-words line-clamp-1 ${
+                      valLen > 16 ? "text-xs" : valLen > 10 ? "text-xs sm:text-sm" : "text-sm"
+                    }`}
+                  >
+                    {stat.value || "—"}
+                  </div>
+                  <div className="text-[9.5px] text-text-dim mt-0.5 line-clamp-2 leading-tight break-words uppercase">
+                    {stat.label || "—"}
+                  </div>
                 </div>
               )
             })}

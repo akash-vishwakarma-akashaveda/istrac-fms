@@ -19,6 +19,7 @@ interface HeroContent {
   subtitle?: string
   ctaText?: string
   badgeText?: string
+  cardHeadline?: string
   imageUrl?: string
   imageAlt?: string
   slides?: HeroSlide[]
@@ -69,6 +70,7 @@ export function HeroTab() {
   const [subtitle, setSubtitle] = useState(existing.subtitle ?? DEFAULT_HERO.subtitle ?? "")
   const [ctaText, setCtaText] = useState(existing.ctaText ?? DEFAULT_HERO.ctaText ?? "Log In")
   const [badgeText, setBadgeText] = useState(existing.badgeText ?? DEFAULT_HERO.badgeText ?? "")
+  const [cardHeadline, setCardHeadline] = useState(existing.cardHeadline ?? DEFAULT_HERO.cardHeadline ?? "IDSN BYALALU DEEP SPACE NODE")
 
   // Visibility toggles
   const [showBadge, setShowBadge] = useState(existing.showBadge ?? true)
@@ -94,6 +96,7 @@ export function HeroTab() {
       if (existing.subtitle !== undefined) setSubtitle(existing.subtitle)
       if (existing.ctaText !== undefined) setCtaText(existing.ctaText)
       if (existing.badgeText !== undefined) setBadgeText(existing.badgeText)
+      if (existing.cardHeadline !== undefined) setCardHeadline(existing.cardHeadline)
       if (existing.showBadge !== undefined) setShowBadge(existing.showBadge)
       if (existing.showLoginBtn !== undefined) setShowLoginBtn(existing.showLoginBtn)
       if (existing.showRegisterBtn !== undefined) setShowRegisterBtn(existing.showRegisterBtn)
@@ -122,7 +125,7 @@ export function HeroTab() {
       {
         blockKey: "hero",
         content: {
-          title, subtitle, ctaText, badgeText,
+          title, subtitle, ctaText, badgeText, cardHeadline,
           imageUrl: primaryImage, imageAlt: primaryAlt,
           slides: validSlides,
           showBadge, showLoginBtn, showRegisterBtn, showSearchBtn, showDashboardBtn, showFileRepoBtn,
@@ -301,7 +304,7 @@ export function HeroTab() {
             <div className="flex items-center gap-2">
               <ImageIcon size={13} className="text-accent-light" />
               <span className="text-[10px] font-bold uppercase tracking-wider text-accent-light">
-                Carousel Slides ({slides.length})
+                Carousel Slides & Telemetry Card ({slides.length})
               </span>
             </div>
             <span className="text-[10px] text-text-dim">{slidesExpanded ? "▲ collapse" : "▼ expand"}</span>
@@ -309,6 +312,15 @@ export function HeroTab() {
 
           {slidesExpanded && (
             <div className="space-y-3">
+              <Input
+                id="hero-card-headline"
+                label="Card Headline (HUD Top Bar)"
+                value={cardHeadline}
+                onChange={(e) => setCardHeadline(e.target.value)}
+                placeholder="e.g. IDSN BYALALU DEEP SPACE NODE"
+                hint="Headline displayed beside the compass icon in the upper part of the carousel card"
+              />
+
               <div className="grid grid-cols-2 gap-2">
                 <Toggle
                   label="Auto-Play Carousel"

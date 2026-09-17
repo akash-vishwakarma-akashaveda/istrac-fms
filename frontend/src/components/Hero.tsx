@@ -33,6 +33,7 @@ import { CmsImageInput } from './cms-editor/CmsImageInput'
 
 interface ExtendedHeroContent extends HeroContent {
   badgeText?: string
+  cardHeadline?: string
   imageUrl?: string
   imageAlt?: string
   slides?: HeroSlide[]
@@ -98,6 +99,7 @@ export function Hero() {
     subtitle: '',
     ctaText: '',
     badgeText: '',
+    cardHeadline: '',
     slides: [] as HeroSlide[],
   })
   const [savingCms, setSavingCms] = useState(false)
@@ -151,6 +153,7 @@ export function Hero() {
         'The nerve centre for spacecraft operations, deep space tracking, launch vehicle telemetry, and orbit determination across all Indian space missions.',
       ctaText: hero?.ctaText || 'Enter Mission Portal',
       badgeText: hero?.badgeText || 'ISTRAC Ground Network Active · 24/7 Mission Operations',
+      cardHeadline: hero?.cardHeadline || 'IDSN BYALALU DEEP SPACE NODE',
       slides: slides.length > 0 ? [...slides] : [{ url: '', caption: '', alt: '' }],
     })
     setIsEditModalOpen(true)
@@ -196,6 +199,7 @@ export function Hero() {
           subtitle: editForm.subtitle.trim(),
           ctaText: editForm.ctaText.trim(),
           badgeText: editForm.badgeText.trim(),
+          cardHeadline: editForm.cardHeadline.trim() || 'IDSN BYALALU DEEP SPACE NODE',
           imageUrl: primaryImg,
           imageAlt: primaryAlt,
           slides: validSlides,
@@ -363,7 +367,9 @@ export function Hero() {
               <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between border-b border-border-subtle/80 bg-[#0b1220]/80 px-3 sm:px-4 py-2.5 backdrop-blur-md text-[11px] gap-2">
                 <span className="eyebrow flex items-center gap-1.5 text-text-secondary min-w-0">
                   <Compass size={13} className="text-accent-light shrink-0" />
-                  <span className="truncate max-w-[120px] sm:max-w-none">IDSN BYALALU DEEP SPACE NODE</span>
+                  <span className="truncate max-w-[160px] sm:max-w-none">
+                    {hero?.cardHeadline || 'IDSN BYALALU DEEP SPACE NODE'}
+                  </span>
                 </span>
 
                 <div className="flex items-center gap-2 text-[10px] font-mono text-accent-light">
@@ -532,6 +538,17 @@ export function Hero() {
               value={editForm.ctaText}
               onChange={(e) => setEditForm((prev) => ({ ...prev, ctaText: e.target.value }))}
               placeholder="e.g. Enter Mission Portal"
+            />
+          </div>
+
+          <div>
+            <Input
+              id="modal-hero-card-headline"
+              label="Telemetry Card Headline (Top Bar)"
+              value={editForm.cardHeadline}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, cardHeadline: e.target.value }))}
+              placeholder="e.g. IDSN BYALALU DEEP SPACE NODE"
+              hint="Upper headline displayed beside the compass icon in the carousel card"
             />
           </div>
 
