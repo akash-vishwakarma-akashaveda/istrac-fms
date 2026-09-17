@@ -257,9 +257,20 @@ In the existing **System Configuration** page (`/admin/system-config`), we add a
 
 ---
 
+## Part 6: Current Implemented Baseline (Air-Gapped Intranet Mode)
+
+While full dynamic web SMTP configuration remains available as an optional future enhancement, the system currently deploys an aerospace-grade **Air-Gapped Intranet Mode**:
+
+1. **`ECONNREFUSED` Suppression:** The backend detects when `SMTP_HOST` is default localhost/127.0.0.1 without custom credentials. Outbound socket connection attempts are bypassed, eliminating port 25 connection refusal errors.
+2. **Offline 6-Digit OTP System:** Password recovery generates a cryptographically secure 6-digit verification code stored in `PasswordResetToken` (15-minute validity).
+3. **Admin OTP Dispatch Console (`/admin/password-resets`):** Administrators can view all pending requests, copy pre-formatted email templates dynamically populated with CMS branding (`cmsBlock` and `systemConfig`), or click `Open Mail Client (mailto:)` to send via local secure channels.
+4. **Admin Terminal Recovery:** When an administrator requests a password reset, the OTP code is output directly in an eye-catching banner to server `stdout` / `journalctl`. A direct server CLI reset utility (`npm run admin:reset-password -- "<NewPassword>"`) provides instant offline recovery.
+
+---
+
 ## Summary Checklist for Developers
 
-When approved to implement, the developer follows these 4 exact actions:
+When approved to implement web SMTP settings, the developer follows these 4 exact actions:
 1. [ ] **Types & Config:** Add `SmtpConfig` interface in `backend/src/types/types.ts` and add helper env defaults in `backend/src/config/env.ts`.
 2. [ ] **Service:** Upgrade `backend/src/services/email.service.ts` to read from `SystemConfig` and provide `testConnection()`.
 3. [ ] **API Controller & Router:** Create `smtp.controller.ts` + `smtp.routes.ts` and mount them in `backend/src/index.ts`.

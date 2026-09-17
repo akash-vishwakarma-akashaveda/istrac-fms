@@ -484,8 +484,8 @@ Below is the directory of all backend endpoints available in the system:
 | `/auth/refresh` | `POST` | Public | Refresh token (via cookie or body payload). | Renewed JWT Access Token. |
 | `/auth/logout` | `POST` | Authenticated | Bearer token in header. | Revokes session, blacklists token in Redis, clears cookie. |
 | `/auth/me` | `GET` | Authenticated | Bearer token in header. | Authenticated profile, clearances, assigned divisions. |
-| `/auth/forgot-password`| `POST` | Public | Operator email. | Dispatches one-time password reset link via SMTP. |
-| `/auth/reset-password` | `POST` | Public | Reset token, new strong password. | Updates password hash in MySQL. |
+| `/auth/forgot-password`| `POST` | Public | Operator email. | Generates 6-digit verification OTP (15-min validity). Broadcasts OTP to terminal for Admin. |
+| `/auth/reset-password` | `POST` | Public | Operator email, 6-digit OTP, new password. | Verifies OTP code, updates password hash in MariaDB, invalidates token. |
 | `/auth/change-password`| `PUT` | Authenticated | Current password, new strong password. | Updates password hash, logs password change event. |
 
 #### 3.4.2 File & Telemetry Repository Endpoints (`/files`)
@@ -566,6 +566,13 @@ Below is the directory of all backend endpoints available in the system:
 | `/admin/storage/migrate` | `POST`| Admin | newPrimaryPath, oldPrimaryPath, copyFiles. | Executes live data migration to a new hard drive. |
 | `/health` | `GET` | Public | None. | Service liveness probe (checks MySQL and Redis). |
 | `/ws` | `WS` | Authenticated | Token in protocol or query. | Bi-directional real-time telemetry and alerts socket. |
+
+#### 3.4.8 Air-Gapped OTP & Password Reset Endpoints (`/admin/password-resets`)
+| Route | Method | Clearance | Input Parameters | Output Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `/admin/password-resets` | `GET` | Admin | page, limit, status (`PENDING`/`USED`/`EXPIRED`), search. | Paginated roster of active and recent OTP password reset requests with user metadata. |
+| `/admin/password-resets/:tokenId/revoke` | `POST` | Admin | tokenId in URL. | Immediately revokes an active OTP verification token. |
+| `/admin/password-resets/cleanup` | `POST` | Admin | None. | Purges expired and redeemed OTP tokens from MariaDB. |
 
 ---
 
@@ -714,6 +721,10 @@ The frontend is built with **React 19**, **Vite 8**, **TypeScript 5**, and **Tai
     - Visual editor for customizing landing page headlines, hero banners, announcements, and footer text without editing code.
 26. **`SystemConfigPanel.tsx` (`/admin/settings`) — Hardware & Ingest Policy:**
     - Hardware dashboard for scanning host volumes, monitoring disk health, adjusting upload limits, configuring extensions, and executing drive migrations.
+27. **`AdminOtpManagement.tsx` (`/admin/password-resets`) — Air-Gapped OTP & Password Reset Management:**
+    - Dedicated air-gapped / intranet OTP monitoring console. Displays active verification codes, requesting user details, creation timestamps, and validity countdowns.
+    - Features 1-click email template copying (with dynamic CMS branding) and `mailto:` dispatch for secure distribution via local workstation email clients or internal communication networks.
+    - Provides manual token revocation and expired token cleanup actions.
 
 ---
 

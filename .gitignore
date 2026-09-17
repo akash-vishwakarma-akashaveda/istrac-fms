@@ -10,3 +10,11 @@ coverage/
 
 frontend/.env
 frontend/.env.local
+
+# Offline deployment bundles and binary packages
+dist-offline/
+rpms/
+*.tar.xz
+*.zip
+*.tar.gz
+*.rpm

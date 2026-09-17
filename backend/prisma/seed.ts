@@ -5,6 +5,39 @@ async function main() {
   console.log('🚀 Seeding ISTRAC Mission Database...')
 
   // ================================================================
+  // 0. PURGE OLD SEEDED & OPERATIONAL RECORDS (CLEAN SLATE ONLY IF EMPTY)
+  // ================================================================
+  const existingUserCount = await prisma.user.count()
+  if (existingUserCount > 0) {
+    console.log(`ℹ️ Database already contains ${existingUserCount} user(s). Skipping destructive purge to preserve existing data.`)
+    console.log('✅ Existing database data is intact.')
+    return
+  }
+
+  console.log('🧹 Purging old operational and seeded records for clean slate initial seed...')
+  await prisma.fileShareLink.deleteMany()
+  await prisma.filePermission.deleteMany()
+  await prisma.fileFavorite.deleteMany()
+  await prisma.fileTag.deleteMany()
+  await prisma.fileVersion.deleteMany()
+  await prisma.file.updateMany({ data: { parentId: null } })
+  await prisma.file.deleteMany()
+  await prisma.reportAccessRequest.deleteMany()
+  await prisma.report.deleteMany()
+  await prisma.passwordResetToken.deleteMany()
+  await prisma.refreshToken.deleteMany()
+  await prisma.notification.deleteMany()
+  await prisma.auditLog.deleteMany()
+  await prisma.missionEvent.deleteMany()
+  await prisma.userDepartmentAccess.deleteMany()
+  await prisma.departmentSatellite.deleteMany()
+  await prisma.user.deleteMany()
+  await prisma.department.deleteMany()
+  await prisma.satellite.deleteMany()
+  await prisma.tag.deleteMany()
+  console.log('✅ Clean slate established. Proceeding with fresh seed...')
+
+  // ================================================================
   // 1. SATELLITES & MISSION FLEET
   // ================================================================
   const satellitesData = [
@@ -154,113 +187,14 @@ async function main() {
     },
   })
 
-  // 2. Department Admin (TTC)
-  const ttcAdmin = await prisma.user.upsert({
-    where: { email: 'ttcadmin@istrac.local' },
-    update: {
-      passwordHash,
-      status: 'ACTIVE',
+  // Enforce single admin constraint: demote any other users who might hold ADMIN role
+  await prisma.user.updateMany({
+    where: {
+      email: { not: 'admin@istrac.local' },
       role: 'ADMIN',
-      designation: 'Head, Telemetry Tracking & Command Network',
-      phone: '+91-80-2838-4042',
     },
-    create: {
-      name: 'Dr. Vikram Sharma (Head TTC)',
-      email: 'ttcadmin@istrac.local',
-      employeeId: 'ISRO-TTC-042',
-      designation: 'Head, Telemetry Tracking & Command Network',
-      phone: '+91-80-2838-4042',
-      passwordHash,
-      role: 'ADMIN',
-      status: 'ACTIVE',
-    },
-  })
-
-  // 3. Flight Dynamics Lead (FDD)
-  const fddLead = await prisma.user.upsert({
-    where: { email: 'fddlead@istrac.local' },
-    update: {
-      passwordHash,
-      status: 'ACTIVE',
+    data: {
       role: 'MEMBER',
-      designation: 'Lead Astrodynamics Specialist',
-      phone: '+91-80-2838-4089',
-    },
-    create: {
-      name: 'Dr. Ananya Ray (Orbital Mechanics Lead)',
-      email: 'fddlead@istrac.local',
-      employeeId: 'ISRO-FDD-089',
-      designation: 'Lead Astrodynamics Specialist',
-      phone: '+91-80-2838-4089',
-      passwordHash,
-      role: 'MEMBER',
-      status: 'ACTIVE',
-    },
-  })
-
-  // 4. Mission Flight Operator (MOX)
-  const operator = await prisma.user.upsert({
-    where: { email: 'operator@istrac.local' },
-    update: {
-      passwordHash,
-      status: 'ACTIVE',
-      role: 'MEMBER',
-      designation: 'Flight Telemetry Console Operator',
-      phone: '+91-80-2838-4108',
-    },
-    create: {
-      name: 'Ayan Sharma (Telemetry Flight Operator)',
-      email: 'operator@istrac.local',
-      employeeId: 'ISRO-OPS-108',
-      designation: 'Flight Telemetry Console Operator',
-      phone: '+91-80-2838-4108',
-      passwordHash,
-      role: 'MEMBER',
-      status: 'ACTIVE',
-    },
-  })
-
-  // 5. Space Situational Analyst (NETRA)
-  const netraAnalyst = await prisma.user.upsert({
-    where: { email: 'netra@istrac.local' },
-    update: {
-      passwordHash,
-      status: 'ACTIVE',
-      role: 'MEMBER',
-      designation: 'Space Situational Awareness Analyst',
-      phone: '+91-80-2838-4015',
-    },
-    create: {
-      name: 'Rohan Deshmukh (Conjunction Screening Analyst)',
-      email: 'netra@istrac.local',
-      employeeId: 'ISRO-SSA-015',
-      designation: 'Space Situational Awareness Analyst',
-      phone: '+91-80-2838-4015',
-      passwordHash,
-      role: 'MEMBER',
-      status: 'ACTIVE',
-    },
-  })
-
-  // 6. Pending Applicant (For testing the Approval Queue!)
-  const pendingApplicant = await prisma.user.upsert({
-    where: { email: 'applicant@istrac.local' },
-    update: {
-      passwordHash,
-      status: 'PENDING',
-      role: 'MEMBER',
-      designation: 'Junior Orbit Analyst',
-      phone: '+91-80-2838-4226',
-    },
-    create: {
-      name: 'Priya Nair (Junior Orbit Analyst)',
-      email: 'applicant@istrac.local',
-      employeeId: 'ISRO-REQ-2026',
-      designation: 'Junior Orbit Analyst',
-      phone: '+91-80-2838-4226',
-      passwordHash,
-      role: 'MEMBER',
-      status: 'PENDING',
     },
   })
 
@@ -417,60 +351,6 @@ async function main() {
     })
   }
 
-  // TTC Admin gets READ_WRITE on TTC and READ_ONLY on others
-  await prisma.userDepartmentAccess.upsert({
-    where: { userId_departmentId: { userId: ttcAdmin.id, departmentId: createdDepts['TTC'].id } },
-    update: { accessLevel: 'READ_WRITE' },
-    create: {
-      userId: ttcAdmin.id,
-      departmentId: createdDepts['TTC'].id,
-      accessLevel: 'READ_WRITE',
-    },
-  })
-
-  // Flight Dynamics Lead gets READ_WRITE on FDD
-  await prisma.userDepartmentAccess.upsert({
-    where: { userId_departmentId: { userId: fddLead.id, departmentId: createdDepts['FDD'].id } },
-    update: { accessLevel: 'READ_WRITE' },
-    create: {
-      userId: fddLead.id,
-      departmentId: createdDepts['FDD'].id,
-      accessLevel: 'READ_WRITE',
-    },
-  })
-
-  // Operator gets READ_WRITE on MOX and TTC
-  await prisma.userDepartmentAccess.upsert({
-    where: { userId_departmentId: { userId: operator.id, departmentId: createdDepts['MOX'].id } },
-    update: { accessLevel: 'READ_WRITE' },
-    create: {
-      userId: operator.id,
-      departmentId: createdDepts['MOX'].id,
-      accessLevel: 'READ_WRITE',
-    },
-  })
-
-  await prisma.userDepartmentAccess.upsert({
-    where: { userId_departmentId: { userId: operator.id, departmentId: createdDepts['TTC'].id } },
-    update: { accessLevel: 'READ_ONLY' },
-    create: {
-      userId: operator.id,
-      departmentId: createdDepts['TTC'].id,
-      accessLevel: 'READ_ONLY',
-    },
-  })
-
-  // NETRA analyst gets READ_WRITE on NETRA
-  await prisma.userDepartmentAccess.upsert({
-    where: { userId_departmentId: { userId: netraAnalyst.id, departmentId: createdDepts['NETRA'].id } },
-    update: { accessLevel: 'READ_WRITE' },
-    create: {
-      userId: netraAnalyst.id,
-      departmentId: createdDepts['NETRA'].id,
-      accessLevel: 'READ_WRITE',
-    },
-  })
-
   // ================================================================
   // 5. SEED FILES & REPORTS
   // ================================================================
@@ -482,7 +362,7 @@ async function main() {
       sizeBytes: 432857088n, // 412.8 MB
       mimeType: 'application/octet-stream',
       extension: 'bin',
-      uploaderId: ttcAdmin.id,
+      uploaderId: superAdmin.id,
     },
     {
       deptCode: 'FDD',
@@ -491,7 +371,7 @@ async function main() {
       sizeBytes: 67318579n, // 64.2 MB
       mimeType: 'application/octet-stream',
       extension: 'dat',
-      uploaderId: fddLead.id,
+      uploaderId: superAdmin.id,
     },
     {
       deptCode: 'NETRA',
@@ -500,7 +380,7 @@ async function main() {
       sizeBytes: 19293798n, // 18.4 MB
       mimeType: 'application/pdf',
       extension: 'pdf',
-      uploaderId: netraAnalyst.id,
+      uploaderId: superAdmin.id,
     },
     {
       deptCode: 'GSO',
@@ -518,7 +398,7 @@ async function main() {
       sizeBytes: 48024780n, // 45.8 MB
       mimeType: 'application/pdf',
       extension: 'pdf',
-      uploaderId: operator.id,
+      uploaderId: superAdmin.id,
     },
   ]
 
@@ -637,21 +517,21 @@ async function main() {
           newValue: { status: 'INITIALIZED', stations: ['BLR', 'SHAR', 'PBL', 'MAU'] },
         },
         {
-          userId: ttcAdmin.id,
+          userId: superAdmin.id,
           action: 'FILE_UPLOAD',
           resourceType: 'FILE',
           resourceId: 'CARTOSAT3_SBAND_PASS_20260825.bin',
           newValue: { department: 'TTC', size: '412.8 MB', frames: 14280 },
         },
         {
-          userId: fddLead.id,
+          userId: superAdmin.id,
           action: 'ORBIT_DETERMINATION',
           resourceType: 'EPHEMERIS',
           resourceId: 'ADITYA-L1-V4',
           newValue: { residuals: '0.042m', trackingStation: 'Byalalu-32m' },
         },
         {
-          userId: operator.id,
+          userId: superAdmin.id,
           action: 'PASS_ACQUISITION',
           resourceType: 'TELEMETRY',
           resourceId: 'CHANDRAYAAN-RELAY',
@@ -664,13 +544,12 @@ async function main() {
   console.log('\n======================================================')
   console.log('🎉 ISTRAC SEED COMPLETE!')
   console.log('======================================================')
-  console.log('📋 Test Accounts Created (Default Password: ChangeMe123!):')
-  console.log('  1. Super Admin:      admin@istrac.local     (ADMIN - Full System Access)')
-  console.log('  2. Dept Admin (TTC): ttcadmin@istrac.local  (ADMIN - TTC Division Head)')
-  console.log('  3. FDD Lead:         fddlead@istrac.local   (MEMBER - Flight Dynamics)')
-  console.log('  4. Operator (MOX):   operator@istrac.local  (MEMBER - Mission Control)')
-  console.log('  5. NETRA Analyst:    netra@istrac.local     (MEMBER - SSA Specialist)')
-  console.log('  6. Pending User:     applicant@istrac.local (PENDING - Test Approval Queue)')
+  console.log('📋 Administrator Account Seeded:')
+  console.log('   Email:     admin@istrac.local')
+  console.log('   Password:  ChangeMe123!')
+  console.log('   Role:      ADMIN (Sole System Administrator)')
+  console.log('   Note:      Only admin account is seeded. All subsequent')
+  console.log('              users will register via /register.')
   console.log('======================================================\n')
 }
 

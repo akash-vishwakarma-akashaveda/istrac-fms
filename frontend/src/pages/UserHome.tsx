@@ -87,7 +87,8 @@ export function UserHome() {
       link.click()
       URL.revokeObjectURL(url)
     } catch {
-      window.open(`${import.meta.env.VITE_API_URL}/files/${fileId}/download`, '_blank')
+      const baseUrl = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '')
+      window.open(`${baseUrl}/files/${fileId}/download`, '_blank')
     }
   }
 

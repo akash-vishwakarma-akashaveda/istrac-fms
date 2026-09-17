@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { useState, useEffect, useRef } from "react"
+import { Link, useNavigate, useLocation } from "react-router-dom"
 import {
   Menu,
   X,
@@ -44,8 +44,14 @@ interface NavBlockContent {
   showAuthButton?: boolean
 }
 
-export function Navbar() {
+export interface NavbarProps {
+  id?: string
+  className?: string
+}
+
+export function Navbar({ id, className = "" }: NavbarProps = {}) {
   const navigate = useNavigate()
+  const location = useLocation()
   const user = useAuthStore((s) => s.user)
   const clearAuth = useAuthStore((s) => s.clearAuth)
   const { addToast } = useToastStore()
@@ -177,9 +183,127 @@ export function Navbar() {
     }
   }, [mobileOpen])
 
+  const [activeSection, setActiveSection] = useState<string>("home")
+  const isScrollingRef = useRef(false)
+  const scrollTimeoutRef = useRef<number | null>(null)
+
+  // Synchronize active section based on current route and scroll position
+  useEffect(() => {
+    if (location.pathname.startsWith("/departments")) {
+      setActiveSection("departments")
+      return
+    }
+
+    if (location.pathname !== "/") {
+      setActiveSection("")
+      return
+    }
+
+    const sectionIds = [
+      { id: "contact", key: "contact" },
+      { id: "about", key: "about" },
+      { id: "calendar", key: "calendar" },
+      { id: "departments-showcase", key: "departments" },
+      { id: "hero", key: "home" },
+    ]
+
+    let ticking = false
+    function onScroll() {
+      if (isScrollingRef.current) return
+
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          if (isScrollingRef.current) {
+            ticking = false
+            return
+          }
+
+          // At top of page: hero/home section
+          if (window.scrollY < 180) {
+            setActiveSection("home")
+            ticking = false
+            return
+          }
+
+          // Check if reached very bottom of document
+          const scrollBottom = window.innerHeight + window.scrollY
+          const documentHeight = document.documentElement.scrollHeight
+          if (scrollBottom >= documentHeight - 60) {
+            setActiveSection("contact")
+            ticking = false
+            return
+          }
+
+          // Evaluate sections from bottom up using viewport position
+          let current = "home"
+          for (const { id, key } of sectionIds) {
+            const el = document.getElementById(id)
+            if (el) {
+              const rect = el.getBoundingClientRect()
+              if (rect.top <= 240) {
+                current = key
+                break
+              }
+            }
+          }
+          setActiveSection(current)
+          ticking = false
+        })
+        ticking = true
+      }
+    }
+
+    if (window.location.hash) {
+      const h = window.location.hash.replace("#", "")
+      if (h === "calendar") setActiveSection("calendar")
+      else if (h === "about") setActiveSection("about")
+      else if (h === "contact") setActiveSection("contact")
+      else if (h === "hero") setActiveSection("home")
+      else onScroll()
+    } else {
+      onScroll()
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => {
+      window.removeEventListener("scroll", onScroll)
+      if (scrollTimeoutRef.current) window.clearTimeout(scrollTimeoutRef.current)
+    }
+  }, [location.pathname, location.hash])
+
+  function handleSectionClick(e: React.MouseEvent<HTMLAnchorElement>, targetId: string, sectionKey: string) {
+    if (location.pathname === "/") {
+      e.preventDefault()
+      setActiveSection(sectionKey)
+      isScrollingRef.current = true
+      if (scrollTimeoutRef.current) window.clearTimeout(scrollTimeoutRef.current)
+      scrollTimeoutRef.current = window.setTimeout(() => {
+        isScrollingRef.current = false
+      }, 850)
+
+      const el = document.getElementById(targetId)
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" })
+        window.history.pushState(null, "", `/#${targetId}`)
+      } else if (targetId === "hero") {
+        window.scrollTo({ top: 0, behavior: "smooth" })
+        window.history.pushState(null, "", "/#hero")
+      }
+    }
+  }
+
+  const isHomeActive = activeSection === "home"
+  const isDeptActive = activeSection === "departments"
+  const isCalendarActive = activeSection === "calendar"
+  const isAboutActive = activeSection === "about"
+  const isContactActive = activeSection === "contact"
+
   return (
     <>
-      <header className="sticky top-0 z-[100] border-b border-[#121929] bg-[#020408]/98 backdrop-blur-2xl transition-all shadow-xl shadow-black/60">
+      <header
+        id={id}
+        className={`sticky top-0 z-[100] w-full border-b border-[#121929] bg-[#020408]/98 backdrop-blur-2xl transition-all shadow-xl shadow-black/60 ${className}`.trim()}
+      >
         <nav
           className="shell flex h-16 items-center justify-between gap-3 px-4 sm:px-6"
           aria-label="Main navigation"
@@ -197,23 +321,31 @@ export function Navbar() {
             />
 
             <div className="flex flex-col">
-              <span className="text-sm font-bold tracking-wider uppercase leading-tight sm:text-base">
+              <span className="text-sm font-bold tracking-wider uppercase leading-tight sm:text-base text-white">
                 {brandTitle}
                 <span className="text-accent-light">{brandHighlight}</span>
               </span>
-              <span className="text-[9px] sm:text-[10px] text-text-dim uppercase tracking-widest truncate max-w-[140px] sm:max-w-none">
+              <span className="text-[9px] sm:text-[10px] text-slate-300 font-medium uppercase tracking-widest truncate max-w-[140px] sm:max-w-none">
                 {brandSubtitle}
               </span>
             </div>
           </Link>
 
           {/* Desktop Navigation Links */}
-          <div className="hidden h-full items-center gap-0.5 lg:gap-1 md:flex">
+          <div className="hidden h-full items-center gap-1 lg:gap-2 md:flex">
             <a
               href="/#hero"
-              className="eyebrow flex h-full items-center px-2 lg:px-3.5 text-text-muted transition-colors hover:text-text-primary"
+              onClick={(e) => handleSectionClick(e, "hero", "home")}
+              className={`group relative flex h-full items-center px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none ${
+                isHomeActive ? "text-white" : "text-slate-200 hover:text-white"
+              }`}
             >
-              {homeLabel}
+              <span>{homeLabel}</span>
+              <span
+                className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent-light transition-all duration-200 pointer-events-none ${
+                  isHomeActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
+                }`}
+              />
             </a>
 
             {/* Departments Dropdown */}
@@ -225,22 +357,29 @@ export function Navbar() {
                 type="button"
                 onClick={() => setDeptOpen((prev) => !prev)}
                 onMouseEnter={() => setDeptOpen(true)}
-                className="eyebrow flex h-full items-center gap-1 px-2 lg:px-3.5 text-text-muted transition-colors hover:text-text-primary cursor-pointer"
+                className={`group relative flex h-full items-center gap-1 px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none cursor-pointer ${
+                  isDeptActive ? "text-white" : "text-slate-200 hover:text-white"
+                }`}
               >
                 <span>{departmentsLabel}</span>
                 <ChevronDown
-                  size={12}
+                  size={13}
                   className={`transition-transform duration-150 ${
-                    deptOpen ? "rotate-180" : ""
+                    deptOpen ? "rotate-180 text-accent-light" : isDeptActive ? "text-accent-light" : "text-slate-400"
+                  }`}
+                />
+                <span
+                  className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent-light transition-all duration-200 pointer-events-none ${
+                    isDeptActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
                   }`}
                 />
               </button>
 
               {deptOpen && (
-                <div className="absolute top-full left-0 w-72 rounded-xl border border-[#1e293b] bg-[#02050e]/98 shadow-2xl shadow-black/80 p-2 z-50 animate-rise backdrop-blur-2xl">
-                  <div className="px-3 py-2 border-b border-[#1e293b]/70 text-[10px] uppercase font-bold text-text-dim flex items-center justify-between">
+                <div className="absolute top-full left-0 w-72 rounded-xl border border-[#223049] bg-[#02050e]/98 shadow-2xl shadow-black/80 p-2 z-50 animate-rise backdrop-blur-2xl">
+                  <div className="px-3 py-2 border-b border-[#223049] text-[10px] uppercase font-bold text-slate-300 flex items-center justify-between">
                     <span>ISTRAC Divisions</span>
-                    <span className="text-accent-light num">{departments.length} Units</span>
+                    <span className="text-accent-light num font-mono">{departments.length} Units</span>
                   </div>
                   <div className="py-1 max-h-64 overflow-y-auto space-y-0.5">
                     {departments.map((dept) => (
@@ -248,29 +387,29 @@ export function Navbar() {
                         key={dept.id}
                         to={`/departments/${dept.id}`}
                         onClick={() => setDeptOpen(false)}
-                        className="flex items-center justify-between rounded-lg px-3 py-2 text-xs text-text-secondary hover:bg-accent/15 hover:text-white transition-all group"
+                        className="flex items-center justify-between rounded-lg px-3 py-2 text-xs text-slate-200 hover:bg-accent/20 hover:text-white transition-all group"
                       >
                         <span className="truncate font-medium group-hover:translate-x-0.5 transition-transform">
                           {dept.name}
                         </span>
                         {dept.code && (
-                          <span className="num text-[10px] text-accent-light rounded bg-[#0b1220] px-1.5 py-0.5 border border-[#1e293b] shrink-0">
+                          <span className="num text-[10px] text-accent-light rounded bg-[#0b1426] px-1.5 py-0.5 border border-[#223049] shrink-0 font-mono font-semibold">
                             {dept.code}
                           </span>
                         )}
                       </Link>
                     ))}
                     {departments.length === 0 && (
-                      <div className="px-3 py-3 text-xs text-text-dim text-center">
+                      <div className="px-3 py-3 text-xs text-slate-400 text-center">
                         No departments listed.
                       </div>
                     )}
                   </div>
-                  <div className="border-t border-[#1e293b]/70 pt-1.5">
+                  <div className="border-t border-[#223049] pt-1.5">
                     <Link
                       to="/departments"
                       onClick={() => setDeptOpen(false)}
-                      className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-accent-light hover:bg-accent/10 hover:text-white transition-colors"
+                      className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold text-accent-light hover:bg-accent/15 hover:text-white transition-colors"
                     >
                       <span className="flex items-center gap-1.5">
                         <Layers size={13} />
@@ -285,23 +424,47 @@ export function Navbar() {
 
             <a
               href="/#calendar"
-              className="eyebrow flex h-full items-center px-2 lg:px-3.5 text-text-muted transition-colors hover:text-text-primary"
+              onClick={(e) => handleSectionClick(e, "calendar", "calendar")}
+              className={`group relative flex h-full items-center px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none ${
+                isCalendarActive ? "text-white" : "text-slate-200 hover:text-white"
+              }`}
             >
-              {calendarLabel}
+              <span>{calendarLabel}</span>
+              <span
+                className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent-light transition-all duration-200 pointer-events-none ${
+                  isCalendarActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
+                }`}
+              />
             </a>
 
             <a
               href="/#about"
-              className="eyebrow flex h-full items-center px-2 lg:px-3.5 text-text-muted transition-colors hover:text-text-primary"
+              onClick={(e) => handleSectionClick(e, "about", "about")}
+              className={`group relative flex h-full items-center px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none ${
+                isAboutActive ? "text-white" : "text-slate-200 hover:text-white"
+              }`}
             >
-              {aboutLabel}
+              <span>{aboutLabel}</span>
+              <span
+                className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent-light transition-all duration-200 pointer-events-none ${
+                  isAboutActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
+                }`}
+              />
             </a>
 
             <a
               href="/#contact"
-              className="eyebrow flex h-full items-center px-2 lg:px-3.5 text-text-muted transition-colors hover:text-text-primary"
+              onClick={(e) => handleSectionClick(e, "contact", "contact")}
+              className={`group relative flex h-full items-center px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none ${
+                isContactActive ? "text-white" : "text-slate-200 hover:text-white"
+              }`}
             >
-              {contactLabel}
+              <span>{contactLabel}</span>
+              <span
+                className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent-light transition-all duration-200 pointer-events-none ${
+                  isContactActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
+                }`}
+              />
             </a>
           </div>
 
@@ -311,12 +474,12 @@ export function Navbar() {
               <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
-                className="flex items-center gap-1.5 lg:gap-2 rounded-xl border border-[#1a2336] bg-[#02050f] px-2.5 lg:px-3 py-1.5 text-xs text-text-muted hover:border-accent/50 hover:text-text-primary transition-all cursor-pointer shadow-inner"
+                className="flex items-center gap-1.5 lg:gap-2 rounded-xl border border-[#223049] bg-[#050c1b] px-2.5 lg:px-3 py-1.5 text-xs text-slate-200 hover:border-accent/70 hover:text-white hover:bg-[#08142a] transition-all cursor-pointer shadow-inner"
               >
                 <Search size={13} className="text-accent-light" />
-                <span className="hidden lg:inline">Search Repository</span>
-                <span className="lg:hidden">Search</span>
-                <kbd className="num hidden xl:inline-block rounded bg-[#090f1d] px-1.5 py-0.5 text-[10px] text-text-dim border border-[#1e293b] font-mono">
+                <span className="hidden lg:inline font-medium">Search Repository</span>
+                <span className="lg:hidden font-medium">Search</span>
+                <kbd className="num hidden xl:inline-block rounded bg-[#0a1224] px-1.5 py-0.5 text-[10px] text-slate-400 border border-[#223049] font-mono font-medium">
                   Ctrl K
                 </kbd>
               </button>
@@ -326,7 +489,7 @@ export function Navbar() {
             <button
               type="button"
               onClick={() => setNotifsModalOpen(true)}
-              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-[#1a2336] bg-[#02050f] text-text-muted hover:border-accent/50 hover:text-white transition-all shadow-inner cursor-pointer"
+              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-[#223049] bg-[#050c1b] text-slate-300 hover:border-accent/70 hover:text-white hover:bg-[#08142a] transition-all shadow-inner cursor-pointer"
               title="Operational Broadcasts & Mission Notices"
               aria-label="Operational Broadcasts & Mission Notices"
             >
@@ -369,7 +532,7 @@ export function Navbar() {
                     variant="outline"
                     size="sm"
                     onClick={handleLogout}
-                    className="gap-1.5 border-[#1a2336] bg-[#02050f] text-text-secondary hover:border-critical/60 hover:text-critical font-semibold cursor-pointer shadow-inner transition-colors"
+                    className="gap-1.5 border-[#223049] bg-[#050c1b] text-slate-300 hover:border-critical/60 hover:text-critical font-semibold cursor-pointer shadow-inner transition-colors"
                     title="Sign Out Session"
                   >
                     <LogOut size={13} className="text-critical/90" />
@@ -382,7 +545,7 @@ export function Navbar() {
                     variant="outline"
                     size="sm"
                     onClick={openRegister}
-                    className="gap-1.5 font-semibold text-text-secondary hover:text-white border-[#1a2336] hover:border-accent/50 bg-[#02050f] cursor-pointer"
+                    className="gap-1.5 font-semibold text-slate-200 hover:text-white border-[#223049] hover:border-accent/70 bg-[#050c1b] cursor-pointer"
                   >
                     <UserPlus size={14} className="text-accent-light" />
                     <span>Request Access</span>
@@ -407,7 +570,7 @@ export function Navbar() {
               <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#1a2336] bg-[#02050f] text-text-secondary hover:border-accent/50 hover:text-white transition-colors cursor-pointer"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#223049] bg-[#050c1b] text-slate-200 hover:border-accent/60 hover:text-white transition-colors cursor-pointer"
                 aria-label="Search"
               >
                 <Search size={18} />
@@ -418,7 +581,7 @@ export function Navbar() {
             <button
               type="button"
               onClick={() => setNotifsModalOpen(true)}
-              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#1a2336] bg-[#02050f] text-text-secondary hover:border-accent/50 hover:text-white transition-colors cursor-pointer"
+              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#223049] bg-[#050c1b] text-slate-200 hover:border-accent/60 hover:text-white transition-colors cursor-pointer"
               title="Operational Broadcasts & Mission Notices"
               aria-label="Operational Broadcasts & Mission Notices"
             >
@@ -447,7 +610,7 @@ export function Navbar() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#1a2336] bg-[#02050f] text-text-secondary hover:border-critical/60 hover:text-critical transition-colors cursor-pointer"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#223049] bg-[#050c1b] text-slate-200 hover:border-critical/60 hover:text-critical transition-colors cursor-pointer"
                 title="Logout"
                 aria-label="Logout"
               >
@@ -458,7 +621,7 @@ export function Navbar() {
             <button
               type="button"
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#1a2336] bg-[#02050f] text-text-secondary hover:border-accent/50 hover:text-white transition-colors cursor-pointer"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#223049] bg-[#050c1b] text-slate-200 hover:border-accent/60 hover:text-white transition-colors cursor-pointer"
               aria-label="Toggle navigation menu"
             >
               {mobileOpen ? <X size={20} className="text-accent-light" /> : <Menu size={20} />}
@@ -479,27 +642,37 @@ export function Navbar() {
                   setMobileOpen(false)
                   setSearchOpen(true)
                 }}
-                className="flex w-full items-center justify-between rounded-xl border border-[#1e293b] bg-[#030612] p-3.5 text-xs text-text-muted hover:border-accent/50 hover:text-white transition-all shadow-inner cursor-pointer"
+                className="flex w-full items-center justify-between rounded-xl border border-[#223049] bg-[#030612] p-3.5 text-xs text-slate-300 hover:border-accent/50 hover:text-white transition-all shadow-inner cursor-pointer"
               >
                 <span className="flex items-center gap-2.5">
                   <Search size={16} className="text-accent-light" />
                   <span>Search telemetry records & files…</span>
                 </span>
-                <span className="num text-[10px] text-text-dim bg-[#0a1020] px-2 py-0.5 rounded border border-[#1e293b]">
+                <span className="num text-[10px] text-slate-400 bg-[#0a1020] px-2 py-0.5 rounded border border-[#223049]">
                   Search
                 </span>
               </button>
             )}
 
             {/* Navigation Items */}
-            <div className="space-y-1 rounded-2xl border border-[#1e293b] bg-[#030612] p-2">
+            <div className="space-y-1 py-1">
               <a
                 href="/#hero"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold text-text-primary hover:bg-accent/15 hover:text-accent-light transition-all"
+                onClick={(e) => {
+                  setMobileOpen(false)
+                  handleSectionClick(e, "hero", "home")
+                }}
+                className="flex items-center gap-3 py-2.5 px-1 text-sm font-semibold transition-colors"
               >
-                <Home size={16} className="text-accent-light shrink-0" />
-                <span>{homeLabel}</span>
+                <Home size={16} className={isHomeActive ? "text-accent-light" : "text-slate-400"} />
+                <span className={`relative pb-1 ${isHomeActive ? "text-white font-bold" : "text-slate-200 hover:text-white"}`}>
+                  {homeLabel}
+                  <span
+                    className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent-light transition-all duration-200 ${
+                      isHomeActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
+                    }`}
+                  />
+                </span>
               </a>
 
               {/* Mobile Expandable Departments Section */}
@@ -507,32 +680,39 @@ export function Navbar() {
                 <button
                   type="button"
                   onClick={() => setMobileDeptOpen(!mobileDeptOpen)}
-                  className="flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-sm font-semibold text-text-primary hover:bg-accent/15 hover:text-accent-light transition-all cursor-pointer"
+                  className="flex w-full items-center justify-between py-2.5 px-1 text-sm font-semibold transition-colors cursor-pointer"
                 >
                   <span className="flex items-center gap-3">
-                    <Layers size={16} className="text-accent-light shrink-0" />
-                    <span>{departmentsLabel}</span>
+                    <Layers size={16} className={isDeptActive ? "text-accent-light" : "text-slate-400"} />
+                    <span className={`relative pb-1 ${isDeptActive ? "text-white font-bold" : "text-slate-200 hover:text-white"}`}>
+                      {departmentsLabel}
+                      <span
+                        className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent-light transition-all duration-200 ${
+                          isDeptActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
+                        }`}
+                      />
+                    </span>
                   </span>
                   <ChevronDown
                     size={14}
-                    className={`transition-transform duration-200 text-text-dim ${
-                      mobileDeptOpen ? "rotate-180 text-accent-light" : ""
+                    className={`transition-transform duration-200 ${
+                      mobileDeptOpen ? "rotate-180 text-accent-light" : "text-slate-400"
                     }`}
                   />
                 </button>
 
                 {mobileDeptOpen && (
-                  <div className="mx-2 mb-2 rounded-xl border border-[#1e293b]/70 bg-[#050b18] p-2 space-y-1 animate-fade-in">
+                  <div className="mx-2 my-1.5 rounded-xl border border-[#223049] bg-[#050b18] p-2 space-y-1 animate-fade-in">
                     {departments.map((dept) => (
                       <Link
                         key={dept.id}
                         to={`/departments/${dept.id}`}
                         onClick={() => setMobileOpen(false)}
-                        className="flex items-center justify-between rounded-lg px-3 py-2 text-xs text-text-secondary hover:bg-card-hover hover:text-white transition-colors"
+                        className="flex items-center justify-between rounded-lg px-3 py-2 text-xs text-slate-200 hover:bg-card-hover hover:text-white transition-colors"
                       >
                         <span className="truncate">{dept.name}</span>
                         {dept.code && (
-                          <span className="num text-[10px] text-accent-light bg-[#02050e] px-1.5 py-0.5 rounded border border-[#1e293b]">
+                          <span className="num text-[10px] text-accent-light bg-[#02050e] px-1.5 py-0.5 rounded border border-[#223049] font-mono font-medium">
                             {dept.code}
                           </span>
                         )}
@@ -541,7 +721,7 @@ export function Navbar() {
                     <Link
                       to="/departments"
                       onClick={() => setMobileOpen(false)}
-                      className="flex items-center justify-between rounded-lg px-3 py-2 text-xs font-bold text-accent-light hover:bg-accent/10 transition-colors pt-2 border-t border-[#1e293b]/70"
+                      className="flex items-center justify-between rounded-lg px-3 py-2 text-xs font-bold text-accent-light hover:bg-accent/15 transition-colors pt-2 border-t border-[#223049]"
                     >
                       <span>View All Divisions Directory</span>
                       <span>→</span>
@@ -552,43 +732,73 @@ export function Navbar() {
 
               <a
                 href="/#calendar"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold text-text-primary hover:bg-accent/15 hover:text-accent-light transition-all"
+                onClick={(e) => {
+                  setMobileOpen(false)
+                  handleSectionClick(e, "calendar", "calendar")
+                }}
+                className="flex items-center gap-3 py-2.5 px-1 text-sm font-semibold transition-colors"
               >
-                <Calendar size={16} className="text-accent-light shrink-0" />
-                <span>{calendarLabel}</span>
+                <Calendar size={16} className={isCalendarActive ? "text-accent-light" : "text-slate-400"} />
+                <span className={`relative pb-1 ${isCalendarActive ? "text-white font-bold" : "text-slate-200 hover:text-white"}`}>
+                  {calendarLabel}
+                  <span
+                    className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent-light transition-all duration-200 ${
+                      isCalendarActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
+                    }`}
+                  />
+                </span>
               </a>
 
               <a
                 href="/#about"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold text-text-primary hover:bg-accent/15 hover:text-accent-light transition-all"
+                onClick={(e) => {
+                  setMobileOpen(false)
+                  handleSectionClick(e, "about", "about")
+                }}
+                className="flex items-center gap-3 py-2.5 px-1 text-sm font-semibold transition-colors"
               >
-                <Info size={16} className="text-accent-light shrink-0" />
-                <span>{aboutLabel}</span>
+                <Info size={16} className={isAboutActive ? "text-accent-light" : "text-slate-400"} />
+                <span className={`relative pb-1 ${isAboutActive ? "text-white font-bold" : "text-slate-200 hover:text-white"}`}>
+                  {aboutLabel}
+                  <span
+                    className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent-light transition-all duration-200 ${
+                      isAboutActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
+                    }`}
+                  />
+                </span>
               </a>
 
               <a
                 href="/#contact"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold text-text-primary hover:bg-accent/15 hover:text-accent-light transition-all"
+                onClick={(e) => {
+                  setMobileOpen(false)
+                  handleSectionClick(e, "contact", "contact")
+                }}
+                className="flex items-center gap-3 py-2.5 px-1 text-sm font-semibold transition-colors"
               >
-                <Headphones size={16} className="text-accent-light shrink-0" />
-                <span>{contactLabel}</span>
+                <Headphones size={16} className={isContactActive ? "text-accent-light" : "text-slate-400"} />
+                <span className={`relative pb-1 ${isContactActive ? "text-white font-bold" : "text-slate-200 hover:text-white"}`}>
+                  {contactLabel}
+                  <span
+                    className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent-light transition-all duration-200 ${
+                      isContactActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
+                    }`}
+                  />
+                </span>
               </a>
             </div>
           </div>
 
           {/* Mobile Footer & Auth Button */}
-          <div className="space-y-4 pt-4 border-t border-[#1e293b]">
+          <div className="space-y-4 pt-4 border-t border-[#223049]">
             {showAuthButton && (
               <div>
                 {user ? (
                   <div className="space-y-2.5">
-                    <div className="flex items-center justify-between rounded-xl border border-[#1e293b] bg-[#030612] p-3 text-xs">
+                    <div className="flex items-center justify-between rounded-xl border border-[#223049] bg-[#030612] p-3 text-xs">
                       <div className="truncate pr-2">
-                        <div className="font-bold text-text-primary truncate">{user.name}</div>
-                        <div className="num text-[10px] text-text-dim font-mono truncate">{user.email}</div>
+                        <div className="font-bold text-white truncate">{user.name}</div>
+                        <div className="num text-[10px] text-slate-400 font-mono truncate">{user.email}</div>
                       </div>
                       <span className="rounded bg-accent/20 border border-accent/30 px-2 py-0.5 text-[9px] font-bold uppercase num text-accent-light shrink-0">
                         {user.role}
@@ -609,7 +819,7 @@ export function Navbar() {
                         setMobileOpen(false)
                         handleLogout()
                       }}
-                      className="w-full justify-center gap-2 border-[#1e293b] text-text-secondary hover:border-critical/60 hover:text-critical cursor-pointer"
+                      className="w-full justify-center gap-2 border-[#223049] text-slate-200 hover:border-critical/60 hover:text-critical cursor-pointer"
                     >
                       <LogOut size={16} className="text-critical" />
                       <span>Sign Out / Logout</span>
@@ -636,7 +846,7 @@ export function Navbar() {
                         setMobileOpen(false)
                         openRegister()
                       }}
-                      className="w-full justify-center gap-2 border-[#1e293b] hover:border-accent/50 cursor-pointer text-text-secondary"
+                      className="w-full justify-center gap-2 border-[#223049] hover:border-accent/60 cursor-pointer text-slate-200"
                     >
                       <UserPlus size={16} className="text-accent-light" />
                       <span>Request Operational Access</span>
@@ -647,11 +857,11 @@ export function Navbar() {
             )}
 
             {/* Status pill in mobile drawer */}
-            <div className="flex items-center justify-between text-[11px] text-text-dim px-1">
-              <span className="flex items-center gap-1.5 text-nominal">
+            <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
+              <span className="flex items-center gap-1.5 text-nominal font-medium">
                 <Radio size={12} className="animate-pulse" /> 24/7 Ops Active
               </span>
-              <span>MOX Bengaluru · ISRO</span>
+              <span className="font-mono text-slate-400">MOX Bengaluru · ISRO</span>
             </div>
           </div>
         </div>

@@ -41,14 +41,25 @@
 
 ## 2. Master Test Credentials Matrix (Quick Reference)
 
+### Seeded Account (Immediate Access)
 | Email | Password | Role | Designation | Status | Accessible Workspace |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `admin@istrac.local` | `ChangeMe123!` | **ADMIN** | Director, Mission Operations & Ground Segment | `ACTIVE` | **Global All** (TTC, FDD, MOX, NETRA, GSO, Admin Suite) |
-| `ttcadmin@istrac.local` | `ChangeMe123!` | **ADMIN** | Head, Telemetry Tracking & Command Network | `ACTIVE` | **TTC Directorate** + Admin Console |
-| `fddlead@istrac.local` | `ChangeMe123!` | **MEMBER** | Lead Astrodynamics Specialist | `ACTIVE` | **Flight Dynamics (FDD)** Repositories |
-| `operator@istrac.local` | `ChangeMe123!` | **MEMBER** | Flight Telemetry Console Operator | `ACTIVE` | **MOX** (Full) + **TTC** (Read-Only) |
-| `netra@istrac.local` | `ChangeMe123!` | **MEMBER** | Space Situational Awareness Analyst | `ACTIVE` | **NETRA / IS4OM** SSA Center |
-| `applicant@istrac.local`| `ChangeMe123!` | **MEMBER** | Junior Orbit Analyst | `PENDING` | *None* (Locked — in Approval Queue) |
+| `admin@istrac.local` | `ChangeMe123!` | **ADMIN** | Director, Mission Operations & Ground Segment | `ACTIVE` | **Global All** (Sole Administrator — All Divisions + Admin Suite) |
+
+> [!NOTE]
+> **Single Administrator & Clean Seed Policy**:
+> - Only `admin@istrac.local` is provisioned during database seeding.
+> - All other user roles (Department Leads, Telemetry Operators, Orbit Analysts) are registered via the `/register` portal during operational testing and approved by the administrator in the Approval Queue (`/admin/approvals`).
+> - The personas below illustrate recommended account configurations to create during testing:
+
+### Target Test Personas (To Be Registered & Approved)
+| Suggested Email | Suggested Role | Target Designation | Assigned Department Scope |
+| :--- | :--- | :--- | :--- |
+| `ttcadmin@istrac.local` | `MEMBER` | Head, Telemetry Tracking & Command Network | TTC Directorate (Lead) |
+| `fddlead@istrac.local` | `MEMBER` | Lead Astrodynamics Specialist | Flight Dynamics (FDD) |
+| `operator@istrac.local` | `MEMBER` | Flight Telemetry Console Operator | MOX (Full) + TTC (Read-Only) |
+| `netra@istrac.local` | `MEMBER` | Space Situational Awareness Analyst | NETRA / IS4OM SSA Center |
+| `applicant@istrac.local`| `MEMBER` (Pending) | Junior Orbit Analyst | In Approval Queue |
 
 ---
 
@@ -59,11 +70,12 @@
 - **Password:** `ChangeMe123!`
 - **Employee ID:** `ISRO-DIR-001`
 - **Phone:** `+91-80-2838-4001`
-- **Role Tier:** Global `ADMIN`
+- **Role Tier:** Global `ADMIN` (Sole System Administrator)
 - **Primary Use Cases:**
   - Full access to the `/admin` navigation suite.
   - Reviewing and approving pending access requests in the **Approval Queue** (`/admin/approvals`).
   - Managing user roles, status suspensions, and password resets (`/admin/users`).
+  - Reviewing and dispatching offline password reset OTPs (`/admin/password-resets`).
   - Managing CMS dynamic blocks, landing page hero text, and announcements (`/admin/cms`).
   - Publishing system-wide broadcast banners and notifications (`/admin/broadcast`).
   - Inspecting cursor-paginated regulatory audit logs (`/admin/audit`).
@@ -71,17 +83,16 @@
 
 ---
 
-### 3.2 Department Admin (Head TTC)
+### 3.2 Department Lead (Head TTC)
 - **Account:** `ttcadmin@istrac.local`
 - **Password:** `ChangeMe123!`
 - **Employee ID:** `ISRO-TTC-042`
 - **Phone:** `+91-80-2838-4042`
-- **Role Tier:** Department `ADMIN`
+- **Role Tier:** Operational `MEMBER` (TTC Directorate Lead)
 - **Primary Use Cases:**
   - Managing Telemetry, Tracking & Command (TTC) division folders and datasets.
-  - Uploading single-shot and chunked satellite pass recordings (`.bin`, `.dat`, `.fits`).
-  - Updating TTC public department landing page metadata (`/departments/public/ttc`).
-  - Granting and revoking operator memberships within the TTC department.
+  - Viewing satellite pass recordings (`.bin`, `.dat`, `.fits`).
+  - Accessing TTC operational repository files and mission schedules.
 
 ---
 
@@ -146,8 +157,8 @@ The matrix below illustrates the seeded departmental boundary and permissions fo
 
 | User Account | TTC Division | FDD Division | MOX Complex | NETRA / IS4OM | GSO Network | Admin Suite (`/admin`) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **`admin@istrac.local`** | `READ_WRITE` | `READ_WRITE` | `READ_WRITE` | `READ_WRITE` | `READ_WRITE` | ✅ **Full Authority** |
-| **`ttcadmin@istrac.local`** | `READ_WRITE` | `READ_ONLY` | `READ_ONLY` | `READ_ONLY` | `READ_ONLY` | ✅ **Admin Access** |
+| **`admin@istrac.local`** | `READ_WRITE` | `READ_WRITE` | `READ_WRITE` | `READ_WRITE` | `READ_WRITE` | ✅ **Full Authority (Sole Admin)** |
+| **`ttcadmin@istrac.local`** | `READ_WRITE` | `READ_ONLY` | `READ_ONLY` | `READ_ONLY` | `READ_ONLY` | ❌ *Restricted* |
 | **`fddlead@istrac.local`** | ⛔ *No Access* | `READ_WRITE` | ⛔ *No Access* | ⛔ *No Access* | ⛔ *No Access* | ❌ *Restricted* |
 | **`operator@istrac.local`**| `READ_ONLY` | ⛔ *No Access* | `READ_WRITE` | ⛔ *No Access* | ⛔ *No Access* | ❌ *Restricted* |
 | **`netra@istrac.local`** | ⛔ *No Access* | ⛔ *No Access* | ⛔ *No Access* | `READ_WRITE` | ⛔ *No Access* | ❌ *Restricted* |
@@ -227,18 +238,34 @@ The matrix below illustrates the seeded departmental boundary and permissions fo
 
 ---
 
-### Scenario E: Password Reset & First-Login Security Rotation
-1. **Admin Triggers Temporary Password Reset:**
-   - As Super Admin, navigate to **User Management** (`/admin/users`).
-   - Locate `fddlead@istrac.local` and click **Reset Password**.
-   - System generates temporary password and flags `tempPass: true`.
-2. **User Signs In with Temporary Password:**
-   - Log in as `fddlead@istrac.local` using the temporary password.
-   - **Expected Result:** `ForcePasswordGuard` intercepts access and immediately redirects to `/force-password-change`.
-3. **Set Permanent Password:**
-   - Enter new password (testing `PasswordStrengthMeter` dynamically verifying 10+ chars, uppercase, number, symbol).
-   - Submit new password.
-   - **Expected Result:** Password updates in database, `tempPass` flag is cleared, prior sessions are revoked, and user is redirected to `/dashboard`.
+### Scenario E: Self-Service Offline OTP Password Reset (Operator Flow)
+1. **User Submits Forgot Password Request:**
+   - Operator navigates to `/forgot-password` in browser.
+   - Enters `operator@istrac.local` and clicks **Request Verification Code**.
+   - **Expected Result:** UI advances to Step 2: "Enter Verification Code & New Password".
+2. **Administrator Views & Dispatches OTP:**
+   - Administrator opens **OTP & Password Reset Management** (`/admin/password-resets`) from navigation bar.
+   - Locates active OTP record for `operator@istrac.local`.
+   - Clicks **Copy Email Template** (which includes dynamic CMS branding, recipient name, and 6-digit verification code) or **Open Mail Client (mailto:)** to dispatch via local workstation mail or internal chat.
+3. **Operator Submits Verification Code & New Password:**
+   - Operator inputs the 6-digit OTP code and sets their new permanent password.
+   - Submits form.
+   - **Expected Result:** System verifies token hash, sets new password, revokes the token, and displays success message prompting login.
+
+---
+
+### Scenario F: Administrator Password Recovery (Terminal CLI & Broadcast)
+1. **Method 1: Direct Server CLI Command (No Web Required):**
+   - SSH/log into the RHEL host server.
+   - Execute: `npm run admin:reset-password -- "AdminNewSecurePass2026!"`
+   - **Expected Result:** Terminal confirms password hashed with bcrypt, MariaDB record updated, existing sessions revoked, and audit log written.
+2. **Method 2: Terminal Broadcast via Web Portal:**
+   - On `/forgot-password`, enter `admin@istrac.local`.
+   - Click **Request Verification Code**.
+   - Check server console output (`journalctl -u istrac-backend -f` or running terminal).
+   - Read the prominent ASCII banner containing the 6-digit OTP.
+   - Enter OTP and new password on the web screen.
+   - **Expected Result:** Admin credentials updated successfully.
 
 ---
 

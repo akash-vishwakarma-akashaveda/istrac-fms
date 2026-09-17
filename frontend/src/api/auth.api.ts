@@ -56,6 +56,18 @@ export interface ChangePasswordRequest {
   newPassword: string
 }
 
+export interface VerifyResetOtpRequest {
+  email: string
+  otp: string
+}
+
+export interface ResetPasswordRequest {
+  email?: string
+  otp?: string
+  token?: string
+  newPassword: string
+}
+
 export interface Refresh{
   accessToken:string
 }
@@ -80,12 +92,17 @@ export const authApi = {
     return extractData<{ message: string }>(res)
   },
 
-  async forgotPassword(email: string): Promise<{ message: string }> {
+  async forgotPassword(email: string): Promise<{ message: string; email?: string }> {
     const res = await apiClient.post('/auth/forgot-password', { email })
-    return extractData<{ message: string }>(res)
+    return extractData<{ message: string; email?: string }>(res)
   },
 
-  async resetPassword(payload: { token: string; newPassword: string }): Promise<{ message: string }> {
+  async verifyResetOtp(payload: VerifyResetOtpRequest): Promise<{ valid: boolean; message: string; email: string }> {
+    const res = await apiClient.post('/auth/verify-reset-otp', payload)
+    return extractData<{ valid: boolean; message: string; email: string }>(res)
+  },
+
+  async resetPassword(payload: ResetPasswordRequest): Promise<{ message: string }> {
     const res = await apiClient.post('/auth/reset-password', payload)
     return extractData<{ message: string }>(res)
   },

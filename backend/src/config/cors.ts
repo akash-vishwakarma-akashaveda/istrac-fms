@@ -37,11 +37,13 @@ export const corsOptions: CorsOptions = {
       return callback(null, true)
     }
 
-    // 3. Localhost in development mode only
-    if (env.NODE_ENV === 'development') {
-      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(normalizedOrigin)
-      if (isLocalhost) return callback(null, true)
-    }
+    // 3. Localhost / loopback on any port (local browser, VirtualBox port-forwarding, SSH tunnel)
+    const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(normalizedOrigin)
+    if (isLocalhost) return callback(null, true)
+
+    // 4. Private intranet IPv4 ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) on any port
+    const isPrivateIp = /^https?:\/\/(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?$/i.test(normalizedOrigin)
+    if (isPrivateIp) return callback(null, true)
 
     logger.warn('CORS', `Blocked unauthorized origin: ${origin}`)
     // Return null, false to reject properly rather than throwing an unhandled 500

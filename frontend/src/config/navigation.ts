@@ -15,6 +15,7 @@ import {
   Upload,
   Calendar,
   HardDrive,
+  KeyRound,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -41,6 +42,7 @@ export const navItems: NavItem[] = [
   { label: 'Events & Calendar', path: '/admin/events', icon: Calendar, adminOnly: true },
   { label: 'Departments', path: '/admin/departments', icon: Building2, adminOnly: true },
   { label: 'User Accounts', path: '/admin/users', icon: Users, adminOnly: true },
+  { label: 'Password Reset OTPs', path: '/admin/password-resets', icon: KeyRound, adminOnly: true },
   { label: 'Audit Logs', path: '/admin/audit-logs', icon: ClipboardList, adminOnly: true },
   { label: 'Broadcast Alert', path: '/admin/broadcast', icon: Megaphone, adminOnly: true },
   { label: 'Portal CMS', path: '/admin/cms', icon: Layout, adminOnly: true },

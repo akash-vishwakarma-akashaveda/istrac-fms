@@ -17,6 +17,7 @@ import { ToastContainer } from "./components/ToastContainer"
 import { AuthModal } from "./components/AuthModal"
 import { ApprovalQueue } from "./pages/ApprovalQueue"
 import { UserManagement } from "./pages/UserManagement"
+import { AdminOtpManagement } from "./pages/AdminOtpManagement"
 import { DepartmentManager } from "./pages/DepartmentManager"
 import { SatelliteManager } from "./pages/SatelliteManager"
 import { UploadReport } from "./pages/UploadReport"
@@ -80,6 +81,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ForgotPassword />} />
             <Route path="/demo" element={<ComponentDemo />} />
           </Route>
 
@@ -109,6 +111,8 @@ export default function App() {
                   <Route path="/admin/events" element={<EventManager />} />
                   <Route path="/admin/departments" element={<DepartmentManager />} />
                   <Route path="/admin/users" element={<UserManagement />} />
+                  <Route path="/admin/password-resets" element={<AdminOtpManagement />} />
+                  <Route path="/admin/otps" element={<Navigate to="/admin/password-resets" replace />} />
                   <Route path="/admin/audit-logs" element={<AuditLogViewer />} />
                   <Route path="/admin/broadcast" element={<BroadcastNotification />} />
                   <Route path="/admin/cms" element={<CmsEditor />} />

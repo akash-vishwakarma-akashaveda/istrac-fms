@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   RefreshCw,
   Upload,
+  KeyRound,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAdminStats } from '../hooks/useAdminStats'
@@ -528,6 +529,30 @@ export function AdminHome() {
               </h4>
               <p className="mt-1 text-xs text-text-secondary leading-relaxed">
                 Manage user profiles, assign administrative permissions, suspend accounts, and force logouts.
+              </p>
+            </div>
+          </Link>
+
+          {/* Card: Password Reset OTPs & Verification */}
+          <Link
+            to="/admin/password-resets"
+            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-[#0d162a] shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/25">
+                <KeyRound size={20} />
+              </div>
+              <span className="rounded bg-card px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light font-mono">
+                OTP DISPATCH
+              </span>
+            </div>
+            <div className="mt-4">
+              <h4 className="text-sm font-bold text-white group-hover:text-accent-light flex items-center justify-between">
+                <span>Password Reset OTPs</span>
+                <ArrowRight size={14} className="opacity-0 -translate-x-2 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
+              </h4>
+              <p className="mt-1 text-xs text-text-secondary leading-relaxed">
+                Inspect 6-digit verification codes with complete user profile details and dispatch forwardable message templates.
               </p>
             </div>
           </Link>

@@ -84,7 +84,7 @@ export function Topbar() {
 
   return (
     <>
-      <header className="relative z-50 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border-subtle bg-surface px-4">
+      <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border-subtle bg-surface px-4">
         {/* Readout strip — everything here is machine-produced, so it's all mono. */}
         <div className="flex min-w-0 items-center gap-3">
           <span className="readout text-text-secondary">

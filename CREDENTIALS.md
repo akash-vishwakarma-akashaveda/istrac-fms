@@ -6,64 +6,74 @@
 
 ---
 
-## 👤 Application User Accounts
+## 👤 Seeded Administrator Credentials
 
-| # | Role Tier | Name / Designation | Email Address | Password | Department Scope |
+| # | Role Tier | Name / Designation | Email Address | Default Password | Department Scope |
 | :---: | :--- | :--- | :--- | :--- | :--- |
-| **1** | **Super Admin** | Super Admin (Director MOX) | `admin@istrac.local` | `ChangeMe123!` | **Global All** (All 5 divisions + `/admin` suite) |
-| **2** | **Dept Admin** | Dr. Vikram Sharma (Head TTC) | `ttcadmin@istrac.local` | `ChangeMe123!` | **TTC Directorate** + Admin Console |
-| **3** | **Flight Lead** | Dr. Ananya Ray (Orbital Mechanics Lead) | `fddlead@istrac.local` | `ChangeMe123!` | **Flight Dynamics (FDD)** Repositories |
-| **4** | **Operator** | Ayan Sharma (Telemetry Flight Operator) | `operator@istrac.local` | `ChangeMe123!` | **MOX** (Full) + **TTC** (Read-Only) |
-| **5** | **Analyst** | Rohan Deshmukh (Conjunction Analyst) | `netra@istrac.local` | `ChangeMe123!` | **NETRA / IS4OM** SSA Center |
-| **6** | **Applicant** | Priya Nair (Junior Orbit Analyst) | `applicant@istrac.local` | `ChangeMe123!` | ⛔ *Locked* (`status: PENDING` in Approval Queue) |
+| **1** | **Super Admin** | Super Admin (Director MOX) | `admin@istrac.local` | `ChangeMe123!` | **Global All** (Sole System Administrator — All divisions + `/admin` suite) |
+
+> [!NOTE]
+> **Single Seeded Account Policy:** The database seed provisions exclusively the Super Admin account (`admin@istrac.local`). No placeholder or mock operator accounts are seeded.
+> 
+> All operational personnel (division leads, flight operators, orbital analysts) register themselves via the web portal at `/register` and are approved and assigned departmental access by the Super Admin in the **Approval Queue** (`/admin/approvals`).
 
 ---
 
-## 📋 Copy-Paste User Credentials Block
+## 📋 Copy-Paste Admin Credentials Block
 
 ```text
-=== SUPER ADMIN (FULL SYSTEM ACCESS) ===
+=== SUPER ADMIN (SOLE SYSTEM ADMINISTRATOR) ===
 Email:       admin@istrac.local
 Password:    ChangeMe123!
 Employee ID: ISRO-DIR-001
-Role:        ADMIN
+Role:        ADMIN (Strictly 1 Admin allowed in system)
 Scope:       All Departments + Admin Suite (/admin)
-
-=== TTC DEPARTMENT ADMIN ===
-Email:       ttcadmin@istrac.local
-Password:    ChangeMe123!
-Employee ID: ISRO-TTC-042
-Role:        ADMIN
-Scope:       Telemetry, Tracking & Command (TTC)
-
-=== FLIGHT DYNAMICS LEAD (FDD) ===
-Email:       fddlead@istrac.local
-Password:    ChangeMe123!
-Employee ID: ISRO-FDD-089
-Role:        MEMBER
-Scope:       Flight Dynamics Division (FDD)
-
-=== FLIGHT TELEMETRY OPERATOR (MOX) ===
-Email:       operator@istrac.local
-Password:    ChangeMe123!
-Employee ID: ISRO-OPS-108
-Role:        MEMBER
-Scope:       Mission Operations Complex (MOX) + TTC (Read-Only)
-
-=== SPACE SITUATIONAL AWARENESS (NETRA) ===
-Email:       netra@istrac.local
-Password:    ChangeMe123!
-Employee ID: ISRO-SSA-015
-Role:        MEMBER
-Scope:       IS4OM / NETRA Space Debris Center
-
-=== PENDING APPLICANT (TESTING APPROVAL QUEUE) ===
-Email:       applicant@istrac.local
-Password:    ChangeMe123!
-Employee ID: ISRO-REQ-2026
-Role:        MEMBER (PENDING)
-Scope:       Locked until approved by Admin in /admin/approvals
 ```
+
+---
+
+## 🔐 Administrator Password Reset & Recovery Procedures
+
+Because the system strictly enforces a **Single Administrator Architecture** and operates within an **air-gapped / intranet environment** without public email connectivity:
+
+### Method 1: Terminal / Server CLI Command (Direct Recovery)
+From the server terminal (or SSH session), execute the administrative password reset utility:
+```bash
+# In backend directory:
+npm run admin:reset-password -- "YourNewSecurePassword123!"
+
+# Or from project root:
+npm run admin:reset-password -- "YourNewSecurePassword123!"
+```
+This utility:
+- Hashes the new password using bcrypt (12 salt rounds).
+- Updates `admin@istrac.local` directly in MariaDB.
+- Revokes all active refresh tokens for the admin account to terminate rogue sessions.
+- Writes an immutable entry into `AuditLog`.
+
+### Method 2: High-Visibility Terminal Broadcast
+1. Go to `/forgot-password` in the web portal.
+2. Enter `admin@istrac.local` and click **Request Verification Code**.
+3. Because external SMTP is disabled, the backend automatically logs the 6-digit OTP in an eye-catching ASCII banner directly to the server terminal (`stdout` / `journalctl -u istrac-backend -f`):
+```text
+============================================================
+🔐 [ADMIN PASSWORD RESET OTP BROADCAST]
+   Account: admin@istrac.local
+   OTP Code: 549120
+   Valid for: 15 minutes
+============================================================
+```
+4. Enter the code on the web screen along with the new password to complete the reset.
+
+---
+
+## 📩 Operator / Member Password Reset Workflow (Air-Gapped Mode)
+
+1. **User Request**: User navigates to `/forgot-password`, enters their registered email, and submits.
+2. **OTP Generation**: A cryptographic 6-digit OTP is generated and securely stored in `PasswordResetToken` (expires in 15 minutes).
+3. **Admin Dispatch Console**: Super Admin opens **OTP & Password Reset Management** (`/admin/password-resets`) from the navigation bar.
+4. **Copy / Send**: Admin views the user's active OTP and clicks **"Copy Email Template"** (dynamically branded with CMS App Name and Title) or **"Open Mail Client (mailto:)"** to dispatch the code via the internal secure network or workstation email client.
+5. **Completion**: The operator enters the 6-digit OTP and new password on `/forgot-password` to update credentials.
 
 ---
 

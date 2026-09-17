@@ -10,6 +10,7 @@ export function Login() {
   const [searchParams] = useSearchParams();
   const user = useAuthStore((s) => s.user);
   const openLogin = useAuthModalStore((s) => s.openLogin);
+  const openReset = useAuthModalStore((s) => s.openReset);
   const addToast = useToastStore((s) => s.addToast);
   const hasNotified = useRef(false);
 
@@ -32,8 +33,12 @@ export function Login() {
       });
     }
 
-    openLogin();
-  }, [user, openLogin, navigate, searchParams, addToast]);
+    if (searchParams.get("reset") === "true" || searchParams.get("action") === "reset") {
+      openReset(searchParams.get("email") || undefined);
+    } else {
+      openLogin();
+    }
+  }, [user, openLogin, openReset, navigate, searchParams, addToast]);
 
   return <Landing />;
 }

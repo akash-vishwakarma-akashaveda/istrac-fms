@@ -1,14 +1,10 @@
 import axios, { type AxiosError, type AxiosRequestConfig } from "axios"
 import { useAuthStore } from "../store/authStore"
 
-const apiUrl = import.meta.env.VITE_API_URL
-
-if (import.meta.env.PROD && !apiUrl) {
-  throw new Error("VITE_API_URL must be set for production builds")
-}
+const apiUrl = import.meta.env.VITE_API_URL || "/api"
 
 export const apiClient = axios.create({
-  baseURL: apiUrl || "/api",
+  baseURL: apiUrl,
   withCredentials: true,
   timeout: 30_000,
   headers: {

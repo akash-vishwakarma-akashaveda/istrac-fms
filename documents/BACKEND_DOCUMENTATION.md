@@ -443,11 +443,13 @@ notificationService.sendBroadcast(opts)
 2. Calls `send()` for targeted records.
 3. Also publishes to `notification.broadcast` channel → delivered to all connected WebSocket clients simultaneously.
 
-### `emailService.ts` — Nodemailer SMTP Client
+### `emailService.ts` — Nodemailer SMTP Client & Air-Gapped Offline Mode
 Configured with:
 - `secure: false` — uses STARTTLS upgrade (port 587) or plain (port 25).
 - `ignoreTLS: true` — for internal SMTP relays on ISRO intranet that don't use TLS.
 - `auth: undefined` if `SMTP_USER` is not set — allows anonymous relay on internal mail servers.
+- **Air-Gapped Intranet Suppression:** When `SMTP_HOST` is default localhost/127.0.0.1 without credentials, automated socket connection attempts are suppressed. This prevents `ECONNREFUSED` crashes when running in offline, air-gapped environments without local SMTP mail transfer agents.
+- **Dynamic CMS Branding:** Email templates dynamically pull application title, mission banner, and support contacts directly from the database `cmsBlock` and `systemConfig`.
 
 Email methods (all fire-and-forget):
 | Method | Trigger | Subject |
@@ -455,7 +457,7 @@ Email methods (all fire-and-forget):
 | `sendApprovalEmail` | Admin approves user | "Your ISTRAC-FMS account has been approved" |
 | `sendRejectionEmail` | Admin rejects user | "ISTRAC-FMS Registration Update" |
 | `sendSuspensionEmail` | Admin suspends user | "ISTRAC-FMS Account Suspended" |
-| `sendPasswordResetEmail` | User requests reset | "ISTRAC-FMS Password Reset" (15-min link) |
+| `sendPasswordResetEmail` | User requests reset | "ISTRAC-FMS Password Reset" (6-digit verification OTP) |
 | `sendBroadcastEmail` | Admin sends broadcast | BCC to all users, To: ADMIN_EMAIL |
 | `sendAdminAlert` | Storage failure/recovery | "[ALERT] {subject}" to ADMIN_EMAIL |
 
@@ -584,10 +586,18 @@ redisSub.psubscribe('notification.*', 'file.*')
 | `GET` | `/auth/me` | `authMiddleware` | Return full user profile + department access list |
 | `PUT` | `/auth/change-password` | `authMiddleware` | Change own password (bcrypt 12 rounds) |
 | `PUT` | `/auth/force-password-change` | `authMiddleware` | First-login forced change; clears `tempPass` flag |
-| `POST` | `/auth/forgot-password` | `loginRateLimiter` | Generate 15-min reset token; email reset link |
-| `POST` | `/auth/reset-password` | `loginRateLimiter` | Validate token from email; set new password |
+| `POST` | `/auth/forgot-password` | `loginRateLimiter` | Generate 6-digit OTP verification code (15-min expiry); logs ASCII banner to terminal if user is ADMIN |
+| `POST` | `/auth/reset-password` | `loginRateLimiter` | Validate 6-digit OTP code & email; set new password |
 
-**Login Flow Detail:**
+**Password Reset (Offline OTP Architecture):**
+1. User provides `email` on `/forgot-password`.
+2. Backend generates a cryptographic 6-digit numeric OTP (`crypto.randomInt(100000, 999999)`).
+3. Hashed OTP is saved to `PasswordResetToken` table with 15-minute expiration timestamp.
+4. **Air-Gapped Intranet Dispatch:**
+   - For `ADMIN` requests, backend broadcasts the OTP in a prominent ASCII banner directly to `stdout` (`console.log`), allowing server operators to read it without email.
+   - For `MEMBER` requests, the request is visible in `/admin/password-resets`. Admin can copy the CMS-branded email text or use `mailto:` to dispatch to operator.
+5. User provides `email`, `token` (6-digit OTP), and `newPassword` to `/auth/reset-password`.
+6. Token is validated, password updated (bcrypt 12 rounds), existing sessions revoked, and token marked used.
 1. Find user by email (`deletedAt: null`).
 2. Check `status !== 'ACTIVE'` → 403 with status-specific message.
 3. `bcrypt.compare(password, user.passwordHash)` — 12 rounds.
@@ -640,12 +650,12 @@ redisSub.psubscribe('notification.*', 'file.*')
 | :--- | :--- | :--- | :--- |
 | `GET` | `/admin/users` | `auth`, `admin` | Paginated user roster with filters |
 | `GET` | `/admin/users/pending` | `auth`, `admin` | Users with `status: 'PENDING'` |
-| `POST` | `/admin/users/:id/approve` | `auth`, `admin` | Approve + grant department access |
+| `POST` | `/admin/users/:id/approve` | `auth`, `admin` | Approve + grant department access (enforces single-admin constraint; rejects secondary admin elevation) |
 | `POST` | `/admin/users/:id/reject` | `auth`, `admin` | Reject with optional reason |
 | `POST` | `/admin/users/:id/suspend` | `auth`, `admin` | Suspend active user |
 | `POST` | `/admin/users/:id/restore` | `auth`, `admin` | Reinstate suspended user |
 | `POST` | `/admin/users/:id/reset-password` | `auth`, `admin` | Generate temp password, set `tempPass: true` |
-| `PUT` | `/admin/users/:id` | `auth`, `admin` | Update user details |
+| `PUT` | `/admin/users/:id` | `auth`, `admin` | Update user details (enforces single-admin constraint; rejects role promotion to ADMIN if an admin already exists) |
 | `DELETE` | `/admin/users/:id` | `auth`, `admin` | Soft-delete user |
 | `GET` | `/user/mission-overview` | `auth` | KPI summary for logged-in user's dashboard |
 | `PUT` | `/user/profile` | `auth` | Update own profile fields |
@@ -696,6 +706,9 @@ redisSub.psubscribe('notification.*', 'file.*')
 | `GET` | `/admin/settings` | `auth`, `admin` | All SystemConfig key-value pairs |
 | `PUT` | `/admin/settings/:key` | `auth`, `admin` | Update a config value |
 | `POST` | `/admin/notifications/broadcast` | `auth`, `admin` | Trigger system-wide broadcast notification |
+| `GET` | `/admin/password-resets` | `auth`, `admin` | Paginated listing of active/recent OTP password reset requests with search |
+| `POST` | `/admin/password-resets/:tokenId/revoke` | `auth`, `admin` | Invalidate an active OTP password reset token |
+| `POST` | `/admin/password-resets/cleanup` | `auth`, `admin` | Purge expired and used reset tokens |
 | `GET` | `/admin/drives` | `auth`, `admin` | Detected system drives via `driveDetectorService` |
 | `POST` | `/admin/bootstrap` | `auth`, `admin` | First-run setup: create satellites, depts, storage dirs |
 
@@ -897,6 +910,9 @@ Every error response:
 | `department_not_found` | 404 | `fileService` | Department inactive or missing |
 | `parent_not_found` | 404 | `fileService` | Parent folder node missing |
 | `file_not_found` | 404 | `hddService.streamFile` | Physical file absent from storage mount |
+| `single_admin_constraint` | 400 | `user.routes.ts` | Attempt to approve or promote a second administrator |
+| `invalid_reset_token` | 400 | `auth.routes.ts` | Verification OTP code is invalid or has been revoked |
+| `expired_reset_token` | 400 | `auth.routes.ts` | Verification OTP code has expired (exceeded 15 min TTL) |
 | `rate_limit_exceeded` | 429 | `loginRateLimiter` | >10 login attempts in 15 minutes |
 | `download_limit_exceeded` | 429 | `downloadRateLimiter` | >100 downloads/hour |
 | `hdd_unavailable` | 503 | `hddAvailabilityMiddleware` | Storage mount not accessible |
