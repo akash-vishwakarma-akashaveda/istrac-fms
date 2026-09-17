@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { useLocation } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query"
 import { Navbar } from "../components/Navbar"
 import { Hero } from "../components/Hero"
@@ -14,6 +15,7 @@ import { useCms } from "../context/cmsContext"
 import { useFeaturedReports } from "../hooks/useFeaturedReports"
 
 export function Landing() {
+  const location = useLocation()
   const queryClient = useQueryClient()
   const { cmsBlocks, refetch } = useCms()
   const { data: featuredData } = useFeaturedReports()
@@ -21,13 +23,33 @@ export function Landing() {
 
   const bgConfig = cmsBlocks["space_background"] as SpaceBackgroundConfig | undefined
 
-  console.log("🔄 LandingPage re-rendered at", Date.now())
-  // ...
-
   // Always ensure fresh CMS blocks whenever navigating to the landing page
   useEffect(() => {
     refetch()
   }, [refetch])
+
+  // Handle hash scrolling on initial load or route/hash change (e.g. from footer links or external nav)
+  useEffect(() => {
+    if (location.hash) {
+      const rawHash = location.hash.replace("#", "")
+      const targetId =
+        rawHash === "featured-files" || rawHash === "featured_reports"
+          ? (document.getElementById("featured-files") ? "featured-files" : "cms-section-featured_reports")
+          : rawHash
+
+      const timer = setTimeout(() => {
+        if (targetId === "hero") {
+          window.scrollTo({ top: 0, behavior: "smooth" })
+        } else {
+          const el = document.getElementById(targetId) || document.getElementById(`cms-section-${targetId}`)
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" })
+          }
+        }
+      }, 120)
+      return () => clearTimeout(timer)
+    }
+  }, [location.hash])
 
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
@@ -60,7 +82,7 @@ export function Landing() {
   }, [refetch, queryClient])
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#030712] text-text-primary antialiased relative">
+    <div className="min-h-screen overflow-x-clip bg-[#030712] text-text-primary antialiased relative">
       {/* Universal Fixed Parallax Space Canvas */}
       <SpaceParallaxBackground config={bgConfig} />
 
@@ -73,7 +95,7 @@ export function Landing() {
       </a>
 
       <div className="relative z-10 flex flex-col min-h-screen">
-        <div id="cms-section-nav"><Navbar /></div>
+        <Navbar id="cms-section-nav" />
         <main id="main" className="flex-1">
           <div id="cms-section-hero"><Hero /></div>
           <div id="cms-section-quick_stats"><QuickStatsBanner /></div>

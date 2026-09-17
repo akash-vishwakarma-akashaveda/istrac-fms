@@ -14,6 +14,11 @@ import {
   Sliders,
   Plus,
   X,
+  KeyRound,
+  Copy,
+  Mail,
+  Clock,
+  ExternalLink,
 } from "lucide-react"
 import { apiClient } from "../api/client"
 import { useQueryClient } from "@tanstack/react-query"
@@ -21,6 +26,7 @@ import { SYSTEM_CONFIG_QUERY_KEY } from "../hooks/useSystemConfig"
 import { PageHeader, Button } from "../components"
 import { useToastStore } from "../store/toastStore"
 import { formatFileSize } from "../lib/formatFileSize"
+import type { PasswordResetItem } from "../api/admin.api"
 
 interface StorageStatus {
   mounted: boolean
@@ -87,6 +93,13 @@ export function SystemConfigPanel() {
   const [savingIngestSettings, setSavingIngestSettings] = useState(false)
   const [newExtInput, setNewExtInput] = useState('')
 
+  // Password Reset & OTP Policy State
+  const [otpExpiryMinutes, setOtpExpiryMinutes] = useState(15)
+  const [savingOtpSettings, setSavingOtpSettings] = useState(false)
+  const [passwordResets, setPasswordResets] = useState<PasswordResetItem[]>([])
+  const [loadingResets, setLoadingResets] = useState(false)
+  const [activeTemplatePreview, setActiveTemplatePreview] = useState<PasswordResetItem | null>(null)
+
   // Compute if redundancy settings have unsaved changes
   const isRedundancyDirty =
     primaryPath !== savedRedundancy.primaryPath ||
@@ -98,11 +111,12 @@ export function SystemConfigPanel() {
   const fetchStorageData = async () => {
     setCheckingStorage(true)
     try {
-      const [statusRes, drivesRes, redundancyRes, settingsRes] = await Promise.all([
+      const [statusRes, drivesRes, redundancyRes, settingsRes, resetsRes] = await Promise.all([
         apiClient.get("/admin/storage/status").catch(() => null),
         apiClient.get("/admin/storage/drives").catch(() => null),
         apiClient.get("/admin/storage/redundancy").catch(() => null),
         apiClient.get("/admin/settings").catch(() => null),
+        apiClient.get("/admin/password-resets").catch(() => null),
       ])
 
       if (settingsRes?.data?.data) {
@@ -119,6 +133,13 @@ export function SystemConfigPanel() {
         if (s.virusScanEnabled !== undefined) {
           setVirusScanEnabled(Boolean(s.virusScanEnabled))
         }
+        if (s.passwordResetOtpExpiryMinutes) {
+          setOtpExpiryMinutes(Number(s.passwordResetOtpExpiryMinutes))
+        }
+      }
+
+      if (resetsRes?.data?.data) {
+        setPasswordResets(resetsRes.data.data)
       }
 
       if (statusRes?.data?.data) {
@@ -263,6 +284,52 @@ export function SystemConfigPanel() {
 
   const handleRemoveExtension = (ext: string) => {
     setAllowedExtensions((prev) => prev.filter((e) => e !== ext))
+  }
+
+  const fetchPasswordResets = async () => {
+    setLoadingResets(true)
+    try {
+      const res = await apiClient.get("/admin/password-resets")
+      if (res?.data?.data) {
+        setPasswordResets(res.data.data)
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingResets(false)
+    }
+  }
+
+  const handleSaveOtpExpiry = async () => {
+    setSavingOtpSettings(true)
+    try {
+      await apiClient.put("/admin/settings/passwordResetOtpExpiryMinutes", {
+        value: Number(otpExpiryMinutes),
+      })
+      queryClient.invalidateQueries({ queryKey: SYSTEM_CONFIG_QUERY_KEY })
+      addToast({
+        title: "OTP Security Policy Saved",
+        message: `Password reset verification codes will remain valid for ${otpExpiryMinutes} minutes.`,
+        variant: "success",
+      })
+    } catch (err: any) {
+      addToast({
+        title: "Save Failed",
+        message: err.response?.data?.error?.message || "Could not save OTP expiry policy",
+        variant: "error",
+      })
+    } finally {
+      setSavingOtpSettings(false)
+    }
+  }
+
+  const handleCopyText = (text: string, title: string, message: string) => {
+    navigator.clipboard.writeText(text)
+    addToast({
+      title,
+      message,
+      variant: "success",
+    })
   }
 
   const handleInitiatePrimarySwitch = (drive: DriveItem) => {
@@ -554,6 +621,218 @@ export function SystemConfigPanel() {
               </span>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* ============================================================ */}
+      {/* SECTION: PASSWORD RESET & OTP SECURITY ADMINISTRATION */}
+      {/* ============================================================ */}
+      <div className="rounded-2xl border border-accent/40 bg-gradient-to-br from-[#091326] via-[#070e1c] to-[#050a14] p-6 shadow-2xl space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent/20 text-accent-light border border-accent/40 shadow-inner">
+              <KeyRound size={22} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  Password Reset & OTP Verification Administration
+                </h3>
+                <span className="rounded-full bg-accent/20 px-2.5 py-0.5 text-[10px] font-bold text-accent-light border border-accent/30 font-mono">
+                  ADMIN-DISPATCHED
+                </span>
+              </div>
+              <p className="text-xs text-text-dim mt-0.5">
+                Configure verification code expiration timing and manage active password reset requests. Admins can forward OTPs via any communication medium using ready-to-send templates.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={fetchPasswordResets}
+              disabled={loadingResets}
+              className="gap-1.5 cursor-pointer text-xs"
+            >
+              <RefreshCw size={13} className={loadingResets ? "animate-spin" : ""} />
+              <span>Refresh OTPs</span>
+            </Button>
+
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSaveOtpExpiry}
+              disabled={savingOtpSettings}
+              className="gap-2 shadow-lg shadow-accent/25 cursor-pointer text-xs"
+            >
+              <CheckCircle size={14} className={savingOtpSettings ? "animate-spin" : ""} />
+              <span>{savingOtpSettings ? "Saving…" : "Save OTP Policy"}</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* OTP Expiration Duration Setting */}
+        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <Clock size={14} className="text-accent-light" />
+              OTP Expiration Duration (Validity Window)
+            </label>
+            <span className="font-mono text-xs font-bold text-accent-light bg-accent/15 px-2.5 py-1 rounded-lg border border-accent/30">
+              {otpExpiryMinutes} Minutes Active
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative w-44">
+              <input
+                type="number"
+                min="1"
+                max="1440"
+                value={otpExpiryMinutes}
+                onChange={(e) => setOtpExpiryMinutes(Math.max(1, Number(e.target.value) || 1))}
+                className="w-full rounded-xl border border-border-default bg-[#070c18] px-4 py-2.5 text-sm font-mono font-bold text-white focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+              <span className="absolute right-3.5 top-2.5 font-mono text-xs text-text-dim">Mins</span>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[5, 10, 15, 30, 60, 120].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setOtpExpiryMinutes(preset)}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-mono font-semibold transition-all cursor-pointer ${
+                    otpExpiryMinutes === preset
+                      ? "bg-accent text-white shadow-md shadow-accent/30 border border-accent"
+                      : "bg-white/5 text-text-secondary hover:bg-white/10 hover:text-white border border-white/10"
+                  }`}
+                >
+                  {preset} min
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-[11px] text-text-dim leading-relaxed">
+            Controls how long a 6-digit verification code remains valid for operator password updates. If a code expires before use, the operator will need to request a new OTP from the administrator.
+          </p>
+        </div>
+
+        {/* Recent Reset Requests & Forwardable Template Queue */}
+        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <Mail size={14} className="text-nominal" />
+              Recent Password Reset Requests & Forwardable Templates ({passwordResets.length})
+            </h4>
+            <span className="text-[11px] text-text-dim font-mono">1-CLICK DISPATCH</span>
+          </div>
+
+          {passwordResets.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-white/15 p-6 text-center text-xs text-text-dim">
+              No recent password reset requests recorded. When an operator requests an OTP via the sign-in modal, their code and copy-ready notification template will appear here.
+            </div>
+          ) : (
+            <div className="space-y-2.5 overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-white/10 text-text-dim text-[11px] font-mono uppercase tracking-wider">
+                    <th className="pb-2 font-semibold">Requester</th>
+                    <th className="pb-2 font-semibold">Verification Code (OTP)</th>
+                    <th className="pb-2 font-semibold">Status</th>
+                    <th className="pb-2 font-semibold">Requested At</th>
+                    <th className="pb-2 font-semibold">Expires At</th>
+                    <th className="pb-2 text-right font-semibold">Admin Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {passwordResets.map((item) => (
+                    <tr key={item.id} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="py-2.5 pr-3">
+                        <div className="font-semibold text-white">{item.userName || "Operator"}</div>
+                        <div className="text-[11px] text-text-dim font-mono">{item.userEmail}</div>
+                        {item.employeeId && (
+                          <span className="inline-block mt-0.5 rounded bg-white/5 px-1.5 py-0.5 text-[9px] font-mono text-slate-400 border border-white/10">
+                            ID: {item.employeeId}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        <div className="inline-flex items-center gap-2">
+                          <span className="font-mono text-base font-bold text-accent-light tracking-widest bg-black/40 px-2.5 py-1 rounded border border-accent/30">
+                            {item.otp}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyText(item.otp, "OTP Copied", `Copied verification code ${item.otp} to clipboard`)}
+                            className="p-1 rounded text-text-dim hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                            title="Copy OTP"
+                          >
+                            <Copy size={13} />
+                          </button>
+                        </div>
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            item.status === "ACTIVE"
+                              ? "bg-nominal/15 text-nominal border border-nominal/30"
+                              : item.status === "USED"
+                              ? "bg-white/5 text-slate-400 border border-white/10"
+                              : "bg-warning/15 text-warning border border-warning/30"
+                          }`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              item.status === "ACTIVE"
+                                ? "bg-nominal animate-pulse"
+                                : item.status === "USED"
+                                ? "bg-slate-500"
+                                : "bg-warning"
+                            }`}
+                          />
+                          <span>{item.status}</span>
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-3 text-[11px] text-text-dim font-mono">
+                        {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </td>
+                      <td className="py-2.5 pr-3 text-[11px] font-mono">
+                        <span className={item.status === "ACTIVE" ? "text-accent-light font-medium" : "text-text-dim"}>
+                          {new Date(item.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <div className="text-[10px] text-text-dim">({item.expiryMinutes}m window)</div>
+                      </td>
+                      <td className="py-2.5 text-right space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyText(item.templateText, "Template Copied", `Forwardable message template copied for ${item.userEmail}`)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/15 px-2.5 py-1 text-xs font-semibold text-accent-light hover:bg-accent/25 hover:border-accent transition-colors cursor-pointer"
+                          title="Copy ready-to-send template to clipboard"
+                        >
+                          <Copy size={12} />
+                          <span>Copy Template</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTemplatePreview(item)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-text-secondary hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                          title="Preview full formatted message"
+                        >
+                          <ExternalLink size={12} />
+                          <span>View</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1001,6 +1280,73 @@ export function SystemConfigPanel() {
                 <ArrowRight size={13} className={migrating ? "animate-pulse" : ""} />
                 <span>{migrating ? "Migrating Data..." : "Confirm & Switch Primary Drive"}</span>
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: FORWARDABLE EMAIL TEMPLATE PREVIEW */}
+      {activeTemplatePreview && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-page/85 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-lg rounded-2xl border border-border-default bg-[#0a0f1d] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/30">
+                  <Mail size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Forwardable Password Reset Template</h3>
+                  <p className="text-xs text-text-dim">Ready to send via Outlook, Webmail, Teams, or Chat</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTemplatePreview(null)}
+                className="p-1.5 rounded-lg text-text-dim hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-text-dim">
+                <span>To: <strong className="text-white">{activeTemplatePreview.userEmail}</strong></span>
+                <span>OTP: <strong className="font-mono text-accent-light text-sm">{activeTemplatePreview.otp}</strong></span>
+              </div>
+
+              <textarea
+                readOnly
+                rows={13}
+                value={activeTemplatePreview.templateText}
+                className="w-full rounded-xl border border-white/10 bg-[#060b16] p-3 text-xs font-mono text-slate-300 outline-none resize-none leading-relaxed"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[11px] text-text-dim">
+                Copy and dispatch through any secure government channel.
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setActiveTemplatePreview(null)}
+                >
+                  Close
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    handleCopyText(activeTemplatePreview.templateText, "Template Copied", "Template ready to paste into message")
+                    setActiveTemplatePreview(null)
+                  }}
+                  className="gap-1.5"
+                >
+                  <Copy size={13} />
+                  <span>Copy to Clipboard</span>
+                </Button>
+              </div>
             </div>
           </div>
         </div>

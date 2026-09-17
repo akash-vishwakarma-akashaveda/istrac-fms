@@ -431,9 +431,9 @@ router.get('/me', authMiddleware, async (req, res, next) => {
 })
 
 // ============================================================
-// FORGOT PASSWORD
+// FORGOT PASSWORD / REQUEST OTP
 // ============================================================
-router.post('/forgot-password', loginRateLimiter,async (req, res, next) => {
+router.post('/forgot-password', loginRateLimiter, async (req, res, next) => {
   try {
     const { email } = req.body
     if (!email) {
@@ -441,18 +441,42 @@ router.post('/forgot-password', loginRateLimiter,async (req, res, next) => {
     }
 
     const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/
-if (!emailRegex.test(email)) throw new AppError('invalid_email', 'Invalid email format', 400)
+    if (!emailRegex.test(email)) throw new AppError('invalid_email', 'Invalid email format', 400)
+
+    const normalizedEmail = email.toLowerCase().trim()
 
     const user = await prisma.user.findUnique({
-      where: { email, deletedAt: null },
+      where: { email: normalizedEmail, deletedAt: null },
     })
 
     if (user && user.status === 'ACTIVE') {
-      const rawToken = crypto.randomBytes(32).toString('hex')
-      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex')
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 mins
+      // 1. Read admin-configured OTP expiry timing from SystemConfig
+      const expiryConfig = await prisma.systemConfig.findFirst({
+        where: {
+          configKey: { in: ['passwordResetOtpExpiryMinutes', 'password_reset_otp_expiry_minutes'] },
+          deletedAt: null,
+        },
+      })
+      let expiryMinutes = 15
+      if (expiryConfig?.configValue) {
+        const parsed = parseInt(expiryConfig.configValue, 10)
+        if (!isNaN(parsed) && parsed >= 1 && parsed <= 120) {
+          expiryMinutes = parsed
+        }
+      }
 
-      await prisma.passwordResetToken.create({
+      // 2. Generate secure 6-digit OTP
+      const otp = Math.floor(100000 + crypto.randomInt(900000)).toString()
+      const tokenHash = crypto.createHash('sha256').update(`${normalizedEmail}:${otp}`).digest('hex')
+      const expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000)
+
+      // 3. Invalidate any existing unused reset tokens for this user
+      await prisma.passwordResetToken.deleteMany({
+        where: { userId: user.id },
+      })
+
+      // 4. Create new reset token record
+      const resetToken = await prisma.passwordResetToken.create({
         data: {
           userId: user.id,
           tokenHash,
@@ -460,12 +484,143 @@ if (!emailRegex.test(email)) throw new AppError('invalid_email', 'Invalid email 
         },
       })
 
-      const resetLink = `${env.APP_URL}/reset-password?token=${rawToken}`
-      emailService.sendPasswordResetEmail(user.email, user.name, resetLink)
+      // If the requester is an ADMIN, print the OTP directly to the terminal stdout.
+      // In single-admin offline environments, this allows the locked-out admin
+      // to immediately view their verification code in the server terminal / logs.
+      if (user.role === 'ADMIN') {
+        const formattedExpiry = expiresAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+        console.log('\n' + '='.repeat(74))
+        console.log(' [SECURITY] SYSTEM ADMINISTRATOR PASSWORD RESET VERIFICATION CODE')
+        console.log('='.repeat(74))
+        console.log(` Administrator:   ${user.name} (${user.email})`)
+        console.log(` Verification OTP: ${otp}`)
+        console.log(` Validity Window:  ${expiryMinutes} minutes (Expires at ${formattedExpiry} IST)`)
+        console.log('')
+        console.log(' Enter this 6-digit code on the portal verification screen to reset password.')
+        console.log(' Alternatively, reset directly from the terminal:')
+        console.log('   npm run admin:reset-password')
+        console.log('='.repeat(74) + '\n')
+      }
+
+      // 5. Fetch all active ADMIN users to notify them
+      const adminUsers = await prisma.user.findMany({
+        where: { role: 'ADMIN', status: 'ACTIVE', deletedAt: null },
+        select: { id: true, email: true, name: true },
+      })
+
+      // 6. Create in-app Notifications for admins with OTP metadata
+      const notificationPromises = adminUsers.map((admin) =>
+        prisma.notification.create({
+          data: {
+            userId: admin.id,
+            type: 'PASSWORD_RESET_OTP',
+            category: 'SECURITY',
+            resourceType: 'PASSWORD_RESET',
+            resourceId: resetToken.id,
+            message: `Password reset verification code for ${user.name} (${user.email}): ${otp} (Valid for ${expiryMinutes}m)`,
+            metadata: {
+              otp,
+              tokenRecordId: resetToken.id,
+              userId: user.id,
+              userName: user.name,
+              userEmail: user.email,
+              employeeId: user.employeeId,
+              expiresAt: expiresAt.toISOString(),
+              expiryMinutes,
+            },
+          },
+        })
+      )
+      await Promise.allSettled(notificationPromises)
+
+      // 7. Dispatch email to configured admin email and admin users
+      const branding = await emailService.getSystemBranding()
+      const rawRecipients = [env.ADMIN_EMAIL, ...adminUsers.map((a) => a.email)]
+      const recipientEmails = Array.from(new Set(rawRecipients.filter((e): e is string => Boolean(e))))
+
+      if (recipientEmails.length > 0) {
+        emailService.sendPasswordResetOtpToAdmin(
+          recipientEmails,
+          {
+            userName: user.name,
+            userEmail: user.email,
+            employeeId: user.employeeId,
+            otp,
+            expiryMinutes,
+            expiresAt,
+          },
+          branding
+        )
+      }
+
+      // 8. Log audit record
+      auditService.log({
+        userId: user.id,
+        action: 'PASSWORD_RESET_OTP_REQUESTED',
+        resourceType: 'user',
+        resourceId: user.id,
+        newValue: {
+          email: user.email,
+          expiryMinutes,
+          expiresAt: expiresAt.toISOString(),
+        },
+      })
     }
 
     res.json({
-      data: { message: 'If an account exists, a password reset link has been dispatched.' },
+      data: {
+        message: 'Password reset request submitted. Please contact your System Administrator to obtain your 6-digit verification code.',
+        email: normalizedEmail,
+      },
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ============================================================
+// VERIFY RESET OTP
+// ============================================================
+router.post('/verify-reset-otp', loginRateLimiter, async (req, res, next) => {
+  try {
+    const { email, otp } = req.body
+
+    if (!email || !otp) {
+      throw new AppError('missing_fields', 'Email and verification code are required', 400)
+    }
+
+    const normalizedEmail = email.toLowerCase().trim()
+    const cleanOtp = String(otp).trim()
+
+    if (!/^\d{6}$/.test(cleanOtp)) {
+      throw new AppError('invalid_otp_format', 'Verification code must be a 6-digit number', 400)
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail, deletedAt: null },
+    })
+
+    if (!user) {
+      throw new AppError('invalid_otp', 'Invalid or expired verification code', 400)
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(`${normalizedEmail}:${cleanOtp}`).digest('hex')
+
+    const resetToken = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+    })
+
+    if (!resetToken || resetToken.userId !== user.id || resetToken.usedAt || resetToken.expiresAt < new Date()) {
+      throw new AppError('invalid_otp', 'Invalid or expired verification code. Please check with your administrator.', 400)
+    }
+
+    res.json({
+      data: {
+        valid: true,
+        message: 'Verification code verified successfully. You may now set your new password.',
+        email: normalizedEmail,
+      },
       requestId: req.requestId,
     })
   } catch (err) {
@@ -476,23 +631,39 @@ if (!emailRegex.test(email)) throw new AppError('invalid_email', 'Invalid email 
 // ============================================================
 // RESET PASSWORD
 // ============================================================
-router.post('/reset-password',async (req, res, next) => {
+router.post('/reset-password', async (req, res, next) => {
   try {
-    const { token, newPassword } = req.body
+    const { token, email, otp, newPassword } = req.body
 
-    if (!token || !newPassword) {
-      throw new AppError('missing_fields', 'Token and newPassword are required', 400)
+    if (!newPassword) {
+      throw new AppError('missing_fields', 'New password is required', 400)
     }
 
-    validatePassword(newPassword)  
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
+    validatePassword(newPassword)
 
-    const resetToken = await prisma.passwordResetToken.findUnique({
-      where: { tokenHash },
-    })
+    let resetToken: any = null
+
+    // Method A: Verify via OTP & Email
+    if (email && otp) {
+      const normalizedEmail = email.toLowerCase().trim()
+      const cleanOtp = String(otp).trim()
+      const tokenHash = crypto.createHash('sha256').update(`${normalizedEmail}:${cleanOtp}`).digest('hex')
+
+      resetToken = await prisma.passwordResetToken.findUnique({
+        where: { tokenHash },
+      })
+    } else if (token) {
+      // Method B: Legacy token support
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
+      resetToken = await prisma.passwordResetToken.findUnique({
+        where: { tokenHash },
+      })
+    } else {
+      throw new AppError('missing_fields', 'Verification code and email are required', 400)
+    }
 
     if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
-      throw new AppError('token_invalid', 'Invalid or expired password reset token', 400)
+      throw new AppError('token_invalid', 'Invalid or expired verification code. Please request a new code from admin.', 400)
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 12)
@@ -512,8 +683,15 @@ router.post('/reset-password',async (req, res, next) => {
       }),
     ])
 
+    auditService.log({
+      userId: resetToken.userId,
+      action: 'PASSWORD_RESET_SUCCESS',
+      resourceType: 'user',
+      resourceId: resetToken.userId,
+    })
+
     res.json({
-      data: { message: 'Password reset successfully. You can now log in.' },
+      data: { message: 'Password updated successfully. You can now log in with your new password.' },
       requestId: req.requestId,
     })
   } catch (err) {

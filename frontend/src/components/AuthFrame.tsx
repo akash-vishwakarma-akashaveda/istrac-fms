@@ -47,7 +47,7 @@ export function AuthFrame({ actions, width = 'sm', children }: AuthFrameProps) {
         <div className="absolute -right-[52%] top-1/2 aspect-square w-[128%] -translate-y-1/2 -rotate-12 rounded-full border border-dashed border-accent/[0.09] sm:-right-[38%] sm:w-[82%]" />
       </div>
 
-      <header className="relative z-10 border-b border-border-subtle bg-page/85 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-border-subtle bg-page/85 backdrop-blur-xl">
         <div className="shell flex h-14 items-center gap-3">
           <Link
             to="/"

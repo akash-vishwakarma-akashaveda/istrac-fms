@@ -178,6 +178,19 @@ const approveUserHandler = async (req: any, res: any, next: any) => {
 
     const validRole = role === 'ADMIN' ? 'ADMIN' : 'MEMBER'
 
+    if (validRole === 'ADMIN') {
+      const existingAdmin = await prisma.user.findFirst({
+        where: { role: 'ADMIN', deletedAt: null, id: { not: userId } },
+      })
+      if (existingAdmin) {
+        throw new AppError(
+          'single_admin_constraint',
+          'Only one System Administrator account is permitted in the system.',
+          400
+        )
+      }
+    }
+
     const updated = await prisma.$transaction(async (tx: any) => {
       const u = await tx.user.update({
         where: { id: userId },
@@ -449,6 +462,19 @@ router.put('/admin/users/:userId', authMiddleware, adminMiddleware, async (req, 
 
     const { name, designation, phone, employeeId, role, status, departments } = req.body
     const validRole = role === 'ADMIN' ? 'ADMIN' : role === 'MEMBER' ? 'MEMBER' : undefined
+
+    if (validRole === 'ADMIN') {
+      const existingAdmin = await prisma.user.findFirst({
+        where: { role: 'ADMIN', deletedAt: null, id: { not: userId } },
+      })
+      if (existingAdmin) {
+        throw new AppError(
+          'single_admin_constraint',
+          'Only one System Administrator account is permitted in the system.',
+          400
+        )
+      }
+    }
 
     const updated = await prisma.$transaction(async (tx: any) => {
       const u = await tx.user.update({

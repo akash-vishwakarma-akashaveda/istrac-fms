@@ -157,7 +157,8 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
       link.click()
       URL.revokeObjectURL(url)
     } catch {
-      window.open(`${import.meta.env.VITE_API_URL}/files/${file.id}/download`, '_blank')
+      const baseUrl = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '')
+      window.open(`${baseUrl}/files/${file.id}/download`, '_blank')
     }
   }
 

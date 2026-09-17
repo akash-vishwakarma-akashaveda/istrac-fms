@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "mock-api": "prism mock openapi.yaml -p 3010"
+    "mock-api": "prism mock openapi.yaml -p 3010",
+    "admin:reset-password": "npm --prefix backend run admin:reset-password --"
   },
   "devDependencies": {
     "@stoplight/prism-cli": "^5.x.x"

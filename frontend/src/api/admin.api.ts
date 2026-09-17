@@ -54,6 +54,26 @@ export interface AuditLogQueryParams {
   pageSize?: number
 }
 
+export interface PasswordResetItem {
+  id: string
+  userId?: string
+  userEmail: string
+  userName: string
+  employeeId?: string
+  designation?: string | null
+  phone?: string | null
+  role?: string
+  userStatus?: string
+  department?: string
+  departmentCode?: string | null
+  otp: string
+  expiryMinutes: number
+  expiresAt: string
+  createdAt: string
+  status: 'ACTIVE' | 'EXPIRED' | 'USED'
+  templateText: string
+}
+
 export interface SystemConfig {
   maxUploadSizeBytes: number
   allowedExtensions: string[]
@@ -61,6 +81,7 @@ export interface SystemConfig {
   guestAccessExpiryDays: number
   hddSyncIntervalMinutes: number
   downloadRateLimitPerHour: number
+  passwordResetOtpExpiryMinutes?: number
   [key: string]: unknown
 }
 
@@ -83,5 +104,10 @@ export const adminApi = {
   async updateSetting(key: string, value: unknown): Promise<{ key: string; value: unknown }> {
     const res = await apiClient.put(`/admin/settings/${key}`, { value })
     return extractData<{ key: string; value: unknown }>(res)
+  },
+
+  async getPasswordResets(): Promise<PasswordResetItem[]> {
+    const res = await apiClient.get('/admin/password-resets')
+    return extractData<PasswordResetItem[]>(res)
   },
 }

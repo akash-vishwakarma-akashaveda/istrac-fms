@@ -28,16 +28,19 @@
 
 ## 🚀 Key Architectural Highlights
 
-1. **Air-Gapped Intranet Readiness:** Zero external CDN, Google Fonts, or internet analytics dependencies. All fonts, icons, maps, and visual assets are self-contained and run locally in isolated networks.
-2. **Metadata-Only DB vs. Physical Storage Mount:** MySQL/MariaDB stores file metadata, SHA-256 hashes, and version chains, while raw telemetry streams and binary datasets are stored on a high-throughput physical storage volume (`env.HDD_MOUNT_PATH`).
-3. **Strict 2-Tier Role Separation (RBAC):**
+1. **Air-Gapped Intranet Readiness:** Zero external CDN, Google Fonts, or internet analytics dependencies. All fonts, icons, maps, and visual assets are self-contained and run locally in isolated networks. Automated SMTP port 25 attempts are suppressed in offline mode to prevent socket errors.
+2. **Single Administrator Architecture:** Strictly enforces that exactly ONE system administrator account exists (`admin@istrac.local`). Secondary administrator creation or promotion is blocked at seed, API, and database validation levels.
+3. **Air-Gapped Offline OTP Password Reset:** Self-service password recovery generates a secure 6-digit OTP stored in the database. Administrators inspect active requests in the **OTP & Password Reset Management** console (`/admin/password-resets`) and dispatch via dynamic CMS-branded email templates or local workstation `mailto:` clients.
+4. **Direct Terminal Admin Password Recovery:** Dedicated CLI tool (`npm run admin:reset-password`) and real-time server terminal ASCII banner OTP broadcasts enable seamless recovery for the sole administrator without requiring external email relays or secondary admin approvals.
+5. **Metadata-Only DB vs. Physical Storage Mount:** MySQL/MariaDB stores file metadata, SHA-256 hashes, and version chains, while raw telemetry streams and binary datasets are stored on a high-throughput physical storage volume (`env.HDD_MOUNT_PATH`).
+6. **Strict 2-Tier Role Separation (RBAC):**
    - **`ADMIN`:** Full system control, file uploads, dataset deletions, CMS block editor, user access approvals, and system audit monitoring.
    - **`MEMBER`:** Read-only access to authorized departmental data, binary preview, dataset downloads, interactive passes calendar, and broadcast notifications.
-4. **Public Access Gating:** Unauthenticated visitors can view public file metadata (satellite, size, checksum verification, format badges), but preview and download are strictly protected behind authentication modals and JWT security middleware.
-5. **Interactive Mission Operations Calendar:** Dual-month interactive calendar displaying real-time passes, orbit burns, debris conjunction screening schedules, and downrange tracking readiness.
-6. **High-Performance Structured Logging:** Color-coded console output with millisecond timestamps, request duration tracking, user correlation, and silenced raw query flooding.
-7. **Real-Time WebSocket & Redis Pub/Sub:** Instant multi-operator file synchronization, broadcast notifications, and live CMS updates.
-8. **Automated Storage Reconciliation (HDD Daemon):** Periodic background disk reconciliation reconciling physical disk files with database metadata records and tracking orphaned files.
+7. **Production Security Compliance:** All hardcoded demo quick-fill credentials have been completely purged from authentication modals to prevent unauthorized 1-click access in live ground station operations.
+8. **Interactive Mission Operations Calendar:** Dual-month interactive calendar displaying real-time passes, orbit burns, debris conjunction screening schedules, and downrange tracking readiness.
+9. **High-Performance Structured Logging:** Color-coded console output with millisecond timestamps, request duration tracking, user correlation, and silenced raw query flooding.
+10. **Real-Time WebSocket & Redis Pub/Sub:** Instant multi-operator file synchronization, broadcast notifications, and live CMS updates.
+11. **Automated Storage Reconciliation (HDD Daemon):** Periodic background disk reconciliation reconciling physical disk files with database metadata records and tracking orphaned files.
 
 ---
 
@@ -146,16 +149,21 @@ npm run dev
 
 ## 👥 Default Seed Accounts
 
-All seed accounts are initialized with the default password: **`ChangeMe123!`**
+The database seed provisions exclusively the primary administrator credentials:
 
-| Role | Name | Email | Clearance / Access Scope |
-| :--- | :--- | :--- | :--- |
-| **Super Admin** | Director MOX | `admin@istrac.local` | `ADMIN` — Full System Control & Division Access |
-| **Dept Admin** | Dr. Vikram Sharma | `ttcadmin@istrac.local` | `ADMIN` — TTC Division Head & Ground Network Lead |
-| **FDD Lead** | Dr. Ananya Ray | `fddlead@istrac.local` | `MEMBER` — Flight Dynamics & Trajectory Lead |
-| **Operator** | Ayan Sharma | `operator@istrac.local` | `MEMBER` — MOX & TTC Console Operator |
-| **NETRA Analyst**| Rohan Deshmukh | `netra@istrac.local` | `MEMBER` — Space Situational Awareness Lead |
-| **Applicant** | Priya Nair | `applicant@istrac.local` | `PENDING` — Test User for Approval Queue |
+| Role | Name | Email | Default Password | Clearance / Access Scope |
+| :--- | :--- | :--- | :--- | :--- |
+| **Super Admin** | Director MOX | `admin@istrac.local` | `ChangeMe123!` | `ADMIN` — Sole System Administrator (Full System Control & Division Access) |
+
+> [!IMPORTANT]
+> **Single Administrator & Seed Policy:**
+> - Only one account (`admin@istrac.local`) is seeded by default.
+> - All other personnel (division leads, operators, analysts) submit registration requests via `/register` and are approved by the administrator in `/admin/approvals`.
+> - Creating or elevating a second administrator is prohibited by system constraint.
+>
+> **Administrator Password Reset Options:**
+> - **CLI Command:** `npm run admin:reset-password -- "<NewPassword>"` (instantly hashes password, updates database, terminates active sessions, and logs an audit record).
+> - **Terminal Broadcast:** On `/forgot-password`, requesting a reset for `admin@istrac.local` outputs the 6-digit OTP code directly to the server terminal `stdout`.
 
 ---
 
@@ -178,6 +186,21 @@ ISTRAC-SIMS models 5 core operational directorates with dedicated showcase pages
 - `POST /auth/register` — Access request submission for new personnel
 - `POST /auth/refresh` — Seamless token rotation using HttpOnly cookie
 - `POST /auth/logout` — Instant session invalidation & Redis token blacklisting
+- `POST /auth/forgot-password` — Generate 6-digit verification OTP (offline-safe, terminal broadcast for admin)
+- `POST /auth/reset-password` — Verify 6-digit OTP and commit new password
+- `PUT /auth/change-password` — Authenticated password change
+- `PUT /auth/force-password-change` — Mandatory first-login password rotation
+
+### 🛡️ Administrative Console & OTP Management (`ADMIN` only)
+- `GET /admin/password-resets` — List active and recent OTP password reset requests
+- `POST /admin/password-resets/:tokenId/revoke` — Invalidate an active reset token
+- `POST /admin/password-resets/cleanup` — Purge expired reset tokens from database
+- `GET /admin/stats` — High-level system KPIs and storage utilization metrics
+- `GET /admin/users` — Personnel roster and access control management
+- `POST /admin/users/:userId/approve` — Approve pending registration with single-admin enforcement
+- `POST /admin/users/:userId/reject` — Reject registration request
+- `POST /admin/users/:userId/suspend` — Suspend user access
+- `GET /admin/audit-logs` — Cursor-paginated regulatory audit logs
 
 ### 🗃️ File & Telemetry Management
 - `GET /files` — Filtered file search with pagination & metadata

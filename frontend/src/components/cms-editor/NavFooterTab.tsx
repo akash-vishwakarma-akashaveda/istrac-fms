@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { Layers, MapPin } from "lucide-react"
 import { useCms } from "../../context/cmsContext"
 import { useUpdateCmsBlock } from "../../hooks/useUpdateCmsBlock"
@@ -30,8 +30,8 @@ export function NavFooterTab() {
   useEffect(() => {
     setBrandSubtitle(existing?.brandSubtitle ?? "ISRO Ground Network")
     setGroundStations(existing?.groundStations ?? "BLR, MOX, SHAR, PBL, MAU, BLR-IDSN")
-    setFooterCopyright(existing?.footerCopyright ?? "Indian Space Research Organisation (ISRO). ISTRAC - Telemetry, Tracking & Command Network")
-    setFooterQuickLinks(existing?.footerQuickLinks ?? "Mission Overview,File Repositories,Passes & Events,Departments")
+    setFooterCopyright(existing?.footerCopyright ?? "© 2026 ISTRAC · Indian Space Research Organisation (ISRO).")
+    setFooterQuickLinks(existing?.footerQuickLinks ?? "Home, Reports, Calendar, Departments, About, Support")
   }, [existing])
 
   function handleSave() {

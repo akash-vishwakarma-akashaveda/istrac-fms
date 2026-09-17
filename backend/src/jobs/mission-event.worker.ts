@@ -20,38 +20,32 @@ const ALLOWED_INTERVALS = [
 const CONFIG_CHECK_INTERVAL = 10_000
 
 const getInterval = async (): Promise<number> => {
-  const value = await redis.get(INTERVAL_KEY)
-
-  if (!value) {
+  try {
+    const value = await redis.get(INTERVAL_KEY)
+    if (!value) return DEFAULT_INTERVAL
+    const interval = Number(value)
+    if (!ALLOWED_INTERVALS.includes(interval)) return DEFAULT_INTERVAL
+    return interval
+  } catch {
     return DEFAULT_INTERVAL
   }
-
-  const interval = Number(value)
-
-  if (!ALLOWED_INTERVALS.includes(interval)) {
-    console.warn(
-      `[Scheduler] Invalid interval "${value}". ` +
-      `Using ${DEFAULT_INTERVAL} minute.`
-    )
-
-    return DEFAULT_INTERVAL
-  }
-
-  return interval
 }
 
 const acquireLock = async (): Promise<boolean> => {
-  const lockValue = `${process.pid}-${Date.now()}`
-
-  const result = await redis.set(
-    LOCK_KEY,
-    lockValue,
-    'EX',
-    60,
-    'NX'
-  )
-
-  return result === 'OK'
+  try {
+    const lockValue = `${process.pid}-${Date.now()}`
+    const result = await redis.set(
+      LOCK_KEY,
+      lockValue,
+      'EX',
+      60,
+      'NX'
+    )
+    return result === 'OK'
+  } catch {
+    // Standalone fallback: single worker holds execution lock
+    return true
+  }
 }
 
 export const startMissionEventWorker = async () => {

@@ -6,6 +6,7 @@ import { auditService } from '../services/audit.service.js'
 import { hddService } from '../services/hdd.service.js'
 import { driveDetectorService } from '../services/driveDetector.service.js'
 import { bootstrapService } from '../services/bootstrap.service.js'
+import { emailService } from '../services/email.service.js'
 import { AppError } from '../lib/errors.js'
 
 const router = Router()
@@ -13,6 +14,7 @@ const ALLOWED_CONFIG_KEYS = new Set([
   'maxUploadSizeBytes', 'allowedExtensions', 'virusScanEnabled',
   'guestAccessExpiryDays', 'hddSyncIntervalMinutes', 'downloadRateLimitPerHour',
   'maintenance_mode', 'system_setup_complete',
+  'passwordResetOtpExpiryMinutes', 'password_reset_otp_expiry_minutes',
 ])
 // ============================================================
 // ADMIN STATS OVERVIEW
@@ -174,6 +176,7 @@ router.get('/admin/settings', authMiddleware, adminMiddleware, async (req, res, 
       guestAccessExpiryDays: 7,
       hddSyncIntervalMinutes: 15,
       downloadRateLimitPerHour: 100,
+      passwordResetOtpExpiryMinutes: 15,
     }
 
     configs.forEach((c: any) => {
@@ -409,6 +412,139 @@ router.post('/admin/setup/bootstrap-defaults', authMiddleware, adminMiddleware, 
 
     res.json({
       data: result,
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ============================================================
+// PASSWORD RESET OTP QUEUE & TEMPLATES
+// ============================================================
+router.get('/admin/password-resets', authMiddleware, adminMiddleware, async (req, res, next) => {
+  try {
+    const notifications = await prisma.notification.findMany({
+      where: {
+        type: 'PASSWORD_RESET_OTP',
+        deletedAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    })
+
+    // Deduplicate across admin recipients: only one entry per reset token / OTP request
+    const seenResetTokens = new Set<string>()
+    const uniqueNotifications: typeof notifications = []
+
+    for (const n of notifications) {
+      const meta = (n.metadata || {}) as Record<string, any>
+      const dedupeKey = String(
+        meta.tokenRecordId ||
+        n.resourceId ||
+        `${meta.userId || ''}:${meta.otp || ''}`
+      )
+      if (!seenResetTokens.has(dedupeKey)) {
+        seenResetTokens.add(dedupeKey)
+        uniqueNotifications.push(n)
+      }
+    }
+
+    const userIds = Array.from(
+      new Set(
+        uniqueNotifications
+          .map((n: any) => n.metadata?.userId)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0)
+      )
+    )
+
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds }, deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        employeeId: true,
+        designation: true,
+        phone: true,
+        role: true,
+        status: true,
+        departmentPreference: true,
+        departmentAccess: {
+          include: {
+            department: {
+              select: { id: true, name: true, code: true },
+            },
+          },
+        },
+      },
+    })
+
+    const userMap = new Map<string, any>(users.map((u: any) => [u.id, u]))
+    const branding = await emailService.getSystemBranding()
+
+    const items = await Promise.all(
+      uniqueNotifications.map(async (n: any) => {
+        const meta = (n.metadata || {}) as Record<string, any>
+        const expiresAt = meta.expiresAt ? new Date(meta.expiresAt) : null
+        let status: 'ACTIVE' | 'EXPIRED' | 'USED' = 'ACTIVE'
+
+        if (meta.tokenRecordId) {
+          const tokenRec = await prisma.passwordResetToken.findUnique({
+            where: { id: meta.tokenRecordId },
+          })
+          if (!tokenRec || tokenRec.usedAt) {
+            status = 'USED'
+          } else if (expiresAt && expiresAt.getTime() < Date.now()) {
+            status = 'EXPIRED'
+          }
+        } else if (expiresAt && expiresAt.getTime() < Date.now()) {
+          status = 'EXPIRED'
+        }
+
+        const userObj = meta.userId ? userMap.get(meta.userId) : null
+        const departmentName =
+          userObj?.departmentAccess?.[0]?.department?.name ||
+          userObj?.departmentPreference ||
+          'Unassigned / General'
+        const departmentCode = userObj?.departmentAccess?.[0]?.department?.code || null
+
+        const templateText = emailService.generatePasswordResetTemplate(
+          {
+            userName: userObj?.name || meta.userName || 'Operator',
+            userEmail: userObj?.email || meta.userEmail || '',
+            employeeId: userObj?.employeeId || meta.employeeId,
+            otp: meta.otp || '',
+            expiryMinutes: meta.expiryMinutes || 15,
+            expiresAt: expiresAt || new Date(Date.now() + 15 * 60 * 1000),
+          },
+          branding
+        )
+
+        return {
+          id: String(n.id),
+          userId: meta.userId,
+          userEmail: userObj?.email || meta.userEmail,
+          userName: userObj?.name || meta.userName || 'Operator',
+          employeeId: userObj?.employeeId || meta.employeeId,
+          designation: userObj?.designation || null,
+          phone: userObj?.phone || null,
+          role: userObj?.role || 'MEMBER',
+          userStatus: userObj?.status || 'ACTIVE',
+          department: departmentName,
+          departmentCode,
+          otp: meta.otp,
+          expiryMinutes: meta.expiryMinutes || 15,
+          expiresAt: meta.expiresAt,
+          createdAt: n.createdAt,
+          status,
+          templateText,
+        }
+      })
+    )
+
+    res.json({
+      data: items,
       requestId: req.requestId,
     })
   } catch (err) {

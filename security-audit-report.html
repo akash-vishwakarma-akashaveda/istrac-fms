@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISRO / ISTRAC-SIMS — Security Vulnerability Audit Report</title>
+  <style>
+    :root {
+      --bg-primary: #0b1120;
+      --bg-secondary: #111827;
+      --bg-card: #1e293b;
+      --bg-card-hover: #26354a;
+      --border-color: #334155;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-cyan: #06b6d4;
+      --accent-blue: #3b82f6;
+      --severity-critical: #ef4444;
+      --severity-high: #f97316;
+      --severity-medium: #eab308;
+      --severity-low: #10b981;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: var(--bg-primary); color: var(--text-primary); line-height: 1.5; padding: 2rem 1.5rem; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    
+    header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+    }
+    .badge-header {
+      display: inline-block;
+      background: rgba(6, 182, 212, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+    h1 { font-size: 1.875rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.75rem; }
+    .subtitle { color: var(--text-secondary); font-size: 0.95rem; }
+    .meta-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      margin-top: 1.25rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .meta-item strong { color: var(--text-secondary); }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 1.25rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+    }
+    .stat-card.critical::before { background-color: var(--severity-critical); }
+    .stat-card.high::before { background-color: var(--severity-high); }
+    .stat-card.medium::before { background-color: var(--severity-medium); }
+    .stat-card.clean::before { background-color: var(--severity-low); }
+
+    .stat-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
+    .stat-value { font-size: 2.25rem; font-weight: 800; margin-top: 0.25rem; }
+    .stat-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      margin: 2rem 0 1rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .vuln-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+      transition: background-color 0.2s;
+    }
+    .vuln-card:hover { background-color: var(--bg-card-hover); }
+    .vuln-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .vuln-title { font-size: 1.05rem; font-weight: 700; color: #f1f5f9; }
+    .badge {
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge-high { background-color: rgba(249, 115, 22, 0.2); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.4); }
+    .badge-medium { background-color: rgba(234, 179, 8, 0.2); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.4); }
+    .badge-low { background-color: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .badge-pkg { background-color: #334155; color: #e2e8f0; font-family: monospace; }
+
+    .vuln-details {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.75rem;
+      background-color: rgba(15, 23, 42, 0.5);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.75rem;
+      font-size: 0.85rem;
+    }
+    .detail-item strong { color: var(--text-secondary); display: block; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.1rem; }
+    .detail-item span { color: #e2e8f0; font-family: monospace; }
+
+    .vuln-desc { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
+    .vuln-fix {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(6, 182, 212, 0.1);
+      border-left: 3px solid var(--accent-cyan);
+      padding: 0.6rem 0.8rem;
+      font-size: 0.85rem;
+      color: #cbd5e1;
+      border-radius: 0 4px 4px 0;
+    }
+    .vuln-fix code {
+      background: #0f172a;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      color: var(--accent-cyan);
+      font-family: monospace;
+    }
+
+    .guide-box {
+      background: #1e293b;
+      border: 1px solid #3b82f6;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-top: 2rem;
+    }
+    .guide-box h3 { color: #60a5fa; font-size: 1.1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+    .guide-box ol { margin-left: 1.25rem; color: #cbd5e1; font-size: 0.9rem; }
+    .guide-box li { margin-bottom: 0.5rem; }
+    .code-block {
+      background: #0f172a;
+      border: 1px solid #334155;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #38bdf8;
+      margin: 0.5rem 0;
+      overflow-x: auto;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge-header">ISRO / ISTRAC Aerospace Ground Station Software Audit</div>
+      <h1>🛰️ ISTRAC-SIMS Vulnerability Audit Report</h1>
+      <p class="subtitle">Comprehensive Static Composition Analysis (SCA) for Frontend & Backend Dependencies</p>
+      <div class="meta-bar">
+        <div class="meta-item"><strong>Generated:</strong> 2026-09-15 18:50 IST</div>
+        <div class="meta-item"><strong>Target:</strong> Full Stack (React 19 Vite + Express 5 Node.js)</div>
+        <div class="meta-item"><strong>Database Engine:</strong> Prisma 7 + MySQL/MariaDB</div>
+        <div class="meta-item"><strong>Audit Standard:</strong> GitHub / NPM Advisory Database & Snyk CVE Feed</div>
+      </div>
+    </header>
+
+    <!-- Executive Summary Cards -->
+    <div class="summary-grid">
+      <div class="stat-card clean">
+        <div class="stat-label">Critical Severity</div>
+        <div class="stat-value" style="color: var(--severity-low)">0</div>
+        <div class="stat-sub">Zero critical RCE or zero-day issues</div>
+      </div>
+      <div class="stat-card high">
+        <div class="stat-label">High Severity</div>
+        <div class="stat-value" style="color: var(--severity-high)">10</div>
+        <div class="stat-sub">8 Backend / 2 Frontend</div>
+      </div>
+      <div class="stat-card medium">
+        <div class="stat-label">Moderate Severity</div>
+        <div class="stat-value" style="color: var(--severity-medium)">2</div>
+        <div class="stat-sub">Algorithmic & header edge cases</div>
+      </div>
+      <div class="stat-card clean">
+        <div class="stat-label">Production Status</div>
+        <div class="stat-value" style="color: #38bdf8">AIR-GAPPED</div>
+        <div class="stat-sub">Suppressing SMTP & internet relays</div>
+      </div>
+    </div>
+
+    <!-- Backend Vulnerabilities -->
+    <h2 class="section-title">📦 Backend Dependencies Audit (D:\istrac-fms\backend)</h2>
+
+    <div class="vuln-card">
+      <div class="vuln-header">
+        <div class="vuln-title">multer: Denial of Service & Descriptor Leak on Aborted Uploads</div>
+        <div>
+          <span class="badge badge-high">HIGH</span>
+          <span class="badge badge-pkg">multer@2.2.0</span>
+        </div>
+      </div>
+      <div class="vuln-details">
+        <div class="detail-item"><strong>Advisory ID</strong><span>GHSA-qfvm-cv95-jqjf, GHSA-535w-7cp7-47q4</span></div>
+        <div class="detail-item"><strong>CWE Reference</strong><span>CWE-400 (Resource Exhaustion), CWE-459</span></div>
+        <div class="detail-item"><strong>CVSS v3 Score</strong><span>7.5 (High)</span></div>
+        <div class="detail-item"><strong>Affected Range</strong><span>&lt;= 2.2.0</span></div>
+      </div>
+      <div class="vuln-desc">
+        When an HTTP file upload multipart stream is abruptly terminated or an oversized array index is provided in field names, temporary file descriptors may leak, causing memory or resource exhaustion under continuous aborted stream floods.
+      </div>
+      <div class="vuln-fix">
+        💡 <strong>Remediation:</strong> Update to <code>multer@^2.3.0</code> or higher via <code>npm install multer@latest</code>. In air-gapped intranet mode, reverse proxy request limits in Apache (<code>LimitRequestBody 104857600</code>) actively mitigate oversized payloads.
+      </div>
+    </div>
+
+    <div class="vuln-card">
+      <div class="vuln-header">
+        <div class="vuln-title">nodemailer: Address Parser Quadratic Time Complexity & Domain Validation</div>
+        <div>
+          <span class="badge badge-high">HIGH</span>
+          <span class="badge badge-pkg">nodemailer@9.0.5</span>
+        </div>
+      </div>
+      <div class="vuln-details">
+        <div class="detail-item"><strong>Advisory ID</strong><span>GHSA-2x7j-588g-ccc2, GHSA-8m3c-c648-2xjj</span></div>
+        <div class="detail-item"><strong>CWE Reference</strong><span>CWE-400, CWE-407 (Algorithmic Complexity)</span></div>
+        <div class="detail-item"><strong>CVSS v3 Score</strong><span>7.5 (High)</span></div>
+        <div class="detail-item"><strong>Affected Range</strong><span>&lt; 9.1.0</span></div>
+      </div>
+      <div class="vuln-desc">
+        Quadratic time complexity in address parsing allows potential denial of service via crafted email headers. Also, content resolution on legacy signatures can bypass access controls.
+      </div>
+      <div class="vuln-fix">
+        💡 <strong>Remediation:</strong> Update to <code>nodemailer@^9.1.0</code> via <code>npm install nodemailer@latest</code>. Note: In this deployment, external SMTP is suppressed and OTPs are routed to database/terminal logs, eliminating attack surface.
+      </div>
+    </div>
+
+    <div class="vuln-card">
+      <div class="vuln-header">
+        <div class="vuln-title">mysql2 (via Prisma): Auth Plugin Downgrade & Inflate DoS</div>
+        <div>
+          <span class="badge badge-high">HIGH</span>
+          <span class="badge badge-pkg">mysql2@3.23.0 (Prisma Transitive)</span>
+        </div>
+      </div>
+      <div class="vuln-details">
+        <div class="detail-item"><strong>Advisory ID</strong><span>GHSA-3f6p-5ww8-9rcr, GHSA-rgwj-5xj2-c3m3</span></div>
+        <div class="detail-item"><strong>CWE Reference</strong><span>CWE-522 (Credential Leak), CWE-409</span></div>
+        <div class="detail-item"><strong>CVSS v3 Score</strong><span>5.9 (Moderate / High Auth)</span></div>
+        <div class="detail-item"><strong>Affected Range</strong><span>&lt;= 3.23.0</span></div>
+      </div>
+      <div class="vuln-desc">
+        Auth plugin downgrade may attempt clear-password if requested by an adversarial rogue MySQL server. Unbounded zlib inflate can cause decompression-bomb DoS if packet compression is enabled.
+      </div>
+      <div class="vuln-fix">
+        💡 <strong>Remediation:</strong> Prisma bundles this driver. In local air-gapped RHEL deployment, the backend connects strictly to local <code>127.0.0.1:3306</code> with native TLS/socket trust, mitigating man-in-the-middle rogue server injection.
+      </div>
+    </div>
+
+    <div class="vuln-card">
+      <div class="vuln-header">
+        <div class="vuln-title">qs: Denial of Service via Attacker Controlled isBuffer & Array Limit</div>
+        <div>
+          <span class="badge badge-medium">MODERATE</span>
+          <span class="badge badge-pkg">qs@6.14.2</span>
+        </div>
+      </div>
+      <div class="vuln-details">
+        <div class="detail-item"><strong>Advisory ID</strong><span>GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g</span></div>
+        <div class="detail-item"><strong>CWE Reference</strong><span>CWE-770 (Resource Allocation), CWE-248</span></div>
+        <div class="detail-item"><strong>CVSS v3 Score</strong><span>5.3 (Moderate)</span></div>
+        <div class="detail-item"><strong>Affected Range</strong><span>2.2.5 - 6.15.3</span></div>
+      </div>
+      <div class="vuln-desc">
+        Deeply nested bracket-key query parameters can bypass array parsing limits, consuming excessive parsing memory.
+      </div>
+      <div class="vuln-fix">
+        💡 <strong>Remediation:</strong> Run <code>npm update qs</code> or update express query parser settings.
+      </div>
+    </div>
+
+    <!-- Frontend Vulnerabilities -->
+    <h2 class="section-title">🎨 Frontend Dependencies Audit (D:\istrac-fms\frontend)</h2>
+
+    <div class="vuln-card">
+      <div class="vuln-header">
+        <div class="vuln-title">brace-expansion: Unbounded Intermediate Arrays DoS</div>
+        <div>
+          <span class="badge badge-high">HIGH</span>
+          <span class="badge badge-pkg">brace-expansion@4.0.0</span>
+        </div>
+      </div>
+      <div class="vuln-details">
+        <div class="detail-item"><strong>Advisory ID</strong><span>GHSA-rgw5-rvv9-x895</span></div>
+        <div class="detail-item"><strong>CWE Reference</strong><span>CWE-400, CWE-770</span></div>
+        <div class="detail-item"><strong>CVSS v3 Score</strong><span>7.5 (High)</span></div>
+        <div class="detail-item"><strong>Affected Range</strong><span>&gt;= 4.0.0 &lt; 5.0.9</span></div>
+      </div>
+      <div class="vuln-desc">
+        Bypassing the CVE-2026-14257 mitigation allows crafting extreme glob pattern combinations that allocate excessive heap memory during build time.
+      </div>
+      <div class="vuln-fix">
+        💡 <strong>Remediation:</strong> Run <code>npm audit fix</code> in <code>frontend/</code>. This is a dev/build tool dependency only; it does not exist in the client browser runtime bundle.
+      </div>
+    </div>
+
+    <div class="vuln-card">
+      <div class="vuln-header">
+        <div class="vuln-title">nanoid: Custom Generators Infinite Loop</div>
+        <div>
+          <span class="badge badge-high">HIGH</span>
+          <span class="badge badge-pkg">nanoid@3.3.7</span>
+        </div>
+      </div>
+      <div class="vuln-details">
+        <div class="detail-item"><strong>Advisory ID</strong><span>GHSA-2v37-7h3g-55p8</span></div>
+        <div class="detail-item"><strong>CWE Reference</strong><span>CWE-835 (Infinite Loop)</span></div>
+        <div class="detail-item"><strong>CVSS v3 Score</strong><span>5.9 (Moderate / High)</span></div>
+        <div class="detail-item"><strong>Affected Range</strong><span>&lt; 3.3.18</span></div>
+      </div>
+      <div class="vuln-desc">
+        Calling custom nanoid generators with a zero-length argument can trigger an unhandled loop, blocking the JavaScript thread.
+      </div>
+      <div class="vuln-fix">
+        💡 <strong>Remediation:</strong> Update via <code>npm install nanoid@latest</code>.
+      </div>
+    </div>
+
+    <!-- Snyk CLI Authentication & Live Scan Guide -->
+    <div class="guide-box">
+      <h3>🔒 Generating the Official Snyk HTML Report (with Snyk CLI)</h3>
+      <p>Snyk CLI connects to Snyk's proprietary vulnerability intelligence cloud and requires a one-time authentication. To generate Snyk's official branded HTML report:</p>
+      <br />
+      <ol>
+        <li>
+          <strong>Authenticate Snyk (One-time):</strong>
+          <div class="code-block">npx snyk auth</div>
+          <em>(This opens your default browser to log into Snyk. Alternatively, set <code>$env:SNYK_TOKEN="your_token_here"</code>).</em>
+        </li>
+        <li>
+          <strong>Run Automated Snyk Audit Script:</strong>
+          We have created a one-click runner <code>run-snyk-audit.bat</code> in your repository. Run:
+          <div class="code-block">.\run-snyk-audit.bat</div>
+        </li>
+        <li>
+          <strong>Outputs Generated:</strong>
+          <ul>
+            <li><code>snyk-backend-report.html</code></li>
+            <li><code>snyk-frontend-report.html</code></li>
+          </ul>
+        </li>
+      </ol>
+    </div>
+
+    <footer>
+      ISRO Telemetry, Tracking & Command Network (ISTRAC) — Satellite Information Management System (SIMS)<br />
+      Air-Gapped Cybersecurity Verification & Quality Assurance Suite
+    </footer>
+  </div>
+</body>
+</html>

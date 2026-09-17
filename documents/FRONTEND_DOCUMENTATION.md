@@ -80,7 +80,7 @@ Rendered inside `<PublicLayout>` which provides `Navbar` + `Footer` and a `<Outl
 | `/departments/:deptId` | `DepartmentDetail` | Division profile + file catalog (gated download) |
 | `/login` | `Login` | Email/password sign-in form |
 | `/register` | `Register` | 5-step access request form for new operators |
-| `/forgot-password` | `ForgotPassword` | Email-based password reset flow |
+| `/forgot-password` | `ForgetPassword` | 2-step offline OTP verification & password reset flow |
 | `/demo` | `ComponentDemo` | Internal UI component showcase |
 
 ### Tier 2 — Authenticated Routes (`<ProtectedRoute>`)
@@ -110,6 +110,7 @@ These routes are wrapped in `<AppShell>` which provides the collapsible sidebar,
 | `/admin/files` | `AdminFileManager` | Full file manager with delete, restore, orphan management |
 | `/admin/approvals` | `ApprovalQueue` | Pending operator registration review queue |
 | `/admin/users` | `UserManagement` | Full roster, role assignment, suspension controls |
+| `/admin/password-resets` | `AdminOtpManagement` | Air-gapped OTP dispatch console, template copy & revocation |
 | `/admin/departments` | `DepartmentManager` | Create/edit divisions with CMS page fields |
 | `/admin/satellites` | `SatelliteManager` | ISTRAC station & satellite fleet registry |
 | `/admin/events` | `EventManager` | Schedule passes, maneuvers, maintenance windows |
@@ -414,7 +415,7 @@ Enables `SearchPage` and `SearchModal` to support operator-based filtering (`typ
 - **`DepartmentDetail.tsx`** (`50.9 KB`) — Most complex public page. Shows division CMS profile, officer-in-charge, file catalog with card/table view toggle, file preview modal. **Unauthenticated users** see file metadata but Preview/Download replaced with `[🔒 Sign In to Access File]` buttons that open the `GuestAccessPanel`.
 - **`Login.tsx`** — Email/password form with rate-limit error handling and redirect logic (admin → `/admin`, member → `/dashboard`).
 - **`Register.tsx`** (`14.6 KB`) — Multi-step access request: personal info → employee ID → department preference → reason for access → confirmation. Includes `PasswordStrengthMeter`.
-- **`ForgetPassword.tsx`** — Email form sending `POST /auth/forgot-password`.
+- **`ForgetPassword.tsx`** — 2-step self-service password recovery flow. Step 1: User enters email, generating 6-digit numeric OTP in database. Step 2: User enters the 6-digit OTP code along with new password verified by `PasswordStrengthMeter`.
 
 ### Member Pages (Protected)
 - **`UserHome.tsx`** (`47 KB`) — Mission workspace: KPI stat cards (files, divisions, recent activity), assigned division accordion with file counts, recent telemetry catalog. Fetches from `useMissionOverview()`, `useUserDepartments()`, `useRecentFiles()`.
@@ -428,8 +429,9 @@ Enables `SearchPage` and `SearchModal` to support operator-based filtering (`typ
 - **`AdminHome.tsx`** (`28.9 KB`) — Command console: storage health, live user/file/department counts, recent audit log feed, pending approvals count, quick action links.
 - **`UploadReport.tsx`** (`36.3 KB`) — Full-featured uploader: drag-and-drop, file metadata form (report title, spacecraft, category, tags), naming convention presets, department + parent folder selector, SHA-256 verification display, progress bars.
 - **`AdminFileManager.tsx`** (`32.8 KB`) — Full file CRUD: search, filter by department/status, delete, restore, view orphaned files, version history drawer.
-- **`ApprovalQueue.tsx`** (`56.2 KB`) — Largest admin page. Pending user cards showing designation, department preference, reason for access. One-click approve (with department selector) or reject (with `RejectModal`).
-- **`UserManagement.tsx`** (`39 KB`) — Full roster: search, filter by role/status, inline role change, suspension toggle, password reset, department access management via `PermissionGrid`.
+- **`ApprovalQueue.tsx`** (`56.2 KB`) — Largest admin page. Pending user cards showing designation, department preference, reason for access. One-click approve (with department selector) or reject (with `RejectModal`). Enforces single-administrator constraint.
+- **`UserManagement.tsx`** (`39 KB`) — Full roster: search, filter by role/status, inline role change, suspension toggle, password reset, department access management via `PermissionGrid`. Enforces single-admin constraint.
+- **`AdminOtpManagement.tsx`** (`/admin/password-resets`) — Air-gapped OTP dispatch console. Displays active verification codes, requesting user details, creation timestamps, and validity countdowns. Features 1-click email template copying (with dynamic CMS branding) and `mailto:` dispatch for secure distribution. Also provides manual token revocation and expired token cleanup.
 - **`DepartmentManager.tsx`** — Create/edit divisions: all fields including CMS page fields (`pageTitle`, `pageLeadOfficer`, etc.), storage path, folder depth config.
 - **`SatelliteManager.tsx`** — Station registry: create/edit ISTRAC stations and satellite fleet entries.
 - **`EventManager.tsx`** (`22.5 KB`) — Full event CRUD for the mission calendar: type (MISSION_PASS/LAUNCH/ORBIT_MANEUVER/MAINTENANCE/SEMINAR/ANOMALY), urgency, status, banner visibility toggle.
@@ -443,10 +445,14 @@ Enables `SearchPage` and `SearchModal` to support operator-based filtering (`typ
 ## 11. Component Inventory — Full Catalogue
 
 ### Navigation & Layout
-- **`Navbar.tsx`** (`10.2 KB`) — Sticky header with ISRO logo, divisions dropdown, global search trigger (`Ctrl+K` opens `SearchModal`), notification bell with unread count badge, user avatar dropdown (profile, logout). Role-aware: shows "Admin Console" link only for `ADMIN`.
+- **`Navbar.tsx`** (`10.2 KB`) — Sticky header with ISRO logo, divisions dropdown, global search trigger (`Ctrl+K` opens `SearchModal`), notification bell with unread count badge, user avatar dropdown (profile, OTP management, logout). Role-aware: shows "Admin Console" and "OTP Management" links only for `ADMIN`.
 - **`AppShell`** (layout) — Collapsible sidebar + top nav + content area. `useAutoCollapseSidebar` hook automatically collapses on small viewports unless `sidebarManuallySet` is true.
-- **`Footer.tsx`** — ISRO mandate, copyright, ground station network links, colophon.
+- **`Footer.tsx`** — ISRO mandate, copyright, ground station network links, dynamic CMS contact links. Includes floating back-to-top button.
 - **`PageHeader.tsx`** — Reusable page title + subtitle + optional action button slot.
+
+### Authentication & Access Gates
+- **`AuthModal.tsx`** — Sign-in / access prompt modal. All hardcoded demo quick-fill credentials have been completely removed for strict production security compliance.
+- **`GuestAccessPanel.tsx`** (`8.3 KB`) — Auth-gate modal shown to unauthenticated users attempting to preview/download. Shows "🔒 Authentication Required" header, explains access policy, links to `/login` and `/register`.
 
 ### Landing Page Sections
 - **`AnnouncementBar.tsx`** (`8.3 KB`) — Horizontal scrolling ticker of mission alerts. Reads from `cmsBlocks.announcements.items`. Category color-coded: MISSION (blue), MAINTENANCE (amber), PASS (green), RELAY (purple), SECURITY (red).

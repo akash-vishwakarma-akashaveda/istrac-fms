@@ -1,22 +1,12 @@
 import { useEffect, useState } from "react"
-import { MapPin } from "lucide-react"
+import { MapPin, ExternalLink, Link2, Sparkles } from "lucide-react"
 import { useCms } from "../../context/cmsContext"
 import { usePreviewRefresh } from "../../context/PreviewRefreshContext"
 import { useUpdateCmsBlock } from "../../hooks/useUpdateCmsBlock"
 import { useToastStore } from "../../store/toastStore"
 import { Input, Panel, Textarea } from ".."
 import { SaveBar } from "./SaveBar"
-
-export interface FooterBlockContent {
-  brandTitle?: string
-  brandHighlight?: string
-  brandDescription?: string
-  groundStations?: string
-  copyrightText?: string
-  quickLinks?: string
-  statusText?: string
-  portalBadge?: string
-}
+import { resolveFooterLink, type FooterBlockContent } from "../Footer"
 
 export function FooterTab() {
   const { cmsBlocks } = useCms()
@@ -45,7 +35,9 @@ export function FooterTab() {
       if (existing.brandDescription !== undefined) setBrandDescription(existing.brandDescription)
       if (existing.groundStations !== undefined) setGroundStations(existing.groundStations)
       if (existing.copyrightText !== undefined) setCopyrightText(existing.copyrightText)
+      else if (existing.footerCopyright !== undefined) setCopyrightText(existing.footerCopyright)
       if (existing.quickLinks !== undefined) setQuickLinks(existing.quickLinks)
+      else if (existing.footerQuickLinks !== undefined) setQuickLinks(existing.footerQuickLinks)
       if (existing.statusText !== undefined) setStatusText(existing.statusText)
       if (existing.portalBadge !== undefined) setPortalBadge(existing.portalBadge)
     }
@@ -87,6 +79,7 @@ export function FooterTab() {
 
   const stationList = groundStations.split(/[,·]/).map((s) => s.trim()).filter(Boolean)
   const linkList = quickLinks.split(",").map((s) => s.trim()).filter(Boolean)
+  const parsedLinks = linkList.map(resolveFooterLink).filter((l) => Boolean(l.label))
 
   return (
     <div className="space-y-6">
@@ -182,23 +175,63 @@ export function FooterTab() {
             )}
           </div>
 
-          <Input
-            id="foot-links"
-            label="Quick Link Labels (comma-separated)"
-            value={quickLinks}
-            onChange={(e) => setQuickLinks(e.target.value)}
-            placeholder="Home, Reports, Calendar, Departments, About, Support"
-          />
-
-          {linkList.length > 0 && (
-            <div className="flex flex-wrap gap-2 text-xs text-text-muted">
-              {linkList.map((l) => (
-                <span key={l} className="rounded bg-surface px-2 py-0.5 border border-border-subtle text-[11px]">
-                  {l}
-                </span>
-              ))}
+          <div>
+            <div className="flex items-center justify-between pb-1.5">
+              <label htmlFor="foot-links" className="text-xs font-semibold text-text-primary">
+                Quick Link Items (comma-separated)
+              </label>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setQuickLinks("Home, Reports, Calendar, Departments, About, Support")}
+                  className="text-[10px] font-medium text-accent-light hover:underline cursor-pointer flex items-center gap-1"
+                >
+                  <Sparkles size={10} /> Reset Standard
+                </button>
+              </div>
             </div>
-          )}
+
+            <Input
+              id="foot-links"
+              value={quickLinks}
+              onChange={(e) => setQuickLinks(e.target.value)}
+              placeholder="Home, Reports, Calendar, Departments, About, Support"
+              hint="Supports standard names (Home, Reports, Calendar, Departments, About, Support) or custom links like Label|URL (e.g. ISRO HQ|https://isro.gov.in or Console|/app)."
+            />
+
+            {/* Link target mapping preview */}
+            {parsedLinks.length > 0 && (
+              <div className="mt-2.5 space-y-1.5 rounded-xl border border-border-subtle bg-[#050b18] p-3">
+                <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-slate-400">
+                  <Link2 size={11} className="text-accent-light" />
+                  <span>Mapped Link Destinations ({parsedLinks.length} items)</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1">
+                  {parsedLinks.map((item, i) => (
+                    <div
+                      key={`${item.label}-${i}`}
+                      className="flex items-center justify-between rounded-lg border border-border-default bg-[#030610] px-2.5 py-1.5 text-[11px]"
+                    >
+                      <span className="font-semibold text-white truncate pr-1">{item.label}</span>
+                      <span
+                        className={`num font-mono text-[9px] px-1.5 py-0.5 rounded truncate max-w-[120px] ${
+                          item.isExternal
+                            ? "bg-purple-950/60 text-purple-300 border border-purple-800/40"
+                            : item.isAnchor
+                            ? "bg-blue-950/60 text-blue-300 border border-blue-800/40"
+                            : "bg-emerald-950/60 text-emerald-300 border border-emerald-800/40"
+                        }`}
+                        title={item.href}
+                      >
+                        {item.isExternal && <ExternalLink size={9} className="shrink-0" />}
+                        <span className="truncate">{item.href}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           <Textarea
             id="foot-copy"

@@ -14,7 +14,7 @@ const redisOptions = {
     }
     return false
   },
-  enableOfflineQueue: true,
+  enableOfflineQueue: false,
   lazyConnect: false,
 }
 
@@ -26,7 +26,7 @@ redis.on('error', (err) => {
   if (env.NODE_ENV === 'development') {
     // Suppress spam in local dev
   } else {
-    console.warn('[Redis] Connection warning (falling back to memory):', err.message)
+    // Suppressed warning in standalone environments
   }
 })
 redisPub.on('error', () => {})
