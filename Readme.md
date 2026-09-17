@@ -257,43 +257,67 @@ ISTRAC-SIMS models 5 core operational directorates with dedicated showcase pages
 
 ---
 
-## 🐧 Production Deployment on Red Hat Enterprise Linux (RHEL / Rocky / AlmaLinux)
+## 🐧 Air-Gapped Production Deployment on Ubuntu 24.04 LTS & RHEL
 
-For on-premise air-gapped ground station hosts or dedicated enterprise Linux servers, ISTRAC-SIMS provides a **1-click automated provisioning suite**:
+For on-premise air-gapped ground station servers or dedicated enterprise Linux hosts, ISTRAC-SIMS provides a **universal 1-command automated provisioning suite** supporting both **Ubuntu 24.04 LTS (Noble)** with Apache 2 (`apache2`) & MySQL 8.0, and **Red Hat Enterprise Linux (RHEL 8 / 9)**:
 
 ```bash
-# 1. Clone repository to /opt/istrac-fms
-sudo git clone https://github.com/Dev-ayansharma/istrac-fms.git /opt/istrac-fms
+# 1. Extract offline deployment bundle into /opt/istrac-fms
+sudo mkdir -p /opt/istrac-fms
+sudo unzip /path/to/istrac-fms-offline-bundle-*.zip -d /opt/istrac-fms
 cd /opt/istrac-fms
 
-# 2. Make scripts executable and run automated setup
-sudo chmod +x setup-rhel.sh manage-services-rhel.sh
-sudo ./setup-rhel.sh
+# 2. Run automated universal setup script
+sudo bash setup-offline.sh
 ```
 
-*The script automatically configures EPEL, Node.js 20, MariaDB 10.11, Redis 7, SELinux policies, Nginx reverse proxy with SPA fallback & WebSocket gateway, PM2 process management, and firewalld rules.*
+*The installer automatically configures Node.js, database schemas & user permissions, Systemd daemons (`istrac-backend`, `istrac-worker`), Apache VirtualHost reverse proxy, WebSocket gateway, and firewall ports.*
+
+---
+
+## 🌐 Custom Domain & SSL Configuration (1 Command)
+
+To attach your custom domain (e.g., `sims.istrac.gov.in` or `sims.example.com`) to your Ubuntu/RHEL server:
+
+```bash
+# Intranet / HTTP:
+sudo bash /opt/istrac-fms/deploy/setup-domain.sh yourdomain.com none
+
+# Free Automated HTTPS (Let's Encrypt):
+sudo bash /opt/istrac-fms/deploy/setup-domain.sh yourdomain.com letsencrypt
+
+# Intranet HTTPS (10-Year Self-Signed Certificate):
+sudo bash /opt/istrac-fms/deploy/setup-domain.sh yourdomain.com selfsigned
+```
+
+*For complete details, see [**`CUSTOM_DOMAIN_SETUP_GUIDE.md`**](file:///D:/istrac-fms/CUSTOM_DOMAIN_SETUP_GUIDE.md).*
+
+---
 
 ### Daily Service Management
 ```bash
-# Check status of all services
-./manage-services-rhel.sh status
+# Check status of all services (Apache, Backend API, Worker, Database, Storage)
+sudo /opt/istrac-fms/manage-services-rhel.sh status
 
-# Restart all services (Nginx, PM2, MariaDB, Redis)
-./manage-services-rhel.sh restart
+# Restart all services
+sudo /opt/istrac-fms/manage-services-rhel.sh restart
 
 # Stream live backend API logs
-./manage-services-rhel.sh logs
+sudo journalctl -u istrac-backend -f -n 50
 
 # Create instant compressed database backup
-./manage-services-rhel.sh backup
+sudo /opt/istrac-fms/manage-services-rhel.sh backup
 ```
 
 ---
 
 ## 📚 Documentation Index
 
-For in-depth operational manuals, architectural, deployment, and configuration guides, refer to the [`documents/`](documents/) directory:
+For in-depth operational manuals, architectural, deployment, and configuration guides:
 
+- 🚀 [**Quick Start & Deployment Guide**](file:///D:/istrac-fms/STARTUP_GUIDE.md) *(Windows 1-click & Linux air-gapped setup)*
+- 🐧 [**Ubuntu 24.04 LTS Air-Gapped Setup Reference**](file:///D:/istrac-fms/UBUNTU_24_OFFLINE_SETUP_GUIDE.md) *(Verified for Ubuntu 24.04 + Apache 2.4.58 + MySQL 8.0)*
+- 🌐 [**Custom Domain & SSL Configuration Guide**](file:///D:/istrac-fms/CUSTOM_DOMAIN_SETUP_GUIDE.md) *(DNS routing, Apache VirtualHost, CORS, and SSL)*
 - 📘 [**Software System Operational Handbook & Client Guide (IEEE 1063 / ISO 26514)**](documents/CLIENT_SYSTEM_AND_OPERATIONAL_HANDBOOK.md) *(Authoritative IEEE-compliant operational manual for directors, facility leads, and console operators)*
 - 📄 [**Software Requirements Specification (IEEE 830 SRS)**](documents/SOFTWARE_REQUIREMENTS_SPECIFICATION.md)
 - 🌐 [**Air-Gapped Intranet Server Deployment & Operations Guide**](file:///D:/istrac-fms/documents/INTRANET_SERVER_SETUP_GUIDE.md)
@@ -314,3 +338,4 @@ For in-depth operational manuals, architectural, deployment, and configuration g
 ## 🛡️ License
 
 Proprietary — Designed for the **Indian Space Research Organisation (ISRO)** and **ISTRAC Ground Network**. All rights reserved.
+
