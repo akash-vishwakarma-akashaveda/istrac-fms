@@ -3,6 +3,7 @@ import { prisma } from '../config/db.js'
 import { authMiddleware } from '../middleware/auth.middleware.js'
 import { adminMiddleware } from '../middleware/admin.middleware.js'
 import { notificationService } from '../services/notification.service.js'
+import { emailService } from '../services/email.service.js'
 import { pubsub } from '../lib/pubsub.js'
 import { AppError } from '../lib/errors.js'
 
@@ -224,7 +225,7 @@ router.get('/admin/notifications/broadcasts', authMiddleware, adminMiddleware, a
 // ============================================================
 router.post('/admin/notifications/broadcast', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
-    const { message, type = 'BROADCAST', category = 'system', departmentIds, target = 'all' } = req.body
+    const { message, type = 'BROADCAST', category = 'system', departmentIds, target = 'all', sendEmail = false } = req.body
 
     if (!message) {
       throw new AppError('missing_message', 'Broadcast message is required', 400)
@@ -237,6 +238,8 @@ router.post('/admin/notifications/broadcast', authMiddleware, adminMiddleware, a
     })
     const adminIds = allAdmins.map((a: any) => a.id)
 
+    let finalRecipientUserIds: string[] = []
+
     if (target === 'departments' && Array.isArray(departmentIds) && departmentIds.length > 0) {
       const usersInDepts = await prisma.userDepartmentAccess.findMany({
         where: { departmentId: { in: departmentIds }, deletedAt: null },
@@ -247,6 +250,7 @@ router.post('/admin/notifications/broadcast', authMiddleware, adminMiddleware, a
         ...adminIds,
         req.user!.id,
       ]))
+      finalRecipientUserIds = recipientIds
 
       await notificationService.send({
         type,
@@ -277,6 +281,7 @@ router.post('/admin/notifications/broadcast', authMiddleware, adminMiddleware, a
         ...adminIds,
         req.user!.id,
       ]))
+      finalRecipientUserIds = recipientIds
 
       await notificationService.send({
         type,
@@ -304,6 +309,26 @@ router.post('/admin/notifications/broadcast', authMiddleware, adminMiddleware, a
         actorId: req.user!.id,
         metadata: { target: 'all' },
       })
+    }
+
+    // If requested, dispatch broadcast via Outgoing Email Gateway (BCC)
+    if (sendEmail) {
+      let recipientUsers: Array<{ email: string }> = []
+      if (finalRecipientUserIds.length > 0) {
+        recipientUsers = await prisma.user.findMany({
+          where: { id: { in: finalRecipientUserIds }, status: 'ACTIVE', deletedAt: null },
+          select: { email: true },
+        })
+      } else {
+        recipientUsers = await prisma.user.findMany({
+          where: { status: 'ACTIVE', deletedAt: null },
+          select: { email: true },
+        })
+      }
+      const recipientEmails = Array.from(new Set(recipientUsers.map((u) => u.email).filter(Boolean)))
+      if (recipientEmails.length > 0) {
+        emailService.sendBroadcastEmail(recipientEmails, `[${type}] Operational Bulletin`, message).catch(() => {})
+      }
     }
 
     res.status(201).json({

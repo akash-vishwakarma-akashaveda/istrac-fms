@@ -49,7 +49,7 @@ Every formal gap identified in Chapter 15 of the specification has been audited 
 | **G05** | **Transactional Integrity & Rollback on Upload** | Critical | Ch 3.5 | Implemented in `file.service.ts` using Prisma `$transaction` and file deletion compensation pattern. | 🟢 **Compliant** |
 | **G06** | **Concurrent Write Handling & File Locking** | Critical | Ch 3.6 | Version incrementing logic handles new files with same name automatically into version chain. | 🟢 **Compliant** |
 | **G07** | **CSRF Protection** | Important | Ch 7.2.2 | `SameSite=Strict` on refresh token cookie; Header `X-CSRF-Token` verification configured. | 🟢 **Compliant** |
-| **G08** | **HTTP Security Headers** | Important | Ch 7.2.1 | Configured in `nginx-istrac-sims.conf` and `helmet` middleware (`HSTS`, `X-Frame-Options: DENY`, `CSP`). | 🟢 **Compliant** |
+| **G08** | **HTTP Security Headers** | Important | Ch 7.2.1 | Configured in `httpd-istrac-sims.conf` and `helmet` middleware (`HSTS`, `X-Frame-Options: DENY`, `CSP`). | 🟢 **Compliant** |
 | **G09** | **CORS Policy Defined** | Important | Ch 7.2.3 | `cors.ts` strictly restricts origins to `APP_ORIGIN` (no wildcards `*`). | 🟢 **Compliant** |
 | **G10** | **Password Reset Flow** | Important | Ch 5.5 | `POST /auth/forgot-password` and `POST /auth/reset-password` with 30-min hashed tokens implemented. | 🟢 **Compliant** |
 | **G11** | **Password Policy** | Important | Ch 5.6 | 10-char min, uppercase, lowercase, number, symbol regex + `password_history` table in Prisma. | 🟢 **Compliant** |

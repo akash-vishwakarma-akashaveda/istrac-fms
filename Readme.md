@@ -248,14 +248,14 @@ sudo chmod +x setup-rhel.sh manage-services-rhel.sh
 sudo ./setup-rhel.sh
 ```
 
-*The script automatically configures EPEL, Node.js 20, MariaDB 10.11, Redis 7, SELinux policies, Nginx reverse proxy with SPA fallback & WebSocket gateway, PM2 process management, and firewalld rules.*
+*The script automatically configures EPEL, Node.js 20, MariaDB 10.11, Redis 7, SELinux policies, Apache (httpd) reverse proxy with SPA fallback & WebSocket gateway, PM2 process management, and firewalld rules.*
 
 ### Daily Service Management
 ```bash
 # Check status of all services
 ./manage-services-rhel.sh status
 
-# Restart all services (Nginx, PM2, MariaDB, Redis)
+# Restart all services (Apache httpd, PM2, MariaDB, Redis)
 ./manage-services-rhel.sh restart
 
 # Stream live backend API logs

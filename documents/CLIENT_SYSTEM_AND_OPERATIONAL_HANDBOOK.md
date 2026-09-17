@@ -115,7 +115,7 @@ The primary objective is to empower **non-technical administrators, mission flig
 - **Section 2:** Explains the conceptual model and how data flows through the application.
 - **Section 3:** Provides a line-by-line inspection of backend services, APIs, the background worker, and the backend changeability matrix.
 - **Section 4:** Guides users through all 29 frontend pages, CMS visual customization, and UI configuration.
-- **Section 5:** Covers deployment scripts, Linux systemd services, Nginx reverse proxy, and infrastructure changeability.
+- **Section 5:** Covers deployment scripts, Linux systemd services, Apache HTTP Server reverse proxy, and infrastructure changeability.
 - **Section 6:** Provides troubleshooting tables and step-by-step resolution playbooks.
 - **Section 7:** Formal document sign-off and verification records.
 
@@ -133,7 +133,7 @@ flowchart TD
     end
 
     subgraph Gateway["Reverse Proxy & Edge Ingress Layer (Port 80 / 443)"]
-        NGINX["NGINX High-Performance Gateway"]
+        APACHE["Apache HTTP Server (httpd) Gateway"]
         STATIC["SPA Static Assets (/opt/istrac-fms/frontend/dist)"]
         STREAM["HTTP 206 Byte-Range Streaming (/files/)"]
         WS_PROXY["Persistent WebSocket Gateway (/ws)"]
@@ -153,11 +153,11 @@ flowchart TD
         STORAGE[("Physical Storage Array (DAS / RAID-6)\nMount: /var/data/istrac_storage\nDirectories: /TTC · /MOX · /FDD · /NETRA · /GSO")]
     end
 
-    Clients -->|"HTTPS REST & WebSockets"| NGINX
-    NGINX --> STATIC
-    NGINX -->|"HTTP 206 Partial Content"| STREAM
-    NGINX -->|"Proxy to Port 5000"| API
-    NGINX -->|"WebSocket Upgrade"| WS_PROXY
+    Clients -->|"HTTPS REST & WebSockets"| APACHE
+    APACHE --> STATIC
+    APACHE -->|"HTTP 206 Partial Content"| STREAM
+    APACHE -->|"Proxy to Port 5000"| API
+    APACHE -->|"WebSocket Upgrade"| WS_PROXY
     WS_PROXY --> API
 
     API -->|"Prisma Relational Queries"| MYSQL
@@ -845,8 +845,8 @@ Changes take effect across all connected operator consoles within **1 second** o
 ### 4.7 Frontend Configuration & Environment Parameters
 
 Configured in `frontend/.env`:
-- `VITE_API_URL`: Base URL for the REST API (e.g. `http://localhost:3000` or `/api` behind Nginx).
-- `VITE_WS_URL`: Base URL for WebSocket connections (e.g. `ws://localhost:3000` or `/ws` behind Nginx).
+- `VITE_API_URL`: Base URL for the REST API (e.g. `http://localhost:3000` or `/api` behind Apache httpd).
+- `VITE_WS_URL`: Base URL for WebSocket connections (e.g. `ws://localhost:3000` or `/ws` behind Apache httpd).
 
 ---
 
@@ -888,7 +888,7 @@ flowchart TD
 
     subgraph Host["RHEL 8 / 9 Air-Gapped Enterprise Host"]
         subgraph ReverseProxy["High-Performance Reverse Proxy (Port 80 / 443)"]
-            NGINX["NGINX Ingress Gateway\n(client_max_body_size 500M · proxy_read_timeout 600s)"]
+            APACHE["Apache httpd Ingress Gateway\n(LimitRequestBody 500M · ProxyTimeout 600s)"]
             DIST["Pre-Compiled React 19 SPA\n(/opt/istrac-fms/frontend/dist)"]
         end
 
@@ -907,11 +907,11 @@ flowchart TD
         end
     end
 
-    Workstations -->|"HTTPS (80/443) & WebSockets"| NGINX
-    NGINX -->|"Direct Static File Delivery"| DIST
-    NGINX -->|"REST API Proxy (/api/)"| BACKEND
-    NGINX -->|"HTTP 206 Streaming (/files/)"| BACKEND
-    NGINX -->|"WebSocket Bridge (/ws)"| BACKEND
+    Workstations -->|"HTTPS (80/443) & WebSockets"| APACHE
+    APACHE -->|"Direct Static File Delivery"| DIST
+    APACHE -->|"REST API Proxy (/api/)"| BACKEND
+    APACHE -->|"HTTP 206 Streaming (/files/)"| BACKEND
+    APACHE -->|"WebSocket Bridge (/ws)"| BACKEND
 
     BACKEND -->|"Prisma Relational Queries"| MDB
     BACKEND -->|"Session Tokens & Rate Limits"| RDS
@@ -927,7 +927,7 @@ flowchart TD
 ### 5.2 Deployment Scripts & Systemd Service Units
 
 #### 1. `deploy/install.sh` (Air-Gapped Automated Installer)
-- Installs offline RPM packages (Node.js, MariaDB, Redis, Nginx) from the `rpms/` folder.
+- Installs offline RPM packages (Node.js, MariaDB, Redis, httpd, mod_ssl) from the `rpms/` folder.
 - Creates `/opt/istrac-fms` (application code) and `/var/data/istrac_storage` (storage mount).
 - Creates an unprivileged system user `istrac` to run services securely.
 - Initializes MariaDB database `istrac_fms` and creates database user `istrac_user`.
@@ -939,7 +939,7 @@ flowchart TD
 - Run on an internet-connected workstation. Compiles frontend and backend code, packages production-only `node_modules` with native pre-compiled binaries, downloads RHEL RPM packages via `dnf download`, and produces an offline archive: `istrac-fms-offline-bundle-YYYYMMDD.tar.gz`.
 
 #### 3. `deploy/verify.sh` (Health & Diagnostic Verification)
-- Automated post-install diagnostic script. Checks that systemd daemons (`mariadb`, `redis`, `istrac-backend`, `istrac-worker`, `nginx`) are running, verifies open ports (`80`, `5000`, `3306`, `6379`), sends a test probe to `http://127.0.0.1:5000/health`, and verifies storage mount permissions.
+- Automated post-install diagnostic script. Checks that systemd daemons (`mariadb`, `redis`, `istrac-backend`, `istrac-worker`, `httpd`) are running, verifies open ports (`80`, `5000`, `3306`, `6379`), sends a test probe to `http://127.0.0.1:5000/health`, and verifies storage mount permissions.
 
 #### 4. `deploy/istrac-backend.service` (Backend API Daemon)
 - Systemd definition for `node dist/src/index.js`. Configured with `Restart=always`, `RestartSec=5`, `LimitNOFILE=65535`, and directs output to the Linux system journal (`journalctl -u istrac-backend`).
@@ -947,8 +947,8 @@ flowchart TD
 #### 5. `deploy/istrac-worker.service` (Background Pass Scheduler Daemon)
 - Systemd definition for `node dist/src/worker.js`. Runs independently from the web server under user `istrac` with `RestartSec=10`. Executes mission pass status transitions (`UPCOMING` ➔ `IN_PROGRESS` ➔ `TIMED_OUT`).
 
-#### 6. `deploy/nginx-istrac.conf` (Nginx Web Server Configuration)
-- Reverse proxy configuration: serves static frontend files, enables SPA fallback (`try_files $uri $uri/ /index.html`), configures `client_max_body_size 500M`, sets `proxy_read_timeout 600s` for file streaming, and enables persistent WebSocket proxying for `/ws`.
+#### 6. `deploy/httpd-istrac.conf` (Apache HTTP Server Configuration)
+- Reverse proxy configuration: serves static frontend files, enables SPA fallback (`RewriteRule ^ index.html [L]`), configures `LimitRequestBody 524288000`, sets `ProxyTimeout 600` for file streaming, and enables persistent WebSocket proxying for `/ws` via `mod_proxy_wstunnel`.
 
 ---
 
@@ -977,13 +977,13 @@ sudo bash deploy/verify.sh
 
 | Infrastructure Parameter | Changeable Without Code? | File to Modify | Command to Apply |
 | :--- | :--- | :--- | :--- |
-| **Nginx Max Upload Size** | 🟢 **YES** | `/etc/nginx/conf.d/istrac.conf` ➔ `client_max_body_size 1000M;` | `sudo systemctl reload nginx` |
-| **Nginx HTTP Port (e.g. 8080)** | 🟢 **YES** | `/etc/nginx/conf.d/istrac.conf` ➔ `listen 8080;` | `sudo systemctl reload nginx` |
-| **Backend Internal Port** | 🟢 **YES** | `/opt/istrac-fms/backend/.env` ➔ `PORT=5000` (and update Nginx `proxy_pass`). | `sudo systemctl restart istrac-backend` |
+| **Apache Max Upload Size** | 🟢 **YES** | `/etc/httpd/conf.d/istrac.conf` ➔ `LimitRequestBody 1048576000` | `sudo systemctl reload httpd` |
+| **Apache HTTP Port (e.g. 8080)** | 🟢 **YES** | `/etc/httpd/conf.d/istrac.conf` ➔ `<VirtualHost *:8080>` | `sudo systemctl reload httpd` |
+| **Backend Internal Port** | 🟢 **YES** | `/opt/istrac-fms/backend/.env` ➔ `PORT=5000` (and update Apache `ProxyPass`). | `sudo systemctl restart istrac-backend` |
 | **Physical Storage Mount Path** | 🟢 **YES** | Option A: In Admin Console (`/admin/settings`).<br>Option B: In `backend/.env` ➔ `HDD_MOUNT_PATH`. | Instant via UI, or restart service if via `.env`. |
 | **Database Passwords & Users** | 🟢 **YES** | Update in MySQL + update `backend/.env` ➔ `DATABASE_URL`. | `sudo systemctl restart istrac-backend` |
 | **Worker Auto-Restart Delay** | 🟢 **YES** | `/etc/systemd/system/istrac-worker.service` ➔ `RestartSec=10`. | `sudo systemctl daemon-reload && sudo systemctl restart istrac-worker` |
-| **Nginx Download Timeouts** | 🟢 **YES** | `/etc/nginx/conf.d/istrac.conf` ➔ `proxy_read_timeout 1200s;` | `sudo systemctl reload nginx` |
+| **Apache Download Timeouts** | 🟢 **YES** | `/etc/httpd/conf.d/istrac.conf` ➔ `ProxyTimeout 1200` | `sudo systemctl reload httpd` |
 
 ---
 

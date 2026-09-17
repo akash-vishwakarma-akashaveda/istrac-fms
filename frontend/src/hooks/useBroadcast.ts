@@ -7,6 +7,7 @@ interface BroadcastPayload {
   category?: string
   target?: string
   departmentIds?: string[]
+  sendEmail?: boolean
 }
 
 export function useBroadcast() {

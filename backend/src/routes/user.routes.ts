@@ -699,6 +699,25 @@ router.put('/admin/approvals/document-requests/:requestId', authMiddleware, admi
       })
     }
 
+    if (updated.requestedBy?.email) {
+      let reportTitle: string | null = null
+      if (request.reportId) {
+        const reportObj = await prisma.report.findUnique({
+          where: { id: request.reportId },
+          select: { title: true },
+        })
+        reportTitle = reportObj?.title || null
+      }
+      emailService.sendDocumentAccessDecisionEmail(
+        updated.requestedBy.email,
+        updated.requestedBy.name,
+        updated.department?.name || 'Assigned Department',
+        reportTitle,
+        status,
+        adminComment,
+      ).catch(() => {})
+    }
+
     res.json({
       data: updated,
       requestId: req.requestId,

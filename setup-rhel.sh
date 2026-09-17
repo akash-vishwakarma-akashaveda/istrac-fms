@@ -230,16 +230,16 @@ npm install
 log_info "Compiling production frontend bundle with Vite..."
 npm run build
 
-# Ensure Nginx can read the compiled frontend
+# Ensure Apache (httpd) can read the compiled frontend
 chmod -R 755 "${TARGET_DIR}/frontend/dist"
 chmod 755 "${TARGET_DIR}" "${TARGET_DIR}/frontend" || true
 
 log_success "Frontend compilation complete."
 
 # ------------------------------------------------------------------------------
-# 9. PM2 PROCESS MANAGER & NGINX REVERSE PROXY SETUP
+# 9. PM2 PROCESS MANAGER & APACHE HTTPD REVERSE PROXY SETUP
 # ------------------------------------------------------------------------------
-log_info "Step 8/8: Configuring PM2 and Nginx Reverse Proxy..."
+log_info "Step 8/8: Configuring PM2 and Apache (httpd) Reverse Proxy..."
 
 cd "${TARGET_DIR}"
 
@@ -258,87 +258,89 @@ pm2 save
 # Setup PM2 systemd startup
 pm2 startup systemd -u root --hp /root >/dev/null 2>&1 || true
 
-# Install and configure Nginx
-dnf install -y nginx
+# Install and configure Apache HTTP Server (httpd)
+dnf install -y httpd mod_ssl
 
-# Generate Nginx configuration
-cat <<EOF > /etc/nginx/conf.d/istrac-sims.conf
-upstream istrac_backend {
-    server 127.0.0.1:3000 max_fails=3 fail_timeout=10s;
-    keepalive 32;
-}
+# Generate Apache VirtualHost configuration
+cat <<EOF > /etc/httpd/conf.d/istrac-sims.conf
+<VirtualHost *:80>
+    ServerName istrac-portal.isro.local
+    ServerAlias *
+    DocumentRoot ${TARGET_DIR}/frontend/dist
 
-server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    server_name _;
+    LimitRequestBody 524288000
 
-    client_max_body_size 100M;
-    root ${TARGET_DIR}/frontend/dist;
-    index index.html;
+    ErrorLog /var/log/httpd/istrac-error.log
+    CustomLog /var/log/httpd/istrac-access.log combined
 
-    gzip on;
-    gzip_vary on;
-    gzip_min_length 1024;
-    gzip_proxied expired no-cache no-store private auth;
-    gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml application/javascript application/json image/svg+xml;
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
 
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-XSS-Protection "1; mode=block" always;
+    <IfModule mod_deflate.c>
+        AddOutputFilterByType DEFLATE text/plain text/html text/xml text/css application/xml application/xhtml+xml application/rss+xml application/javascript application/x-javascript application/json image/svg+xml
+    </IfModule>
 
-    # Static Assets with 1y Cache
-    location /assets/ {
-        expires 1y;
-        add_header Cache-Control "public, no-transform, immutable";
-        access_log off;
-        try_files \$uri =404;
-    }
+    <Directory "${TARGET_DIR}/frontend/dist">
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
 
-    # API Proxy
-    location /api/ {
-        rewrite ^/api/(.*) /\$1 break;
-        proxy_pass http://istrac_backend;
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 120s;
-        proxy_read_timeout 120s;
-        proxy_buffering off;
-        proxy_request_buffering off;
-    }
+        <IfModule mod_rewrite.c>
+            RewriteEngine On
+            RewriteBase /
 
-    # WebSocket Proxy
-    location /ws {
-        proxy_pass http://istrac_backend/ws;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_read_timeout 86400s;
-        proxy_send_timeout 86400s;
-    }
+            RewriteCond %{REQUEST_FILENAME} -f [OR]
+            RewriteCond %{REQUEST_FILENAME} -d
+            RewriteRule ^ - [L]
 
-    # SPA Fallback Route
-    location / {
-        try_files \$uri \$uri/ /index.html;
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
-    }
-}
+            RewriteCond %{REQUEST_URI} ^/(api|media|ws|files) [NC]
+            RewriteRule ^ - [L]
+
+            RewriteRule ^ index.html [L]
+        </IfModule>
+
+        <Files "index.html">
+            Header set Cache-Control "no-cache, no-store, must-revalidate"
+            Header set Pragma "no-cache"
+            Header set Expires 0
+        </Files>
+    </Directory>
+
+    <Directory "${TARGET_DIR}/frontend/dist/assets">
+        <IfModule mod_expires.c>
+            ExpiresActive On
+            ExpiresDefault "access plus 1 year"
+        </IfModule>
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </Directory>
+
+    ProxyPreserveHost On
+    ProxyRequests Off
+    ProxyTimeout 600
+
+    ProxyPass /ws ws://127.0.0.1:3000/ws retry=0 timeout=86400 keepalive=On
+    ProxyPassReverse /ws ws://127.0.0.1:3000/ws
+
+    ProxyPass /api http://127.0.0.1:3000/api retry=0 timeout=600
+    ProxyPassReverse /api http://127.0.0.1:3000/api
+
+    ProxyPass /media http://127.0.0.1:3000/media retry=0 timeout=120
+    ProxyPassReverse /media http://127.0.0.1:3000/media
+
+    ProxyPass /files http://127.0.0.1:3000/files retry=0 timeout=600
+    ProxyPassReverse /files http://127.0.0.1:3000/files
+</VirtualHost>
 EOF
 
-# Enable SELinux booleans for Nginx reverse proxy
-log_info "Configuring SELinux booleans for Nginx network proxying..."
+# Enable SELinux booleans for Apache reverse proxy and user content
+log_info "Configuring SELinux booleans for Apache network proxying..."
 setsebool -P httpd_can_network_connect 1 2>/dev/null || true
 setsebool -P httpd_read_user_content 1 2>/dev/null || true
 
-systemctl enable nginx
-systemctl restart nginx
+systemctl enable httpd
+systemctl restart httpd
 
 # ------------------------------------------------------------------------------
 # 10. FIREWALL CONFIGURATION (FIREWALLD)
@@ -380,7 +382,7 @@ echo -e "   - Dept Admin:   ${YELLOW}ttcadmin@istrac.local${NC}(Password: ${GREE
 echo -e "   - Operator:     ${YELLOW}operator@istrac.local${NC}(Password: ${GREEN}ChangeMe123!${NC})"
 echo ""
 echo -e "${BOLD}🛠️ System Services Status:${NC}"
-echo -e "   - Nginx:        $(systemctl is-active nginx) [Port 80]"
+echo -e "   - Apache httpd: $(systemctl is-active httpd) [Port 80]"
 echo -e "   - Backend API:  $(pm2 list | grep -q 'istrac-sims-backend' && echo 'online' || echo 'stopped') [Port 3000 via PM2]"
 echo -e "   - MariaDB:      $(systemctl is-active mariadb) [Port 3306]"
 echo -e "   - Redis Cache:  $(systemctl is-active redis) [Port 6379]"

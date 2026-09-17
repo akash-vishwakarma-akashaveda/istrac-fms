@@ -22,8 +22,8 @@ case "$ACTION" in
         echo -e "${BOLD}${CYAN} 🛰️  ISTRAC-SIMS — SYSTEM SERVICES STATUS OVERVIEW${NC}"
         echo -e "${BOLD}${CYAN}==============================================================================${NC}"
         
-        echo -n "• Nginx Web Server:    "
-        systemctl is-active --quiet nginx && echo -e "${GREEN}ACTIVE (Running on port 80/443)${NC}" || echo -e "${RED}INACTIVE / FAILED${NC}"
+        echo -n "• Apache Web Server:   "
+        systemctl is-active --quiet httpd && echo -e "${GREEN}ACTIVE (Running on port 80/443)${NC}" || echo -e "${RED}INACTIVE / FAILED${NC}"
         
         echo -n "• Backend API (PM2):   "
         if pm2 list | grep -q 'istrac-sims-backend'; then
@@ -57,14 +57,14 @@ case "$ACTION" in
         systemctl start mariadb
         systemctl start redis
         pm2 start "${CURRENT_DIR}/ecosystem.config.cjs" --env production || pm2 restart istrac-sims-backend
-        systemctl start nginx
+        systemctl start httpd
         echo -e "${GREEN}All services started successfully.${NC}"
         ;;
 
     stop)
         echo -e "${YELLOW}Stopping all ISTRAC-SIMS services...${NC}"
         pm2 stop istrac-sims-backend || true
-        systemctl stop nginx || true
+        systemctl stop httpd || true
         echo -e "${GREEN}Application processes stopped.${NC}"
         ;;
 
@@ -73,7 +73,7 @@ case "$ACTION" in
         systemctl restart mariadb
         systemctl restart redis
         pm2 restart istrac-sims-backend || pm2 start "${CURRENT_DIR}/ecosystem.config.cjs" --env production
-        systemctl restart nginx
+        systemctl restart httpd
         echo -e "${GREEN}All services restarted successfully.${NC}"
         ;;
 
@@ -106,7 +106,7 @@ case "$ACTION" in
         
         cd "${CURRENT_DIR}"
         pm2 restart istrac-sims-backend
-        systemctl reload nginx
+        systemctl reload httpd
         echo -e "${GREEN}Rebuild and reload complete!${NC}"
         ;;
 

@@ -12,6 +12,7 @@ import {
   Users,
   ShieldAlert,
   Clock,
+  Mail,
 } from 'lucide-react'
 import { useBroadcast } from '../hooks/useBroadcast'
 import { useToastStore } from '../store/toastStore'
@@ -86,6 +87,7 @@ export function BroadcastNotification() {
   const [message, setMessage] = useState('')
   const [target, setTarget] = useState<'all' | 'all_departments' | 'departments'>('all')
   const [selectedDeptIds, setSelectedDeptIds] = useState<string[]>([])
+  const [sendEmail, setSendEmail] = useState(false)
   
   // History state
   const [history, setHistory] = useState<BroadcastRecord[]>([])
@@ -127,12 +129,15 @@ export function BroadcastNotification() {
         category: urgency.toLowerCase(),
         target,
         departmentIds: target === 'departments' ? selectedDeptIds : undefined,
+        sendEmail,
       },
       {
         onSuccess: () => {
           addToast({
             title: 'Broadcast Dispatched',
-            message: 'Operational notice published to all targeted terminals and notification feeds.',
+            message: sendEmail
+              ? 'Operational notice published to active terminals and dispatched via Outgoing Email Gateway.'
+              : 'Operational notice published to all targeted terminals and notification feeds.',
             variant: 'success',
           })
           setMessage('')
@@ -372,6 +377,27 @@ export function BroadcastNotification() {
                   />
                 </div>
               )}
+            </div>
+
+            {/* Outgoing Email Gateway Relay */}
+            <div className="border-t border-border-subtle pt-3">
+              <label className="flex items-start gap-3 p-3 rounded-xl border border-border-subtle bg-[#060c18] cursor-pointer hover:border-border-default transition-all">
+                <input
+                  type="checkbox"
+                  checked={sendEmail}
+                  onChange={(e) => setSendEmail(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-border-default text-accent focus:ring-accent"
+                />
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <Mail size={13} className="text-accent-light" />
+                    <span className="text-xs font-bold text-white">Also Dispatch via Outgoing Email Gateway</span>
+                  </div>
+                  <p className="text-[10px] text-text-dim leading-relaxed">
+                    Transmits this operational notice as a secure BCC email bulletin to all targeted operators and station personnel.
+                  </p>
+                </div>
+              </label>
             </div>
 
             {/* Dispatch Action Button */}

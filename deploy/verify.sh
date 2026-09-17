@@ -23,7 +23,7 @@ check_service "mariadb"
 check_service "redis"
 check_service "istrac-backend"
 check_service "istrac-worker"
-check_service "nginx"
+check_service "httpd"
 
 echo ""
 echo "2. Port Listeners:"

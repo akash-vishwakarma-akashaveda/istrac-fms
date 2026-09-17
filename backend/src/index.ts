@@ -28,6 +28,11 @@ import { adminRouter } from './routes/admin.routes.js'
 import { healthRouter } from './routes/health.routes.js'
 import { reportPresetRouter } from './routes/reportPreset.routes.js'
 import { eventRouter } from './routes/event.routes.js'
+import { schedulerRouter } from './routes/scheduler.routes.js'
+import { smtpRouter } from './routes/smtp.routes.js'
+
+// Middlewares
+import { globalRateLimiter } from './middleware/rateLimiter.middleware.js'
 
 // Services & Daemons
 import { startHddHealthService } from './services/hddHealth.service.js'
@@ -35,9 +40,7 @@ import { startHddSyncService } from './services/hddSync.service.js'
 import { createWsServer } from './ws/wsServer.js'
 
 // Enable JSON.stringify for BigInt across all Prisma models
-;import { globalRateLimiter } from './middleware/rateLimiter.middleware.js'
-import { schedulerRouter } from './routes/scheduler.routes.js'
-(BigInt.prototype as any).toJSON = function () {
+;(BigInt.prototype as any).toJSON = function () {
   return this.toString()
 }
 
@@ -118,6 +121,7 @@ apiRouter.use(reportPresetRouter)
 apiRouter.use(eventRouter)
 apiRouter.use(healthRouter)
 apiRouter.use(schedulerRouter)
+apiRouter.use(smtpRouter)
 
 // Mount both with and without /api prefix
 app.use('/api', apiRouter)

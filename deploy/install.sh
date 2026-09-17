@@ -27,7 +27,7 @@ if [[ -d "${SCRIPT_DIR}/rpms" ]] && compgen -G "${SCRIPT_DIR}/rpms/*.rpm" > /dev
   dnf localinstall -y "${SCRIPT_DIR}/rpms/"*.rpm
   echo "✅ RPM packages installed successfully."
 else
-  echo "ℹ️ No RPM files found in ${SCRIPT_DIR}/rpms/. Assuming nodejs, redis, mariadb, nginx are already installed."
+  echo "ℹ️ No RPM files found in ${SCRIPT_DIR}/rpms/. Assuming nodejs, redis, mariadb, httpd are already installed."
 fi
 
 # 3. Create Application & Storage Directories
@@ -91,7 +91,7 @@ if [[ -f "dist/prisma/seed.js" ]]; then
   node dist/prisma/seed.js || echo "⚠️ Seed completed with notice."
 fi
 
-# 7. Setup Systemd Services & Nginx
+# 7. Setup Systemd Services & Apache (httpd)
 echo "🚀 6/7: Configuring systemd services..."
 cp "${SCRIPT_DIR}/deploy/istrac-backend.service" /etc/systemd/system/
 cp "${SCRIPT_DIR}/deploy/istrac-worker.service" /etc/systemd/system/
@@ -99,8 +99,8 @@ systemctl daemon-reload
 systemctl enable --now istrac-backend
 systemctl enable --now istrac-worker
 
-echo "🌐 7/7: Configuring Nginx reverse proxy and firewall..."
-cp "${SCRIPT_DIR}/deploy/nginx-istrac.conf" /etc/nginx/conf.d/istrac.conf
+echo "🌐 7/7: Configuring Apache (httpd) reverse proxy and firewall..."
+cp "${SCRIPT_DIR}/deploy/httpd-istrac.conf" /etc/httpd/conf.d/istrac.conf
 
 # SELinux adjustments for RHEL
 if command -v setsebool &>/dev/null; then
@@ -109,8 +109,8 @@ if command -v setsebool &>/dev/null; then
   setsebool -P httpd_read_user_content 1 || true
 fi
 
-systemctl enable --now nginx
-systemctl reload nginx
+systemctl enable --now httpd
+systemctl reload httpd
 
 # Firewall configuration
 if command -v firewall-cmd &>/dev/null; then
@@ -128,5 +128,5 @@ echo "Storage Path:   ${DATA_STORAGE}"
 echo "Status Commands:"
 echo "  sudo systemctl status istrac-backend"
 echo "  sudo systemctl status istrac-worker"
-echo "  sudo systemctl status nginx"
+echo "  sudo systemctl status httpd"
 echo "======================================================================"

@@ -27,7 +27,7 @@ flowchart LR
         G --> H[MariaDB & Redis Initialized]
         H --> I[Prisma DB Migration & Seed]
         I --> J[systemd Services: Backend & Worker]
-        J --> K[Nginx Reverse Proxy on Port 80]
+        J --> K[Apache httpd Reverse Proxy on Port 80]
     end
 ```
 
@@ -70,7 +70,7 @@ What this script executes automatically:
    - Transpiles TypeScript into JavaScript in `backend/dist`.
    - Compiles database seed logic into `backend/dist/prisma/seed.js`.
    - Prunes dev-dependencies to leave a minimal, production-ready `node_modules`.
-3. **RPM Packages**: Downloads all offline RHEL dependencies (Node.js 20, MariaDB-server, Redis, Nginx, rsync, tar) into `rpms/`.
+3. **RPM Packages**: Downloads all offline RHEL dependencies (Node.js 20, MariaDB-server, Redis, httpd, mod_ssl, rsync, tar) into `rpms/`.
 4. **Archive Packaging**: Packages the complete system into `dist-offline/istrac-fms-offline-bundle-YYYYMMDD.tar.gz`.
 
 ---
@@ -109,7 +109,7 @@ The script automatically executes:
 - Applies Prisma database schema and migrations (`npx prisma migrate deploy`).
 - Seeds default satellites, mission events, operational divisions, and admin accounts.
 - Registers and starts `istrac-backend.service` and `istrac-worker.service`.
-- Configures SELinux booleans and Nginx reverse proxy.
+- Configures SELinux booleans and Apache (httpd) reverse proxy.
 - Opens HTTP port 80 in `firewalld`.
 
 ---
@@ -124,7 +124,7 @@ The script automatically executes:
 | `istrac-worker.service` | Mission Event Status Sync & Scheduler | `sudo systemctl status istrac-worker` |
 | `mariadb.service` | MySQL-compatible Relational Database | `sudo systemctl status mariadb` |
 | `redis.service` | Session Store & Distributed Lock | `sudo systemctl status redis` |
-| `nginx.service` | Web Server & Reverse Proxy | `sudo systemctl status nginx` |
+| `httpd.service` | Web Server & Reverse Proxy | `sudo systemctl status httpd` |
 
 ### 7.2 Directory Structure on Target Host
 ```
@@ -161,7 +161,7 @@ Expected Output:
   [OK] redis is RUNNING
   [OK] istrac-backend is RUNNING
   [OK] istrac-worker is RUNNING
-  [OK] nginx is RUNNING
+  [OK] httpd is RUNNING
 
 2. Port Listeners:
   [OK] Port 80 is active
@@ -194,11 +194,11 @@ sudo journalctl -u istrac-backend -f
 # Mission Event Scheduler logs
 sudo journalctl -u istrac-worker -f
 
-# Nginx Access and Error logs
-sudo tail -f /var/log/nginx/error.log
+# Apache Access and Error logs
+sudo tail -f /var/log/httpd/istrac-error.log
 ```
 
 ### Restarting the Entire System
 ```bash
-sudo systemctl restart mariadb redis istrac-backend istrac-worker nginx
+sudo systemctl restart mariadb redis istrac-backend istrac-worker httpd
 ```

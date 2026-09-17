@@ -75,7 +75,7 @@ Scope:       Locked until approved by Admin in /admin/approvals
 | **MariaDB (Root)** | `127.0.0.1` | `3306` | `root` | `ChangeThisDatabasePassword123!` | Full Server |
 | **Redis Cache / PubSub**| `127.0.0.1` | `6379` | *None* | *None (Localhost Loopback)* | Databases 0-15 |
 | **Node.js Backend** | `127.0.0.1` | `3000` | `istrac` | Internal Express API | `/api` and `/ws` |
-| **Nginx Web Gateway** | `0.0.0.0` | `80, 443` | `nginx` | SSL / TLS Certificate | Frontend SPA + Reverse Proxy |
+| **Apache Web Gateway (httpd)** | `0.0.0.0` | `80, 443` | `apache` / `httpd` | SSL / TLS Certificate | Frontend SPA + Reverse Proxy |
 
 ---
 

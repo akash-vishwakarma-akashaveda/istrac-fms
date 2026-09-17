@@ -64,6 +64,30 @@ export interface SystemConfig {
   [key: string]: unknown
 }
 
+export interface SmtpConfigData {
+  enabled: boolean
+  host: string
+  port: number
+  securityMode: 'STARTTLS' | 'SSL' | 'PLAIN'
+  allowSelfSigned: boolean
+  user: string
+  pass?: string
+  hasPassword?: boolean
+  fromEmail: string
+  fromName: string
+  adminAlertEmail: string
+  notifyUserApproval: boolean
+  notifyPasswordReset: boolean
+  notifyStorageHealth: boolean
+  notifyBroadcasts: boolean
+  notifyDocumentRequests: boolean
+}
+
+export interface SmtpTestResult {
+  success: boolean
+  message: string
+}
+
 export const adminApi = {
   async getStats(): Promise<AdminStats> {
     const res = await apiClient.get('/admin/stats')
@@ -84,4 +108,20 @@ export const adminApi = {
     const res = await apiClient.put(`/admin/settings/${key}`, { value })
     return extractData<{ key: string; value: unknown }>(res)
   },
+
+  async getSmtpConfig(): Promise<SmtpConfigData> {
+    const res = await apiClient.get('/admin/smtp')
+    return extractData<SmtpConfigData>(res)
+  },
+
+  async updateSmtpConfig(config: Partial<SmtpConfigData>): Promise<SmtpConfigData> {
+    const res = await apiClient.put('/admin/smtp', config)
+    return extractData<SmtpConfigData>(res)
+  },
+
+  async testSmtpConnection(data: { config?: Partial<SmtpConfigData>; testEmail?: string }): Promise<SmtpTestResult> {
+    const res = await apiClient.post('/admin/smtp/test', data)
+    return extractData<SmtpTestResult>(res)
+  },
 }
+

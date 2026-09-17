@@ -69,7 +69,7 @@ The backend runs on **Node.js (v20+ LTS)** using ES Modules (`"type": "module"`)
 
 ## 2. Complete Package Inventory: Frontend Subsystem
 
-The frontend is a pre-compiled **React 19 Single Page Application (SPA)** bundled via **Vite 8** and served as static HTML/JS/CSS assets by Nginx.
+The frontend is a pre-compiled **React 19 Single Page Application (SPA)** bundled via **Vite 8** and served as static HTML/JS/CSS assets by Apache HTTP Server (httpd).
 
 ### 2.1 Frontend Active Production Dependencies (`dependencies`)
 
@@ -148,7 +148,7 @@ For complete project handover, the client must ensure the destination Linux serv
 | **Node.js** | `v20.x` or `v22.x` LTS (x86_64) | JavaScript/TypeScript server execution runtime for API and background worker. |
 | **MariaDB Server** | `10.11+` (or MySQL `8.0+`) | Relational database daemon storing metadata, credentials, and audit logs. |
 | **Redis** | `7.0+` | In-memory cache, rate limiters, session blacklist, and real-time Pub/Sub broker. |
-| **Nginx** | `1.24+` | Reverse proxy, static SPA asset server, SSL termination, and HTTP 206 streaming engine. |
+| **Apache HTTP Server (httpd)** | `2.4+` | Reverse proxy, static SPA asset server, SSL termination, and HTTP 206 streaming engine. |
 | **tar / gzip / rsync** | Standard Linux utils | Archive extraction and offline file synchronization. |
 | **policycoreutils-python-utils** | RHEL standard package | Provides `semanage` for configuring SELinux network port policies. |
 
@@ -212,5 +212,5 @@ Before handing over the software to the client operations team, verify each item
 - [x] **Prisma Offline Engines Included:** Verified that `schema.prisma` contains binary targets for RHEL OpenSSL 1.1.x and 3.0.x.
 - [x] **Database Dialect Verified:** Verified that `@prisma/adapter-mariadb` is actively bound and unused `pg` dependencies are cataloged.
 - [x] **Production Build Clean:** Verified that `npm run build` succeeds cleanly in both `backend` and `frontend` with exit code 0.
-- [x] **SELinux Compatibility:** Verified that Nginx and systemd unit files conform to RHEL 8/9 security policies.
+- [x] **SELinux Compatibility:** Verified that Apache httpd and systemd unit files conform to RHEL 8/9 security policies.
 - [x] **Handover Documentation Prepared:** Verified that both the IEEE Operational Handbook and this Dependency Handover Guide are placed in the `documents/` folder.

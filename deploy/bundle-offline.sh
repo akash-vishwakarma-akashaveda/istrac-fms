@@ -71,7 +71,8 @@ if command -v dnf >/dev/null 2>&1; then
     redis \
     mariadb-server \
     mariadb \
-    nginx \
+    httpd \
+    mod_ssl \
     tar \
     gzip \
     rsync \

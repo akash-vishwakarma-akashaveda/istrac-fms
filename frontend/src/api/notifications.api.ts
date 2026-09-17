@@ -49,6 +49,7 @@ export const notificationsApi = {
     category?: string
     target?: string
     departmentIds?: string[]
+    sendEmail?: boolean
   }): Promise<{ message: string }> {
     const res = await apiClient.post('/admin/notifications/broadcast', payload)
     return extractData<{ message: string }>(res)
