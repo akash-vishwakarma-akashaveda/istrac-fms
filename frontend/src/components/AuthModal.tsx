@@ -1029,7 +1029,7 @@ export function AuthModal() {
         <div className="border-t border-white/10 bg-[#080d19]/85 px-8 py-4 flex items-center justify-between text-xs text-text-dim">
           <div className="flex items-center gap-2 font-mono text-[11px]">
             <Lock size={13} className="text-nominal" />
-            <span>TLS 1.3 256-Bit Encrypted</span>
+            
           </div>
 
           <div className="flex items-center gap-3">

@@ -224,7 +224,7 @@ export function QuickStatsTab() {
                   maxLength={STAT_TITLE_MAX_LENGTH}
                   onChange={(e) => stat.setValue(e.target.value.slice(0, STAT_TITLE_MAX_LENGTH))}
                   placeholder="e.g. 5 Stations"
-                  hint="High limit (max 24 chars) • Auto-minimizes font to fit card without dots"
+                  hint="High limit (max 24 chars)"
                 />
               </div>
 
@@ -252,7 +252,7 @@ export function QuickStatsTab() {
                   maxLength={STAT_DESC_MAX_LENGTH}
                   onChange={(e) => stat.setLabel(e.target.value.slice(0, STAT_DESC_MAX_LENGTH))}
                   placeholder="e.g. Global Ground Network"
-                  hint="High limit (max 60 chars) • Formats up to 2 lines without dots"
+                  hint="High limit (max 60 chars)"
                 />
               </div>
             </div>
