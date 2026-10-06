@@ -482,9 +482,11 @@ export function ApprovalQueue() {
                               {user.designation}
                             </span>
                           )}
-                          <span className="rounded-md border border-accent/40 bg-accent/15 px-2 py-0.5 text-[10px] font-bold text-accent-light num">
-                            {user.role}
-                          </span>
+                          {user.role && (
+                            <span className="rounded-md border border-accent/40 bg-accent/15 px-2 py-0.5 text-[10px] font-bold text-accent-light num">
+                              {user.role}
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-dim">
@@ -632,7 +634,7 @@ export function ApprovalQueue() {
                               {record.role}
                             </span>
                             {record.isRootSuperAdmin ? (
-                              <span className="inline-flex rounded border border-purple-400/40 bg-purple-400/10 px-1.5 py-0.5 text-[9px] font-bold text-purple-300">
+                              <span className="inline-flex rounded border border-purple-400/40 bg-purple-400/10 px-1.5 py-0.5 text-[10px] font-bold text-purple-300">
                                 ALL DIVISIONS · ROOT ACCESS
                               </span>
                             ) : record.departments.length > 0 ? (
@@ -640,7 +642,7 @@ export function ApprovalQueue() {
                                 {record.departments.map((dept) => (
                                   <span
                                     key={dept.id}
-                                    className={`rounded px-1.5 py-0.2 text-[9px] font-bold uppercase num ${
+                                    className={`rounded px-1.5 py-0.2 text-[10px] font-bold uppercase num ${
                                       dept.accessLevel === 'READ_WRITE'
                                         ? 'bg-nominal/15 text-nominal border border-nominal/30'
                                         : 'bg-accent/15 text-accent-light border border-accent/30'

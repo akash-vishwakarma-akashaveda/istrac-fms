@@ -72,7 +72,7 @@ export function Sidebar() {
                 <span className="text-accent-light font-black">{brandHighlight}</span>
               </span>
               {brandSubtitle && (
-                <span className="truncate text-[8.5px] text-text-dim uppercase tracking-wider font-mono">
+                <span className="truncate text-[10px] text-text-dim uppercase tracking-wider font-mono">
                   {brandSubtitle}
                 </span>
               )}
@@ -115,7 +115,7 @@ export function Sidebar() {
       {/* Station footer */}
       {!sidebarCollapsed && (
         <div className="shrink-0 border-t border-border-subtle px-3 py-2.5">
-          <p className="eyebrow text-text-dim text-[9px]">Station / Facility</p>
+          <p className="eyebrow text-text-dim text-[10px]">Station / Facility</p>
           <p className="num mt-0.5 text-[10px] text-text-dim font-medium truncate" title={brandSubtitle || "BLR · MOX Complex"}>
             {brandSubtitle || "BLR · MOX Complex"}
           </p>

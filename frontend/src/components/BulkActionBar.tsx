@@ -3,7 +3,8 @@ import { Button } from '.'
 
 interface BulkActionBarProps {
   selectedCount: number
-  onDelete: () => void
+  /** Omit to hide the delete action (e.g. for users who cannot move files to Trash). */
+  onDelete?: () => void
   onTag: () => void
   onClear: () => void
   isDeleting?: boolean
@@ -44,9 +45,11 @@ export function BulkActionBar({
             Tag
           </Button>
 
-          <Button variant="danger" size="sm" onClick={onDelete} disabled={isDeleting}>
-            {isDeleting ? 'Deleting…' : 'Delete'}
-          </Button>
+          {onDelete && (
+            <Button variant="danger" size="sm" onClick={onDelete} disabled={isDeleting}>
+              {isDeleting ? 'Moving…' : 'Move to Trash'}
+            </Button>
+          )}
 
           <button
             type="button"

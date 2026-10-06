@@ -89,7 +89,7 @@ export function AnnouncementBar() {
           bannerItems.push({
             id: bc.id,
             message: bc.message,
-            category: "BROADCAST",
+            category: bc.kind === "broadcast" || !bc.kind ? "BROADCAST" : bc.kind.toUpperCase(),
             urgency: "IMPORTANT",
             timestamp: new Date(bc.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
           })
@@ -104,6 +104,7 @@ export function AnnouncementBar() {
             id: n.id,
             message: n.message,
             category: n.category || n.type || "NOTICE",
+            kind: n.kind,
             createdAt: n.createdAt,
           })
 

@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { prisma } from '../config/db.js'
+import { categoryCodeOf } from '../lib/reportCategory.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.middleware.js'
 import { deptAccessMiddleware } from '../middleware/deptAccess.middleware.js'
 import { searchService } from '../services/search.service.js'
@@ -45,6 +46,7 @@ router.get('/departments/:deptId/files', authMiddleware, deptAccessMiddleware, a
         orderBy: [{ nodeType: 'asc' }, { name: 'asc' }],
         include: {
           uploader: { select: { id: true, name: true } },
+          tags: { where: { deletedAt: null, tag: { deletedAt: null } }, select: { tag: { select: { name: true } } } },
           versions: {
             where: {
               deletedAt: null,
@@ -70,6 +72,7 @@ router.get('/departments/:deptId/files', authMiddleware, deptAccessMiddleware, a
               title: true,
               spacecraft: true,
               category: true,
+              customCategory: true,
               reportNumber: true,
               versionLabel: true,
             },
@@ -98,11 +101,12 @@ router.get('/departments/:deptId/files', authMiddleware, deptAccessMiddleware, a
           uploader: item.uploader?.name || 'System',
           spacecraft: item.report?.spacecraft ? (item.report.spacecraft.includes('General') ? 'General' : item.report.spacecraft) : null,
           title: item.report?.title || null,
-          category: item.report?.category || null,
+          category: categoryCodeOf(item.report),
           reportNumber: item.report?.reportNumber || null,
           createdAt: item.createdAt,
           updatedAt: item.updatedAt,
           isFeatured: Boolean(item.isFeatured),
+          tags: (item.tags ?? []).map((t: any) => t.tag.name),
         }
       }),
       accessLevel: req.deptAccessLevel || 'READ_ONLY',

@@ -211,7 +211,7 @@ export function ReportsTab() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-white truncate">{item.name}</span>
-                        <span className="rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-bold text-amber-300 uppercase">
+                        <span className="rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[10px] font-bold text-amber-300 uppercase">
                           Featured
                         </span>
                       </div>
@@ -345,7 +345,7 @@ export function ReportsTab() {
                       <div className="flex items-center gap-2">
                         <p className="text-xs font-semibold truncate text-white">{file.name}</p>
                         {file.isFeatured && (
-                          <span className="rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-bold text-amber-300 uppercase">
+                          <span className="rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[10px] font-bold text-amber-300 uppercase">
                             Featured
                           </span>
                         )}

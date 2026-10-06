@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { uid } from '../lib/browserCompat'
 
 export type ToastVariant = 'success' | 'info' | 'warning' | 'error'
 
@@ -30,7 +31,7 @@ export const useToastStore = create<ToastState>((set, get) => ({
 
   addToast: ({ message, title, variant = 'info', duration = 5000 }) => {
     const toast: Toast = {
-      id: crypto.randomUUID(),
+      id: uid(),
       message,
       title,
       variant,

@@ -43,7 +43,7 @@ export function GuestAccessPanel() {
                   <Layers size={18} strokeWidth={2} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary">
+                  <h3 className="text-sm font-semibold text-text-primary">
                     {accessData?.facilitiesTitle || 'Multi-Facility Ground Network'}
                   </h3>
                   <p className="num text-[11px] text-text-dim">Synchronized Station Telemetry</p>

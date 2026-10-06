@@ -21,6 +21,8 @@ import { eventsApi, type MissionEventItem } from "../api/events.api"
 import { useSatellites } from "../hooks/useSatellites"
 import { PageHeader } from "../components"
 import { MissionCalendar } from "../components/MissionCalendar"
+import { useToastStore } from "../store/toastStore"
+import { getErrorMessage } from "../api/client"
 
 const EVENT_TYPE_MAP: Record<string, { label: string; icon: any; color: string; badge: string; bullet: string }> = {
   MISSION_PASS: {
@@ -77,6 +79,7 @@ export function UserEvents() {
   const { data: satData } = useSatellites()
   const satellites = useMemo(() => satData || [], [satData])
 
+  const addToast = useToastStore((s) => s.addToast)
   const [events, setEvents] = useState<MissionEventItem[]>([])
   const [customCategories, setCustomCategories] = useState<Array<{ id: string; label: string }>>([])
   const [loading, setLoading] = useState(true)
@@ -87,24 +90,36 @@ export function UserEvents() {
   const [viewMode, setViewMode] = useState<"calendar" | "cards" | "both">("both")
 
   useEffect(() => {
-    async function loadData() {
+    let cancelled = false
+    async function loadData(initial: boolean) {
       try {
-        setLoading(true)
+        if (initial) setLoading(true)
         const [evData, cfgData] = await Promise.all([
           eventsApi.getEvents({ limit: 200 }),
           eventsApi.getEventConfig().catch(() => ({ locations: [], categories: [] })),
         ])
+        if (cancelled) return
         setEvents(evData || [])
         if (cfgData?.categories?.length) {
           setCustomCategories(cfgData.categories)
         }
       } catch (err) {
-        console.error("Failed to fetch events:", err)
+        if (initial) addToast({ title: "Could not load events", message: getErrorMessage(err), variant: "error" })
       } finally {
-        setLoading(false)
+        if (initial && !cancelled) setLoading(false)
       }
     }
-    loadData()
+    loadData(true)
+    // Statuses are time-based and admins can reschedule at any moment, so don't trust a
+    // snapshot from page load: refresh periodically and whenever the tab regains focus.
+    const timer = setInterval(() => loadData(false), 60_000)
+    const onFocus = () => loadData(false)
+    window.addEventListener("focus", onFocus)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+      window.removeEventListener("focus", onFocus)
+    }
   }, [])
 
   const { activeUpcomingEvents, pastEvents } = useMemo(() => {
@@ -113,18 +128,19 @@ export function UserEvents() {
     const past: MissionEventItem[] = []
 
     events.forEach((ev) => {
-      const evDate = new Date(ev.eventDate)
       const endDate = ev.endDate ? new Date(ev.endDate) : null
       const status = ev.status as string
 
+      // The API derives status from the schedule; the date check only covers the gap
+      // between a status change and the next refresh.
       const isTerminal =
         status === "COMPLETED" ||
         status === "CANCELLED" ||
         status === "TIMED_OUT"
 
-      const isDateExpired = endDate ? endDate < now : evDate < now
+      const isDateExpired = endDate ? endDate <= now : false
 
-      if (isTerminal || (status !== "IN_PROGRESS" && isDateExpired)) {
+      if (isTerminal || isDateExpired) {
         past.push(ev)
       } else {
         active.push(ev)
@@ -546,12 +562,12 @@ export function UserEvents() {
                             {meta.badge}
                           </span>
                           {isCritical && (
-                            <span className="rounded bg-red-500/15 border border-red-500/30 px-1.5 py-0.5 text-[9px] font-bold text-red-400 uppercase">
+                            <span className="rounded bg-red-500/15 border border-red-500/30 px-1.5 py-0.5 text-[10px] font-bold text-red-400 uppercase">
                               CRITICAL
                             </span>
                           )}
                           {isImportant && (
-                            <span className="rounded bg-yellow-500/15 border border-yellow-500/30 px-1.5 py-0.5 text-[9px] font-bold text-yellow-400 uppercase">
+                            <span className="rounded bg-yellow-500/15 border border-yellow-500/30 px-1.5 py-0.5 text-[10px] font-bold text-yellow-400 uppercase">
                               PRIORITY
                             </span>
                           )}

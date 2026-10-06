@@ -4,9 +4,18 @@ export interface NotificationItem {
   id: string
   type: string
   category: string
+  /** Canonical classification computed by the server; use this for filtering. */
+  kind?: 'broadcast' | 'event' | 'file' | 'account' | 'system'
+  /** Custom category chosen for a broadcast, if any. */
+  label?: string | null
   message: string
   readAt?: string | null
   createdAt: string
+}
+
+export interface BroadcastCategory {
+  id: string
+  label: string
 }
 
 export const notificationsApi = {
@@ -46,11 +55,31 @@ export const notificationsApi = {
   async sendBroadcast(payload: {
     message: string
     type?: string
-    category?: string
+    label?: string
     target?: string
     departmentIds?: string[]
   }): Promise<{ message: string }> {
     const res = await apiClient.post('/admin/notifications/broadcast', payload)
     return extractData<{ message: string }>(res)
+  },
+
+  async revokeBroadcast(id: string): Promise<{ message: string; recipientsAffected: number }> {
+    const res = await apiClient.delete(`/admin/notifications/broadcasts/${id}`)
+    return extractData<{ message: string; recipientsAffected: number }>(res)
+  },
+
+  async getBroadcastCategories(): Promise<BroadcastCategory[]> {
+    const res = await apiClient.get('/notifications/broadcast-categories')
+    return extractData<BroadcastCategory[]>(res) || []
+  },
+
+  async createBroadcastCategory(label: string): Promise<BroadcastCategory[]> {
+    const res = await apiClient.post('/admin/notifications/broadcast-categories', { label })
+    return extractData<BroadcastCategory[]>(res)
+  },
+
+  async deleteBroadcastCategory(id: string): Promise<BroadcastCategory[]> {
+    const res = await apiClient.delete(`/admin/notifications/broadcast-categories/${encodeURIComponent(id)}`)
+    return extractData<BroadcastCategory[]>(res)
   },
 }

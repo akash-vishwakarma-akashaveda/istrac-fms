@@ -533,7 +533,7 @@ export function UploadVersionModal({
                 <div className="lg:col-span-2 space-y-5">
                   {/* Section 1: Spacecraft & Category Allocation */}
                   <div className="rounded-xl border border-border-default bg-[#060c18] p-5 space-y-4 shadow-sm">
-                    <h3 className="text-xs font-bold text-accent-light uppercase tracking-wider flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
                       <Radio size={14} />
                       <span>1. Mission & Spacecraft Allocation</span>
                     </h3>
@@ -625,7 +625,7 @@ export function UploadVersionModal({
 
                   {/* Section 2: Report Metadata & Versioning */}
                   <div className="rounded-xl border border-border-default bg-[#060c18] p-5 space-y-4 shadow-sm">
-                    <h3 className="text-xs font-bold text-accent-light uppercase tracking-wider flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
                       <FileText size={14} />
                       <span>2. Report Metadata & Version Details</span>
                     </h3>
@@ -659,7 +659,7 @@ export function UploadVersionModal({
                               <button
                                 type="button"
                                 onClick={() => setVersion(suggestedMinor)}
-                                className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-accent/10 text-accent-light border border-accent/30 hover:bg-accent/20 transition-colors cursor-pointer"
+                                className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-accent/10 text-accent-light border border-accent/30 hover:bg-accent/20 transition-colors cursor-pointer"
                                 title="Minor version bump"
                               >
                                 {suggestedMinor}
@@ -667,7 +667,7 @@ export function UploadVersionModal({
                               <button
                                 type="button"
                                 onClick={() => setVersion(suggestedMajor)}
-                                className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-accent/10 text-accent-light border border-accent/30 hover:bg-accent/20 transition-colors cursor-pointer"
+                                className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-accent/10 text-accent-light border border-accent/30 hover:bg-accent/20 transition-colors cursor-pointer"
                                 title="Major version bump"
                               >
                                 {suggestedMajor}
@@ -720,7 +720,7 @@ export function UploadVersionModal({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Sparkles size={16} className="text-accent-light" />
-                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                        <h4 className="text-xs font-semibold text-white">
                           Naming Convention & Preset Engine
                         </h4>
                       </div>
@@ -834,7 +834,7 @@ export function UploadVersionModal({
                 <div className="space-y-5">
                   <div className="rounded-xl border border-border-default bg-[#060c18] p-5 space-y-4 shadow-sm flex flex-col justify-between h-full">
                     <div>
-                      <h3 className="text-xs font-bold text-accent-light uppercase tracking-wider flex items-center gap-2 mb-3">
+                      <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2 mb-3">
                         <FolderUp size={14} />
                         <span>3. Attach Document</span>
                       </h3>

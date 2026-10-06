@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { HelpTip } from '../components/HelpTip'
 import { useParams, Link } from 'react-router-dom'
 import {
   Satellite,
@@ -647,6 +648,7 @@ export function DepartmentDetail() {
             {isCarouselVisible && (
               <div className="lg:col-span-5">
                 <div
+                  data-theme="dark"
                   className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-border-default bg-[#070c17] shadow-2xl transition-all duration-300 hover:border-accent/40 group"
                   onMouseEnter={() => { isHoveredRef.current = true }}
                   onMouseLeave={() => { isHoveredRef.current = false }}
@@ -665,7 +667,7 @@ export function DepartmentDetail() {
 
                     <div className="flex items-center gap-1.5 text-[10px] font-mono text-accent-light">
                       {activeSlide?.spacecraft && (
-                        <span className="rounded bg-accent/20 border border-accent/40 px-1.5 py-0.5 text-accent-light text-[9px] font-semibold flex items-center gap-1">
+                        <span className="rounded bg-accent/20 border border-accent/40 px-1.5 py-0.5 text-accent-light text-[10px] font-semibold flex items-center gap-1">
                           <span>🛰️</span>
                           <span className="truncate max-w-[90px]">{activeSlide.spacecraft}</span>
                         </span>
@@ -891,7 +893,7 @@ export function DepartmentDetail() {
                         </div>
                       </div>
 
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-nominal/15 text-nominal border border-nominal/30 shrink-0">
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-nominal/15 text-nominal border border-nominal/30 shrink-0">
                         <CheckCircle2 size={10} />
                         <span>{sat.status || 'Active'}</span>
                       </span>
@@ -1142,8 +1144,11 @@ export function DepartmentDetail() {
                 placeholder={`Search within ${dept.code || 'department'} datasets, reports, checksums…`}
                 value={fileSearch}
                 onChange={(e) => setFileSearch(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-base sm:text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-11 py-2 text-base sm:text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
               />
+              <span className="absolute right-1 top-1/2 -translate-y-1/2">
+                <HelpTip topic="deptFiles" />
+              </span>
             </div>
 
             <div>
@@ -1267,7 +1272,7 @@ export function DepartmentDetail() {
                                 {dept.code || 'OPS'}
                               </span>
                               {file.isFeatured && (
-                                <span className="rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-bold text-amber-300 uppercase flex items-center gap-0.5">
+                                <span className="rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[10px] font-bold text-amber-300 uppercase flex items-center gap-0.5">
                                   <Star size={8} className="fill-amber-300" />
                                   <span>Featured</span>
                                 </span>
@@ -1304,7 +1309,7 @@ export function DepartmentDetail() {
                               <Star size={12} className={file.isFeatured ? 'fill-amber-400' : ''} />
                             </button>
                           )}
-                          <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase num border shrink-0 ${extConf.badge}`}>
+                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase num border shrink-0 ${extConf.badge}`}>
                             {extConf.label}
                           </span>
                         </div>
@@ -1321,14 +1326,14 @@ export function DepartmentDetail() {
                       {/* File Metadata Info */}
                       <div className="grid grid-cols-2 gap-2 text-[11px] num">
                         <div className="p-2 rounded bg-surface border border-border-subtle/50">
-                          <span className="text-[9px] text-text-dim block uppercase font-bold">Size</span>
+                          <span className="text-[10px] text-text-dim block uppercase font-bold">Size</span>
                           <span className="text-text-secondary font-semibold">
                             {formatFileSize(Number(file.sizeBytes) || 0)}
                           </span>
                         </div>
 
                         <div className="p-2 rounded bg-surface border border-border-subtle/50">
-                          <span className="text-[9px] text-text-dim block uppercase font-bold">Revisions</span>
+                          <span className="text-[10px] text-text-dim block uppercase font-bold">Revisions</span>
                           <button
                             type="button"
                             onClick={() => {
@@ -1485,7 +1490,7 @@ export function DepartmentDetail() {
                                     {file.name}
                                   </p>
                                   {file.isFeatured && (
-                                    <span className="shrink-0 rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-bold text-amber-300 uppercase flex items-center gap-0.5">
+                                    <span className="shrink-0 rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[10px] font-bold text-amber-300 uppercase flex items-center gap-0.5">
                                       <Star size={8} className="fill-amber-300" />
                                       <span>Featured</span>
                                     </span>

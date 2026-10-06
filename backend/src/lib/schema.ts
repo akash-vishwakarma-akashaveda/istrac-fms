@@ -16,11 +16,9 @@ export const  RegisterSchema = z.object({
 })
 
 export const LoginSchema = z.object({
-  email: z.email().toLowerCase().trim().regex(emailRegex),
-  password: z.string().min(10).max(128)
-    .regex(/[A-Z]/, 'Must contain uppercase')
-    .regex(/[0-9]/, 'Must contain a number')
-    .regex(/[^A-Za-z0-9]/, 'Must contain special character')
+  email: z.email('Enter a valid email address').toLowerCase().trim(),
+  // Login only checks presence; complexity rules apply when a password is set, not when it is typed.
+  password: z.string().min(1, 'Password is required').max(128),
 })
 
 

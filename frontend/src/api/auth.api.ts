@@ -87,8 +87,15 @@ export const authApi = {
     return extractData<UserProfile>(res)
   },
 
-  async logout(): Promise<{ message: string }> {
-    const res = await apiClient.post('/auth/logout')
+  /**
+   * Revokes the session on the server. Callers clear the local session *first* (so in-flight
+   * requests can't trigger a refresh -> /login redirect), so tokens are passed explicitly.
+   */
+  async logout(tokens: { accessToken: string | null; refreshToken: string | null }): Promise<{ message: string }> {
+    const headers: Record<string, string> = {}
+    if (tokens.accessToken) headers.Authorization = `Bearer ${tokens.accessToken}`
+    if (tokens.refreshToken) headers['x-refresh-token'] = tokens.refreshToken
+    const res = await apiClient.post('/auth/logout', { refreshToken: tokens.refreshToken }, { headers })
     return extractData<{ message: string }>(res)
   },
 

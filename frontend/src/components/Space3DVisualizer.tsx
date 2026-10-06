@@ -317,7 +317,7 @@ export function Space3DVisualizer() {
             <SatelliteIcon size={16} strokeWidth={2} />
           </div>
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-text-primary">
+            <h3 className="text-sm font-semibold text-text-primary">
               Global Ground Station Network
             </h3>
             <p className="num text-[10px] text-text-dim">Telemetry Orbit & Station Tracker</p>
@@ -378,9 +378,9 @@ export function Space3DVisualizer() {
               }`}
             >
               <span className="num text-[10px] font-bold text-text-primary">{st.code}</span>
-              <span className="truncate text-[9px] text-text-dim">{st.name.split(' ')[0]}</span>
+              <span className="truncate text-[10px] text-text-dim">{st.name.split(' ')[0]}</span>
               <span
-                className={`num mt-1 text-[8px] font-semibold uppercase ${
+                className={`num mt-1 text-[10px] font-semibold uppercase ${
                   st.status === 'TRACKING'
                     ? 'text-nominal'
                     : st.status === 'ACQUISITION'
@@ -397,28 +397,28 @@ export function Space3DVisualizer() {
 
       <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-border-subtle bg-surface/60 p-3 sm:grid-cols-4">
         <div>
-          <span className="eyebrow block text-[9px] text-text-dim">Station Coordinates</span>
+          <span className="eyebrow block text-[10px] text-text-dim">Station Coordinates</span>
           <span className="num mt-0.5 block text-xs text-text-primary">
             {selectedStation.lat.toFixed(2)}°N {selectedStation.lon.toFixed(2)}°E
           </span>
         </div>
 
         <div>
-          <span className="eyebrow block text-[9px] text-text-dim">Antenna Angles</span>
+          <span className="eyebrow block text-[10px] text-text-dim">Antenna Angles</span>
           <span className="num mt-0.5 block text-xs text-text-primary">
             AZ: {selectedStation.azimuth}° · EL: {selectedStation.elevation}°
           </span>
         </div>
 
         <div>
-          <span className="eyebrow block text-[9px] text-text-dim">RF Carrier</span>
+          <span className="eyebrow block text-[10px] text-text-dim">RF Carrier</span>
           <span className="num mt-0.5 block text-xs text-text-secondary">
             {selectedStation.frequency}
           </span>
         </div>
 
         <div>
-          <span className="eyebrow block text-[9px] text-text-dim">Data Ingestion</span>
+          <span className="eyebrow block text-[10px] text-text-dim">Data Ingestion</span>
           <span className="num mt-0.5 flex items-center gap-1 text-xs text-nominal">
             <ShieldCheck size={12} /> Military RBAC
           </span>

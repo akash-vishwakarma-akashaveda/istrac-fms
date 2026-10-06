@@ -17,7 +17,7 @@ This manual provides diagnostic steps, root causes, and verified copy-paste comm
 | **ISS-07** | Database Data or Sessions Reset After Re-running Installer | Critical | Idempotent Seed & Env Protection |
 | **ISS-08** | Apache Reverse Proxy 404 on API Calls (`/api` Trailing Slash) | High | Apache `httpd.conf` |
 | **ISS-09** | File Upload Fails with `503 Storage Unavailable` | High | Storage Mount & Disk Permissions |
-| **ISS-10** | SELinux Blocks Apache from Proxying to Node.js Backend | High | RHEL SELinux Booleans |
+| **ISS-10** | Apache2 Missing Modules (Ubuntu) / IIS Conflict (Windows) | High | Apache2 / IIS Port 80 |
 | **ISS-11** | Port Conflicts: Port 80, 3000, or 3306 Already Bound | Medium | System Ports / Zombie Services |
 | **ISS-12** | Browser Displays Blank White Screen After Deployment | Medium | Browser Cache Invalidation |
 
@@ -37,7 +37,7 @@ This manual provides diagnostic steps, root causes, and verified copy-paste comm
      ```
   2. Copy the freshly built files into production:
      ```bash
-     sudo cp -rf /media/sf_Rhel_Shared_Folder/istrac-fms-offline-bundle-20260915/frontend/dist/* /opt/istrac-fms/frontend/dist/
+     sudo cp -rf /path/to/shared/frontend/dist/* /opt/istrac-fms/frontend/dist/
      sudo chmod -R 755 /opt/istrac-fms/frontend/dist
      ```
   3. Force-refresh the browser with **`Ctrl + Shift + R`**.
@@ -68,7 +68,7 @@ This manual provides diagnostic steps, root causes, and verified copy-paste comm
 - **Root Cause:** VirtualBox default network adapter uses NAT with private subnet `10.0.2.0/24`, which is not routable directly from the Windows host OS.
 - **Resolution:**
   Set up Port Forwarding in VirtualBox:
-  1. Open **VirtualBox Manager** -> Click your RHEL VM -> **Settings**.
+  1. Open **VirtualBox Manager** -> Click your Ubuntu/Linux VM -> **Settings**.
   2. Navigate to **Network** -> **Adapter 1** -> Click **Advanced** -> Click **Port Forwarding**.
   3. Add Rule:
      - Name: `HTTP_Portal`
@@ -86,7 +86,7 @@ This manual provides diagnostic steps, root causes, and verified copy-paste comm
 ### ISS-04: `cat .env: No such file or directory`
 - **Symptom:** Running `cat .env` returns `cat: .env: No such file or directory`.
 - **Root Cause:**
-  1. User ran the command inside `/media/sf_Rhel_Shared_Folder/...` (the installation media), but the live production file is installed at `/opt/istrac-fms/backend/.env`.
+  1. User ran the command inside the installation/shared folder rather than the active production directory (`/opt/istrac-fms/backend/.env`).
   2. Linux files starting with a dot (`.`) are hidden from standard `ls`.
   3. `.env` has restricted permissions (`chmod 600`) owned by `istrac:istrac`.
 - **Resolution:**
@@ -101,9 +101,9 @@ This manual provides diagnostic steps, root causes, and verified copy-paste comm
 - **Symptom:** `curl http://localhost/api/health` returns `{"status":"degraded","db":"ok","redis":"error","hdd":"ok"}`.
 - **Root Cause:** Redis service is either stopped or not installed on the system.
 - **Resolution:**
-  1. If Redis / Valkey is installed, start and enable it:
+  1. If Redis is installed, start and enable it:
      ```bash
-     sudo systemctl enable --now redis || sudo systemctl enable --now valkey
+     sudo systemctl enable --now redis-server
      ```
   2. **Note on In-Memory Fallback:** If Redis is not installed, **the system will continue to operate normally**. Both the backend API and background workers are architected to automatically fall back to native in-memory caching and scheduling.
 
@@ -122,7 +122,7 @@ This manual provides diagnostic steps, root causes, and verified copy-paste comm
 ---
 
 ### ISS-07: Preserving Data When Re-running Setup Script
-- **Symptom:** Running `./setup-rhel-offline.sh` a second time resets user passwords or purges tables.
+- **Symptom:** Running the setup script a second time resets user passwords or purges tables.
 - **Root Cause:** Development seed scripts frequently use `deleteMany()` to establish a clean slate.
 - **Resolution:**
   The production installer and `prisma/seed.ts` have been made **fully idempotent**:
@@ -165,14 +165,23 @@ This manual provides diagnostic steps, root causes, and verified copy-paste comm
 
 ---
 
-### ISS-10: SELinux Blocking Apache Proxy Connections
-- **Symptom:** Apache returns `503 Service Unavailable` with `/var/log/httpd/error_log` stating `Permission denied: AH00957: HTTP: attempt to connect to 127.0.0.1:3000 failed`.
-- **Root Cause:** RHEL SELinux enforces `httpd_can_network_connect = off` by default.
+### ISS-10: Apache2 Missing Modules (Ubuntu) / IIS Conflict (Windows)
+- **Symptom:** Apache returns `503 Service Unavailable` or fails to start with syntax errors regarding `ProxyPass` or `Upgrade`. On Windows, port 80 fails to bind.
+- **Root Cause:**
+  - On Ubuntu, required Apache modules (`proxy`, `proxy_http`, `proxy_wstunnel`, `rewrite`, `headers`) are not enabled.
+  - On Windows, IIS / World Wide Web Publishing Service (`w3svc`) is holding port 80.
 - **Resolution:**
-  ```bash
-  # Enable Apache network proxying in SELinux permanently
-  sudo setsebool -P httpd_can_network_connect 1
-  ```
+  - **On Ubuntu Linux:**
+    ```bash
+    sudo a2enmod proxy proxy_http proxy_wstunnel rewrite headers
+    sudo systemctl restart apache2
+    ```
+  - **On Microsoft Windows (PowerShell as Admin):**
+    ```powershell
+    Stop-Service W3SVC -ErrorAction SilentlyContinue
+    Set-Service W3SVC -StartupType Disabled -ErrorAction SilentlyContinue
+    Restart-Service Apache2.4
+    ```
 
 ---
 
@@ -189,7 +198,7 @@ This manual provides diagnostic steps, root causes, and verified copy-paste comm
   sudo systemctl disable nginx 2>/dev/null || true
 
   # Restart required services
-  sudo /opt/istrac-fms/manage-services-rhel.sh restart
+  sudo /opt/istrac-fms/manage-services-ubuntu.sh restart
   ```
 
 ---

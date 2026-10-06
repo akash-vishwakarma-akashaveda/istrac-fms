@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
+import { HelpTip } from '../components/HelpTip'
 import { Link } from 'react-router-dom'
 import { Satellite, ArrowRight, HardDrive, Maximize2 } from 'lucide-react'
 import { departmentsApi, type Department } from '../api/departments.api'
-import { Navbar, Footer, Input, ImageLightboxModal } from '../components'
+import { Navbar, Footer, Input, ImageLightboxModal, Table } from '../components'
+import { ViewToggle, useViewMode } from '../components/ViewToggle'
 import { ImageWithFallback } from '../components/ImageWithFallback'
 
 function getDeptBanner(dept: Department): string {
@@ -29,6 +31,7 @@ export function DepartmentsList() {
   const [query, setQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [previewDept, setPreviewDept] = useState<Department | null>(null)
+  const [viewMode, setViewMode] = useViewMode('departments-list')
 
   useEffect(() => {
     departmentsApi
@@ -67,13 +70,19 @@ export function DepartmentsList() {
             </p>
 
             {/* Search Filter */}
-            <div className="mt-8 max-w-md">
-              <Input
-                id="dept-search"
-                placeholder="Search division name, code (e.g. FDD, TTC)..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
+            <div className="mt-8 flex flex-col sm:flex-row sm:items-end gap-3">
+              <div className="w-full max-w-md">
+                <Input
+                  id="dept-search"
+                  placeholder="Search division name, code (e.g. FDD, TTC)..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <ViewToggle mode={viewMode} onChange={setViewMode} />
+                <HelpTip topic="departments" />
+              </div>
             </div>
           </div>
         </section>
@@ -84,6 +93,36 @@ export function DepartmentsList() {
             <div className="py-20 text-center text-text-dim">
               <Satellite size={32} className="mx-auto text-accent-light animate-spin-slow mb-4" />
               <p className="num text-sm text-text-secondary">Loading operational divisions...</p>
+            </div>
+          ) : viewMode === 'table' ? (
+            <div className="rounded-xl border border-border-default bg-card overflow-hidden">
+              <Table
+                data={filtered}
+                emptyMessage={query ? `No departments match "${query}".` : 'No departments yet.'}
+                columns={[
+                  { key: 'code', header: 'Code', render: (d) => <span className="num font-bold text-accent-light">{d.code || '—'}</span> },
+                  {
+                    key: 'name',
+                    header: 'Division',
+                    render: (d) => (
+                      <Link to={`/departments/${d.id}`} className="font-semibold text-text-primary hover:text-accent-light hover:underline">
+                        {d.pageTitle || d.name}
+                      </Link>
+                    ),
+                  },
+                  { key: 'description', header: 'About', wrap: true, render: (d) => <span className="text-xs text-text-secondary line-clamp-2">{d.pageAbout || d.description || '—'}</span> },
+                  { key: 'fileCount', header: 'Datasets', numeric: true, render: (d) => d.fileCount ?? 0 },
+                  {
+                    key: 'open',
+                    header: '',
+                    render: (d) => (
+                      <Link to={`/departments/${d.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-accent-light hover:underline">
+                        View <ArrowRight size={12} />
+                      </Link>
+                    ),
+                  },
+                ]}
+              />
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

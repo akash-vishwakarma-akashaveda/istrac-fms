@@ -288,7 +288,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                   <HardDrive size={18} />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  <h3 className="text-sm font-semibold text-white">
                     Step 1: Host Drives Scanner & Redundant Failover
                   </h3>
                   <p className="text-xs text-text-secondary">
@@ -337,7 +337,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                             <span className="text-[10px] text-text-dim">({d.label})</span>
                           </div>
                           <span
-                            className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
+                            className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
                               d.status === 'HEALTHY'
                                 ? 'bg-nominal/15 text-nominal'
                                 : d.status === 'WARNING'
@@ -460,7 +460,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                   <Building2 size={18} />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  <h3 className="text-sm font-semibold text-white">
                     Step 2: Ground Station & Facility Identity
                   </h3>
                   <p className="text-xs text-text-secondary">
@@ -503,7 +503,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                   <Radio size={18} />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  <h3 className="text-sm font-semibold text-white">
                     Step 3: Spacecraft Fleet & Operational Divisions
                   </h3>
                   <p className="text-xs text-text-secondary">
@@ -521,7 +521,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                     <AlertTriangle size={20} />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                    <h4 className="text-xs font-semibold text-white">
                       No Spacecraft or Operational Divisions Found
                     </h4>
                     <p className="text-xs text-text-secondary">
@@ -592,7 +592,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                   <FileCode size={18} />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  <h3 className="text-sm font-semibold text-white">
                     Step 4: Standard Naming Convention & Security Caps
                   </h3>
                   <p className="text-xs text-text-secondary">
@@ -654,7 +654,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                   <CheckCircle2 size={20} />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  <h3 className="text-sm font-semibold text-white">
                     Step 5: System Readiness & Pre-Flight Checklist
                   </h3>
                   <p className="text-xs text-text-secondary">

@@ -5,6 +5,8 @@ import { adminMiddleware } from '../middleware/admin.middleware.js'
 import { auditService } from '../services/audit.service.js'
 import { notificationService } from '../services/notification.service.js'
 import { AppError } from '../lib/errors.js'
+import { deriveEventStatus, withLiveStatus } from '../lib/eventStatus.js'
+import { broadcastLabel, notificationKind } from '../lib/notificationKind.js'
 
 const router = Router()
 
@@ -17,7 +19,6 @@ router.get('/events', optionalAuthMiddleware, async (req, res, next) => {
 
     const where: any = {
       deletedAt: null,
-      ...(status && { status: String(status) }),
       ...(type && { eventType: String(type) }),
       ...(departmentId && { departmentId: String(departmentId) }),
       ...(satelliteId && { satelliteId: String(satelliteId) }),
@@ -25,15 +26,20 @@ router.get('/events', optionalAuthMiddleware, async (req, res, next) => {
 
     const take = limit ? Math.min(500, Math.max(1, Number(limit))) : 200
 
-    const events = await prisma.missionEvent.findMany({
-      where,
-      take,
-      orderBy: { eventDate: 'asc' },
-      include: {
-        satellite: { select: { id: true, name: true, code: true } },
-        department: { select: { id: true, name: true, code: true } },
-      },
-    })
+    const now = new Date()
+    const events = (
+      await prisma.missionEvent.findMany({
+        where,
+        orderBy: { eventDate: 'asc' },
+        include: {
+          satellite: { select: { id: true, name: true, code: true } },
+          department: { select: { id: true, name: true, code: true } },
+        },
+      })
+    )
+      .map((e: any) => withLiveStatus(e, now))
+      .filter((e: any) => !status || e.status === String(status))
+      .slice(0, take)
 
     res.json({
       data: events,
@@ -139,10 +145,13 @@ router.get('/events/active-banner', optionalAuthMiddleware, async (req, res, nex
 
     res.json({
       data: {
-        events: activeEvents,
+        events: activeEvents.map((e: any) => withLiveStatus(e)),
         broadcasts: allowedBroadcasts.slice(0, 6).map((b) => ({
           id: b.id.toString(),
           message: b.message,
+          type: b.type,
+          kind: notificationKind(b),
+          label: broadcastLabel(b),
           createdAt: b.createdAt,
           metadata: b.metadata,
         })),
@@ -188,7 +197,7 @@ router.post('/events', authMiddleware, adminMiddleware, async (req, res, next) =
         endDate: endDate ? new Date(endDate) : null,
         location: location?.trim() || 'ISTRAC MOX BLR',
         urgency: urgency || 'NORMAL',
-        status: status || 'UPCOMING',
+        status: deriveEventStatus({ status, eventDate, endDate }),
         showOnBanner: showOnBanner ?? true,
         createdById: req.user!.id,
       },
@@ -255,6 +264,18 @@ router.put('/events/:id', authMiddleware, adminMiddleware, async (req, res, next
       showOnBanner,
     } = req.body
 
+    if (endDate && new Date(endDate) <= new Date(eventDate ?? existing.eventDate)) {
+      throw new AppError('invalid_schedule', 'The end time must be after the start time.', 400)
+    }
+
+    // Manual states (CANCELLED/COMPLETED) stick unless the admin picks another status;
+    // otherwise the status follows the (possibly edited) schedule.
+    const nextStatus = deriveEventStatus({
+      status: status !== undefined ? status : existing.status,
+      eventDate: eventDate !== undefined ? eventDate : existing.eventDate,
+      endDate: endDate !== undefined ? endDate || null : existing.endDate,
+    })
+
     const updated = await prisma.missionEvent.update({
       where: { id },
       data: {
@@ -267,7 +288,7 @@ router.put('/events/:id', authMiddleware, adminMiddleware, async (req, res, next
         ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
         ...(location !== undefined && { location: location?.trim() || null }),
         ...(urgency !== undefined && { urgency }),
-        ...(status !== undefined && { status }),
+        status: nextStatus,
         ...(showOnBanner !== undefined && { showOnBanner }),
       },
       include: {
@@ -497,7 +518,7 @@ router.get('/events/:id', optionalAuthMiddleware, async (req, res, next) => {
     }
 
     res.json({
-      data: event,
+      data: withLiveStatus(event),
       requestId: req.requestId,
     })
   } catch (err) {

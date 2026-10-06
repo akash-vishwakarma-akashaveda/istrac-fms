@@ -219,7 +219,7 @@ export function ContactTab() {
                 <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-surface border border-border-subtle">
                   <Mail size={16} className="text-accent-light shrink-0" />
                   <div className="truncate">
-                    <span className="text-[9px] uppercase font-bold text-text-dim block">Campus SMTP Desk</span>
+                    <span className="text-[10px] uppercase font-bold text-text-dim block">Campus SMTP Desk</span>
                     <span className="text-xs font-semibold text-white truncate block num">{email}</span>
                   </div>
                 </div>
@@ -227,7 +227,7 @@ export function ContactTab() {
                 <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-surface border border-border-subtle">
                   <Phone size={16} className="text-nominal shrink-0" />
                   <div className="truncate">
-                    <span className="text-[9px] uppercase font-bold text-text-dim block">Operations EPABX</span>
+                    <span className="text-[10px] uppercase font-bold text-text-dim block">Operations EPABX</span>
                     <span className="text-xs font-semibold text-white truncate block num">{phone}</span>
                   </div>
                 </div>

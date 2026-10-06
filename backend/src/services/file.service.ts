@@ -6,6 +6,7 @@ import { hddService } from './hdd.service.js'
 import { auditService } from './audit.service.js'
 import { notificationService } from './notification.service.js'
 import { AppError } from '../lib/errors.js'
+import { categoryEnumFor, normalizeCategoryCode } from '../lib/reportCategory.js'
 import { createReadStream, createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
 import { isUnsafeSvgContent, sanitizeSafeFilename } from '../lib/security.js'
@@ -326,24 +327,8 @@ if (ext === 'svg') {
         })
         fileId = existingFile.id
       } else {
-        // Map category string to valid ReportCategory enum or OTHER + customCategory
-        let catEnum: any = 'DAILY_REPORT'
-        if (params.category) {
-          const upper = String(params.category).toUpperCase().replace(/\s+/g, '_')
-          if (['SPECIAL_OPERATIONS', 'ANOMALY', 'STUDY', 'DAILY_REPORT', 'OTHER'].includes(upper)) {
-            catEnum = upper
-          } else if (upper.includes('DAILY') || upper.includes('OPS')) {
-            catEnum = 'DAILY_REPORT'
-          } else if (upper.includes('SPECIAL')) {
-            catEnum = 'SPECIAL_OPERATIONS'
-          } else if (upper.includes('ANOMALY')) {
-            catEnum = 'ANOMALY'
-          } else if (upper.includes('STUDY')) {
-            catEnum = 'STUDY'
-          } else {
-            catEnum = 'OTHER'
-          }
-        }
+        // Category code is the source of truth; the legacy enum is kept for old consumers.
+        const catEnum = params.category ? categoryEnumFor(params.category) : 'DAILY_REPORT'
 
         // Create report record if report metadata provided
         const created = await prisma.$transaction(async (tx: any) => {
@@ -356,7 +341,7 @@ if (ext === 'svg') {
                 title: params.title || sanitizedFilename,
                 description: params.description || null,
                 category: catEnum,
-                customCategory: params.category || null,
+                customCategory: params.category ? normalizeCategoryCode(params.category) : null,
                 status: 'ACTIVE',
                 spacecraft: params.spacecraft || null,
                 classificationLevel: params.classificationLevel || null,
@@ -414,6 +399,12 @@ if (ext === 'svg') {
         action: existingFile ? 'FILE:NEW_VERSION' : 'FILE:UPLOAD',
         resourceType: 'file',
         resourceId: fileId,
+        newValue: {
+          fileName: sanitizedFilename,
+          department: dept.code || dept.name,
+          sizeBytes: Number(sizeBytes),
+          category: params.category || null,
+        },
       })
 
       notificationService.sendBroadcast({
@@ -460,6 +451,7 @@ if (ext === 'svg') {
       action: 'FILE:DELETE',
       resourceType: 'file',
       resourceId: fileId,
+      oldValue: { fileName: file.name },
     })
   },
 
@@ -481,6 +473,7 @@ if (ext === 'svg') {
       action: 'FILE:RESTORE',
       resourceType: 'file',
       resourceId: fileId,
+      newValue: { fileName: file.name },
     })
   },
 

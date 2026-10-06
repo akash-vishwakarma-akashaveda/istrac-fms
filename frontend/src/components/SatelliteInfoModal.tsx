@@ -208,7 +208,7 @@ export function SatelliteInfoModal({
 
           {/* Telemetry Flight Readouts Grid */}
           <div>
-            <h4 className="text-[11px] uppercase font-bold tracking-widest text-text-dim mb-2.5">
+            <h4 className="text-[11px] font-semibold text-text-dim mb-2.5">
               Orbital Parameters & Physical Specifications
             </h4>
 
@@ -268,7 +268,7 @@ export function SatelliteInfoModal({
           {/* Payloads & Instrumentation */}
           <div>
             <div className="flex items-center justify-between mb-2.5">
-              <h4 className="text-[11px] uppercase font-bold tracking-widest text-text-dim flex items-center gap-1.5">
+              <h4 className="text-[11px] font-semibold text-text-dim flex items-center gap-1.5">
                 <Sparkles size={12} className="text-accent-light" />
                 <span>Payloads & Scientific Instrumentation</span>
               </h4>
@@ -299,7 +299,7 @@ export function SatelliteInfoModal({
           {/* Assigned Ground Operations Divisions */}
           <div>
             <div className="flex items-center justify-between mb-2.5">
-              <h4 className="text-[11px] uppercase font-bold tracking-widest text-text-dim flex items-center gap-1.5">
+              <h4 className="text-[11px] font-semibold text-text-dim flex items-center gap-1.5">
                 <Layers size={12} className="text-accent-light" />
                 <span>Assigned Ground Operations Divisions</span>
               </h4>
@@ -348,7 +348,7 @@ export function SatelliteInfoModal({
           {/* Recent Mission Events Strip if available */}
           {satellite.recentEvents && satellite.recentEvents.length > 0 && (
             <div>
-              <h4 className="text-[11px] uppercase font-bold tracking-widest text-text-dim mb-2.5 flex items-center gap-1.5">
+              <h4 className="text-[11px] font-semibold text-text-dim mb-2.5 flex items-center gap-1.5">
                 <Clock size={12} className="text-accent-light" />
                 <span>Associated Mission Passes & Events</span>
               </h4>

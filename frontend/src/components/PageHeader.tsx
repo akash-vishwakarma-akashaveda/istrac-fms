@@ -27,17 +27,14 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <header
-      className={`flex flex-col gap-4 border-b border-border-subtle pb-5 sm:flex-row sm:items-end sm:justify-between ${className}`}
+      className={`flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between ${className}`}
     >
       <div className="min-w-0">
         {eyebrow && (
-          <p className="eyebrow flex items-center gap-2 text-accent-light">
-            <span aria-hidden="true" className="h-2 w-px bg-accent-light" />
-            {eyebrow}
-          </p>
+          <p className="eyebrow text-text-dim">{eyebrow}</p>
         )}
 
-        <h1 className="display mt-2.5 text-2xl text-text-primary sm:text-[28px]">
+        <h1 className="display mt-1.5 text-2xl text-text-primary sm:text-[28px]">
           {title}
         </h1>
 

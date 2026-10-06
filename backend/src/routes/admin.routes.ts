@@ -3,6 +3,7 @@ import { prisma } from '../config/db.js'
 import { authMiddleware } from '../middleware/auth.middleware.js'
 import { adminMiddleware } from '../middleware/admin.middleware.js'
 import { auditService } from '../services/audit.service.js'
+import { presentAuditLogs } from '../lib/auditPresenter.js'
 import { hddService } from '../services/hdd.service.js'
 import { driveDetectorService } from '../services/driveDetector.service.js'
 import { bootstrapService } from '../services/bootstrap.service.js'
@@ -78,14 +79,7 @@ router.get('/admin/stats', authMiddleware, adminMiddleware, async (req, res, nex
           report: f.report,
           updatedAt: f.updatedAt,
         })),
-        recentLogs: recentLogs.map((l: any) => ({
-          id: Number(l.id),
-          userName: l.user?.name || 'System Authority',
-          action: l.action,
-          resourceType: l.resourceType,
-          resourceId: l.resourceId,
-          createdAt: l.createdAt,
-        })),
+        recentLogs: await presentAuditLogs(recentLogs),
       },
       requestId: req.requestId,
     })
@@ -128,7 +122,7 @@ router.get('/admin/audit-logs', authMiddleware, adminMiddleware, async (req, res
       }),
       orderBy: { id: 'desc' },
       include: {
-        user: { select: { name: true } },
+        user: { select: { name: true, email: true, role: true } },
       },
     })
 
@@ -139,18 +133,7 @@ router.get('/admin/audit-logs', authMiddleware, adminMiddleware, async (req, res
     }
 
     res.json({
-      data: logs.map((l: any) => ({
-        id: Number(l.id),
-        userId: l.userId,
-        userName: l.user?.name || 'System',
-        action: l.action,
-        resourceType: l.resourceType,
-        resourceId: l.resourceId,
-        oldValue: l.oldValue ? (typeof l.oldValue === 'string' ? JSON.parse(l.oldValue as string) : l.oldValue) : null,
-        newValue: l.newValue ? (typeof l.newValue === 'string' ? JSON.parse(l.newValue as string) : l.newValue) : null,
-        ipAddress: l.ipAddress,
-        createdAt: l.createdAt.toISOString(),
-      })),
+      data: await presentAuditLogs(logs),
       nextCursor,
       requestId: req.requestId,
     })

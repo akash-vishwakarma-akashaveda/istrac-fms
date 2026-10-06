@@ -208,7 +208,7 @@ export function SpaceBackgroundTab() {
                       alt={preset.name}
                       className="w-full h-14 object-cover rounded"
                     />
-                    <span className="block text-[9px] font-semibold text-text-primary mt-1 line-clamp-1">
+                    <span className="block text-[10px] font-semibold text-text-primary mt-1 line-clamp-1">
                       {preset.name}
                     </span>
                   </button>

@@ -221,6 +221,7 @@ export function MissionCalendar({
   const showQuickStats = calConfig?.showQuickStats !== false
 
   const [serverEvents, setServerEvents] = useState<MissionEvent[]>([])
+  const liveEventCount = serverEvents.filter((e) => e.status === 'UPCOMING' || e.status === 'IN_PROGRESS').length
   const [allCategories, setAllCategories] = useState<Array<{ id: string; label: string }>>([])
 
   // Fetch real events and event categories directly from backend API
@@ -478,10 +479,10 @@ export function MissionCalendar({
             <span>Today</span>
           </button>
 
-          {showQuickStats && serverEvents.length > 0 && (
+          {showQuickStats && liveEventCount > 0 && (
             <span className="num hidden sm:inline-flex items-center gap-1 rounded-full bg-accent/15 border border-accent/30 px-2.5 py-1 text-[11px] font-bold text-accent-light">
               <Activity size={12} />
-              {serverEvents.length} Active Events
+              {liveEventCount} Live & Upcoming
             </span>
           )}
 
@@ -536,7 +537,7 @@ export function MissionCalendar({
             />
           </div>
           <div className="lg:col-span-5 space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-text-dim px-1 flex items-center justify-between">
+            <h4 className="text-xs font-semibold text-text-dim px-1 flex items-center justify-between">
               <span>Upcoming Agenda Feed</span>
               <span className="num text-[10px] text-accent-light">{upcomingEvents.length} events</span>
             </h4>
@@ -560,17 +561,17 @@ export function MissionCalendar({
                           {ev.meta?.label || ev.categoryLabel || ev.category}
                         </span>
                         {ev.satelliteName && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
                             🛰️ {ev.satelliteName}
                           </span>
                         )}
                         {ev.urgency === "CRITICAL" && (
-                          <span className="text-[9px] font-bold uppercase px-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                          <span className="text-[10px] font-bold uppercase px-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
                             CRITICAL
                           </span>
                         )}
                         {ev.status === "CANCELLED" && (
-                          <span className="text-[9px] font-bold uppercase px-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                          <span className="text-[10px] font-bold uppercase px-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
                             CANCELLED
                           </span>
                         )}
@@ -617,17 +618,17 @@ export function MissionCalendar({
                           {ev.meta?.label || ev.categoryLabel || ev.category}
                         </span>
                         {ev.satelliteName && (
-                          <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                          <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
                             🛰️ {ev.satelliteName}
                           </span>
                         )}
                         {ev.urgency === "CRITICAL" && (
-                          <span className="text-[9px] font-bold uppercase px-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                          <span className="text-[10px] font-bold uppercase px-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
                             CRITICAL
                           </span>
                         )}
                         {ev.status === "CANCELLED" && (
-                          <span className="text-[9px] font-bold uppercase px-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                          <span className="text-[10px] font-bold uppercase px-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
                             CANCELLED
                           </span>
                         )}
@@ -840,7 +841,7 @@ function MonthBlock({
 
                 {/* Multiple Event Count Badge on Date (e.g. +3) */}
                 {cd.isCurrentMonth && dayEvents.length > 1 && (
-                  <span className="absolute -top-1 -right-2 h-4 min-w-4 px-1 rounded-full bg-accent text-white text-[9px] font-extrabold flex items-center justify-center border border-[#0d1629] shadow-sm">
+                  <span className="absolute -top-1 -right-2 h-4 min-w-4 px-1 rounded-full bg-accent text-white text-[10px] font-extrabold flex items-center justify-center border border-[#0d1629] shadow-sm">
                     {dayEvents.length}
                   </span>
                 )}
@@ -874,11 +875,11 @@ function MonthBlock({
                         <p className={`font-bold text-[11px] truncate ${ev.status === "CANCELLED" ? "text-text-muted line-through" : "text-white"}`}>
                           {ev.title}
                         </p>
-                        <p className="num text-[9px] text-text-dim">{ev.time} · {ev.meta?.label || ev.categoryLabel || ev.station || ev.department}</p>
+                        <p className="num text-[10px] text-text-dim">{ev.time} · {ev.meta?.label || ev.categoryLabel || ev.station || ev.department}</p>
                       </div>
                     ))}
                   </div>
-                  <div className="mt-2 text-[9px] text-center text-text-dim border-t border-border-subtle pt-1">
+                  <div className="mt-2 text-[10px] text-center text-text-dim border-t border-border-subtle pt-1">
                     Click date to view all {dayEvents.length} events
                   </div>
                 </div>
@@ -966,19 +967,19 @@ function MultiEventModal({
                     )}
 
                     {ev.urgency === "CRITICAL" && (
-                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse">
+                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse">
                         CRITICAL
                       </span>
                     )}
 
                     {ev.urgency === "IMPORTANT" && (
-                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30">
                         PRIORITY
                       </span>
                     )}
 
                     {ev.status === "CANCELLED" && (
-                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase bg-red-500/20 text-red-400 border border-red-500/30">
+                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase bg-red-500/20 text-red-400 border border-red-500/30">
                         CANCELLED
                       </span>
                     )}

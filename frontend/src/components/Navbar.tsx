@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react"
+import { ThemeToggle } from './ThemeToggle'
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import {
   Menu,
@@ -53,24 +54,26 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
   const navigate = useNavigate()
   const location = useLocation()
   const user = useAuthStore((s) => s.user)
-  const clearAuth = useAuthStore((s) => s.clearAuth)
   const { addToast } = useToastStore()
   const { openLogin, openRegister } = useAuthModalStore()
   const { cmsBlocks } = useCms()
 
   async function handleLogout() {
+    // Clear the local session before revoking it on the server; otherwise background
+    // requests hit 401, fail to refresh, and bounce the user to the login popup.
+    const { accessToken, refreshToken } = useAuthStore.getState()
+    navigate("/", { replace: true })
+    useAuthStore.getState().signOut()
+    wsClient.disconnect()
+    addToast({ message: "You have been signed out.", variant: "success" })
     try {
-      await authApi.logout()
-      addToast({ message: "Signed out successfully", variant: "success" })
+      await authApi.logout({ accessToken, refreshToken })
     } catch (error) {
+      // Already signed out locally; the server token expires on its own.
       console.error("Logout API error:", error)
-      addToast({ message: "Session signed out", variant: "info" })
-    } finally {
-      clearAuth()
-      wsClient.disconnect()
-      navigate("/login")
     }
   }
+
 
   const navData =
     (cmsBlocks["nav_header"] as NavBlockContent | undefined) ||
@@ -117,6 +120,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
               message: ev.description ?? `${ev.location ?? ""} · ${new Date(ev.eventDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`,
               category: ev.eventType,
               type: ev.urgency,
+              kind: "event",
               timestamp: new Date(ev.eventDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
             })
           })
@@ -124,8 +128,9 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             items.push({
               id: bc.id,
               message: bc.message,
-              category: "BROADCAST",
+              category: bc.kind === "broadcast" ? "BROADCAST" : bc.kind?.toUpperCase(),
               type: "IMPORTANT",
+              kind: bc.kind,
               timestamp: new Date(bc.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
             })
           })
@@ -139,6 +144,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 message: pn.message,
                 category: pn.category ?? "BROADCAST",
                 type: pn.type ?? "NOTICE",
+                kind: pn.kind,
                 createdAt: pn.createdAt,
               })
             }
@@ -325,7 +331,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 {brandTitle}
                 <span className="text-accent-light">{brandHighlight}</span>
               </span>
-              <span className="text-[9px] sm:text-[10px] text-slate-300 font-medium uppercase tracking-widest truncate max-w-[140px] sm:max-w-none">
+              <span className="text-[10px] sm:text-[10px] text-slate-300 font-medium uppercase tracking-widest truncate max-w-[140px] sm:max-w-none">
                 {brandSubtitle}
               </span>
             </div>
@@ -470,6 +476,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
 
           {/* Desktop Right Actions */}
           <div className="hidden items-center gap-2 lg:gap-3 md:flex">
+            <ThemeToggle />
             {showSearchButton && (
               <button
                 type="button"
@@ -504,11 +511,11 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 }
               />
               {unreadCount > 0 ? (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#020408]">
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-[#020408]">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               ) : notificationsList.length > 0 ? (
-                <span className="absolute -top-1 -right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-1 text-[8px] font-bold text-white shadow-sm ring-1 ring-[#020408]">
+                <span className="absolute -top-1 -right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white shadow-sm ring-1 ring-[#020408]">
                   {notificationsList.length > 9 ? "9+" : notificationsList.length}
                 </span>
               ) : null}
@@ -566,6 +573,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
 
           {/* Mobile Actions: Search Icon + Bell Icon + Logout (if logged in) + Hamburger Toggle */}
           <div className="flex items-center gap-1.5 md:hidden">
+            <ThemeToggle />
             {showSearchButton && (
               <button
                 type="button"
@@ -596,11 +604,11 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 }
               />
               {unreadCount > 0 ? (
-                <span className="absolute top-1.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[9px] font-bold text-white shadow-sm ring-1 ring-[#020408]">
+                <span className="absolute top-1.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[10px] font-bold text-white shadow-sm ring-1 ring-[#020408]">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               ) : notificationsList.length > 0 ? (
-                <span className="absolute top-1.5 right-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-0.5 text-[8px] font-bold text-white shadow-sm ring-1 ring-[#020408]">
+                <span className="absolute top-1.5 right-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-0.5 text-[10px] font-bold text-white shadow-sm ring-1 ring-[#020408]">
                   {notificationsList.length > 9 ? "9+" : notificationsList.length}
                 </span>
               ) : null}
@@ -800,7 +808,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                         <div className="font-bold text-white truncate">{user.name}</div>
                         <div className="num text-[10px] text-slate-400 font-mono truncate">{user.email}</div>
                       </div>
-                      <span className="rounded bg-accent/20 border border-accent/30 px-2 py-0.5 text-[9px] font-bold uppercase num text-accent-light shrink-0">
+                      <span className="rounded bg-accent/20 border border-accent/30 px-2 py-0.5 text-[10px] font-bold uppercase num text-accent-light shrink-0">
                         {user.role}
                       </span>
                     </div>

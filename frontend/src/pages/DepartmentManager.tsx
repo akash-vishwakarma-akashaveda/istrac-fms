@@ -8,7 +8,8 @@ import {
   useArchiveDepartment,
 } from '../hooks/useDepartments'
 import { useToastStore } from '../store/toastStore'
-import { Button, PageHeader, Modal } from '../components'
+import { Button, PageHeader, Modal, Table } from '../components'
+import { ViewToggle, useViewMode } from '../components/ViewToggle'
 import { CreateDeptModal } from '../components/CreateDeptModal'
 import type { Department } from '../api'
 
@@ -23,6 +24,7 @@ export function DepartmentManager() {
   const addToast = useToastStore((s) => s.addToast)
 
   const [tab, setTab] = useState<Tab>('active')
+  const [viewMode, setViewMode] = useViewMode('admin-departments')
   const [modalOpen, setModalOpen] = useState(false)
 
   // Archival Warning Modal State
@@ -171,6 +173,9 @@ export function DepartmentManager() {
             </span>
           </button>
         ))}
+        <div className="ml-auto pb-1.5">
+          <ViewToggle mode={viewMode} onChange={setViewMode} />
+        </div>
       </div>
 
       {/* Information strip for Archived tab */}
@@ -216,6 +221,53 @@ export function DepartmentManager() {
               ? 'Create a department to get started.'
               : 'Archived / decommissioned departments will appear here for admin-only inspection.'}
           </p>
+        </div>
+      ) : viewMode === 'table' ? (
+        <div className="rounded-xl border border-border-default bg-card overflow-hidden">
+          <Table
+            data={filtered}
+            columns={[
+              { key: 'code', header: 'Code', render: (d) => <span className="num font-bold text-accent-light">{d.code || '—'}</span> },
+              { key: 'name', header: 'Department', render: (d) => <span className="font-semibold">{d.name}</span> },
+              { key: 'status', header: 'Status', render: (d) => (d.archived ? 'Archived (admin only)' : 'Active') },
+              { key: 'hddPath', header: 'Storage path', wrap: true, render: (d) => <span className="num text-[11px] break-all text-text-secondary">{d.hddPath}</span> },
+              {
+                key: 'actions',
+                header: 'Actions',
+                render: (d) => (
+                  <div className="flex items-center gap-1.5">
+                    {d.archived ? (
+                      <Button type="button" variant="outline" size="sm" disabled={archiveDept.isPending} onClick={() => handleRestore(d.id, d.name)}>
+                        <RotateCcw size={12} />
+                        <span>Restore</span>
+                      </Button>
+                    ) : (
+                      <>
+                        <Button type="button" variant="outline" size="sm" onClick={() => openEdit(d)}>
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setConfirmingArchiveDept(d)
+                            setUnderstandRisk(false)
+                          }}
+                        >
+                          <Archive size={12} />
+                          <span>Archive</span>
+                        </Button>
+                      </>
+                    )}
+                    <Link to={`/admin/files?deptId=${d.id}`} className="text-xs font-semibold text-accent-light hover:underline">
+                      Files
+                    </Link>
+                  </div>
+                ),
+              },
+            ]}
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

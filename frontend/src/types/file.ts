@@ -15,6 +15,7 @@ export interface FileNode {
   isFeatured?: boolean
   spacecraft?: string | null
   category?: string | null
+  tags?: string[]
 }
 
 export type SortField = 'name' | 'createdAt' | 'sizeBytes'

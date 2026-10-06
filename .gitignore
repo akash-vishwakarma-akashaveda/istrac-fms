@@ -17,4 +17,9 @@ rpms/
 *.tar.xz
 *.zip
 *.tar.gz
-*.rpm
+*.rpm
+# Local-only build inputs and generated output
+schema-engine*
+patches/*.zip
+scratch/
+security-audit-report.html

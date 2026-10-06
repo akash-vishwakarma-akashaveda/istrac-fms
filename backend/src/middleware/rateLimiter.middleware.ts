@@ -1,227 +1,213 @@
 import type { Request, Response, NextFunction } from 'express'
 import { redis } from '../config/redis.js'
-import { AppError } from '../lib/errors.js'
-
-// ============================================================
-// LOGIN RATE LIMITER
-// ============================================================
-
 import { env } from '../config/env.js'
-
-const LOGIN_MAX_ATTEMPTS = env.NODE_ENV === 'development' ? 200 : 10
-const LOGIN_WINDOW_SECONDS = 900 // 15 minutes
-
-const memoryRateLimit = new Map<string, { count: number; expiresAt: number }>()
-
-export async function loginRateLimiter(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const ip = req.ip || req.socket.remoteAddress || 'unknown'
-    const key = `rate:login:${ip}`
-
-    try {
-      const current = await redis.incr(key)
-
-      if (current === 1) {
-        await redis.expire(key, LOGIN_WINDOW_SECONDS)
-      }
-
-      if (current > LOGIN_MAX_ATTEMPTS) {
-        const ttl = await redis.ttl(key)
-        res.setHeader('Retry-After', String(ttl > 0 ? ttl : LOGIN_WINDOW_SECONDS))
-        throw new AppError(
-          'rate_limit_exceeded',
-          'Too many login attempts. Try again in 15 minutes.',
-          429,
-        )
-      }
-
-      next()
-    } catch (redisErr) {
-      if (redisErr instanceof AppError) throw redisErr
-
-      // In-memory fallback if Redis is unavailable
-      const now = Date.now()
-      const record = memoryRateLimit.get(key)
-
-      if (!record || record.expiresAt < now) {
-        memoryRateLimit.set(key, { count: 1, expiresAt: now + LOGIN_WINDOW_SECONDS * 1000 })
-        next()
-        return
-      }
-
-      record.count += 1
-
-      if (record.count > LOGIN_MAX_ATTEMPTS) {
-        const retryAfter = Math.ceil((record.expiresAt - now) / 1000)
-        res.setHeader('Retry-After', String(retryAfter > 0 ? retryAfter : LOGIN_WINDOW_SECONDS))
-        throw new AppError(
-          'rate_limit_exceeded',
-          'Too many login attempts. Try again in 15 minutes.',
-          429,
-        )
-      }
-
-      next()
-    }
-  } catch (err) {
-    next(err)
-  }
-}
+import { AppError } from '../lib/errors.js'
+import { prisma } from '../config/db.js'
 
 // ============================================================
-// DOWNLOAD RATE LIMITER
+// SHARED FIXED-WINDOW COUNTER (Redis, with in-memory fallback)
+// ============================================================
+// ponytail: the in-memory fallback is per-process; with several backend instances and no
+// Redis each instance counts separately. Run Redis in production for exact limits.
+
+const memory = new Map<string, { count: number; expiresAt: number }>()
+
+// Drop expired in-memory entries now and then so the map can't grow without bound.
+setInterval(() => {
+  const now = Date.now()
+  for (const [k, v] of memory) if (v.expiresAt < now) memory.delete(k)
+}, 60_000).unref()
+
+/** Increments `key` within a fixed window and returns the new count and seconds left. */
+export async function hitCounter(key: string, windowSeconds: number): Promise<{ count: number; retryAfter: number }> {
+  try {
+    const count = await redis.incr(key)
+    let ttl = await redis.ttl(key)
+    if (count === 1 || ttl < 0) {
+      await redis.expire(key, windowSeconds)
+      ttl = windowSeconds
+    }
+    return { count, retryAfter: ttl }
+  } catch {
+    const now = Date.now()
+    const rec = memory.get(key)
+    if (!rec || rec.expiresAt < now) {
+      memory.set(key, { count: 1, expiresAt: now + windowSeconds * 1000 })
+      return { count: 1, retryAfter: windowSeconds }
+    }
+    rec.count += 1
+    return { count: rec.count, retryAfter: Math.max(1, Math.ceil((rec.expiresAt - now) / 1000)) }
+  }
+}
+
+/** Current count without incrementing (0 if none). */
+export async function peekCounter(key: string): Promise<{ count: number; retryAfter: number }> {
+  try {
+    const [raw, ttl] = await Promise.all([redis.get(key), redis.ttl(key)])
+    return { count: Number(raw) || 0, retryAfter: Math.max(0, ttl) }
+  } catch {
+    const rec = memory.get(key)
+    if (!rec || rec.expiresAt < Date.now()) return { count: 0, retryAfter: 0 }
+    return { count: rec.count, retryAfter: Math.ceil((rec.expiresAt - Date.now()) / 1000) }
+  }
+}
+
+export async function resetCounter(key: string): Promise<void> {
+  memory.delete(key)
+  try {
+    await redis.del(key)
+  } catch {
+    // Redis unavailable: memory entry already cleared
+  }
+}
+
+function minutes(seconds: number): string {
+  const m = Math.ceil(seconds / 60)
+  return m <= 1 ? 'a minute' : `${m} minutes`
+}
+
+interface LimiterOptions {
+  name: string
+  /** Fixed limit, or a function returning the current limit (e.g. an admin setting). */
+  max: number | (() => Promise<number>)
+  windowSeconds: number
+  /** Bucket key; defaults to the client IP. Return null to skip limiting. */
+  key?: (req: Request) => string | null
+  message: (retryAfter: number, limit: number) => string
+}
+
+export function createRateLimiter({ name, max, windowSeconds, key, message }: LimiterOptions) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const id = key ? key(req) : req.ip || req.socket.remoteAddress || 'unknown'
+    if (id === null) return next()
+    const { count, retryAfter } = await hitCounter(`rate:${name}:${id}`, windowSeconds)
+    const limit = typeof max === 'number' ? max : await max()
+    if (count > limit) {
+      res.setHeader('Retry-After', String(retryAfter))
+      return next(new AppError('rate_limit_exceeded', message(retryAfter, limit), 429))
+    }
+    next()
+  }
+}
+
+const isDev = env.NODE_ENV === 'development'
+
+// ============================================================
+// LIMITERS
 // ============================================================
 
-const DOWNLOAD_MAX_PER_HOUR = 100
-const DOWNLOAD_WINDOW_SECONDS = 3600 // 1 hour
+/** All API traffic per IP. Generous: the SPA polls notifications and banners. */
+export const globalRateLimiter = createRateLimiter({
+  name: 'global',
+  max: isDev ? 2000 : 300,
+  windowSeconds: 60,
+  key: (req) => (req.path.endsWith('/health') ? null : req.ip || 'unknown'),
+  message: (s) => `Too many requests from this network address. Please wait ${minutes(s)} and try again.`,
+})
 
-export async function downloadRateLimiter(req: Request, res: Response, next: NextFunction): Promise<void> {
+/** Sign-in attempts per IP (per-account lockout is enforced in the login handler). */
+export const loginRateLimiter = createRateLimiter({
+  name: 'login',
+  max: isDev ? 200 : 20,
+  windowSeconds: 900,
+  message: (s) => `Too many sign-in attempts. Please wait ${minutes(s)} and try again.`,
+})
+
+/** Password-reset requests per IP. */
+export const forgotPasswordRateLimiter = createRateLimiter({
+  name: 'forgot',
+  max: isDev ? 100 : 5,
+  windowSeconds: 3600,
+  message: (s) => `Too many password reset requests. Please wait ${minutes(s)} and try again.`,
+})
+
+/** OTP verification and password reset submissions per IP (the code is only 6 digits). */
+export const otpRateLimiter = createRateLimiter({
+  name: 'otp',
+  max: isDev ? 100 : 10,
+  windowSeconds: 900,
+  message: (s) => `Too many verification attempts. Please wait ${minutes(s)} and try again.`,
+})
+
+export const registerRateLimiter = createRateLimiter({
+  name: 'register',
+  max: isDev ? 100 : 5,
+  windowSeconds: 3600,
+  message: (s) => `Too many registration attempts. Please wait ${minutes(s)} and try again.`,
+})
+
+export const refreshRateLimiter = createRateLimiter({
+  name: 'refresh',
+  max: isDev ? 1000 : 200,
+  windowSeconds: 900,
+  message: (s) => `Too many session refresh attempts. Please wait ${minutes(s)} and sign in again.`,
+})
+
+/** Admin setting "downloadRateLimitPerHour" (System Settings), cached for a minute. */
+let downloadLimitCache = { value: 100, at: 0 }
+async function downloadLimit(): Promise<number> {
+  if (Date.now() - downloadLimitCache.at < 60_000) return downloadLimitCache.value
   try {
-    const userId = req.user?.id
+    const row = await prisma.systemConfig.findUnique({ where: { configKey: 'downloadRateLimitPerHour' } })
+    const parsed = parseInt(String(row?.configValue ?? '').replace(/"/g, ''), 10)
+    downloadLimitCache = { value: parsed >= 1 && parsed <= 100_000 ? parsed : 100, at: Date.now() }
+  } catch {
+    downloadLimitCache = { ...downloadLimitCache, at: Date.now() }
+  }
+  return downloadLimitCache.value
+}
 
-    if (!userId) {
-      next()
-      return
-    }
+/** Downloads per signed-in user. */
+export const downloadRateLimiter = createRateLimiter({
+  name: 'download',
+  max: downloadLimit,
+  windowSeconds: 3600,
+  key: (req) => req.user?.id ?? null,
+  message: (s, limit) => `Download limit reached (${limit} per hour). Please wait ${minutes(s)} and try again.`,
+})
 
-    try {
-      const hourKey = `rate:download:${userId}`
-      const hourCount = await redis.incr(hourKey)
+/** Uploads per signed-in user. */
+export const uploadRateLimiter = createRateLimiter({
+  name: 'upload',
+  max: isDev ? 1000 : 120,
+  windowSeconds: 3600,
+  key: (req) => req.user?.id ?? null,
+  message: (s) => `Upload limit reached (120 per hour). Please wait ${minutes(s)} and try again.`,
+})
 
-      if (hourCount === 1) {
-        await redis.expire(hourKey, DOWNLOAD_WINDOW_SECONDS)
-      }
+/** Broadcasts sent per admin, to stop accidental or scripted floods. */
+export const broadcastRateLimiter = createRateLimiter({
+  name: 'broadcast',
+  max: isDev ? 200 : 20,
+  windowSeconds: 3600,
+  key: (req) => req.user?.id ?? null,
+  message: (s) => `Broadcast limit reached (20 per hour). Please wait ${minutes(s)} before sending another.`,
+})
 
-      if (hourCount > DOWNLOAD_MAX_PER_HOUR) {
-        const ttl = await redis.ttl(hourKey)
-        res.setHeader('Retry-After', String(ttl > 0 ? ttl : DOWNLOAD_WINDOW_SECONDS))
-        throw new AppError(
-          'download_limit_exceeded',
-          'Download limit reached. Max 100 per hour.',
-          429,
-        )
-      }
+// ============================================================
+// PER-ACCOUNT SIGN-IN LOCKOUT
+// IP limits alone don't stop guessing one account's password from many addresses.
+// ============================================================
+export const ACCOUNT_LOCK_MAX_FAILURES = 5
+const ACCOUNT_LOCK_WINDOW = 900
 
-      next()
-    } catch (redisErr) {
-      if (redisErr instanceof AppError) throw redisErr
-      next() // Bypass if Redis is unavailable in dev
-    }
-  } catch (err) {
-    next(err)
+const failKey = (email: string) => `lock:login:${email.toLowerCase()}`
+
+export async function assertAccountNotLocked(email: string): Promise<void> {
+  const { count, retryAfter } = await peekCounter(failKey(email))
+  if (count >= ACCOUNT_LOCK_MAX_FAILURES) {
+    throw new AppError(
+      'account_locked',
+      `Too many failed sign-in attempts for this account. Try again in ${minutes(retryAfter || ACCOUNT_LOCK_WINDOW)}, or reset your password.`,
+      429,
+    )
   }
 }
 
-const GLOBAL_LIMIT = env.NODE_ENV === 'development' ? 1000 : 200 // requests per minute per IP
-const GLOBAL_WINDOW = 60
-
-export async function globalRateLimiter(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const ip = req.ip || req.socket.remoteAddress || 'unknown'
-  const key = `rate:global:${ip}`
-
-  try {
- const count = await redis.incr(key)
-if (count === 1) {
-  await redis.expire(key, GLOBAL_WINDOW)
-} else {
-  // Safety check: if key got stuck without an expiry, attach one
-  const ttl = await redis.ttl(key)
-  if (ttl === -1) {
-    await redis.expire(key, GLOBAL_WINDOW)
-  }
-}
-    if (count > GLOBAL_LIMIT) {
-      res.setHeader('Retry-After', String(GLOBAL_WINDOW))
-      return next(new AppError('rate_limit_exceeded', 'Too many requests', 429))
-    }
-    return next()
-  } catch (err) {
-    if (err instanceof AppError) return next(err)
-
-    // Fallback to in-memory store if Redis is unavailable
-    const now = Date.now()
-    const record = memoryRateLimit.get(key)
-    if (!record || record.expiresAt < now) {
-      memoryRateLimit.set(key, { count: 1, expiresAt: now + GLOBAL_WINDOW * 1000 })
-      return next()
-    }
-
-    record.count += 1
-    if (record.count > GLOBAL_LIMIT) {
-      const retryAfter = Math.ceil((record.expiresAt - now) / 1000)
-      res.setHeader('Retry-After', String(retryAfter > 0 ? retryAfter : GLOBAL_WINDOW))
-      return next(new AppError('rate_limit_exceeded', 'Too many requests', 429))
-    }
-    next()
-  }
+export async function recordFailedLogin(email: string): Promise<number> {
+  return (await hitCounter(failKey(email), ACCOUNT_LOCK_WINDOW)).count
 }
 
-const REGISTER_MAX = 5 // 5 registrations per hour per IP
-const REGISTER_WINDOW = 3600
-
-export async function registerRateLimiter(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const ip = req.ip || req.socket.remoteAddress || 'unknown'
-  const key = `rate:register:${ip}`
-
-  try {
-    const count = await redis.incr(key)
-    if (count === 1) await redis.expire(key, REGISTER_WINDOW)
-    if (count > REGISTER_MAX) {
-      res.setHeader('Retry-After', String(REGISTER_WINDOW))
-      throw new AppError('rate_limit_exceeded', 'Too many registration attempts', 429)
-    }
-    next()
-  } catch (err) {
-    if (err instanceof AppError) return next(err)
-
-    const now = Date.now()
-    const record = memoryRateLimit.get(key)
-    if (!record || record.expiresAt < now) {
-      memoryRateLimit.set(key, { count: 1, expiresAt: now + REGISTER_WINDOW * 1000 })
-      return next()
-    }
-
-    record.count += 1
-    if (record.count > REGISTER_MAX) {
-      const retryAfter = Math.ceil((record.expiresAt - now) / 1000)
-      res.setHeader('Retry-After', String(retryAfter > 0 ? retryAfter : REGISTER_WINDOW))
-      return next(new AppError('rate_limit_exceeded', 'Too many registration attempts', 429))
-    }
-    next()
-  }
-}
-
-const REFRESH_MAX = env.NODE_ENV === 'development' ? 1000 : 200
-const REFRESH_WINDOW = 900 // 15 minutes
-
-export async function refreshRateLimiter(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const ip = req.ip || req.socket.remoteAddress || 'unknown'
-  const key = `rate:refresh:${ip}`
-
-  try {
-    const count = await redis.incr(key)
-    if (count === 1) await redis.expire(key, REFRESH_WINDOW)
-    if (count > REFRESH_MAX) {
-      res.setHeader('Retry-After', String(REFRESH_WINDOW))
-      throw new AppError('rate_limit_exceeded', 'Too many refresh attempts', 429)
-    }
-    next()
-  } catch (err) {
-    if (err instanceof AppError) return next(err)
-
-    const now = Date.now()
-    const record = memoryRateLimit.get(key)
-    if (!record || record.expiresAt < now) {
-      memoryRateLimit.set(key, { count: 1, expiresAt: now + REFRESH_WINDOW * 1000 })
-      return next()
-    }
-
-    record.count += 1
-    if (record.count > REFRESH_MAX) {
-      const retryAfter = Math.ceil((record.expiresAt - now) / 1000)
-      res.setHeader('Retry-After', String(retryAfter > 0 ? retryAfter : REFRESH_WINDOW))
-      return next(new AppError('rate_limit_exceeded', 'Too many refresh attempts', 429))
-    }
-    next()
-  }
+export async function clearFailedLogins(email: string): Promise<void> {
+  await resetCounter(failKey(email))
 }

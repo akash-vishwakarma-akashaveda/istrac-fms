@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { copyText } from '../lib/browserCompat'
 import {
   Send,
   Megaphone,
@@ -12,10 +13,16 @@ import {
   Users,
   ShieldAlert,
   Clock,
+  Ban,
+  Plus,
+  X,
 } from 'lucide-react'
-import { useBroadcast } from '../hooks/useBroadcast'
+import { useBroadcast, useBroadcastCategories, useRevokeBroadcast } from '../hooks/useBroadcast'
+import { useQueryClient } from '@tanstack/react-query'
+import { notificationsApi } from '../api/notifications.api'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useToastStore } from '../store/toastStore'
-import { apiClient } from '../api/client'
+import { apiClient, getErrorMessage } from '../api/client'
 import { Button, PageHeader, Textarea } from '../components'
 import { DeptMultiSelect } from '../components/DeptMultiSelect'
 
@@ -76,6 +83,7 @@ interface BroadcastRecord {
   type: string
   category: string
   message: string
+  label?: string | null
   senderName: string
   actorId?: string
   createdAt: string
@@ -92,7 +100,67 @@ export function BroadcastNotification() {
   const [loadingHistory, setLoadingHistory] = useState(true)
 
   const broadcast = useBroadcast()
+  const revoke = useRevokeBroadcast()
+  const queryClient = useQueryClient()
   const addToast = useToastStore((s) => s.addToast)
+
+  // Custom broadcast categories (BUG-12)
+  const { data: categories = [] } = useBroadcastCategories()
+  const [categoryLabel, setCategoryLabel] = useState('General')
+  const [newCategory, setNewCategory] = useState('')
+  const [savingCategory, setSavingCategory] = useState(false)
+  const [historyFilter, setHistoryFilter] = useState('ALL')
+  const [revokeTarget, setRevokeTarget] = useState<BroadcastRecord | null>(null)
+
+  const handleAddCategory = async () => {
+    const label = newCategory.trim()
+    if (!label) return
+    setSavingCategory(true)
+    try {
+      const list = await notificationsApi.createBroadcastCategory(label)
+      queryClient.setQueryData(['broadcast-categories'], list)
+      setCategoryLabel(label)
+      setNewCategory('')
+      addToast({ title: 'Category added', message: `"${label}" is now available for broadcasts.`, variant: 'success' })
+    } catch (err) {
+      addToast({ title: 'Could not add category', message: getErrorMessage(err), variant: 'error' })
+    } finally {
+      setSavingCategory(false)
+    }
+  }
+
+  const handleDeleteCategory = async (id: string, label: string) => {
+    try {
+      const list = await notificationsApi.deleteBroadcastCategory(id)
+      queryClient.setQueryData(['broadcast-categories'], list)
+      if (categoryLabel === label) setCategoryLabel('General')
+      addToast({ title: 'Category removed', message: `"${label}" was removed. Past broadcasts keep their label.`, variant: 'success' })
+    } catch (err) {
+      addToast({ title: 'Could not remove category', message: getErrorMessage(err), variant: 'error' })
+    }
+  }
+
+  const handleConfirmRevoke = () => {
+    if (!revokeTarget) return
+    const target = revokeTarget
+    revoke.mutate(target.id, {
+      onSuccess: (res) => {
+        // Update the list immediately; the refetch confirms it.
+        setHistory((prev) => prev.filter((h) => h.id !== target.id))
+        addToast({ title: 'Broadcast revoked', message: res.message, variant: 'success' })
+        setRevokeTarget(null)
+        fetchHistory()
+      },
+      onError: (err) => {
+        // Leave the history untouched so the admin sees nothing changed.
+        addToast({ title: 'Could not revoke broadcast', message: getErrorMessage(err), variant: 'error' })
+        setRevokeTarget(null)
+      },
+    })
+  }
+
+  const historyLabels = Array.from(new Set(history.map((h) => h.label || 'General'))).sort()
+  const visibleHistory = historyFilter === 'ALL' ? history : history.filter((h) => (h.label || 'General') === historyFilter)
 
   const fetchHistory = () => {
     setLoadingHistory(true)
@@ -103,7 +171,9 @@ export function BroadcastNotification() {
           setHistory(res.data.data)
         }
       })
-      .catch(() => {})
+      .catch((err: unknown) =>
+        addToast({ title: 'Could not load broadcast history', message: getErrorMessage(err), variant: 'error' })
+      )
       .finally(() => setLoadingHistory(false))
   }
 
@@ -124,7 +194,7 @@ export function BroadcastNotification() {
       {
         message: finalFormattedMessage,
         type: activeUrgencyObj.type,
-        category: urgency.toLowerCase(),
+        label: categoryLabel,
         target,
         departmentIds: target === 'departments' ? selectedDeptIds : undefined,
       },
@@ -139,10 +209,10 @@ export function BroadcastNotification() {
           setSelectedDeptIds([])
           fetchHistory()
         },
-        onError: () =>
+        onError: (err) =>
           addToast({
-            title: 'Broadcast Failed',
-            message: 'Could not dispatch message. Please retry.',
+            title: 'Broadcast not sent',
+            message: getErrorMessage(err, 'Could not send the broadcast. Please try again.'),
             variant: 'error',
           }),
       },
@@ -165,7 +235,7 @@ export function BroadcastNotification() {
   }
 
   const handleCopyMessage = (text: string) => {
-    navigator.clipboard.writeText(text)
+    void copyText(text)
     addToast({ message: 'Broadcast copied to clipboard', variant: 'success' })
   }
 
@@ -285,6 +355,70 @@ export function BroadcastNotification() {
                 )
               })}
             </div>
+
+            <div className="pt-3 border-t border-border-subtle space-y-2">
+              <label htmlFor="broadcast-category" className="block text-[11px] font-bold text-text-secondary uppercase tracking-wider">
+                Category
+              </label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <select
+                  id="broadcast-category"
+                  value={categoryLabel}
+                  onChange={(e) => setCategoryLabel(e.target.value)}
+                  className="flex-1 rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
+                >
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.label}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex flex-1 gap-2">
+                  <input
+                    type="text"
+                    value={newCategory}
+                    maxLength={40}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleAddCategory()
+                      }
+                    }}
+                    placeholder="New category name"
+                    aria-label="New broadcast category name"
+                    className="flex-1 min-w-0 rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-text-primary placeholder:text-text-dim outline-none focus:border-accent"
+                  />
+                  <Button type="button" variant="outline" size="sm" disabled={!newCategory.trim() || savingCategory} onClick={handleAddCategory}>
+                    <Plus size={13} />
+                    <span>{savingCategory ? 'Adding…' : 'Add'}</span>
+                  </Button>
+                </div>
+              </div>
+              {categories.length > 1 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {categories
+                    .filter((c) => c.id !== 'GENERAL')
+                    .map((c) => (
+                      <span key={c.id} className="inline-flex items-center gap-1 rounded-full border border-border-default px-2 py-0.5 text-[10px] text-text-secondary">
+                        {c.label}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCategory(c.id, c.label)}
+                          aria-label={`Remove category ${c.label}`}
+                          title={`Remove category ${c.label}`}
+                          className="rounded-full p-0.5 hover:text-critical"
+                        >
+                          <X size={10} />
+                        </button>
+                      </span>
+                    ))}
+                </div>
+              )}
+              <p className="text-[10px] text-text-dim">
+                Users can filter their Broadcasts feed by this category. Priority (above) controls how urgent it looks.
+              </p>
+            </div>
           </div>
 
           {/* Section 2: Notice Content & Quick Templates */}
@@ -400,7 +534,7 @@ export function BroadcastNotification() {
             <div className="flex items-center justify-between border-b border-border-subtle pb-3">
               <div className="flex items-center gap-2">
                 <History size={16} className="text-accent-light" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">
+                <h3 className="text-sm font-semibold text-text-primary">
                   Broadcast History & Archive
                 </h3>
               </div>
@@ -409,6 +543,26 @@ export function BroadcastNotification() {
                 {history.length} Transmissions
               </span>
             </div>
+
+            {historyLabels.length > 1 && (
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter history by category">
+                {['ALL', ...historyLabels].map((label) => (
+                  <button
+                    key={label}
+                    type="button"
+                    aria-pressed={historyFilter === label}
+                    onClick={() => setHistoryFilter(label)}
+                    className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold transition-colors ${
+                      historyFilter === label
+                        ? 'border-accent bg-accent/15 text-accent-light'
+                        : 'border-border-default text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    {label === 'ALL' ? 'All' : label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {loadingHistory ? (
               <div className="p-8 text-center text-xs text-text-dim">
@@ -421,7 +575,7 @@ export function BroadcastNotification() {
               </div>
             ) : (
               <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                {history.map((item) => (
+                {visibleHistory.map((item) => (
                   <div
                     key={item.id}
                     className="p-3.5 rounded-xl border border-border-subtle bg-[#060c18] space-y-2 hover:border-border-bright transition-colors"
@@ -449,6 +603,15 @@ export function BroadcastNotification() {
                         >
                           <RotateCcw size={12} />
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setRevokeTarget(item)}
+                          className="p-1 rounded text-text-dim hover:text-critical hover:bg-critical/10 transition-colors"
+                          title="Revoke this broadcast"
+                          aria-label="Revoke this broadcast"
+                        >
+                          <Ban size={12} />
+                        </button>
                       </div>
                     </div>
 
@@ -458,7 +621,7 @@ export function BroadcastNotification() {
 
                     <div className="flex items-center justify-between text-[10px] text-text-dim pt-1 border-t border-white/5">
                       <span>Sender: <strong className="text-text-secondary">{item.senderName}</strong></span>
-                      <span className="num font-bold text-nominal uppercase">DISPATCHED</span>
+                      <span className="rounded border border-border-default px-1.5 py-0.5 font-semibold text-text-secondary">{item.label || 'General'}</span>
                     </div>
                   </div>
                 ))}
@@ -467,6 +630,16 @@ export function BroadcastNotification() {
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        isOpen={revokeTarget !== null}
+        onClose={() => setRevokeTarget(null)}
+        onConfirm={handleConfirmRevoke}
+        title="Revoke this broadcast?"
+        message={`The broadcast will be removed from every recipient's notifications and from the public banner. This cannot be undone. Message: "${(revokeTarget?.message || '').slice(0, 140)}"`}
+        confirmLabel="Revoke broadcast"
+        variant="danger"
+        isSubmitting={revoke.isPending}
+      />
     </div>
   )
 }

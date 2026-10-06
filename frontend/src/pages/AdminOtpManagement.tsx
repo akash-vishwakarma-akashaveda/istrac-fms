@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { copyText } from '../lib/browserCompat'
 import { Link } from 'react-router-dom'
 import {
   KeyRound,
@@ -65,7 +66,7 @@ export function AdminOtpManagement() {
   }, [])
 
   const handleCopyText = (text: string, title: string, message: string) => {
-    navigator.clipboard.writeText(text)
+    void copyText(text)
     addToast({
       title,
       message,
@@ -316,7 +317,7 @@ export function AdminOtpManagement() {
         <div className="border-b border-border-subtle bg-black/20 px-5 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <KeyRound size={16} className="text-accent-light" />
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+            <h3 className="text-sm font-semibold text-white">
               Verification Code Records & Operator Profiles ({filteredItems.length})
             </h3>
           </div>
@@ -373,7 +374,7 @@ export function AdminOtpManagement() {
                             <div className="font-bold text-white flex items-center gap-1.5">
                               <span className="truncate">{item.userName || 'Operator'}</span>
                               {item.role === 'ADMIN' && (
-                                <span className="rounded bg-purple-400/15 text-purple-300 border border-purple-400/30 px-1 py-0.5 text-[9px] font-mono font-bold">
+                                <span className="rounded bg-purple-400/15 text-purple-300 border border-purple-400/30 px-1 py-0.5 text-[10px] font-mono font-bold">
                                   ADMIN
                                 </span>
                               )}
@@ -381,7 +382,7 @@ export function AdminOtpManagement() {
                             <div className="text-[11px] text-text-dim font-mono truncate">{item.userEmail}</div>
                             <div className="flex items-center gap-2 pt-0.5">
                               {item.employeeId && (
-                                <span className="rounded bg-white/5 border border-white/10 px-1.5 py-0.5 text-[9px] font-mono font-semibold text-slate-300">
+                                <span className="rounded bg-white/5 border border-white/10 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-slate-300">
                                   ID: {item.employeeId}
                                 </span>
                               )}
@@ -402,7 +403,7 @@ export function AdminOtpManagement() {
                             <Building2 size={13} className="text-accent-light shrink-0" />
                             <span className="truncate">{item.department || 'General Operations'}</span>
                             {item.departmentCode && (
-                              <span className="rounded bg-accent/15 text-accent-light px-1 py-0.2 text-[9px] font-mono font-bold">
+                              <span className="rounded bg-accent/15 text-accent-light px-1 py-0.2 text-[10px] font-mono font-bold">
                                 {item.departmentCode}
                               </span>
                             )}

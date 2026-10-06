@@ -199,7 +199,7 @@ export function CmsImageInput({
             <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-surface/40 p-3 text-center text-text-dim">
               <AlertCircle size={16} className="text-warning/80" />
               <span className="text-[10px] text-text-muted">Preview could not be rendered</span>
-              <span className="font-mono text-[9px] text-text-dim max-w-[85%] truncate">{value}</span>
+              <span className="font-mono text-[10px] text-text-dim max-w-[85%] truncate">{value}</span>
             </div>
           ) : (
             <>
@@ -211,7 +211,7 @@ export function CmsImageInput({
                 onError={() => setLoadError(true)}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
-              <div className="absolute bottom-1.5 left-2.5 right-2.5 flex items-center justify-between text-[9px] text-white/80 font-mono">
+              <div className="absolute bottom-1.5 left-2.5 right-2.5 flex items-center justify-between text-[10px] text-white/80 font-mono">
                 <span className="flex items-center gap-1">
                   <ImageIcon size={10} className="text-accent-light" />
                   <span>preview</span>

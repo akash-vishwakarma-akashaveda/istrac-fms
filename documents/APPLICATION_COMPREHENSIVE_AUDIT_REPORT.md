@@ -5,7 +5,7 @@
 
 **Document Reference:** `ISRO/ISTRAC/SIMS/AUDIT/2026/08-V2.1`  
 **Date of Audit:** 28 August 2026  
-**Audited Document:** `ISRO-FMS-Architecture-Design-Doc.pdf` (Chapters 1–17, Pages 1–70)  
+**Audited Document:** `reference/ISRO-FMS-Architecture-Design-Doc.pdf` (Chapters 1–17, Pages 1–70)  
 **Evaluated By:** Akash Vishwakarma & Software Engineering Team  
 **Audited Target:** `istrac-fms` Full-Stack Codebase (`backend/`, `frontend/`, `prisma/schema.prisma`)  
 **Overall Specification Alignment Score:** **88.5% (Production Candidate with Specific Actionable Gaps)**

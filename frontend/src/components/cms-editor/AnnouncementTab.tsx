@@ -91,7 +91,7 @@ export function AnnouncementTab() {
 
         {/* Banner Limits & Display Controls */}
         <div className="rounded-xl border border-border-default bg-[#070e1c] p-4 space-y-4 shadow-sm">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-accent-light flex items-center gap-2">
+          <h4 className="text-xs font-semibold text-text-primary flex items-center gap-2">
             <Sliders size={14} />
             <span>Banner Display Limits & Cycle Control</span>
           </h4>
@@ -190,7 +190,7 @@ export function AnnouncementTab() {
         <div className="rounded-xl border border-border-default bg-[#081122] p-4 space-y-3">
           <div className="flex items-center gap-2">
             <ShieldCheck size={16} className="text-nominal" />
-            <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+            <h4 className="text-xs font-semibold text-white">
               Automated Live Database Feed
             </h4>
           </div>

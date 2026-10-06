@@ -24,6 +24,9 @@ export interface ActiveBannerData {
   broadcasts: Array<{
     id: string
     message: string
+    type?: string
+    kind?: 'broadcast' | 'event' | 'file' | 'account' | 'system'
+    label?: string | null
     createdAt: string
     metadata?: any
   }>

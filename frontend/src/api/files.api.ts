@@ -86,6 +86,11 @@ export const filesApi = {
     return `${baseUrl}/files/${fileId}/download`
   },
 
+  async tagFiles(fileIds: string[], tags: string[]): Promise<{ message: string; tags: string[]; fileCount: number }> {
+    const res = await apiClient.post('/files/tags', { fileIds, tags })
+    return extractData<{ message: string; tags: string[]; fileCount: number }>(res)
+  },
+
   async deleteFile(fileId: string): Promise<{ message: string }> {
     const res = await apiClient.delete(`/files/${fileId}`)
     return extractData<{ message: string }>(res)

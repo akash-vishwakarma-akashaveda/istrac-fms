@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
+import { ViewToggle, useViewMode } from "../components/ViewToggle"
 import {
   Calendar,
   Plus,
@@ -21,7 +22,7 @@ import { useAdminSatellites } from "../hooks/useSatellites"
 import { useToastStore } from "../store/toastStore"
 import { useQueryClient } from "@tanstack/react-query"
 import { useSearchParams } from "react-router-dom"
-import { PageHeader, Button, Modal, Textarea } from "../components"
+import { PageHeader, Button, Modal, Textarea, Table } from "../components"
 import { schedulerApi } from "../api/schedule.api"
 
 const DEFAULT_CATEGORY_MAP: Record<string, { icon: any; color: string; dot: string; bullet: string }> = {
@@ -115,6 +116,7 @@ export function EventManager() {
 
   // Delete Modal
   const [deletingEvent, setDeletingEvent] = useState<MissionEventItem | null>(null)
+  const [viewMode, setViewMode] = useViewMode("admin-events")
   const [schedulerInterval, setSchedulerInterval] = useState(10)
   const [schedulerSaving, setSchedulerSaving] = useState(false)
 
@@ -638,6 +640,10 @@ export function EventManager() {
         </div>
       </div>
 
+      <div className="flex justify-end">
+        <ViewToggle mode={viewMode} onChange={setViewMode} />
+      </div>
+
       {/* Events Grid */}
       {loading ? (
         <div className="h-64 rounded-xl border border-border-subtle bg-card p-10 flex items-center justify-center text-xs text-text-dim">
@@ -650,6 +656,53 @@ export function EventManager() {
             {tabMode === "LIVE_FUTURE" ? "No Active or Future Events Found" : "No Past Archived Events Found"}
           </p>
           <p className="text-xs text-text-dim">Schedule a new mission event or adjust your active search filters.</p>
+        </div>
+      ) : viewMode === "table" ? (
+        <div className="rounded-xl border border-border-default bg-card overflow-hidden">
+          <Table
+            data={filteredEvents}
+            columns={[
+              {
+                key: "title",
+                header: "Event",
+                wrap: true,
+                render: (ev) => <span className="font-semibold text-text-primary">{ev.title}</span>,
+              },
+              { key: "eventType", header: "Category", render: (ev) => getCategoryMeta(ev.eventType).label },
+              {
+                key: "eventDate",
+                header: "Start (IST)",
+                render: (ev) => new Date(ev.eventDate).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }),
+              },
+              {
+                key: "endDate",
+                header: "End (IST)",
+                render: (ev) =>
+                  ev.endDate
+                    ? new Date(ev.endDate).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })
+                    : "—",
+              },
+              { key: "status", header: "Status", render: (ev) => <span className="num text-xs font-bold">{String(ev.status).replace(/_/g, " ")}</span> },
+              { key: "satellite", header: "Satellite", render: (ev) => ev.satellite?.code || ev.satellite?.name || "—" },
+              { key: "location", header: "Location", render: (ev) => ev.location || "—" },
+              {
+                key: "actions",
+                header: "Actions",
+                render: (ev) => (
+                  <div className="flex items-center gap-1.5">
+                    <Button type="button" variant="outline" size="sm" onClick={() => openEditModal(ev)}>
+                      <Edit2 size={12} />
+                      <span>Edit</span>
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setDeletingEvent(ev)} aria-label={`Delete ${ev.title}`}>
+                      <Trash2 size={12} />
+                      <span>Delete</span>
+                    </Button>
+                  </div>
+                ),
+              },
+            ]}
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

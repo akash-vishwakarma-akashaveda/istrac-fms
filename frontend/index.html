@@ -6,6 +6,48 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ISTRAC-SIMS · ISRO Telemetry, Tracking & Command Network</title>
+    <script>
+      // Apply the saved colour theme before first paint (no flash). Default: dark.
+      (function () {
+        var theme = 'dark';
+        try {
+          var saved = localStorage.getItem('istrac-theme');
+          if (saved === 'light' || saved === 'dark') theme = saved;
+        } catch (e) {}
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
+    <script>
+      // Polyfill ES2024 features for older enterprise/air-gapped browsers (Chrome <119, Edge <119)
+      if (typeof globalThis.Iterator === 'undefined') {
+        globalThis.Iterator = class Iterator {};
+      }
+      if (typeof Promise.withResolvers === 'undefined') {
+        Promise.withResolvers = function () {
+          var resolve, reject;
+          var promise = new Promise(function (res, rej) {
+            resolve = res;
+            reject = rej;
+          });
+          return { promise: promise, resolve: resolve, reject: reject };
+        };
+      }
+      if (typeof Object.groupBy === 'undefined') {
+        Object.groupBy = function (items, callback) {
+          var result = Object.create(null);
+          var i = 0;
+          for (var item of items) {
+            var key = callback(item, i++);
+            if (key in result) {
+              result[key].push(item);
+            } else {
+              result[key] = [item];
+            }
+          }
+          return result;
+        };
+      }
+    </script>
     
   </head>
   <body>

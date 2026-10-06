@@ -224,6 +224,7 @@ export function SpaceParallaxBackground({ config }: SpaceParallaxBackgroundProps
   return (
     <div
       aria-hidden="true"
+      data-theme="dark"
       className="pointer-events-none fixed inset-0 z-0 overflow-hidden select-none bg-[#030712]"
     >
       {/* 1. Optional Custom Background Image with Parallax or Fixed Cinema Mode */}

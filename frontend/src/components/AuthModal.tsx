@@ -15,11 +15,11 @@ import {
   EyeOff,
   KeyRound,
 } from 'lucide-react'
-import { useAuthStore } from '../store/authStore'
+import { useAuthStore, type User } from '../store/authStore'
 import { useToastStore } from '../store/toastStore'
 import { useAuthModalStore, type AuthMode } from '../store/authModalStore'
 import { loginSchema, registerSchema, type LoginFormData, type RegisterFormData } from '../../schemas/authSchemas'
-import { authApi } from '../api'
+import { authApi, getErrorMessage } from '../api'
 import { usePublicDepartments } from '../hooks/useDepartments'
 import { Button, Alert } from '.'
 import { PasswordStrengthMeter, isPasswordValid } from './PasswordStrengthMeter'
@@ -158,14 +158,6 @@ const UnderlineTextarea = forwardRef<HTMLTextAreaElement, UnderlineTextareaProps
 // ============================================================================
 // ERROR MAPPINGS & DEPARTMENTS
 // ============================================================================
-
-const ERROR_MESSAGES: Record<string, string> = {
-  invalid_credentials: 'Invalid email or password.',
-  account_pending: 'Your account is pending administrator approval.',
-  account_suspended: 'Your account has been suspended. Contact your administrator.',
-  rate_limit_exceeded: 'Too many attempts. Please wait 15 minutes.',
-  user_exists: 'An account with this email or employee ID already exists.',
-}
 
 const FALLBACK_DEPARTMENTS = [
   'Telemetry, Tracking & Command (TTC)',
@@ -319,7 +311,7 @@ export function AuthModal() {
         variant: 'info',
       })
     } catch (err: any) {
-      const msg = err.response?.data?.error?.message || 'Failed to submit verification request'
+      const msg = getErrorMessage(err, 'Could not submit the reset request. Please try again.')
       setResetOtpError(msg)
     } finally {
       setIsRequestingOtp(false)
@@ -407,42 +399,34 @@ export function AuthModal() {
     setLoginError(null)
     setLockoutRemaining(null)
 
+    let user: User | undefined
     try {
       const response = await authApi.login(data)
-      const user = response?.user
-      const token = response?.accessToken
-      const refreshToken = response?.refreshToken
-      setAuth(user, token, refreshToken)
-
-      addToast({
-        title: 'Authentication Successful',
-        message: `Welcome back, ${user?.name || 'Operator'} (${user?.role})`,
-        variant: 'success',
-      })
-
-      closeModal()
-      resetLoginForm()
-
-      if (user?.role === 'ADMIN') {
-        navigate('/admin')
-      } else {
-        navigate('/dashboard')
+      user = response?.user
+      if (!user || !response?.accessToken) {
+        throw new Error('Sign-in response was incomplete. Please try again.')
       }
+      setAuth(user, response.accessToken, response.refreshToken)
     } catch (err) {
-      const error = err as AxiosError<{
-        error?: { code: string; message: string }
-        lockoutSecondsRemaining?: number
-      }>
-
-      if (error.response?.status === 429 && error.response.data.lockoutSecondsRemaining) {
+      // A failed attempt must never leave a stale or partial session behind.
+      useAuthStore.getState().clearAuth()
+      const error = err as AxiosError<{ lockoutSecondsRemaining?: number }>
+      if (error.response?.status === 429 && error.response.data?.lockoutSecondsRemaining) {
         setLockoutRemaining(error.response.data.lockoutSecondsRemaining)
-      } else if (error.response?.data?.error?.message) {
-        setLoginError(error.response.data.error.message)
-      } else {
-        const code = error.response?.data?.error?.code
-        setLoginError(ERROR_MESSAGES[code!] ?? 'An unexpected error occurred. Please try again.')
       }
+      setLoginError(getErrorMessage(err, 'Sign-in failed. Please try again.'))
+      return
     }
+
+    // Post-login UI work lives outside the try so a UI hiccup can't be reported as a failed login.
+    closeModal()
+    resetLoginForm()
+    addToast({
+      title: 'Signed in',
+      message: `Welcome back, ${user.name || 'Operator'}`,
+      variant: 'success',
+    })
+    navigate(user.role === 'ADMIN' ? '/admin' : '/dashboard')
   }
 
   // Handle Register Submit
@@ -460,13 +444,7 @@ export function AuthModal() {
         variant: 'success',
       })
     } catch (err) {
-      const error = err as AxiosError<{
-        error?: { code?: string; message?: string }
-        message?: string
-      }>
-
-      const code = error.response?.data?.error?.code
-      setRegisterError(ERROR_MESSAGES[code!] ?? 'An unexpected error occurred. Please try again.')
+      setRegisterError(getErrorMessage(err, 'Registration could not be submitted. Please try again.'))
     }
   }
 

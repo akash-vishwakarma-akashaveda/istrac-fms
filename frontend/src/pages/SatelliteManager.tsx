@@ -24,7 +24,8 @@ import { useAdminSatellites, ADMIN_SATELLITES_QUERY_KEY, SATELLITES_QUERY_KEY } 
 import { useAdminDepartments } from '../hooks/useDepartments'
 import { useDebounce } from '../hooks/useDebounce'
 import { useToastStore } from '../store/toastStore'
-import { PageHeader, Button, Input, Modal, Textarea, SatelliteInfoModal } from '../components'
+import { PageHeader, Button, Input, Modal, Textarea, SatelliteInfoModal, Table } from '../components'
+import { ViewToggle, useViewMode } from '../components/ViewToggle'
 
 type Tab = 'active' | 'inactive'
 
@@ -64,6 +65,7 @@ export function SatelliteManager() {
 
   // Delete Confirm Modal State
   const [deletingSat, setDeletingSat] = useState<Satellite | null>(null)
+  const [viewMode, setViewMode] = useViewMode('admin-satellites')
   const [deleting, setDeleting] = useState(false)
 
   const invalidateSatellites = () => {
@@ -376,9 +378,12 @@ export function SatelliteManager() {
           />
         </div>
 
-        <span className="text-xs text-text-dim">
-          Showing {filteredSatellites.length} of {tabSatellites.length} {tab === 'active' ? 'Active' : 'Inactive'} Satellites
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-text-dim">
+            Showing {filteredSatellites.length} of {tabSatellites.length} {tab === 'active' ? 'Active' : 'Inactive'} Satellites
+          </span>
+          <ViewToggle mode={viewMode} onChange={setViewMode} />
+        </div>
       </div>
 
       {/* Satellites Grid */}
@@ -411,6 +416,50 @@ export function SatelliteManager() {
               <span>Add Your First Satellite</span>
             </Button>
           )}
+        </div>
+      ) : viewMode === 'table' ? (
+        <div className="rounded-xl border border-border-default bg-card overflow-hidden">
+          <Table
+            data={filteredSatellites}
+            columns={[
+              { key: 'satId', header: 'ID', render: (sat) => <span className="num font-bold text-accent-light">{sat.satId || sat.code || '—'}</span> },
+              {
+                key: 'name',
+                header: 'Satellite',
+                render: (sat) => (
+                  <button type="button" onClick={() => setViewingSatId(sat.id)} className="font-semibold text-text-primary hover:text-accent-light hover:underline text-left">
+                    {sat.name}
+                  </button>
+                ),
+              },
+              { key: 'orbitType', header: 'Orbit', render: (sat) => sat.orbitType || '—' },
+              { key: 'status', header: 'Status', render: (sat) => getStatusBadge(sat.status, sat.isActive) },
+              { key: 'departments', header: 'Departments', wrap: true, render: (sat) => sat.departments?.map((d) => d.code || d.name).join(', ') || '—' },
+              {
+                key: 'actions',
+                header: 'Actions',
+                render: (sat) => (
+                  <div className="flex items-center gap-1.5">
+                    <Button type="button" variant="outline" size="sm" onClick={() => openEditModal(sat)}>
+                      <Edit2 size={12} />
+                      <span>Edit</span>
+                    </Button>
+                    {tab === 'inactive' ? (
+                      <Button type="button" variant="outline" size="sm" disabled={restoringId === sat.id} onClick={() => handleRestore(sat)}>
+                        <RotateCcw size={12} />
+                        <span>Reactivate</span>
+                      </Button>
+                    ) : (
+                      <Button type="button" variant="outline" size="sm" onClick={() => setDeletingSat(sat)} aria-label={`Deactivate ${sat.name}`}>
+                        <Trash2 size={12} />
+                        <span>Deactivate</span>
+                      </Button>
+                    )}
+                  </div>
+                ),
+              },
+            ]}
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

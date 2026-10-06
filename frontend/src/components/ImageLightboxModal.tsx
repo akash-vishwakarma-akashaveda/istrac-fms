@@ -194,6 +194,7 @@ export function ImageLightboxModal({
   return (
     <div
       role="dialog"
+      data-theme="dark"
       aria-modal="true"
       aria-label={current.title || current.caption || "Enlarged Image Preview"}
       className="fixed inset-0 z-[99999] flex flex-col justify-between bg-black/60 backdrop-blur-md animate-fadeIn select-none overflow-hidden"
@@ -298,7 +299,7 @@ export function ImageLightboxModal({
           >
             <X size={15} />
             <span className="hidden sm:inline">Close</span>
-            <kbd className="ml-1 hidden rounded bg-black/40 px-1.5 py-0.5 text-[9px] text-text-dim border border-white/10 sm:inline-block font-mono">
+            <kbd className="ml-1 hidden rounded bg-black/40 px-1.5 py-0.5 text-[10px] text-text-dim border border-white/10 sm:inline-block font-mono">
               ESC
             </kbd>
           </button>

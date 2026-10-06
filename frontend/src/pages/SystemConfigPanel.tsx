@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { copyText } from '../lib/browserCompat'
 import {
   HardDrive,
   CheckCircle,
@@ -324,7 +325,7 @@ export function SystemConfigPanel() {
   }
 
   const handleCopyText = (text: string, title: string, message: string) => {
-    navigator.clipboard.writeText(text)
+    void copyText(text)
     addToast({
       title,
       message,
@@ -449,7 +450,7 @@ export function SystemConfigPanel() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                <h3 className="text-sm font-semibold text-white">
                   Operational File Ingest & Size Limits
                 </h3>
                 <span className="rounded-full bg-accent/20 px-2.5 py-0.5 text-[10px] font-bold text-accent-light border border-accent/30 font-mono">
@@ -567,7 +568,7 @@ export function SystemConfigPanel() {
         <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <h4 className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
                 <FileCode size={13} className="text-nominal" />
                 Permitted File Extensions & Telemetry Formats
               </h4>
@@ -635,7 +636,7 @@ export function SystemConfigPanel() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                <h3 className="text-sm font-semibold text-white">
                   Password Reset & OTP Verification Administration
                 </h3>
                 <span className="rounded-full bg-accent/20 px-2.5 py-0.5 text-[10px] font-bold text-accent-light border border-accent/30 font-mono">
@@ -725,7 +726,7 @@ export function SystemConfigPanel() {
         {/* Recent Reset Requests & Forwardable Template Queue */}
         <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+            <h4 className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
               <Mail size={14} className="text-nominal" />
               Recent Password Reset Requests & Forwardable Templates ({passwordResets.length})
             </h4>
@@ -756,7 +757,7 @@ export function SystemConfigPanel() {
                         <div className="font-semibold text-white">{item.userName || "Operator"}</div>
                         <div className="text-[11px] text-text-dim font-mono">{item.userEmail}</div>
                         {item.employeeId && (
-                          <span className="inline-block mt-0.5 rounded bg-white/5 px-1.5 py-0.5 text-[9px] font-mono text-slate-400 border border-white/10">
+                          <span className="inline-block mt-0.5 rounded bg-white/5 px-1.5 py-0.5 text-[10px] font-mono text-slate-400 border border-white/10">
                             ID: {item.employeeId}
                           </span>
                         )}
@@ -841,7 +842,7 @@ export function SystemConfigPanel() {
         <div className="flex items-center justify-between border-b border-border-subtle/80 pb-3">
           <div className="flex items-center gap-2.5">
             <HardDrive size={18} className="text-text-primary" />
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+            <h3 className="text-sm font-semibold text-white">
               Detected Host Physical Volumes ({availableDrives.length})
             </h3>
           </div>
@@ -875,17 +876,17 @@ export function SystemConfigPanel() {
                     </div>
                     <div className="flex items-center gap-1">
                       {isPrimary && (
-                        <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[9px] font-bold text-accent-light border border-accent/30">
+                        <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent-light border border-accent/30">
                           PRIMARY
                         </span>
                       )}
                       {isSecondary && (
-                        <span className="rounded bg-purple-400/20 px-1.5 py-0.5 text-[9px] font-bold text-purple-300 border border-purple-400/30">
+                        <span className="rounded bg-purple-400/20 px-1.5 py-0.5 text-[10px] font-bold text-purple-300 border border-purple-400/30">
                           BACKUP
                         </span>
                       )}
                       <span
-                        className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
                           d.status === "HEALTHY"
                             ? "bg-nominal/15 text-nominal"
                             : d.status === "WARNING"
@@ -962,7 +963,7 @@ export function SystemConfigPanel() {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Layers size={18} className="text-accent-light" />
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+              <h3 className="text-sm font-semibold text-white">
                 Storage Mount & Redundancy Failover Architecture
               </h3>
               <span

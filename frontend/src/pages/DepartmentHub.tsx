@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { HelpTip } from '../components/HelpTip'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   Building2,
@@ -271,7 +272,7 @@ export function DepartmentHub() {
                 <User size={12} className="text-accent-light" />
                 <span>Division Lead</span>
               </span>
-              <span className="rounded bg-nominal/15 px-1.5 py-0.5 text-[9px] font-bold text-nominal">
+              <span className="rounded bg-nominal/15 px-1.5 py-0.5 text-[10px] font-bold text-nominal">
                 ACTIVE
               </span>
             </div>
@@ -357,8 +358,11 @@ export function DepartmentHub() {
                 placeholder={`Search files inside ${department.code || department.name}…`}
                 value={fileSearch}
                 onChange={(e) => setFileSearch(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-11 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
               />
+              <span className="absolute right-1 top-1/2 -translate-y-1/2">
+                <HelpTip topic="repository" />
+              </span>
             </div>
 
             <span className="num text-xs text-text-dim">{files.length} records found</span>
@@ -469,7 +473,7 @@ export function DepartmentHub() {
                     <span className="text-[10px] font-bold text-accent-light uppercase">
                       {ev.eventType}
                     </span>
-                    <span className="rounded bg-nominal/15 px-1.5 py-0.5 text-[9px] font-bold text-nominal">
+                    <span className="rounded bg-nominal/15 px-1.5 py-0.5 text-[10px] font-bold text-nominal">
                       {ev.status}
                     </span>
                   </div>

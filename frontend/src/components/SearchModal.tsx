@@ -226,7 +226,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 ml-3">
-                    <span className="rounded bg-surface border border-border-subtle px-1.5 py-0.5 text-[9px] font-bold uppercase num text-text-dim group-hover:text-white">
+                    <span className="rounded bg-surface border border-border-subtle px-1.5 py-0.5 text-[10px] font-bold uppercase num text-text-dim group-hover:text-white">
                       {item.extension || "DAT"}
                     </span>
                     <ArrowRight

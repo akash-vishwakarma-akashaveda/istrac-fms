@@ -51,7 +51,12 @@ router.get('/admin/health/hdd', authMiddleware, adminMiddleware, async (_req, re
       mounted = false
     }
 
-    const degradedFlag = await redis.get('hdd:degraded')
+    let degradedFlag: string | null = null
+    try {
+      if (redis.status === 'ready') {
+        degradedFlag = await redis.get('hdd:degraded')
+      }
+    } catch {}
 
     res.json({
       data: {

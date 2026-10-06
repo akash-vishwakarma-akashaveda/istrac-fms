@@ -27,10 +27,14 @@ export function useLiveNotificationSync() {
 
         setUnreadCount(count)
 
-        // If count increased, trigger a toast notification
-        if (prevCountRef.current !== null && count > prevCountRef.current) {
+        // Any change (new notification, or a broadcast revoked by an admin) refreshes the lists.
+        if (prevCountRef.current !== null && count !== prevCountRef.current) {
           queryClient.invalidateQueries({ queryKey: ['notifications'] })
           queryClient.invalidateQueries({ queryKey: ['active-banner'] })
+        }
+
+        // Only an increase gets a toast for the newest item.
+        if (prevCountRef.current !== null && count > prevCountRef.current) {
 
           // Fetch the newest unread notification to display in toast
           try {

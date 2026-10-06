@@ -21,6 +21,8 @@ const ALLOWED_INTERVALS = [
   60,
 ]
 
+let inMemoryInterval = 1
+
 // ============================================================
 // GET CURRENT SCHEDULER CONFIGURATION
 // ============================================================
@@ -31,12 +33,16 @@ router.get(
   adminMiddleware,
   async (req, res, next) => {
     try {
-      const value =
-        await redis.get(INTERVAL_KEY)
+      let interval = inMemoryInterval
 
-      const interval = value
-        ? Number(value)
-        : 1
+      try {
+        if (redis.status === 'ready') {
+          const value = await redis.get(INTERVAL_KEY)
+          if (value) interval = Number(value)
+        }
+      } catch {
+        // Fall back to in-memory interval if Redis is offline
+      }
 
       res.json({
         data: {
@@ -61,8 +67,7 @@ router.put(
   adminMiddleware,
   async (req, res, next) => {
     try {
-      const interval =
-        Number(req.body.interval)
+      const interval = Number(req.body.interval)
 
       if (
         !Number.isInteger(interval) ||
@@ -75,10 +80,15 @@ router.put(
         )
       }
 
-      await redis.set(
-        INTERVAL_KEY,
-        String(interval)
-      )
+      inMemoryInterval = interval
+
+      try {
+        if (redis.status === 'ready') {
+          await redis.set(INTERVAL_KEY, String(interval))
+        }
+      } catch {
+        // Safe fallback if Redis is offline
+      }
 
       res.json({
         data: {
