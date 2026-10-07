@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import * as pdfjsLib from 'pdfjs-dist'
-import workerCode from 'pdfjs-dist/build/pdf.worker.mjs?raw'
+// The legacy build bundles core-js polyfills for the APIs the modern build assumes
+// (URL.parse, Promise.try, Map#getOrInsert, Math.sumPrecise, Uint8Array.fromBase64…),
+// in both the main thread and the worker. Chrome 110 lacks all of them.
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
+import workerCode from 'pdfjs-dist/legacy/build/pdf.worker.mjs?raw'
 import {
   ChevronLeft,
   ChevronRight,
@@ -17,7 +20,7 @@ import {
 } from 'lucide-react'
 import { apiClient } from '../../api/client'
 
-// Initialize in-memory Blob Worker (100% self-contained, no network request, no MIME issue)
+// Initialize in-memory Blob Worker (self-contained, no extra network request)
 try {
   if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
     const blob = new Blob([workerCode], { type: 'text/javascript' })

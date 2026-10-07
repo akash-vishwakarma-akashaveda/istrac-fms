@@ -87,11 +87,18 @@ Client Browser
 3. Enter the current password, the new secure password, and confirm.
 
 ### Method B: Via CLI Script (Direct Server Console)
-From the RHEL server terminal:
-```bash
-cd /opt/istrac-fms/backend
-npm run admin:reset-password -- "YourNewSecurePassword123!"
-```
+### Method B: Via CLI Script (Direct Server Console)
+From the server terminal (Ubuntu bash or Windows PowerShell):
+- **Ubuntu Linux:**
+  ```bash
+  cd /opt/istrac-fms/backend
+  npm run admin:reset-password -- "YourNewSecurePassword123!"
+  ```
+- **Microsoft Windows:**
+  ```powershell
+  cd D:\istrac-fms\backend
+  npm run admin:reset-password -- "YourNewSecurePassword123!"
+  ```
 This utility:
 - Generates a fresh 12-round bcrypt hash.
 - Updates `admin@istrac.local` directly in MariaDB.
@@ -116,10 +123,15 @@ If the Super Admin is locked out without an external email connection:
 
 1. Navigate to `/forgot-password` in the browser.
 2. Enter `admin@istrac.local` and click **Request Verification Code**.
-3. Inspect the live systemd journal on the server:
-   ```bash
-   sudo journalctl -u istrac-backend -n 20 --no-pager
-   ```
+3. Inspect the live backend logs:
+   - **On Ubuntu Linux:**
+     ```bash
+     sudo journalctl -u istrac-backend -n 20 --no-pager
+     ```
+   - **On Microsoft Windows:**
+     ```powershell
+     pm2 logs istrac-backend --lines 20
+     ```
 4. Read the ASCII broadcast banner:
    ```text
    ============================================================

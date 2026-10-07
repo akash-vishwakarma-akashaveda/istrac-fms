@@ -505,7 +505,7 @@ export function DepartmentPagesTab() {
                   <div className="pt-3 border-t border-border-subtle flex items-center justify-between text-xs text-text-dim">
                     {showLeadOfficer && (
                       <div>
-                        <span className="text-[9px] uppercase font-bold text-text-dim block">Officer in Charge</span>
+                        <span className="text-[10px] uppercase font-bold text-text-dim block">Officer in Charge</span>
                         <strong className="text-white text-xs">
                           {effectiveLead || "Division Director"}
                         </strong>

@@ -9,6 +9,7 @@ import { adminMiddleware } from '../middleware/admin.middleware.js'
 import { auditService } from '../services/audit.service.js'
 import { notificationService } from '../services/notification.service.js'
 import { AppError } from '../lib/errors.js'
+import { categoryCodeOf } from '../lib/reportCategory.js'
 
 const router = Router()
 
@@ -267,7 +268,8 @@ router.get('/departments/:deptId/files', optionalAuthMiddleware, async (req, res
       orderBy: { updatedAt: 'desc' },
       take: 100,
       include: {
-        report: { select: { id: true, title: true, category: true, spacecraft: true, classificationLevel: true } },
+        report: { select: { id: true, title: true, category: true, customCategory: true, spacecraft: true, classificationLevel: true } },
+        tags: { where: { deletedAt: null, tag: { deletedAt: null } }, select: { tag: { select: { name: true } } } },
         versions: {
           where: {
             deletedAt: null,
@@ -308,12 +310,14 @@ router.get('/departments/:deptId/files', optionalAuthMiddleware, async (req, res
           versionCount,
           status: f.status,
           description: f.description,
-          hddPath: f.hddPath,
+          // Server disk paths are internal; this route is also served to anonymous visitors.
+          hddPath: isAdmin ? f.hddPath : undefined,
           report: f.report,
           title: f.report?.title || displayName.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
           spacecraft: f.report?.spacecraft || 'General',
-          category: f.report?.category || 'DAILY_REPORT',
+          category: categoryCodeOf(f.report) || 'GENERAL',
           isFeatured: Boolean(f.isFeatured),
+          tags: req.user ? (f.tags ?? []).map((t: any) => t.tag.name) : [],
           latestVersion: activeVer ? {
             id: activeVer.id,
             versionNum: activeVer.versionNum,
@@ -455,7 +459,7 @@ router.get('/departments/:deptId/hub', authMiddleware, async (req, res, next) =>
           id: r.id,
           title: r.title,
           description: r.description,
-          category: r.category,
+          category: categoryCodeOf(r),
           spacecraft: r.spacecraft,
           status: r.status,
           createdBy: r.createdBy?.name || 'Operator',
@@ -1073,7 +1077,11 @@ router.post('/admin/departments/:deptId/users', authMiddleware, adminMiddleware,
       },
     })
 
-    await redis.del(`dept-access:${userId}:${deptId}`)
+    try {
+      if (redis.status === 'ready') {
+        await redis.del(`dept-access:${userId}:${deptId}`)
+      }
+    } catch {}
 
     auditService.log({
       userId: req.user!.id,
@@ -1113,7 +1121,11 @@ router.delete('/admin/departments/:deptId/users/:userId', authMiddleware, adminM
       where: { userId, departmentId: deptId },
     })
 
-    await redis.del(`dept-access:${userId}:${deptId}`)
+    try {
+      if (redis.status === 'ready') {
+        await redis.del(`dept-access:${userId}:${deptId}`)
+      }
+    } catch {}
 
     auditService.log({
       userId: req.user!.id,

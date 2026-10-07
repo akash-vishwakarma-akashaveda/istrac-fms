@@ -26,19 +26,19 @@
 
   /* -- Hairline Borders ---------------------------------------------------- */
   --color-border-subtle: #192336;
-  --color-border-default: #223049;
-  --color-border-bright: #364b6e;
-  --color-border: #223049;
+  --color-border-default: #2c3c57;
+  --color-border-bright: #56698b;
+  --color-border: #2c3c57;
 
   /* -- Ink & Typography ---------------------------------------------------- */
   --color-text-primary: #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-text-dim: #475569;
+  --color-text-secondary: #a7b4c6;
+  --color-text-muted: #93a1b6;
+  --color-text-dim: #8391a7;
 
   /* -- Brand Voice: ISRO / ISTRAC Mission Blue ----------------------------- */
-  --color-accent: #1d72fe;
-  --color-accent-hover: #3b82f6;
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
   --color-accent-light: #60a5fa;
   --color-accent-dark: #1e40af;
 
@@ -170,18 +170,21 @@ body {
 }
 
 .num {
-  font-family: var(--font-mono);
-  font-feature-settings: "tnum" 1, "zero" 1, "cv01" 1;
+  /* Tabular sans figures line up like a readout without a third typeface on every card. */
+  font-variant-numeric: tabular-nums;
 }
 
-.readout {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+/* In the components layer so utilities like `hidden sm:inline-flex` can override display. */
+@layer components {
+  .readout {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
 }
 
 .col-label {
@@ -272,4 +275,199 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #2e4468;
+}
+
+/* ============================================================================
+   LIGHT THEME
+   Activated by <html data-theme="light"> (see src/store/themeStore.ts).
+   1. Swap the design tokens, so every token-based class follows automatically.
+   2. Remap the hard-coded dark colours used across older screens (bg-[#060c18],
+      text-white, border-white/10, *-300/400 accent text…) to readable equivalents.
+   Any subtree marked data-theme="dark" (e.g. the space hero) keeps the dark look.
+   All text tokens below meet WCAG AA (>=4.5:1) on page, card and hover surfaces.
+   ========================================================================== */
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-page: #f4f6fa;
+  --color-page-soft: #eaeef4;
+  --color-surface: #ffffff;
+  --color-card: #ffffff;
+  --color-card-hover: #eef2f7;
+
+  --color-border-subtle: #dde3ec;
+  --color-border-default: #c3cbd8;
+  --color-border-bright: #8794a8;
+  --color-border: #c3cbd8;
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #334155;
+  --color-text-muted: #475569;
+  --color-text-dim: #5b6779;
+
+  --color-accent: #1d4ed8;
+  --color-accent-hover: #1e40af;
+  --color-accent-light: #1e40af;
+  --color-accent-dark: #1e3a8a;
+
+  --color-nominal: #047857;
+  --color-nominal-bg: #d1fae5;
+  --color-warning: #b45309;
+  --color-warning-bg: #fef3c7;
+  --color-critical: #b91c1c;
+  --color-critical-bg: #fee2e2;
+  --color-special: #7e22ce;
+  --color-special-bg: #f3e8ff;
+
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-card-hover: 0 6px 16px -4px rgba(15, 23, 42, 0.14);
+  --shadow-card-lg: 0 20px 40px -12px rgba(15, 23, 42, 0.22);
+  --shadow-button: 0 1px 2px rgba(15, 23, 42, 0.12);
+
+  /* Light accent shades used as text on dark backgrounds become their dark equivalents. */
+  --color-amber-300: #b45309; --color-amber-400: #b45309;
+  --color-purple-200: #6b21a8; --color-purple-300: #7e22ce; --color-purple-400: #7e22ce;
+  --color-cyan-300: #0e7490; --color-cyan-400: #0e7490;
+  --color-slate-100: #1e293b; --color-slate-200: #1e293b; --color-slate-300: #334155; --color-slate-400: #475569;
+  --color-emerald-300: #047857; --color-emerald-400: #047857;
+  --color-yellow-300: #a16207; --color-yellow-400: #a16207;
+  --color-red-300: #b91c1c; --color-red-400: #b91c1c;
+  --color-indigo-300: #4338ca; --color-indigo-400: #4338ca;
+  --color-rose-300: #be123c; --color-rose-400: #be123c;
+  --color-pink-300: #be185d; --color-pink-400: #be185d;
+  --color-lime-300: #4d7c0f; --color-lime-400: #4d7c0f;
+  --color-blue-300: #1d4ed8; --color-blue-400: #1d4ed8;
+  --color-orange-400: #c2410c;
+  --color-sky-300: #0369a1; --color-sky-400: #0369a1;
+  --color-teal-400: #0f766e;
+  --color-fuchsia-300: #a21caf; --color-fuchsia-400: #a21caf;
+
+  /* Near-black tints used as tinted panel backgrounds become pale tints. */
+  --color-rose-950: #fff1f2; --color-amber-950: #fffbeb; --color-purple-950: #faf5ff;
+  --color-cyan-950: #ecfeff; --color-emerald-950: #ecfdf5; --color-blue-950: #eff6ff;
+  --color-slate-950: #f8fafc; --color-red-950: #fef2f2;
+}
+
+/* A dark island inside a light page (hero imagery, image overlays). */
+:root[data-theme="light"] [data-theme="dark"] {
+  color-scheme: dark;
+  --color-page: #04070e;
+  --color-page-soft: #080d17;
+  --color-surface: #0c121e;
+  --color-card: #101726;
+  --color-card-hover: #172033;
+  --color-border-subtle: #192336;
+  --color-border-default: #2c3c57;
+  --color-border-bright: #56698b;
+  --color-border: #2c3c57;
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #a7b4c6;
+  --color-text-muted: #93a1b6;
+  --color-text-dim: #8391a7;
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-light: #60a5fa;
+  --color-accent-dark: #1e40af;
+  --color-nominal: #10b981;
+  --color-warning: #f59e0b;
+  --color-critical: #ef4444;
+  --color-special: #a855f7;
+}
+
+/* Form controls are always white in light mode, however they were coded (consistency). */
+:root[data-theme="light"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):is([class*="bg-[#"], [class*="bg-surface"], [class*="bg-page"], [class*="bg-card"]):not([data-theme="dark"] *) {
+  background-color: var(--color-surface);
+}
+
+/* Hard-coded dark gradient stops -> card surface (panels, rows and image fades all end on the card). */
+:root[data-theme="light"] :is([class*="from-[#0"], [class*="from-[#1"], [class*="from-[#2"]):not([data-theme="dark"], [data-theme="dark"] *) {
+  --tw-gradient-from: var(--color-card);
+}
+:root[data-theme="light"] :is([class*="via-[#0"], [class*="via-[#1"], [class*="via-[#2"]):not([data-theme="dark"], [data-theme="dark"] *) {
+  --tw-gradient-via: var(--color-card);
+}
+:root[data-theme="light"] :is([class*="to-[#0"], [class*="to-[#1"], [class*="to-[#2"]):not([data-theme="dark"], [data-theme="dark"] *) {
+  --tw-gradient-to: var(--color-card);
+}
+
+/* Hard-coded dark surfaces -> light surfaces. */
+:root[data-theme="light"] :is([class*="bg-[#0"], [class*="bg-[#1"]):not([data-theme="dark"], [data-theme="dark"] *) {
+  /* These are inner panels/inputs inside cards: a soft fill reads as nested without box-in-box borders. */
+  background-color: #f6f8fb;
+}
+:root[data-theme="light"] :is([class*="border-[#0"], [class*="border-[#1"], [class*="border-[#2"], [class*="border-white/"]):not([data-theme="dark"] *) {
+  border-color: var(--color-border-default);
+}
+:root[data-theme="light"] :is([class~="bg-black/20"], [class~="bg-black/30"], [class~="bg-black/40"]):not([data-theme="dark"] *) {
+  background-color: var(--color-page-soft);
+}
+:root[data-theme="light"] [class*="bg-white/"]:not([data-theme="dark"] *) {
+  background-color: rgba(15, 23, 42, 0.04);
+}
+
+/* White text -> ink, except on solid coloured or dark fills where it must stay white. */
+:root[data-theme="light"] .text-white:not([data-theme="dark"] *) {
+  color: var(--color-text-primary);
+}
+:root[data-theme="light"] [class*="text-white/"]:not([data-theme="dark"] *) {
+  color: var(--color-text-secondary);
+}
+:root[data-theme="light"] :is(
+    [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-accent-dark"],
+    [class~="bg-critical"], [class~="bg-nominal"], [class~="bg-warning"], [class~="bg-special"],
+    [class~="bg-blue-600"], [class~="bg-red-600"], [class~="bg-emerald-600"], [class~="bg-purple-600"],
+    [class~="bg-amber-600"], [class~="bg-[#FF6B00]"], [class~="bg-[#dc2626]"], [class*="bg-black/6"], [class*="bg-black/7"],
+    [class*="bg-black/8"], [class~="bg-black"]
+  ):is(.text-white, [class*="text-white/"]),
+/* Descendants only for solid brand fills (buttons, chips). Translucent black is usually a
+   modal backdrop, whose light-themed dialog content must not inherit white text. */
+:root[data-theme="light"] :is(
+    [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-accent-dark"],
+    [class~="bg-critical"], [class~="bg-nominal"], [class~="bg-warning"], [class~="bg-special"],
+    [class~="bg-blue-600"], [class~="bg-red-600"], [class~="bg-emerald-600"], [class~="bg-purple-600"],
+    [class~="bg-amber-600"], [class~="bg-[#FF6B00]"], [class~="bg-[#dc2626]"]
+  ) :is(.text-white, [class*="text-white/"]) {
+  color: #ffffff;
+}
+/* "hover:text-white" was written for dark hover fills; on light hover fills keep ink. */
+:root[data-theme="light"] [class*="hover:text-white"]:not([data-theme="dark"] *):hover {
+  color: var(--color-text-primary);
+}
+:root[data-theme="light"] [class*="hover:bg-accent"][class*="hover:text-white"]:not([class*="hover:bg-accent/"]):hover,
+:root[data-theme="light"] [class*="hover:bg-critical"][class*="hover:text-white"]:not([class*="hover:bg-critical/"]):hover {
+  color: #ffffff;
+}
+
+/* Elevation shadows were tuned for black backgrounds; on white they read as smudges. */
+:root[data-theme="light"] :is(.shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl):not([data-theme="dark"] *) {
+  --tw-shadow-color: rgb(15 23 42 / 0.10);
+}
+
+/* Orange brand accent text is too light on white. */
+:root[data-theme="light"] :is([class*="text-[#FF8533]"], [class*="text-[#FF6B00]"], [class*="text-[#38BDF8]"]):not([data-theme="dark"] *) {
+  color: #c2410c;
+}
+:root[data-theme="light"] [class*="text-[#38BDF8]"]:not([data-theme="dark"] *) {
+  color: #0369a1;
+}
+
+/* ============================================================================
+   FORM CONTROL EDGES & FOCUS (both themes)
+   WCAG 1.4.11: control boundaries need 3:1 against their background; the default
+   hairline border is decorative only, so form controls use the brighter edge.
+   ========================================================================== */
+:is(input, select, textarea)[class*="border-border-default"],
+:is(input, select, textarea)[class*="border-border-subtle"] {
+  border-color: var(--color-border-bright);
+}
+:is(input, select, textarea)[class*="border-border-default"]:focus,
+:is(input, select, textarea)[class*="border-border-subtle"]:focus {
+  border-color: var(--color-accent);
+}
+:is(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+:is(button, input, select, textarea):disabled {
+  cursor: not-allowed;
 }

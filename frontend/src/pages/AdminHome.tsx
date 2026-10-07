@@ -197,7 +197,7 @@ export function AdminHome() {
               <AlertTriangle size={18} />
             </div>
             <div>
-              <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+              <h4 className="text-xs font-semibold text-white">
                 Physical Storage Mount Required
               </h4>
               <p className="text-xs text-text-secondary">
@@ -224,7 +224,7 @@ export function AdminHome() {
             <Radio size={16} className="animate-pulse" />
           </div>
           <div className="min-w-0">
-            <dt className="eyebrow text-[9px] text-text-dim">MySQL Database</dt>
+            <dt className="eyebrow text-[10px] text-text-dim">MySQL Database</dt>
             <dd className="num text-xs font-bold text-nominal truncate">Connected (3306)</dd>
           </div>
         </div>
@@ -241,7 +241,7 @@ export function AdminHome() {
             <HardDrive size={16} />
           </div>
           <div className="min-w-0">
-            <dt className="eyebrow text-[9px] text-text-dim group-hover:text-accent-light">Storage Mount</dt>
+            <dt className="eyebrow text-[10px] text-text-dim group-hover:text-accent-light">Storage Mount</dt>
             <dd
               className={`num text-xs font-bold truncate ${
                 storageStatus.mounted ? 'text-nominal' : 'text-critical'
@@ -257,7 +257,7 @@ export function AdminHome() {
             <Shield size={16} />
           </div>
           <div className="min-w-0">
-            <dt className="eyebrow text-[9px] text-text-dim">Security Protocol</dt>
+            <dt className="eyebrow text-[10px] text-text-dim">Security Protocol</dt>
             <dd className="num text-xs font-bold text-text-primary truncate">Multi-RBAC Level 4</dd>
           </div>
         </div>
@@ -267,7 +267,7 @@ export function AdminHome() {
             <Clock size={16} />
           </div>
           <div className="min-w-0">
-            <dt className="eyebrow text-[9px] text-text-dim">Tracking Hub</dt>
+            <dt className="eyebrow text-[10px] text-text-dim">Tracking Hub</dt>
             <dd className="num text-xs font-bold text-warning truncate">BLR MOX Active</dd>
           </div>
         </div>
@@ -317,7 +317,7 @@ export function AdminHome() {
           <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-default bg-surface/50">
             <div className="flex items-center gap-2">
               <FileText size={15} className="text-accent-light" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">
+              <h3 className="text-sm font-semibold text-text-primary">
                 Recent Files
               </h3>
               <span className="num font-bold text-[10px] text-nominal rounded-full bg-nominal/15 border border-nominal/30 px-2 py-0.5">
@@ -454,7 +454,7 @@ export function AdminHome() {
       {/* Control Matrix: Administration Command Shortcuts (6 Cards) */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="eyebrow text-xs font-bold text-text-secondary uppercase tracking-wider">
+          <h3 className="eyebrow text-sm font-semibold text-text-secondary">
             Operational Management Suite
           </h3>
           <span className="text-[11px] text-text-dim">6 Core Modules</span>

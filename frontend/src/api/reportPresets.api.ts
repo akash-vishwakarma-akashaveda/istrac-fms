@@ -7,6 +7,8 @@ export interface CategoryPreset {
   description?: string | null
   isSystem: boolean
   createdAt?: string
+  /** Number of reports currently filed under this category. */
+  usageCount?: number
 }
 
 export interface NamingPreset {
@@ -29,7 +31,7 @@ export const reportPresetsApi = {
     return extractData<CategoryPreset>(res)
   },
 
-  async deleteCategory(id: string): Promise<{ message: string }> {
+  async deleteCategory(id: string): Promise<{ message: string; filesMovedToGeneral?: number }> {
     const res = await apiClient.delete(`/report-presets/categories/${id}`)
     return extractData<{ message: string }>(res)
   },

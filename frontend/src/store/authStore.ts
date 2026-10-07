@@ -28,9 +28,13 @@ interface AuthState {
   user: User | null
   accessToken: string | null
   refreshToken: string | null
+  /** True after the user deliberately signs out; route guards then go to "/" instead of the login popup. */
+  signedOutByUser: boolean
   setAuth: (user: User, accessToken: string, refreshToken?: string | null) => void
   updateUser: (patch: Partial<User>) => void
   clearAuth: () => void
+  /** Clears the session because the user chose to sign out. */
+  signOut: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -39,9 +43,11 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       accessToken: null,
       refreshToken: null,
+      signedOutByUser: false,
 
       setAuth: (user, accessToken, refreshToken) =>
         set((state) => ({
+          signedOutByUser: false,
           user,
           accessToken,
           refreshToken: refreshToken !== undefined ? refreshToken : state.refreshToken,
@@ -57,6 +63,14 @@ export const useAuthStore = create<AuthState>()(
           user: null,
           accessToken: null,
           refreshToken: null,
+        }),
+
+      signOut: () =>
+        set({
+          user: null,
+          accessToken: null,
+          refreshToken: null,
+          signedOutByUser: true,
         }),
     }),
     {

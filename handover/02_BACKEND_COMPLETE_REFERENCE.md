@@ -429,11 +429,17 @@ Physical file storage is completely separated from the operating system drive:
    cd backend
    npx prisma migrate dev --name add_ground_antenna
    ```
-3. Deploy migration offline on the RHEL server:
-   ```bash
-   cd /opt/istrac-fms/backend
-   node ./node_modules/prisma/build/index.js migrate deploy
-   ```
+3. Deploy migration offline on the production server:
+   - **Ubuntu Linux:**
+     ```bash
+     cd /opt/istrac-fms/backend
+     node ./node_modules/prisma/build/index.js migrate deploy
+     ```
+   - **Windows:**
+     ```powershell
+     cd D:\istrac-fms\backend
+     node .\node_modules\prisma\build\index.js migrate deploy
+     ```
 
 ---
 
@@ -474,7 +480,9 @@ cd /path/to/istrac-fms/backend
 npm run build
 ```
 
-### Deploying to Production RHEL Server:
+### Deploying to Production (Ubuntu Linux & Windows):
+
+#### On Ubuntu Linux:
 ```bash
 # Copy compiled dist to production directory
 sudo cp -rf dist/* /opt/istrac-fms/backend/dist/
@@ -484,4 +492,16 @@ sudo systemctl restart istrac-backend
 
 # Verify logs
 sudo journalctl -u istrac-backend -n 50 --no-pager
+```
+
+#### On Microsoft Windows:
+```powershell
+# Copy compiled dist to backend directory
+Copy-Item -Path ".\dist\*" -Destination "D:\istrac-fms\backend\dist\" -Recurse -Force
+
+# Restart backend via PM2 or Windows Service
+pm2 restart istrac-backend
+
+# Verify logs
+pm2 logs istrac-backend --lines 50
 ```

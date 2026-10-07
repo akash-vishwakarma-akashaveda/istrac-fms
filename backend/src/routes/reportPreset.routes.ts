@@ -2,6 +2,9 @@ import { Router } from 'express'
 import { prisma } from '../config/db.js'
 import { authMiddleware } from '../middleware/auth.middleware.js'
 import { AppError } from '../lib/errors.js'
+import { adminMiddleware } from '../middleware/admin.middleware.js'
+import { auditService } from '../services/audit.service.js'
+import { normalizeCategoryCode } from '../lib/reportCategory.js'
 
 const router = Router()
 
@@ -66,8 +69,16 @@ router.get('/report-presets/categories', authMiddleware, async (req, res, next) 
       })
     }
 
+    // Usage counts let the UI explain what deleting a category affects.
+    const usage = await prisma.report.groupBy({
+      by: ['customCategory'],
+      where: { deletedAt: null, customCategory: { not: null } },
+      _count: { _all: true },
+    })
+    const usageByCode = new Map(usage.map((u: any) => [u.customCategory, u._count._all]))
+
     res.json({
-      data: custom,
+      data: custom.map((c: any) => ({ ...c, usageCount: usageByCode.get(c.code) ?? 0 })),
       requestId: req.requestId,
     })
   } catch (err) {
@@ -86,7 +97,7 @@ router.post('/report-presets/categories', authMiddleware, async (req, res, next)
       throw new AppError('missing_fields', 'Category name and short code are required', 400)
     }
 
-    const cleanCode = code.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
+    const cleanCode = normalizeCategoryCode(code).replace(/_/g, '')
     if (!cleanCode) {
       throw new AppError('invalid_code', 'Category code must contain alphanumeric characters', 400)
     }
@@ -122,7 +133,7 @@ router.post('/report-presets/categories', authMiddleware, async (req, res, next)
 // ============================================================
 // DELETE CUSTOM CATEGORY PRESET
 // ============================================================
-router.delete('/report-presets/categories/:id', authMiddleware, async (req, res, next) => {
+router.delete('/report-presets/categories/:id', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     const rawId = req.params.id
     const id = Array.isArray(rawId) ? rawId[0] : rawId
@@ -139,12 +150,31 @@ router.delete('/report-presets/categories/:id', authMiddleware, async (req, res,
       throw new AppError('cannot_delete_system', 'Default system categories cannot be deleted', 400)
     }
 
-    await prisma.reportCategoryPreset.delete({
-      where: { id },
+    // Files keep working: their reports move to General so they stay visible in filters.
+    const [reassigned] = await prisma.$transaction([
+      prisma.report.updateMany({
+        where: { customCategory: category.code },
+        data: { customCategory: 'GENERAL', category: 'OTHER' },
+      }),
+      prisma.reportCategoryPreset.delete({ where: { id } }),
+    ])
+
+    auditService.log({
+      userId: req.user!.id,
+      action: 'REPORT_CATEGORY:DELETE',
+      resourceType: 'report_category',
+      resourceId: id,
+      oldValue: { name: category.name, code: category.code },
+      newValue: { filesMovedToGeneral: reassigned.count },
     })
 
     res.json({
-      data: { message: 'Category preset deleted successfully' },
+      data: {
+        message: reassigned.count
+          ? `Category "${category.name}" deleted. ${reassigned.count} file(s) moved to General.`
+          : `Category "${category.name}" deleted.`,
+        filesMovedToGeneral: reassigned.count,
+      },
       requestId: req.requestId,
     })
   } catch (err) {

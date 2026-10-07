@@ -203,9 +203,16 @@ cd /path/to/istrac-fms/frontend
 npm run build
 ```
 
-The output will be placed in `frontend/dist/`. To deploy it on the live RHEL server:
-```bash
-sudo cp -rf dist/* /opt/istrac-fms/frontend/dist/
-sudo chmod -R 755 /opt/istrac-fms/frontend/dist
-```
+The output will be placed in `frontend/dist/`. To deploy it on the live server:
+- **On Ubuntu Linux:**
+  ```bash
+  sudo cp -rf dist/* /opt/istrac-fms/frontend/dist/
+  sudo chmod -R 755 /opt/istrac-fms/frontend/dist
+  sudo systemctl reload apache2
+  ```
+- **On Microsoft Windows:**
+  ```powershell
+  Copy-Item -Path ".\dist\*" -Destination "D:\istrac-fms\frontend\dist\" -Recurse -Force
+  Restart-Service Apache2.4
+  ```
 Then refresh the browser with `Ctrl + Shift + R`.

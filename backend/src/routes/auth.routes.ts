@@ -5,11 +5,24 @@ import { prisma } from '../config/db.js'
 import { redis } from '../config/redis.js'
 import { env } from '../config/env.js'
 import { authMiddleware } from '../middleware/auth.middleware.js'
-import { loginRateLimiter,refreshRateLimiter,registerRateLimiter } from '../middleware/rateLimiter.middleware.js'
+import {
+  loginRateLimiter,
+  refreshRateLimiter,
+  registerRateLimiter,
+  forgotPasswordRateLimiter,
+  otpRateLimiter,
+  hitCounter,
+  resetCounter,
+  assertAccountNotLocked,
+  recordFailedLogin,
+  clearFailedLogins,
+  ACCOUNT_LOCK_MAX_FAILURES,
+} from '../middleware/rateLimiter.middleware.js'
 import { signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken } from '../lib/jwt.js'
 import { emailService } from '../services/email.service.js'
 import { auditService } from '../services/audit.service.js'
 import { AppError } from '../lib/errors.js'
+import { sessionStore } from '../services/sessionStore.js'
 
 import { validate } from '../lib/validate.js'
 import { LoginSchema, RegisterSchema } from '../lib/schema.js'
@@ -102,36 +115,56 @@ router.post('/login', loginRateLimiter, validate(LoginSchema), async (req, res, 
       throw new AppError('invalid_credentials', 'Email and password are required', 400)
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email, deletedAt: null },
+    await assertAccountNotLocked(email)
+
+    const user = await prisma.user.findFirst({
+      where: { email },
+      orderBy: { deletedAt: 'asc' },
     })
 
-
-
-   
-   
-    if (!user || !user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
-       auditService.log({
-    action: 'AUTH:LOGIN_FAILED',
-    resourceType: 'user',
-    ipAddress: req.ip,
-    userAgent: req.get('user-agent'),
-    newValue: { email: email.toLowerCase(), reason: !user ? 'user_not_found' : 'bad_password' },
-  })
-      throw new AppError('invalid_credentials', 'Invalid email or password', 401)
+    // ponytail: distinct "no account" vs "wrong password" messages were requested (BUG-02).
+    // This reveals whether an email is registered; /register already does the same.
+    if (!user || user.deletedAt) {
+      auditService.log({
+        action: 'AUTH:LOGIN_FAILED',
+        resourceType: 'user',
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        newValue: { email, reason: 'user_not_found' },
+      })
+      throw new AppError('account_not_found', 'Account not found. Check the email address, or request access if you are new.', 401)
     }
 
+    if (!user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+      auditService.log({
+        userId: user.id,
+        action: 'AUTH:LOGIN_FAILED',
+        resourceType: 'user',
+        resourceId: user.id,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        newValue: { email, reason: 'bad_password' },
+      })
+      // Generic on purpose: never confirm which half of the credentials was wrong.
+      const failures = await recordFailedLogin(email)
+      if (failures >= ACCOUNT_LOCK_MAX_FAILURES) {
+        await assertAccountNotLocked(email) // throws the "locked" message
+      }
+      throw new AppError('invalid_credentials', 'Incorrect email or password.', 401)
+    }
+
+    await clearFailedLogins(email)
 
     if (user.status === 'PENDING') {
-      throw new AppError('account_pending', 'Your account is pending administrator approval', 403)
+      throw new AppError('account_pending', 'Your account is waiting for administrator approval. You can sign in once it is approved.', 403)
     }
 
     if (user.status === 'SUSPENDED') {
-      throw new AppError('account_suspended', 'Your account has been suspended', 403)
+      throw new AppError('account_suspended', 'Your account has been suspended. Contact your administrator to restore access.', 403)
     }
 
     if (user.status === 'REJECTED') {
-      throw new AppError('account_rejected', 'Your registration was rejected', 403)
+      throw new AppError('account_rejected', 'Your registration request was not approved. Contact your administrator for details.', 403)
     }
 
     const activeSessionCount = await prisma.refreshToken.count({
@@ -347,27 +380,27 @@ router.post('/refresh',refreshRateLimiter, async (req, res, next) => {
 // ============================================================
 router.post('/logout', authMiddleware, async (req, res, next) => {
   try {
-    const rawRefreshToken = req.cookies?.refreshToken
+    // The SPA keeps the refresh token in storage and sends it in the body/header when
+    // cookies are not forwarded (cross-origin / HTTP intranet), so revoke whichever arrives.
+    const rawRefreshToken =
+      req.cookies?.refreshToken ||
+      req.body?.refreshToken ||
+      (req.headers['x-refresh-token'] as string | undefined)
     if (rawRefreshToken) {
       const tokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex')
+      // Expire as well as revoke: /refresh allows a 30s grace for *rotated* tokens (multi-tab
+      // races), but a logged-out session must stop working immediately.
+      const now = new Date()
       await prisma.refreshToken.updateMany({
-        where: { tokenHash },
-        data: { revoked: true, revokedAt: new Date() },
+        where: { tokenHash, userId: req.user!.id },
+        data: { revoked: true, revokedAt: now, expiresAt: now },
       })
     }
 
     const authHeader = req.headers.authorization
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.slice(7)
-     
-      const decoded = verifyAccessToken(token) // already verified by authMiddleware
-    
-      const remainingTtl = Math.ceil(decoded.exp! - Date.now() / 1000)
-      if (remainingTtl > 0) {
-        try {
-          await redis.setex(`blacklist:${decoded.jti}`, remainingTtl, '1')
-        } catch {}
-      }
+      const decoded = verifyAccessToken(authHeader.slice(7)) // already verified by authMiddleware
+      await sessionStore.revoke(decoded.jti)
     }
 
     const isProdLogout = env.NODE_ENV === 'production'
@@ -433,7 +466,7 @@ router.get('/me', authMiddleware, async (req, res, next) => {
 // ============================================================
 // FORGOT PASSWORD / REQUEST OTP
 // ============================================================
-router.post('/forgot-password', loginRateLimiter, async (req, res, next) => {
+router.post('/forgot-password', forgotPasswordRateLimiter, async (req, res, next) => {
   try {
     const { email } = req.body
     if (!email) {
@@ -444,6 +477,12 @@ router.post('/forgot-password', loginRateLimiter, async (req, res, next) => {
     if (!emailRegex.test(email)) throw new AppError('invalid_email', 'Invalid email format', 400)
 
     const normalizedEmail = email.toLowerCase().trim()
+
+    // At most 3 codes per account per hour, so nobody can flood administrators with requests.
+    const perAccount = await hitCounter(`rate:forgot-email:${normalizedEmail}`, 3600)
+    if (perAccount.count > 3) {
+      throw new AppError('rate_limit_exceeded', 'A reset code was already requested several times for this account. Please wait an hour or contact your administrator.', 429)
+    }
 
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail, deletedAt: null },
@@ -474,6 +513,7 @@ router.post('/forgot-password', loginRateLimiter, async (req, res, next) => {
       await prisma.passwordResetToken.deleteMany({
         where: { userId: user.id },
       })
+      await resetCounter(otpFailKey(normalizedEmail))
 
       // 4. Create new reset token record
       const resetToken = await prisma.passwordResetToken.create({
@@ -580,9 +620,35 @@ router.post('/forgot-password', loginRateLimiter, async (req, res, next) => {
 })
 
 // ============================================================
+// OTP ATTEMPT CAP
+// A 6-digit code has only 1,000,000 values. After 5 wrong codes for an account, every
+// outstanding code for it is burned and a new one must be requested.
+// ============================================================
+const OTP_MAX_FAILURES = 5
+const otpFailKey = (email: string) => `lock:otp:${email.toLowerCase()}`
+
+async function registerOtpFailure(email: string, userId?: string): Promise<void> {
+  const { count } = await hitCounter(otpFailKey(email), 3600)
+  if (count >= OTP_MAX_FAILURES) {
+    if (userId) {
+      await prisma.passwordResetToken.updateMany({
+        where: { userId, usedAt: null },
+        data: { usedAt: new Date() },
+      })
+    }
+    await resetCounter(otpFailKey(email))
+    throw new AppError(
+      'otp_attempts_exceeded',
+      'Too many incorrect verification codes. This code has been cancelled; please request a new one.',
+      429,
+    )
+  }
+}
+
+// ============================================================
 // VERIFY RESET OTP
 // ============================================================
-router.post('/verify-reset-otp', loginRateLimiter, async (req, res, next) => {
+router.post('/verify-reset-otp', otpRateLimiter, async (req, res, next) => {
   try {
     const { email, otp } = req.body
 
@@ -602,6 +668,7 @@ router.post('/verify-reset-otp', loginRateLimiter, async (req, res, next) => {
     })
 
     if (!user) {
+      await registerOtpFailure(normalizedEmail)
       throw new AppError('invalid_otp', 'Invalid or expired verification code', 400)
     }
 
@@ -612,6 +679,7 @@ router.post('/verify-reset-otp', loginRateLimiter, async (req, res, next) => {
     })
 
     if (!resetToken || resetToken.userId !== user.id || resetToken.usedAt || resetToken.expiresAt < new Date()) {
+      await registerOtpFailure(normalizedEmail, user.id)
       throw new AppError('invalid_otp', 'Invalid or expired verification code. Please check with your administrator.', 400)
     }
 
@@ -631,7 +699,7 @@ router.post('/verify-reset-otp', loginRateLimiter, async (req, res, next) => {
 // ============================================================
 // RESET PASSWORD
 // ============================================================
-router.post('/reset-password', async (req, res, next) => {
+router.post('/reset-password', otpRateLimiter, async (req, res, next) => {
   try {
     const { token, email, otp, newPassword } = req.body
 
@@ -652,6 +720,10 @@ router.post('/reset-password', async (req, res, next) => {
       resetToken = await prisma.passwordResetToken.findUnique({
         where: { tokenHash },
       })
+      if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
+        const owner = await prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } })
+        await registerOtpFailure(normalizedEmail, owner?.id)
+      }
     } else if (token) {
       // Method B: Legacy token support
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
@@ -702,16 +774,20 @@ router.post('/reset-password', async (req, res, next) => {
 // ============================================================
 // CHANGE PASSWORD (AUTHENTICATED)
 // ============================================================
-router.put('/change-password', authMiddleware, async (req, res, next) => {
+const handleChangePassword = async (req: any, res: any, next: any) => {
   try {
     const { currentPassword, newPassword } = req.body
 
-    if (!currentPassword || !newPassword ) {
+    if (!currentPassword || !newPassword) {
       throw new AppError('missing_fields', 'Current and new password are required', 400)
     }
 
-    validatePassword(currentPassword)
     validatePassword(newPassword)
+
+    if (currentPassword === newPassword) {
+      throw new AppError('same_password', 'New password cannot be the same as your current password', 400)
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: req.user!.id },
     })
@@ -727,8 +803,6 @@ router.put('/change-password', authMiddleware, async (req, res, next) => {
 
     const passwordHash = await bcrypt.hash(newPassword, 12)
 
-
-
     await prisma.$transaction([
       prisma.user.update({
         where: { id: user.id },
@@ -740,11 +814,14 @@ router.put('/change-password', authMiddleware, async (req, res, next) => {
       }),
     ])
 
-    const decoded = verifyAccessToken(req.headers.authorization!.slice(7))
-    const remainingTtl = Math.ceil(decoded.exp! - Date.now() / 1000)
-    if (remainingTtl > 0) {
+    const authHeader = req.headers.authorization
+    if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
-        await redis.setex(`blacklist:${decoded.jti}`, remainingTtl, '1')
+        const decoded = verifyAccessToken(authHeader.slice(7))
+        const remainingTtl = Math.ceil(decoded.exp! - Date.now() / 1000)
+        if (remainingTtl > 0 && redis && redis.status === 'ready') {
+          await redis.setex(`blacklist:${decoded.jti}`, remainingTtl, '1')
+        }
       } catch {}
     }
 
@@ -755,6 +832,9 @@ router.put('/change-password', authMiddleware, async (req, res, next) => {
   } catch (err) {
     next(err)
   }
-})
+}
+
+router.put('/change-password', authMiddleware, handleChangePassword)
+router.post('/change-password', authMiddleware, handleChangePassword)
 
 export { router as authRouter }

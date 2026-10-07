@@ -9,12 +9,13 @@
   import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.middleware.js'
   import { adminMiddleware } from '../middleware/admin.middleware.js'
   import { deptAccessMiddleware } from '../middleware/deptAccess.middleware.js'
-  import { downloadRateLimiter } from '../middleware/rateLimiter.middleware.js'
+  import { downloadRateLimiter, uploadRateLimiter } from '../middleware/rateLimiter.middleware.js'
   import { hddAvailabilityMiddleware } from '../middleware/hddAvailability.middleware.js'
   import { fileService } from '../services/file.service.js'
   import { hddService } from '../services/hdd.service.js'
   import { auditService } from '../services/audit.service.js'
   import { AppError } from '../lib/errors.js'
+  import { categoryCodeOf, categoryEnumFor, normalizeCategoryCode, reportCategoryWhere } from '../lib/reportCategory.js'
   import { sanitizeSafeFilename } from '../lib/security.js'
   import express from 'express'
   const router = Router()
@@ -89,6 +90,7 @@
   router.post(
     '/files/upload',
     authMiddleware,
+    uploadRateLimiter,
     upload.single('file'),
     deptAccessMiddleware,
     (req, _res, next) => {
@@ -203,6 +205,7 @@
               title: true,
               spacecraft: true,
               category: true,
+              customCategory: true,
               classificationLevel: true,
               description: true,
             },
@@ -355,6 +358,7 @@
               title: true,
               spacecraft: true,
               category: true,
+              customCategory: true,
               classificationLevel: true,
               versionLabel: true,
             },
@@ -694,6 +698,81 @@
   })
 
   // ============================================================
+  // BULK TAG FILES
+  // Admins, or users with READ_WRITE access to every file's department.
+  // ============================================================
+  router.post('/files/tags', authMiddleware, async (req, res, next) => {
+    try {
+      const { fileIds, tags } = req.body ?? {}
+      if (!Array.isArray(fileIds) || fileIds.length === 0 || fileIds.length > 200) {
+        throw new AppError('invalid_files', 'Select between 1 and 200 files to tag.', 400)
+      }
+      const names: string[] = Array.from(
+        new Set<string>(
+          (Array.isArray(tags) ? tags : [])
+            .map((t: unknown) => String(t ?? '').trim().replace(/\s+/g, ' '))
+            .filter((t: string) => t.length > 0),
+        ),
+      )
+      if (names.length === 0) throw new AppError('invalid_tags', 'Enter at least one tag.', 400)
+      if (names.length > 10) throw new AppError('invalid_tags', 'You can add at most 10 tags at a time.', 400)
+      const tooLong = names.find((t) => t.length > 40)
+      if (tooLong) throw new AppError('invalid_tags', `Tag "${tooLong.slice(0, 20)}…" is too long (40 characters max).`, 400)
+
+      const files = await prisma.file.findMany({
+        where: { id: { in: fileIds.map(String) }, deletedAt: null },
+        select: { id: true, departmentId: true },
+      })
+      if (files.length !== new Set(fileIds.map(String)).size) {
+        throw new AppError('file_not_found', 'Some selected files no longer exist. Refresh the page and try again.', 404)
+      }
+
+      if (req.user!.role !== 'ADMIN') {
+        const writable = await prisma.userDepartmentAccess.findMany({
+          where: { userId: req.user!.id, accessLevel: 'READ_WRITE', deletedAt: null },
+          select: { departmentId: true },
+        })
+        const allowed = new Set(writable.map((w: any) => w.departmentId))
+        if (files.some((f: any) => !allowed.has(f.departmentId))) {
+          throw new AppError('forbidden', 'You need write access to every selected file\'s department to tag it.', 403)
+        }
+      }
+
+      await prisma.$transaction(async (tx: any) => {
+        for (const name of names) {
+          const tag = await tx.tag.upsert({
+            where: { name },
+            update: { deletedAt: null },
+            create: { name, createdBy: req.user!.id },
+          })
+          for (const f of files) {
+            await tx.fileTag.upsert({
+              where: { fileId_tagId: { fileId: f.id, tagId: tag.id } },
+              update: { deletedAt: null },
+              create: { fileId: f.id, tagId: tag.id },
+            })
+          }
+        }
+      })
+
+      auditService.log({
+        userId: req.user!.id,
+        action: 'FILE:TAG',
+        resourceType: 'file',
+        resourceId: files.length === 1 ? files[0].id : undefined,
+        newValue: { fileCount: files.length, tags: names },
+      })
+
+      res.json({
+        data: { message: `Added ${names.length} tag(s) to ${files.length} file(s).`, tags: names, fileCount: files.length },
+        requestId: req.requestId,
+      })
+    } catch (err) {
+      next(err)
+    }
+  })
+
+  // ============================================================
   // RESTORE FILE
   // ============================================================
   router.put('/files/:fileId/restore', authMiddleware, adminMiddleware, async (req, res, next) => {
@@ -782,7 +861,7 @@
           departmentName: file.department?.name,
           departmentCode: file.department?.code,
           spacecraft: file.report?.spacecraft || file.department?.satellite?.name || 'General',
-          category: file.report?.category || 'DAILY_REPORT',
+          category: categoryCodeOf(file.report) || 'GENERAL',
           classificationLevel: file.report?.classificationLevel || 'RESTRICTED',
           versionCount: !isAdmin ? versions.length : (file.versionCount || versions.length || 1),
         },
@@ -813,6 +892,7 @@
   router.post(
     '/files/:fileId/version',
     authMiddleware,
+    uploadRateLimiter,
     upload.single('file'),
     hddAvailabilityMiddleware,
     async (req, res, next) => {
@@ -885,7 +965,7 @@
           title: title || existingFile.report?.title || undefined,
           description: description !== undefined ? description : (existingFile.description || undefined),
           spacecraft: spacecraft || existingFile.report?.spacecraft || undefined,
-          category: category || existingFile.report?.category || undefined,
+          category: category || categoryCodeOf(existingFile.report) || undefined,
           versionLabel: versionLabel || undefined,
           changeLog: changeLog || undefined,
           isVisible: isVisible !== undefined ? (isVisible === 'true' || isVisible === true) : true,
@@ -1101,7 +1181,8 @@
   // ============================================================
   router.get('/admin/files', authMiddleware, adminMiddleware, async (req, res, next) => {
     try {
-      const { search, departmentId, satelliteId, extension, status, isFeatured, includeArchived, sortBy, sortOrder, category, dateFilter, startDate, endDate } = req.query
+      const { search, departmentId, satelliteId, extension, status, isFeatured, includeArchived, sortBy, sortOrder, category, dateFilter, startDate, endDate, trash } = req.query
+      const inTrash = String(trash).toLowerCase() === 'true'
       const page = Math.max(1, Number(req.query.page) || 1)
       const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50))
       const skip = (page - 1) * limit
@@ -1109,7 +1190,7 @@
       const shouldIncludeArchived = String(includeArchived).toLowerCase() === 'true'
 
       const where: any = {
-        deletedAt: null,
+        deletedAt: inTrash ? { not: null } : null,
         nodeType: 'FILE',
         ...(status && { status: String(status) }),
         ...(departmentId && departmentId !== 'ALL'
@@ -1125,7 +1206,7 @@
       if (category && category !== 'ALL') {
         where.report = {
           ...(where.report || {}),
-          category: String(category),
+          ...reportCategoryWhere(category),
         }
       }
 
@@ -1216,7 +1297,7 @@
               },
             },
             uploader: { select: { id: true, name: true, email: true } },
-            report: { select: { id: true, title: true, category: true, spacecraft: true, classificationLevel: true } },
+            report: { select: { id: true, title: true, category: true, customCategory: true, spacecraft: true, classificationLevel: true } },
             versions: {
               orderBy: { versionNum: 'desc' },
               take: 1,
@@ -1245,7 +1326,8 @@
             isActive: Boolean(f.department?.isActive),
             satellite: f.department?.satellite,
           },
-          report: f.report,
+          report: f.report ? { ...f.report, categoryCode: categoryCodeOf(f.report) } : null,
+          deletedAt: f.deletedAt,
           uploader: f.uploader ? { id: f.uploader.id, name: f.uploader.name, email: f.uploader.email } : null,
           latestVersion: f.versions?.[0] ? {
             id: f.versions[0].id,
@@ -1309,23 +1391,7 @@
 
         // 2. Update Report if linked
         if (file.reportId) {
-          let catEnum: any = undefined
-          if (category) {
-            const upper = String(category).toUpperCase().replace(/\s+/g, '_')
-            if (['SPECIAL_OPERATIONS', 'ANOMALY', 'STUDY', 'DAILY_REPORT', 'OTHER'].includes(upper)) {
-              catEnum = upper
-            } else if (upper.includes('DAILY') || upper.includes('OPS')) {
-              catEnum = 'DAILY_REPORT'
-            } else if (upper.includes('SPECIAL')) {
-              catEnum = 'SPECIAL_OPERATIONS'
-            } else if (upper.includes('ANOMALY')) {
-              catEnum = 'ANOMALY'
-            } else if (upper.includes('STUDY')) {
-              catEnum = 'STUDY'
-            } else {
-              catEnum = 'OTHER'
-            }
-          }
+          const catEnum = category ? categoryEnumFor(category) : undefined
 
           await tx.report.update({
             where: { id: file.reportId },
@@ -1334,7 +1400,7 @@
               ...(description !== undefined && { description: description?.trim() || null }),
               ...(spacecraft && { spacecraft: spacecraft.trim() }),
               ...(catEnum && { category: catEnum }),
-              ...(category && { customCategory: category }),
+              ...(category && { customCategory: normalizeCategoryCode(category) }),
               ...(classificationLevel && { classificationLevel }),
               updatedAt: new Date(),
             },
@@ -1360,7 +1426,7 @@
           data: {
             userId: req.user!.id,
             type: 'BROADCAST',
-            category: 'BROADCAST',
+            category: 'broadcast',
             message: msg,
             metadata: JSON.stringify({ fileId, filename: updated.name, department: file.department?.name }),
           },
@@ -1402,7 +1468,7 @@
         data: {
           userId: req.user!.id,
           type: 'BROADCAST',
-          category: 'BROADCAST',
+          category: 'broadcast',
           message: broadcastMsg,
           metadata: JSON.stringify({
             fileId: file.id,

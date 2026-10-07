@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
+import { useToastStore } from '../store/toastStore'
+import { getErrorMessage } from '../api/client'
 import {
   FileText,
   FileSpreadsheet,
@@ -11,7 +13,7 @@ import {
 } from 'lucide-react'
 import { Modal, Button } from '.'
 import { useLogFileAccess } from '../hooks/useLogFileAccess'
-import { PdfPreview } from './preview/PdfPreview'
+const PdfPreview = lazy(() => import('./preview/PdfPreview').then((m) => ({ default: m.PdfPreview })))
 import { ImagePreview } from './preview/ImagePreview'
 import { api } from '../lib/axios'
 import { formatFileSize } from '../lib/formatFileSize'
@@ -83,7 +85,11 @@ export function FilePreviewModal({ file, onClose }: FilePreviewModalProps) {
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
     } catch (err) {
-      console.error('Download error:', err)
+      useToastStore.getState().addToast({
+        title: 'Download failed',
+        message: getErrorMessage(err, 'The file could not be downloaded. Please try again.'),
+        variant: 'error',
+      })
     } finally {
       setDownloading(false)
     }
@@ -123,7 +129,16 @@ export function FilePreviewModal({ file, onClose }: FilePreviewModalProps) {
           {/* Interactive Viewer vs Non-PDF Download Card */}
           {isPdf ? (
             <div className="space-y-3">
-              <PdfPreview fileUrl={fileUrl} fileName={file.name} onDownload={handleDownload} />
+              <Suspense
+                fallback={
+                  <div className="flex flex-col items-center justify-center p-12 text-center text-text-dim">
+                    <RefreshCw size={24} className="animate-spin mb-2 text-accent-light" />
+                    <span className="text-xs">Loading PDF Engine…</span>
+                  </div>
+                }
+              >
+                <PdfPreview fileUrl={fileUrl} fileName={file.name} onDownload={handleDownload} />
+              </Suspense>
             </div>
           ) : isImage ? (
             <div className="space-y-3">

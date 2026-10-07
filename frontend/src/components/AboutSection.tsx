@@ -136,7 +136,7 @@ export function AboutSection() {
           {/* Bottom Station Node Strip */}
           <div className="absolute bottom-0 inset-x-0 z-20 flex items-center justify-between border-t border-border-subtle/80 bg-[#0b1220]/85 px-4 py-2.5 backdrop-blur-md">
             <div>
-              <p className="eyebrow text-[9px] text-text-dim">{primaryNodeLabel}</p>
+              <p className="eyebrow text-[10px] text-text-dim">{primaryNodeLabel}</p>
               <p className="num text-xs font-bold text-text-primary">{primaryNodeLocation}</p>
             </div>
             <span className="num text-[10px] text-nominal font-semibold">● SYNCHRONIZED</span>

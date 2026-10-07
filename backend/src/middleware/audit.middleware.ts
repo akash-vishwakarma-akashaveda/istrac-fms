@@ -14,6 +14,17 @@ import { prisma } from '../config/db.js'
  *  - Only records successful operations (statusCode < 400).
  *  - Inserts to `auditLog` table fire-and-forget; errors are logged, never thrown.
  */
+const SELF_AUDITED = [
+  /^(POST|PUT|PATCH|DELETE) \/files\b/, // includes /files/tags
+  /^(PUT|PATCH|POST) \/admin\/files\b/,
+  /^(POST|PUT|PATCH|DELETE) \/events\b/,
+  /^(POST|PUT|DELETE) \/auth\//,
+  /^DELETE \/report-presets\/categories\//,
+  /^DELETE \/admin\/notifications\/broadcasts\//,
+  /^(PUT|DELETE) \/notifications\//,
+  /^PUT \/admin\/settings\//,
+]
+
 export function auditMiddleware(req: Request, res: Response, next: NextFunction): void {
   res.on('finish', () => {
     // Only audit mutating methods
@@ -24,6 +35,11 @@ export function auditMiddleware(req: Request, res: Response, next: NextFunction)
 
     const userId = req.user?.id
     if (!userId) return // anonymous mutations are not audited
+
+    // These routes write their own, more detailed audit entries (or are a user's private
+    // housekeeping such as marking notifications read); a second generic row is just noise.
+    const path = req.path.replace(/^\/api(?=\/)/, '')
+    if (SELF_AUDITED.some((re) => re.test(`${req.method} ${path}`))) return
 
     // Derive action string from method + route pattern
     const routePath = req.route?.path as string | undefined

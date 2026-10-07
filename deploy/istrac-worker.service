@@ -1,20 +1,20 @@
 [Unit]
-Description=ISTRAC FMS Mission Event Scheduler & Sync Worker
-After=network.target mariadb.service redis.service istrac-backend.service
-Wants=mariadb.service redis.service
+Description=ISTRAC SIMS Mission Event Scheduler & Sync Worker
+After=network.target mysql.service istrac-backend.service
+Wants=mysql.service
 
 [Service]
 Type=simple
 User=istrac
 Group=istrac
-WorkingDirectory=/opt/istrac-fms/backend
+WorkingDirectory=/opt/istrac-sims/backend
 ExecStart=/usr/bin/node dist/src/worker.js
 Restart=always
 RestartSec=10
 LimitNOFILE=65535
 StandardOutput=journal
 StandardError=journal
-EnvironmentFile=/opt/istrac-fms/backend/.env
+EnvironmentFile=/opt/istrac-sims/backend/.env
 
 [Install]
 WantedBy=multi-user.target

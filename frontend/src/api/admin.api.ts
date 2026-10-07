@@ -31,7 +31,13 @@ export interface AuditLogEntry {
   id: number
   userId: string | null
   userName?: string
+  actor?: { name: string; email: string; role: string } | null
   action: string
+  /** Human-readable one-line description built by the server. */
+  summary?: string
+  /** Name of the affected item (file, user, department, event…), when known. */
+  target?: string | null
+  details?: Array<{ label: string; value: string }>
   resourceType: string | null
   resourceId: string | null
   oldValue: Record<string, unknown> | null

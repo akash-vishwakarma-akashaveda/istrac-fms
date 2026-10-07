@@ -57,6 +57,7 @@ apiClient.interceptors.response.use(
       !originalRequest._retry &&
       !originalRequest.url?.includes("/auth/login") &&
       !originalRequest.url?.includes("/auth/refresh") &&
+      !originalRequest.url?.includes("/auth/logout") &&
       (storedRefreshToken || storedAccessToken)
     ) {
       originalRequest._retry = true
@@ -129,9 +130,56 @@ apiClient.interceptors.response.use(
       }
     }
 
-    return Promise.reject(error)
+    return Promise.reject(normalizeError(error))
   }
 )
+
+const STATUS_MESSAGES: Record<number, string> = {
+  401: 'Your session has expired. Please sign in again.',
+  403: 'You do not have permission to perform this action.',
+  404: 'The requested item could not be found. It may have been moved or deleted.',
+  413: 'The file is too large to upload.',
+  429: 'Too many requests. Please wait a moment and try again.',
+  502: 'The server is temporarily unavailable. Please try again shortly.',
+  503: 'The server is temporarily unavailable. Please try again shortly.',
+  504: 'The server took too long to respond. Please try again.',
+}
+
+/**
+ * Guarantees every rejected request carries a readable message at
+ * `error.response.data.error.message` (what the UI already reads) and `error.message`.
+ */
+function normalizeError(error: AxiosError<any>): AxiosError<any> {
+  if (!error.response) {
+    error.message =
+      error.code === 'ECONNABORTED'
+        ? 'The request timed out. Check your connection and try again.'
+        : 'Cannot reach the server. Check your network connection and try again.'
+    return error
+  }
+  const data = error.response.data
+  const existing = data && typeof data === 'object' ? data.error?.message : undefined
+  const message =
+    existing ||
+    STATUS_MESSAGES[error.response.status] ||
+    (error.response.status >= 500
+      ? 'Something went wrong on the server. Please try again.'
+      : 'The request could not be completed. Please check your input and try again.')
+  if (!existing) {
+    error.response.data = {
+      ...(data && typeof data === 'object' ? data : {}),
+      error: { code: data?.error?.code || `http_${error.response.status}`, message },
+    }
+  }
+  error.message = message
+  return error
+}
+
+/** Readable message for any thrown value; use the fallback only for non-request errors. */
+export function getErrorMessage(err: unknown, fallback = 'Something went wrong. Please try again.'): string {
+  const e = err as AxiosError<any> | undefined
+  return e?.response?.data?.error?.message || (e?.isAxiosError ? e.message : '') || fallback
+}
 
 /** Helper to extract data cleanly from standardized API envelopes */
 export function extractData<T>(response: { data: { data?: T } | T }): T {

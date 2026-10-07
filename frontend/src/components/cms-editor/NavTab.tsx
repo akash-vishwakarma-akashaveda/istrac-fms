@@ -138,7 +138,7 @@ export function NavTab() {
 
           {/* Live mini brand preview */}
           <div className="p-3.5 rounded-xl border border-border-default bg-[#060c18] space-y-1.5">
-            <div className="text-[9px] uppercase tracking-widest text-text-dim">Brand Logo Preview</div>
+            <div className="text-[10px] uppercase tracking-widest text-text-dim">Brand Logo Preview</div>
             <div className="flex items-center gap-3">
               <img src="/logo/isro_logo.svg" alt="ISRO" className="h-9 w-auto object-contain" />
               <div>

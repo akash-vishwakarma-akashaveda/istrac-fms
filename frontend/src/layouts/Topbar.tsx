@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ThemeToggle } from '../components/ThemeToggle'
 import {
   Bell,
   ChevronDown,
@@ -28,7 +29,6 @@ export function Topbar() {
   const navigate = useNavigate()
 
   const user = useAuthStore((state) => state.user)
-  const clearAuth = useAuthStore((state) => state.clearAuth)
   const unreadCount = useNotificationStore((state) => state.unreadCount)
   const { addToast } = useToastStore()
   const { cmsBlocks } = useCms()
@@ -39,11 +39,11 @@ export function Topbar() {
 
   const brandTitle = navData?.brandTitle || 'ISTRAC'
   const brandHighlight = navData?.brandHighlight !== undefined ? navData.brandHighlight : '-SIMS'
-  const brandSubtitle = navData?.brandSubtitle || 'ISRO Ground Network'
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [bellMenuOpen, setBellMenuOpen] = useState(false)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+  const [profileModalTab, setProfileModalTab] = useState<'profile' | 'security' | 'preferences'>('profile')
   const [utcTime, setUtcTime] = useState('')
   const { data } = useNotifications()
   const recentFive: any[] =
@@ -61,18 +61,22 @@ export function Topbar() {
   }, [])
 
   async function handleLogout() {
+    // Clear the local session before revoking it on the server; otherwise background
+    // requests hit 401, fail to refresh, and bounce the user to the login popup.
+    const { accessToken, refreshToken } = useAuthStore.getState()
+    setMenuOpen(false)
+    navigate('/', { replace: true })
+    useAuthStore.getState().signOut()
+    wsClient.disconnect()
+    addToast({ message: 'You have been signed out.', variant: 'success' })
     try {
-      await authApi.logout()
+      await authApi.logout({ accessToken, refreshToken })
     } catch (error) {
-      addToast({ message: 'failed to logout', title: 'error', variant: 'warning' })
+      // Already signed out locally; the server token expires on its own.
       console.error('Logout API error:', error)
-    } finally {
-      clearAuth()
-      wsClient.disconnect()
-      setMenuOpen(false)
-      navigate('/login')
     }
   }
+
 
   function handleNotifications() {
     navigate('/notifications')
@@ -94,30 +98,9 @@ export function Topbar() {
             />
             <span className="hidden sm:inline truncate">{utcTime}</span>
             <span className="sm:hidden font-mono text-xs truncate">{utcTime.slice(11)}</span>
-            <span className="text-text-dim">UTC</span>
+            <span className="hidden sm:inline text-text-dim">UTC</span>
           </span>
 
-          <FieldDivider className="hidden sm:inline-block" />
-
-          <span className="readout hidden sm:inline-flex text-text-dim">
-            ACCESS
-            <span className="text-text-secondary font-bold">{user?.role ?? '—'}</span>
-          </span>
-
-          <FieldDivider className="hidden md:inline-block" />
-
-          <span
-            className="readout hidden md:inline-flex text-white font-bold truncate cursor-default"
-            title={brandSubtitle}
-          >
-            {brandTitle}
-            <span className="text-accent-light">{brandHighlight}</span>
-            {brandSubtitle && (
-              <span className="ml-1.5 font-normal text-text-dim text-[10px] hidden lg:inline">
-                · {brandSubtitle}
-              </span>
-            )}
-          </span>
         </div>
 
         {/* Controls */}
@@ -134,6 +117,8 @@ export function Topbar() {
 
           <FieldDivider />
 
+          <ThemeToggle />
+
           {/* Notifications */}
           <div className="relative">
             <button
@@ -149,7 +134,7 @@ export function Topbar() {
               <Bell size={16} strokeWidth={1.8} />
 
               {unreadCount > 0 && (
-                <span className="num absolute top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[9px] leading-none text-white">
+                <span className="num absolute top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[10px] leading-none text-white">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
@@ -259,11 +244,11 @@ export function Topbar() {
                       {user?.email}
                     </p>
                     <div className="flex items-center gap-1.5 pt-1">
-                      <span className="rounded bg-accent/20 border border-accent/30 px-1.5 py-0.2 text-[9px] font-bold uppercase num text-accent-light">
+                      <span className="rounded bg-accent/20 border border-accent/30 px-1.5 py-0.2 text-[10px] font-bold uppercase num text-accent-light">
                         {user?.role}
                       </span>
                       {user?.employeeId && (
-                        <span className="rounded bg-surface border border-border-subtle px-1.5 py-0.2 text-[9px] font-mono text-text-dim">
+                        <span className="rounded bg-surface border border-border-subtle px-1.5 py-0.2 text-[10px] font-mono text-text-dim">
                           {user.employeeId}
                         </span>
                       )}
@@ -278,6 +263,7 @@ export function Topbar() {
                       role="menuitem"
                       onClick={() => {
                         setMenuOpen(false)
+                        setProfileModalTab('profile')
                         setIsProfileModalOpen(true)
                       }}
                       className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-text-primary rounded-lg transition-colors duration-150 hover:bg-card-hover hover:text-accent-light"
@@ -292,6 +278,7 @@ export function Topbar() {
                       role="menuitem"
                       onClick={() => {
                         setMenuOpen(false)
+                        setProfileModalTab('security')
                         setIsProfileModalOpen(true)
                       }}
                       className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-text-primary rounded-lg transition-colors duration-150 hover:bg-card-hover hover:text-accent-light"
@@ -337,6 +324,7 @@ export function Topbar() {
       <UserProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
+        initialTab={profileModalTab}
       />
     </>
   )

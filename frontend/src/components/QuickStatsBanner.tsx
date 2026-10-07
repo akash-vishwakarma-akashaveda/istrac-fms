@@ -61,7 +61,7 @@ function getMetricTextSize(value: string): string {
 function getDescriptionClass(label: string): string {
   const len = label.trim().length
   if (len > 35) {
-    return 'text-[9.5px] sm:text-[10px] leading-[13px] tracking-normal sm:tracking-wide font-semibold'
+    return 'text-[10px] sm:text-[10px] leading-[13px] tracking-normal sm:tracking-wide font-semibold'
   }
   return 'text-[10.5px] sm:text-[11px] leading-[14px] sm:leading-[15px] tracking-wider font-bold'
 }

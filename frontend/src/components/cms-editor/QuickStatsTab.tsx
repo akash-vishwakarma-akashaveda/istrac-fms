@@ -172,7 +172,7 @@ export function QuickStatsTab() {
                     <div className="text-sm font-bold text-text-primary num break-words leading-tight">
                       {stat.value}
                     </div>
-                    <div className="text-[9px] text-text-dim line-clamp-2 leading-tight mt-0.5">
+                    <div className="text-[10px] text-text-dim line-clamp-2 leading-tight mt-0.5">
                       {stat.label}
                     </div>
                   </div>
@@ -260,7 +260,7 @@ export function QuickStatsTab() {
         </div>
 
         <div className="space-y-2">
-          <h4 className="text-[10px] font-bold uppercase tracking-wider text-text-dim flex items-center gap-1.5">
+          <h4 className="text-[10px] font-semibold text-text-dim flex items-center gap-1.5">
             <BarChart3 size={11} />
             Live Strip Preview
           </h4>
@@ -285,7 +285,7 @@ export function QuickStatsTab() {
                   >
                     {stat.value || "—"}
                   </div>
-                  <div className="text-[9.5px] text-text-dim mt-0.5 line-clamp-2 leading-tight break-words uppercase">
+                  <div className="text-[10px] text-text-dim mt-0.5 line-clamp-2 leading-tight break-words uppercase">
                     {stat.label || "—"}
                   </div>
                 </div>

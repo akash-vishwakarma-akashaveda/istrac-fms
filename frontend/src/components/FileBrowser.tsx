@@ -1,4 +1,9 @@
 import { useState, useMemo } from 'react'
+import { HelpTip } from './HelpTip'
+import { DateRangeFilter } from './DateRangeFilter'
+import { EMPTY_DATE_RANGE, isDateRangeActive, isInDateRange, resolveDateRange, type DateRangeValue } from '../lib/dateRange'
+import { getErrorMessage } from '../api/client'
+import { CategoryOptions } from './CategoryOptions'
 import {
   LayoutGrid,
   List,
@@ -107,13 +112,26 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
     if (!canWrite || selectedIds.size === 0) return
     const count = selectedIds.size
     bulkDelete.mutate(Array.from(selectedIds), {
-      onSuccess: () => {
-        addToast({ message: `${count} file(s) permanently removed`, variant: 'success' })
+      onSuccess: ({ moved, failed, firstError }) => {
+        if (moved > 0) {
+          addToast({
+            title: 'Moved to Trash',
+            message: `${moved} of ${count} file(s) moved to Trash. An administrator can restore them from the File Repository.`,
+            variant: 'success',
+          })
+        }
+        if (failed > 0) {
+          addToast({
+            title: `${failed} file(s) not moved`,
+            message: getErrorMessage(firstError, 'Some files could not be moved to Trash.'),
+            variant: 'error',
+          })
+        }
         setSelectedIds(new Set())
         setIsBulkDeleteModalOpen(false)
       },
-      onError: () => {
-        addToast({ message: 'Bulk delete failed', variant: 'error' })
+      onError: (err) => {
+        addToast({ title: 'Could not move files to Trash', message: getErrorMessage(err), variant: 'error' })
         setIsBulkDeleteModalOpen(false)
       },
     })
@@ -124,12 +142,12 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
     bulkTag.mutate(
       { fileIds: Array.from(selectedIds), tags },
       {
-        onSuccess: () => {
-          addToast({ message: 'Tags applied', variant: 'success' })
+        onSuccess: (res) => {
+          addToast({ title: 'Tags added', message: res.message, variant: 'success' })
           setSelectedIds(new Set())
           setTagModalOpen(false)
         },
-        onError: () => addToast({ message: 'Bulk tag failed', variant: 'error' }),
+        onError: (err) => addToast({ title: 'Could not add tags', message: getErrorMessage(err), variant: 'error' }),
       },
     )
   }
@@ -165,7 +183,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
   const [selectedFormat, setSelectedFormat] = useState('ALL')
   const [selectedSpacecraft, setSelectedSpacecraft] = useState('ALL')
   const [selectedCategory, setSelectedCategory] = useState('ALL')
-  const [dateFilter, setDateFilter] = useState('ALL')
+  const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE)
 
   // Extract unique filter options from dataset
   const availableFormats = useMemo(() => {
@@ -202,7 +220,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
     selectedFormat !== 'ALL' ||
     selectedSpacecraft !== 'ALL' ||
     selectedCategory !== 'ALL' ||
-    dateFilter !== 'ALL'
+    isDateRangeActive(dateRange)
 
   const resetAllFilters = () => {
     setSearchQuery('')
@@ -210,13 +228,13 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
     setSelectedFormat('ALL')
     setSelectedSpacecraft('ALL')
     setSelectedCategory('ALL')
-    setDateFilter('ALL')
+    setDateRange(EMPTY_DATE_RANGE)
   }
 
   // Multi-attribute Filter & Multi-criteria Sort (with Folder pinning)
   const filteredFiles = useMemo(() => {
     if (!filesData) return []
-    const now = Date.now()
+    const range = resolveDateRange(dateRange)
 
     return filesData.filter((file) => {
       if (filterFeatured && !file.isFeatured) return false
@@ -226,7 +244,8 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
         const matchesName = file.name.toLowerCase().includes(q)
         const matchesSat = file.spacecraft?.toLowerCase().includes(q)
         const matchesCat = file.category?.toLowerCase().includes(q)
-        if (!matchesName && !matchesSat && !matchesCat) return false
+        const matchesTag = file.tags?.some((t) => t.toLowerCase().includes(q))
+        if (!matchesName && !matchesSat && !matchesCat && !matchesTag) return false
       }
 
       if (selectedFormat !== 'ALL') {
@@ -246,16 +265,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
         if (file.category !== selectedCategory) return false
       }
 
-      if (dateFilter !== 'ALL') {
-        const fileTime = new Date(file.createdAt).getTime()
-        if (dateFilter === 'today') {
-          if (now - fileTime > 24 * 60 * 60 * 1000) return false
-        } else if (dateFilter === '7days') {
-          if (now - fileTime > 7 * 24 * 60 * 60 * 1000) return false
-        } else if (dateFilter === '30days') {
-          if (now - fileTime > 30 * 24 * 60 * 60 * 1000) return false
-        }
-      }
+      if (!range.error && !isInDateRange(file.createdAt, range)) return false
 
       return true
     }).sort((a, b) => {
@@ -267,7 +277,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
       if (sortField === 'sizeBytes') return ((a.sizeBytes ?? 0) - (b.sizeBytes ?? 0)) * dir
       return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir
     })
-  }, [filesData, filterFeatured, searchQuery, selectedFormat, selectedSpacecraft, selectedCategory, dateFilter, sortField, sortDirection])
+  }, [filesData, filterFeatured, searchQuery, selectedFormat, selectedSpacecraft, selectedCategory, dateRange, sortField, sortDirection])
 
   if (isLoading) {
     return (
@@ -291,8 +301,11 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
             placeholder="Search datasets in this repository…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-1.5 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+            className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-11 py-1.5 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
           />
+          <span className="absolute right-1 top-1/2 -translate-y-1/2">
+            <HelpTip topic="repository" />
+          </span>
         </div>
 
         {/* Featured Filter Toggle */}
@@ -407,25 +420,18 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
-              <option value="ALL">All Categories</option>
-              {availableCategories.map((cat) => (
-                <option key={cat} value={cat}>{cat.replace(/_/g, ' ')}</option>
-              ))}
+              <CategoryOptions extraCodes={availableCategories} />
             </select>
           </div>
 
           {/* Date Range Filter */}
           <div>
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
-            >
-              <option value="ALL">All Dates</option>
-              <option value="today">Uploaded Today</option>
-              <option value="7days">Uploaded in Last 7 Days</option>
-              <option value="30days">Uploaded in Last 30 Days</option>
-            </select>
+            <DateRangeFilter
+              value={dateRange}
+              onChange={setDateRange}
+              allLabel="All dates"
+              selectClassName="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+            />
           </div>
 
           {/* Sort By Dropdown */}
@@ -534,16 +540,16 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                       <FileIcon nodeType={file.nodeType} mimeType={file.mimeType} size={24} />
                     </div>
                     <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
-                      <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[9px] font-bold text-accent-light uppercase">
+                      <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent-light uppercase">
                         {file.name.split('.').pop() || 'FILE'}
                       </span>
                       {file.spacecraft && (
-                        <span className="rounded bg-sky-500/15 border border-sky-500/30 px-1.5 py-0.5 text-[9px] font-bold text-sky-300 uppercase truncate max-w-[110px]" title={`Spacecraft: ${file.spacecraft}`}>
+                        <span className="rounded bg-sky-500/15 border border-sky-500/30 px-1.5 py-0.5 text-[10px] font-bold text-sky-300 uppercase truncate max-w-[110px]" title={`Spacecraft: ${file.spacecraft}`}>
                           {file.spacecraft}
                         </span>
                       )}
                       {file.isFeatured && (
-                        <span className="rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 text-[9px] font-bold text-amber-300 uppercase flex items-center gap-1">
+                        <span className="rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 uppercase flex items-center gap-1">
                           <Star size={9} className="fill-amber-300" />
                           <span>Featured</span>
                         </span>
@@ -558,20 +564,30 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                   >
                     {file.name}
                   </h4>
+                  {file.tags && file.tags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {file.tags.slice(0, 4).map((t) => (
+                        <span key={t} className="rounded-full border border-border-default px-2 py-0.5 text-[10px] text-text-secondary">
+                          #{t}
+                        </span>
+                      ))}
+                      {file.tags.length > 4 && <span className="text-[10px] text-text-dim">+{file.tags.length - 4}</span>}
+                    </div>
+                  )}
                 </div>
 
                 {/* Card Footer with Meta & Actions */}
-                <div className="mt-4 pt-3 border-t border-border-subtle flex items-center justify-between gap-2">
-                  <div className="min-w-0 text-[10px] font-mono text-text-dim leading-tight">
+                <div className="mt-4 pt-3 border-t border-border-subtle flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
+                  <div className="text-[11px] font-mono text-text-dim leading-tight whitespace-nowrap">
                     <span className="font-semibold text-text-secondary">{formatFileSize(file.sizeBytes)}</span>
-                    <div className="flex items-center gap-1 text-[9px] text-text-muted mt-0.5" title={`Uploaded at ${formatDateTimeIST(file.createdAt)}`}>
-                      <Clock size={9} className="text-accent-light shrink-0" />
+                    <div className="flex items-center gap-1 text-[11px] text-text-muted mt-0.5" title={`Uploaded at ${formatDateTimeIST(file.createdAt)}`}>
+                      <Clock size={11} className="text-accent-light shrink-0" />
                       <span>{formatDateIST(file.createdAt)}</span>
                     </div>
                   </div>
 
                   {/* Hover Quick Action Buttons */}
-                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex flex-wrap items-center gap-1 ml-auto" onClick={(e) => e.stopPropagation()}>
                     {canWrite && file.nodeType === 'FILE' && (
                       <button
                         type="button"
@@ -618,7 +634,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                           <Layers size={10} />
                           <span>{file.versionLabel || `v${file.versionCount ?? 1}`}</span>
                           {(file.versionCount ?? 1) > 1 && (
-                            <span className="text-[9px] opacity-75 font-normal">({file.versionCount})</span>
+                            <span className="text-[10px] opacity-75 font-normal">({file.versionCount})</span>
                           )}
                         </button>
 
@@ -760,12 +776,12 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                           {file.name}
                         </span>
                         {file.spacecraft && (
-                          <span className="shrink-0 rounded bg-sky-500/15 border border-sky-500/30 px-1.5 py-0.5 text-[9px] font-bold text-sky-300 uppercase">
+                          <span className="shrink-0 rounded bg-sky-500/15 border border-sky-500/30 px-1.5 py-0.5 text-[10px] font-bold text-sky-300 uppercase">
                             {file.spacecraft}
                           </span>
                         )}
                         {file.isFeatured && (
-                          <span className="shrink-0 rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 text-[9px] font-bold text-amber-300 uppercase flex items-center gap-1">
+                          <span className="shrink-0 rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 uppercase flex items-center gap-1">
                             <Star size={9} className="fill-amber-300" />
                             <span>Featured</span>
                           </span>
@@ -805,7 +821,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                           <Layers size={10} />
                           <span>{file.versionLabel || `v${file.versionCount ?? 1}`}</span>
                           {(file.versionCount ?? 1) > 1 && (
-                            <span className="text-[9px] opacity-75 font-normal">({file.versionCount})</span>
+                            <span className="text-[10px] opacity-75 font-normal">({file.versionCount})</span>
                           )}
                         </button>
                       ) : (
@@ -889,7 +905,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
       {canWrite && (
         <BulkActionBar
           selectedCount={selectedIds.size}
-          onDelete={() => setIsBulkDeleteModalOpen(true)}
+          onDelete={isAdmin ? () => setIsBulkDeleteModalOpen(true) : undefined}
           onTag={() => setTagModalOpen(true)}
           onClear={() => setSelectedIds(new Set())}
         />
@@ -964,9 +980,9 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
         isOpen={isBulkDeleteModalOpen}
         onClose={() => setIsBulkDeleteModalOpen(false)}
         onConfirm={handleConfirmBulkDelete}
-        title="Confirm Bulk Deletion"
-        message={`Permanently remove ${selectedIds.size} selected telemetry dataset(s) from this department? This action will delete these files and their historical revisions.`}
-        confirmLabel={`Delete ${selectedIds.size} File(s)`}
+        title="Move files to Trash?"
+        message={`${selectedIds.size} selected file(s) and their version history will be moved to Trash and hidden from users. Nothing is erased: an administrator can restore them from the File Repository's Trash view.`}
+        confirmLabel={`Move ${selectedIds.size} file(s) to Trash`}
         variant="danger"
         isSubmitting={bulkDelete.isPending}
       />

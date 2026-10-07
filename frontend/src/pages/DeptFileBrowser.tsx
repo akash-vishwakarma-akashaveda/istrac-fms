@@ -97,6 +97,8 @@ export function DeptFileBrowser() {
         <div className="py-2 pr-2">
           {isLoading ? (
             <p className="num px-3 py-1 text-xs text-text-dim">Loading…</p>
+          ) : !tree || tree.length === 0 ? (
+            <p className="px-3 py-1 text-xs text-text-dim">No folders yet. Files are shown at the top level.</p>
           ) : (
             <FolderTree
               nodes={tree ?? []}

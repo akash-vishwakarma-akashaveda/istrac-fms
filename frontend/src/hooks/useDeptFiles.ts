@@ -30,6 +30,7 @@ export function useDeptFiles({ deptId, parentId, sortField, sortDirection }: Use
             isFeatured: Boolean(f.isFeatured),
             spacecraft: f.spacecraft ? (String(f.spacecraft).includes('General') ? 'General' : f.spacecraft) : null,
             category: f.category || null,
+            tags: Array.isArray(f.tags) ? f.tags : [],
           }))
         : []
       return fileNodes
@@ -48,8 +49,11 @@ export function useDeptFiles({ deptId, parentId, sortField, sortDirection }: Use
 export function useBulkDeleteFiles() {
   const queryClient = useQueryClient()
   return useMutation({
+    // allSettled so one failure doesn't hide which files were actually moved.
     mutationFn: async (fileIds: string[]) => {
-      return Promise.all(fileIds.map((id) => filesApi.deleteFile(id)))
+      const results = await Promise.allSettled(fileIds.map((id) => filesApi.deleteFile(id)))
+      const failed = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[]
+      return { moved: fileIds.length - failed.length, failed: failed.length, firstError: failed[0]?.reason }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dept-files'] }),
   })
@@ -58,9 +62,7 @@ export function useBulkDeleteFiles() {
 export function useBulkTagFiles() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ fileIds, tags }: { fileIds: string[]; tags: string[] }) => {
-      return { count: fileIds.length, tags }
-    },
+    mutationFn: ({ fileIds, tags }: { fileIds: string[]; tags: string[] }) => filesApi.tagFiles(fileIds, tags),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dept-files'] }),
   })
 }

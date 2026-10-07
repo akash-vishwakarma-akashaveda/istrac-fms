@@ -20,6 +20,8 @@ export interface NotificationModalItem {
   message: string
   category?: string
   type?: string
+  /** Server classification (broadcast | event | file | account | system). */
+  kind?: string
   timestamp?: string
   createdAt?: string
 }
@@ -30,7 +32,12 @@ interface NotificationsModalProps {
   notifications: NotificationModalItem[]
 }
 
-export function normalizeCategory(cat?: string, type?: string): string {
+export function normalizeCategory(cat?: string, type?: string, kind?: string): string {
+  // Server-provided kind wins; the keyword heuristics below are only for legacy payloads.
+  if (kind) {
+    const byKind: Record<string, string> = { broadcast: 'BROADCASTS', event: 'EVENTS', file: 'FILES', account: 'SECURITY' }
+    if (byKind[kind]) return byKind[kind]
+  }
   const raw = `${cat || ''} ${type || ''}`.toUpperCase().trim()
   if (['EVENT', 'PASS', 'MISSION_PASS', 'LAUNCH', 'MANEUVER', 'ORBIT_MANEUVER', 'MISSION'].some((k) => raw.includes(k))) {
     return 'EVENTS'
@@ -93,14 +100,14 @@ export function NotificationsModal({ isOpen, onClose, notifications }: Notificat
     ...Array.from(
       new Set(
         notifications
-          .map((n) => normalizeCategory(n.category, n.type))
+          .map((n) => normalizeCategory(n.category, n.type, n.kind))
           .filter(Boolean)
       )
     ),
   ]
 
   const filtered = notifications.filter((item) => {
-    const normCat = normalizeCategory(item.category, item.type)
+    const normCat = normalizeCategory(item.category, item.type, item.kind)
     const text = `${item.title || ''} ${item.message || ''} ${item.category || ''} ${item.type || ''} ${normCat}`.toLowerCase()
     const matchesSearch = text.includes(search.toLowerCase())
     const matchesCat = selectedCategory === 'ALL' || normCat === selectedCategory
@@ -196,7 +203,7 @@ export function NotificationsModal({ isOpen, onClose, notifications }: Notificat
         {/* Notification List */}
         <div className="max-h-[60vh] overflow-y-auto p-4 space-y-2.5 divide-y divide-border-subtle/40">
           {filtered.map((item, idx) => {
-            const catKey = normalizeCategory(item.category, item.type)
+            const catKey = normalizeCategory(item.category, item.type, item.kind)
             const meta = CATEGORY_STYLES[catKey] || CATEGORY_STYLES.OTHER
             const Icon = meta.icon
 
@@ -228,7 +235,7 @@ export function NotificationsModal({ isOpen, onClose, notifications }: Notificat
                       <Clock size={11} />
                       {item.timestamp || (item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent')}
                     </span>
-                    <span className={`inline-block rounded border px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider ${meta.badge}`}>
+                    <span className={`inline-block rounded border px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider ${meta.badge}`}>
                       {catKey}
                     </span>
                   </div>

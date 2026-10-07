@@ -73,7 +73,7 @@ export function ContactSection() {
               <MapPin size={20} />
             </div>
             <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-text-primary">{facilityName}</h4>
+              <h4 className="text-xs font-semibold text-text-primary">{facilityName}</h4>
               <p className="num mt-1 text-xs leading-relaxed text-text-muted">{address}</p>
             </div>
           </div>

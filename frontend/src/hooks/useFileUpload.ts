@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { uid } from '../lib/browserCompat'
 import { useQueryClient } from '@tanstack/react-query'
 import { filesApi } from '../api'
 import { splitIntoChunks } from '../lib/fileUpload'
@@ -115,7 +116,7 @@ function addFiles(files: FileList | File[]) {
 
   // Don't create upload items for rejected files
   const newItems: UploadItem[] = valid.map((file) => ({
-    id: crypto.randomUUID(),
+    id: uid(),
     file,
     status: 'queued',
     progress: 0,

@@ -1,222 +1,262 @@
-# 🛰️ ISTRAC-SIMS — Quick Start & Deployment Guide
+# 🛰️ ISTRAC-SIMS — Ubuntu Linux Deployment & Operations Guide
+## Indian Space Research Organisation — ISTRAC Satellite Information Management System
 
-Welcome to the **Satellite Information Management System (ISTRAC-SIMS)**.
-This guide gives you the fastest path to start and run the system on **Local Windows**, deploy to an **Air-Gapped Intranet Ubuntu 24.04 / RHEL Server via Pen Drive**, and **attach your custom domain**.
-
----
-
-## ⚡ Quick Navigation
-- [Option 1: Running Locally on Windows (No Docker)](#option-1-running-locally-on-windows-no-docker)
-- [Option 2: Deploying to Air-Gapped Ubuntu 24.04 LTS or RHEL via Pen Drive (3 Steps)](#option-2-deploying-to-air-gapped-ubuntu-2404-lts-or-rhel-via-pen-drive-3-steps)
-- [Option 3: Attaching a Custom Domain & SSL (1 Command)](#option-3-attaching-a-custom-domain--ssl-1-command)
-- [Service Management (Ubuntu & RHEL)](#service-management-ubuntu--rhel)
-- [Administrator Credentials & Password Reset](#administrator-credentials--password-reset)
-- [System Architecture & Port Reference](#system-architecture--port-reference)
+> **Target OS:** Ubuntu Linux 22.04 LTS & 24.04 LTS Server / Desktop (x86_64)  
+> **Environment:** Air-Gapped Intranet Server / Zero Public Internet  
+> **Classification:** Restricted — ISRO Internal Ground Network  
+> **Version:** 2.0.0 Production Baseline  
 
 ---
 
-## Option 1: Running Locally on Windows (No Docker)
+## 📑 Table of Contents
 
-You can launch the entire stack with a single click:
-
-### A. Development Mode (Hot-Reloading)
-Double-click:
-```cmd
-start-local.bat
-```
-*Automatically opens 3 separate console windows:*
-* **Backend REST API**: `http://localhost:3000`
-* **Worker Daemon**: Event scheduler & telemetry sync
-* **Frontend Web UI**: `http://localhost:5173`
-
-### B. Production Mode (Pre-Compiled)
-Double-click:
-```cmd
-start-local-prod.bat
-```
-*Runs the compiled JavaScript binaries (`backend/dist`) and Vite production preview on `http://localhost:4173`.*
+1. [System Architecture on Ubuntu](#1-system-architecture-on-ubuntu)
+2. [Hardware Prerequisites & Network Ports](#2-hardware-prerequisites--network-ports)
+3. [Air-Gapped Pen Drive Deployment (3 Steps)](#3-air-gapped-pen-drive-deployment-3-steps)
+4. [Service Management CLI (`manage-services-ubuntu.sh`)](#4-service-management-cli-manage-services-ubuntush)
+5. [Attaching an Intranet Custom Domain & SSL](#5-attaching-an-intranet-custom-domain--ssl)
+6. [Database Backup & Recovery Runbook](#6-database-backup--recovery-runbook)
+7. [Administrator Credentials & Password Recovery](#7-administrator-credentials--password-recovery)
+8. [Ubuntu Security & Firewall Hardening (UFW)](#8-ubuntu-security--firewall-hardening-ufw)
 
 ---
 
-## Option 2: Deploying to Air-Gapped Ubuntu 24.04 LTS or RHEL via Pen Drive (3 Steps)
+## 1. System Architecture on Ubuntu
 
-Tested and verified on **Ubuntu 24.04.1 LTS (`SIMS-SRV`)** with **MySQL 8.0** and **Apache 2.4**, as well as **RHEL 8 / 9**.
-
-### Step 1: Copy Bundle to Your Pen Drive
-Copy the offline deployment archive from your Windows PC to your USB pen drive:
-```
-D:\istrac-fms\dist-offline\istrac-fms-offline-bundle-*.zip
-```
-*(Contains all frontend/backend binaries, Node.js 24 Linux x64 binary, offline database migrations, and production node_modules).*
-
----
-
-### Step 2: Extract on the Server
-Plug your pen drive into the server and extract the bundle into `/opt/istrac-fms`:
-
-```bash
-# Create target directory and extract
-sudo mkdir -p /opt/istrac-fms
-sudo unzip /path/to/pendrive/istrac-fms-offline-bundle-*.zip -d /opt/istrac-fms
-cd /opt/istrac-fms
-```
-
----
-
-### Step 3: Run the Universal Setup Script
-Run the automated one-command setup:
-
-```bash
-sudo bash setup-offline.sh
-```
-*(Or `sudo bash setup-rhel-offline.sh`)*
-
-#### What the Script Completes Automatically (< 60 seconds):
-1. **OS Detection**: Auto-detects whether the host is **Ubuntu/Debian** (`apache2`, `mysql.service`, `ufw`) or **RHEL/Rocky** (`httpd`, `mariadb.service`, `firewalld`).
-2. **Node.js**: Detects if Node.js is present; if missing, auto-extracts the pre-bundled `rpms/node-v24.*-linux-x64.tar.xz` into `/usr/local/bin` in 3 seconds.
-3. **Database**: Connects to your existing local MySQL on port 3306, prompts for the root password, creates database `istrac_fms`, and grants full privileges to `istrac_user`.
-4. **Prisma Migrations & Schema**: Applies all database schema tables offline with zero internet downloads (with fallback to `backup_before_v1.sql`).
-5. **Seeds Admin**: Provisions the sole Super Administrator account (`admin@istrac.local`).
-6. **Systemd Daemons**: Installs, enables, and starts:
-   - `istrac-backend.service` (Express API on port 3000)
-   - `istrac-worker.service` (Mission scheduler & sync)
-7. **Apache Web Server**: Installs VirtualHost (`/etc/apache2/sites-available/istrac-sims.conf` on Ubuntu or `/etc/httpd/conf.d/` on RHEL), activates proxy modules (`proxy`, `proxy_http`, `proxy_wstunnel`, `rewrite`, `headers`), and restarts Apache.
-8. **Health Verification**: Runs internal curl probe and prints the live status banner!
-
----
-
-## Option 3: Attaching a Custom Domain & SSL (1 Command)
-
-The frontend is built with **relative API routing (`/api`)** and dynamic host inspection (`window.location.host`), so **zero frontend rebuilds are needed** to attach any domain!
-
-Run the automated domain setup utility:
-
-```bash
-# 1) Intranet / HTTP Only:
-sudo bash /opt/istrac-fms/deploy/setup-domain.sh yourdomain.com none
-
-# 2) Public Domain with Free Automated Let's Encrypt HTTPS:
-sudo bash /opt/istrac-fms/deploy/setup-domain.sh yourdomain.com letsencrypt
-
-# 3) Intranet HTTPS with 10-Year Self-Signed Certificate:
-sudo bash /opt/istrac-fms/deploy/setup-domain.sh yourdomain.com selfsigned
-```
-
-*This automatically updates `ServerName` in Apache, sets `ALLOWED_ORIGINS` & `APP_URL` in `/opt/istrac-fms/backend/.env`, and restarts all services.*
-
-> [!TIP]
-> Make sure your DNS server (or client `/etc/hosts` file) has an **A Record** pointing `yourdomain.com` to your Ubuntu server IP!
-
----
-
-## Service Management (Ubuntu & RHEL)
-
-Use the built-in management utility in `/opt/istrac-fms` to control all services together:
-
-```bash
-# Check status of Apache, Backend API, Worker Daemon, MySQL, and Storage
-sudo /opt/istrac-fms/manage-services-rhel.sh status
-
-# Restart all services in correct dependency order
-sudo /opt/istrac-fms/manage-services-rhel.sh restart
-
-# Start all services
-sudo /opt/istrac-fms/manage-services-rhel.sh start
-
-# Stop all services
-sudo /opt/istrac-fms/manage-services-rhel.sh stop
-
-# Create a compressed gzip backup of the MySQL database
-sudo /opt/istrac-fms/manage-services-rhel.sh backup
-```
-
-### Viewing Live Logs:
-* **Backend API Logs**:
-  ```bash
-  sudo journalctl -u istrac-backend -f
-  ```
-* **Worker Daemon Logs**:
-  ```bash
-  sudo journalctl -u istrac-worker -f
-  ```
-* **Apache Access & Error Logs**:
-  * On Ubuntu:
-    ```bash
-    tail -f /var/log/apache2/istrac-sims-error.log
-    tail -f /var/log/apache2/istrac-sims-access.log
-    ```
-  * On RHEL:
-    ```bash
-    tail -f /var/log/httpd/istrac-sims-error.log
-    tail -f /var/log/httpd/istrac-sims-access.log
-    ```
-
----
-
-## 🛡️ Firewall Configuration (UFW on Ubuntu)
-
-If you enable Ubuntu's UFW firewall, make sure to allow SSH, HTTP, and HTTPS:
-
-```bash
-sudo ufw allow 22/tcp    # SSH (Important: allow first before enabling)
-sudo ufw allow 80/tcp    # HTTP
-sudo ufw allow 443/tcp   # HTTPS
-sudo ufw reload
-```
-
----
-
-## Administrator Credentials & Password Reset
-
-### Default Login
-Open `http://<SERVER_IP>/` or `http://yourdomain.com/`:
-* **Username / Email**: `admin@istrac.local`
-* **Default Password**: `ChangeMe123!`
-* **Role**: `ADMIN` (Sole System Administrator)
-
-> [!IMPORTANT]
-> **Single Administrator Architecture**:
-> Only one system administrator exists. All operators and division personnel register through the `/register` web form and are approved in the Admin Console (`/admin/approvals`).
-
----
-
-### Terminal Password Reset (Air-Gapped Direct Recovery)
-Because the server operates without outbound email/SMTP, the administrator can reset credentials directly from the server terminal:
-
-```bash
-cd /opt/istrac-fms/backend
-node dist/scripts/reset-admin-password.js "YourNewSecurePassword123!"
-```
-*This command validates password complexity, updates MySQL with a 12-round bcrypt hash, terminates all active sessions, writes an audit log, and enforces the single-admin constraint.*
-
----
-
-## System Architecture & Port Reference
+All application components run natively on the Ubuntu host:
 
 ```mermaid
 flowchart LR
-    Browser["Client Browser\n(Port 80 / 443)"] --> Firewall["UFW / Firewalld\n(Ports 80 & 443)"]
-    Firewall --> Apache["Apache (apache2 / httpd)\nReverse Proxy"]
-    Apache -->|"GET / (Static SPA)"| Frontend["React 19 Frontend\n(/opt/istrac-fms/frontend/dist)"]
-    Apache -->|"Proxy /api/* & /ws"| Backend["Node.js Express API\n(Port 3000 / Systemd)"]
-    Backend --> MySQL[("MySQL Server\nPort 3306 (istrac_fms)")]
-    Backend --> Storage["Storage Mount\n/mnt/istrac_storage"]
-    Worker["Worker Daemon\n(Systemd)"] --> MySQL
+    Browser["Client Consoles\n(Port 80 / 443)"] --> Firewall["UFW Firewall\n(Ports 80 & 443)"]
+    Firewall --> Apache["Apache2 Web Server\n(Reverse Proxy)"]
+    Apache -->|"GET / (Static SPA)"| Frontend["React 19 SPA\n(/opt/istrac-sims/frontend/dist)"]
+    Apache -->|"Proxy /api/* & /ws"| Backend["Node.js 24 API\n(Port 3000 / Systemd)"]
+    Backend --> DB[("MariaDB 10 Server\nPort 3306 (istrac_sims)")]
+    Backend --> Storage["Storage Volume\n/mnt/istrac_storage"]
+    Worker["Worker Daemon\n(Systemd)"] --> DB
 ```
 
-| Component | Port | Managed By | Purpose |
-| :--- | :---: | :--- | :--- |
-| **Apache HTTP Server** | `80`, `443` | `apache2.service` (Ubuntu) / `httpd.service` (RHEL) | Reverse proxy, SSL, and React SPA file server |
-| **Backend API Server** | `3000` | `istrac-backend.service` | REST endpoints, authentication, WebSockets |
-| **Mission Event Worker** | Internal | `istrac-worker.service` | Pass tracking, telemetry reconciliation |
-| **MySQL Server** | `3306` | `mysql.service` / `mariadb.service` | Relational file metadata, users, audit logs |
-| **Physical Storage** | Mount | `/mnt/istrac_storage` | Raw telemetry payloads, binary files, archives |
+### Network Port Allocation:
+| Port | Protocol | Binding | Service | Scope |
+|:---|:---|:---|:---|:---|
+| **80** | TCP | `0.0.0.0` | Apache2 HTTP | Ground Station Subnet |
+| **443** | TCP | `0.0.0.0` | Apache2 HTTPS | Ground Station Subnet |
+| **3000** | TCP | `127.0.0.1` | Node.js Backend API | Localhost Only (Internal Proxy) |
+| **3306** | TCP | `127.0.0.1` | MariaDB Database | Localhost Only |
+| **6379** | TCP | `127.0.0.1` | Redis Cache (Optional) | Localhost Only |
 
 ---
 
-## Additional Documentation Links
-* [**`UBUNTU_24_OFFLINE_SETUP_GUIDE.md`**](file:///D:/istrac-fms/UBUNTU_24_OFFLINE_SETUP_GUIDE.md): Complete setup and verification guide for Ubuntu 24.04 LTS (`SIMS-SRV`).
-* [**`CUSTOM_DOMAIN_SETUP_GUIDE.md`**](file:///D:/istrac-fms/CUSTOM_DOMAIN_SETUP_GUIDE.md): DNS routing, reverse proxy VirtualHost, and SSL certificate setup.
-* [**`OFFLINE_RHEL_SETUP_GUIDE.md`**](file:///D:/istrac-fms/OFFLINE_RHEL_SETUP_GUIDE.md): Reference for custom RHEL configurations and ISO mounts.
-* [**`CREDENTIALS.md`**](file:///D:/istrac-fms/CREDENTIALS.md): Detailed credential policies, RBAC roles, and OTP dispatch workflows.
-* [**`Readme.md`**](file:///D:/istrac-fms/Readme.md): Project overview, division details (`/MOX`, `/FDD`, `/NETRA`, `/TTC`, `/GSO`), and REST API endpoints.
+## 2. Hardware Prerequisites & Network Ports
+
+| Parameter | Minimum Specification | Recommended (Mission Production) |
+|:---|:---|:---|
+| **Operating System** | Ubuntu 22.04 LTS | Ubuntu 24.04 LTS Server (`x86_64`) |
+| **Processor (CPU)** | 4 Cores | 8 to 16 Cores (Intel Xeon / AMD EPYC) |
+| **System RAM** | 8 GB | 16 GB to 32 GB ECC DDR4/DDR5 |
+| **System Drive (OS)** | 60 GB SSD | 120 GB NVMe / SAS SSD |
+| **Telemetry Volume** | 100 GB (`/mnt/istrac_storage`) | 2 TB to 20 TB RAID-6 / Enterprise SAN |
+| **Network Interface** | 1 Gbps Virtual / Physical NIC | Dual 10 Gbps Bonded NICs (LACP) |
+
+---
+
+## 3. Air-Gapped Pen Drive Deployment (3 Steps)
+
+### Step 1: Copy Bundle from USB to `/opt/istrac-sims`
+```bash
+sudo mkdir -p /opt/istrac-sims
+sudo cp -r /path/to/usb/bundle/* /opt/istrac-sims/
+cd /opt/istrac-sims
+```
+
+---
+
+### Step 2: Run the Automated Setup Script
+```bash
+chmod +x install.sh deploy/setup-ubuntu.sh manage-services-ubuntu.sh
+sudo ./install.sh
+```
+
+#### What the Script Completes Automatically:
+1. **System User**: Creates dedicated non-login system account `istrac`.
+2. **Storage Path**: Creates `/mnt/istrac_storage` owned by `istrac:istrac` (`chmod 770`).
+3. **Node.js 24**: Extracts standalone Node 24 runtime to `/opt/node` and links to `/usr/bin/node`.
+4. **MariaDB**: Starts service, creates database `istrac_sims`, and grants permissions to `istrac_user`.
+5. **Prisma Migrations**: Deploys all 5 versioned SQL migrations completely offline.
+6. **Admin Provisioning**: Creates the sole Super Administrator (`admin@istrac.local`).
+7. **Systemd Services**: Installs and starts `istrac-backend.service` and `istrac-worker.service`.
+8. **Apache2 VirtualHost**: Enables `proxy`, `proxy_http`, `proxy_wstunnel`, `rewrite`, `headers` modules, and activates `/etc/apache2/sites-available/istrac-sims.conf`.
+9. **UFW Rules**: Opens ports 80 and 443 in the firewall.
+10. **Liveness Verification**: Probes `http://127.0.0.1:3000/api/health` and displays the status banner.
+
+---
+
+### Step 3: Open in Browser
+Navigate to:
+```
+http://<UBUNTU_SERVER_IP>/   or   http://localhost/
+```
+
+---
+
+## 4. Service Management & Server Control (`manage-services-ubuntu.sh`)
+
+### Automated Control via Management CLI:
+```bash
+# Check live health status across all daemons, ports, and disk mount
+sudo /opt/istrac-sims/manage-services-ubuntu.sh status
+
+# Start whole server stack in dependency order (MySQL -> Backend -> Worker -> Apache)
+sudo /opt/istrac-sims/manage-services-ubuntu.sh start
+
+# Stop application processes (Apache, Worker, Backend)
+sudo /opt/istrac-sims/manage-services-ubuntu.sh stop
+
+# Stop the WHOLE server stack completely (including MySQL & Redis)
+sudo /opt/istrac-sims/manage-services-ubuntu.sh stop-all
+
+# Restart all services cleanly
+sudo /opt/istrac-sims/manage-services-ubuntu.sh restart
+
+# Stream live backend API logs in real-time
+sudo /opt/istrac-sims/manage-services-ubuntu.sh logs
+
+# Take a timestamped database SQL backup
+sudo /opt/istrac-sims/manage-services-ubuntu.sh backup
+```
+
+### Manual Control via Native Ubuntu Systemd:
+```bash
+# Stop Whole Server Stack Cleanly:
+sudo systemctl stop apache2 istrac-worker istrac-backend mysql redis-server 2>/dev/null || true
+
+# Start Whole Server Stack in Dependency Order:
+sudo systemctl start mysql
+sudo systemctl start redis-server 2>/dev/null || true
+sudo systemctl start istrac-backend
+sudo systemctl start istrac-worker
+sudo systemctl start apache2
+
+# Enable / Disable Auto-Start on System Boot:
+sudo systemctl enable mysql apache2 istrac-backend istrac-worker
+sudo systemctl disable istrac-backend istrac-worker apache2
+```
+
+---
+
+## 5. Attaching an Intranet Custom Domain & SSL
+
+The application utilizes relative `/api` paths and dynamic hostname resolution, allowing any domain to be attached with zero code rebuilds:
+
+```bash
+# 1) Intranet / HTTP Only:
+sudo bash /opt/istrac-sims/deploy/setup-domain.sh sims.istrac.gov.in none
+
+# 2) Public Domain with Automated Let's Encrypt HTTPS:
+sudo bash /opt/istrac-sims/deploy/setup-domain.sh sims.istrac.gov.in letsencrypt
+
+# 3) Intranet HTTPS with 10-Year Self-Signed Certificate:
+sudo bash /opt/istrac-sims/deploy/setup-domain.sh sims.istrac.gov.in selfsigned
+```
+
+---
+
+## 6. Database Backup & Recovery Runbook
+
+### Creating a Manual Backup:
+```bash
+sudo mkdir -p /var/backups/istrac-sims
+mysqldump -u istrac_user -p"IstracSecurePass123!" istrac_sims > \
+  /var/backups/istrac-sims/istrac_sims_backup_$(date +%Y%m%d_%H%M%S).sql
+```
+
+### Restoring from Backup:
+```bash
+# 1. Stop application daemons
+sudo systemctl stop istrac-backend istrac-worker
+
+# 2. Import SQL dump
+mysql -u istrac_user -p"IstracSecurePass123!" istrac_sims < /path/to/backup.sql
+
+# 3. Restart daemons
+sudo systemctl start istrac-backend istrac-worker
+```
+
+---
+
+## 7. Administrator Credentials & Password Recovery
+
+### Default Administrator Login:
+* **Email:** `admin@istrac.local`
+* **Password:** `ChangeMe123!`
+* **Role:** `ADMIN` (Sole System Administrator)
+
+### Offline Terminal Password Reset:
+From the Ubuntu terminal:
+```bash
+cd /opt/istrac-sims/backend
+npm run admin:reset-password -- "YourNewSecurePassword123!"
+```
+*Alternatively, request a reset on `/forgot-password` and retrieve the 6-digit OTP from `sudo journalctl -u istrac-backend -n 20`.*
+
+---
+
+## 8. Ubuntu Security & Firewall Hardening (UFW)
+
+```bash
+# Ensure SSH remains accessible
+sudo ufw allow 22/tcp
+
+# Allow intranet web traffic
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+
+# Enable firewall
+sudo ufw enable
+```
+
+---
+
+## 9. Troubleshooting & Diagnostic Runbook
+
+### Backend API Stopped / Health Probe Failed:
+If `./manage-services-ubuntu.sh status` reports `Backend API (Systemd): STOPPED`:
+
+```bash
+# 1. Inspect exit status and error codes
+sudo systemctl status istrac-backend
+
+# 2. View recent backend logs
+sudo journalctl -u istrac-backend -n 30 --no-pager
+# or live stream:
+sudo ./manage-services-ubuntu.sh logs
+
+# 3. Start or restart service
+sudo ./manage-services-ubuntu.sh start
+# or:
+sudo systemctl restart istrac-backend istrac-worker
+
+# 4. Direct console execution (see immediate stack trace)
+cd /opt/istrac-sims/backend
+sudo -u istrac /usr/bin/node dist/src/index.js
+```
+
+### Database Service Name Resolution:
+If running Oracle MySQL (`mysql.service`):
+```bash
+sudo systemctl status mysql
+sudo systemctl enable --now mysql
+```
+Test credentials:
+```bash
+mysql -u istrac_user -pIstracSecurePass123! -h 127.0.0.1 -D istrac_sims -e "SELECT 1;"
+```
+
+### Apache 403 Forbidden:
+Ensure the web server user (`www-data`) has read permissions:
+```bash
+sudo chmod 755 /opt /opt/istrac-sims /opt/istrac-sims/frontend
+sudo chmod -R 755 /opt/istrac-sims/frontend/dist
+sudo usermod -a -G istrac www-data
+sudo systemctl restart apache2
+```

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { CategoryOptions } from '../components/CategoryOptions'
 import { Link } from 'react-router-dom'
 import {
   Shield,
@@ -196,7 +197,7 @@ export function UserHome() {
               <Shield size={18} />
             </div>
             <div>
-              <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+              <h4 className="text-xs font-semibold text-white">
                 Administrator Mode Active
               </h4>
               <p className="text-xs text-text-secondary">
@@ -346,7 +347,7 @@ export function UserHome() {
         <div className="rounded-xl border border-border-default bg-card p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-border-subtle pb-3">
             <div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 <Radio size={15} className="text-accent-light" />
                 <span>Reports by Spacecraft</span>
               </h3>
@@ -408,7 +409,7 @@ export function UserHome() {
         <div className="rounded-xl border border-border-default bg-card p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-border-subtle pb-3">
             <div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 <Layers size={15} className="text-nominal" />
                 <span>Reports by Category</span>
               </h3>
@@ -471,7 +472,7 @@ export function UserHome() {
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-default bg-surface/50">
           <div className="flex items-center gap-2">
             <BellRing size={16} className="text-accent-light animate-bounce" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">
+            <h3 className="text-sm font-semibold text-text-primary">
               Mission Notice Board & Broadcasts
             </h3>
             <span className="num font-bold text-[10px] text-accent-light rounded-full bg-accent/15 border border-accent/30 px-2 py-0.5">
@@ -519,7 +520,7 @@ export function UserHome() {
                         : 'bg-nominal/15 text-nominal border border-nominal/30'
                     }`}
                   >
-                    {notice.type}
+                    {String(notice.type || 'NOTICE').replace(/_/g, ' ')}
                   </span>
                   <span className="num text-[10px] text-text-dim">
                     {new Date(notice.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -539,7 +540,7 @@ export function UserHome() {
       <div className="rounded-xl border border-border-default bg-card shadow-sm overflow-hidden space-y-0">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-5 py-4 border-b border-border-default bg-surface/50 gap-2">
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
               <Building2 size={16} className="text-accent-light" />
               <span>Authorized Operational Divisions ({accessibleDepartments.length} Cleared)</span>
             </h3>
@@ -721,7 +722,7 @@ export function UserHome() {
       {/* 7. QUICK SEARCH & FILTER CONTROL PANEL */}
       <div className="rounded-xl border border-border-default bg-card p-5 shadow-sm space-y-4">
         <div className="flex items-center justify-between border-b border-border-subtle pb-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
             <Search size={14} className="text-accent-light" />
             <span>Search & Filter Telemetry Reports</span>
           </h3>
@@ -780,12 +781,7 @@ export function UserHome() {
               onChange={(e) => setFilterCategory(e.target.value)}
               className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent cursor-pointer"
             >
-              <option value="ALL">All Categories</option>
-              <option value="DAILY_REPORT">Daily Operations</option>
-              <option value="ANOMALY">Anomaly Report</option>
-              <option value="HEALTH">Subsystem Health</option>
-              <option value="EVENT">Flight Event</option>
-              <option value="PAYLOAD">Payload Science</option>
+              <CategoryOptions />
             </select>
           </div>
         </div>
@@ -809,7 +805,7 @@ export function UserHome() {
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-default bg-surface/50">
           <div className="flex items-center gap-2">
             <FileText size={15} className="text-accent-light" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">
+            <h3 className="text-sm font-semibold text-text-primary">
               Active Telemetry Reports ({selectedSpacecraft === 'ALL' ? 'All Missions' : selectedSpacecraft})
             </h3>
             <span className="num font-bold text-xs text-accent-light rounded-full bg-accent/15 border border-accent/30 px-2 py-0.5">
@@ -955,7 +951,7 @@ export function UserHome() {
               <div key={notice.id} className="p-3.5 rounded-xl border border-border-default bg-surface/50 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent-light uppercase">
-                    {notice.type}
+                    {String(notice.type || 'NOTICE').replace(/_/g, ' ')}
                   </span>
                   <span className="num text-[11px] text-text-dim">
                     {new Date(notice.createdAt).toLocaleString()}

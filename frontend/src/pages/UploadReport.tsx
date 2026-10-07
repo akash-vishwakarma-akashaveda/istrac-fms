@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { getErrorMessage } from '../api/client'
 import {
   Upload,
   Radio,
@@ -83,7 +84,7 @@ export function UploadReport() {
   const [customCatCode, setCustomCatCode] = useState('')
   const [customCatDesc, setCustomCatDesc] = useState('')
   const [savingCategory, setSavingCategory] = useState(false)
-  const [deletingCategoryTarget, setDeletingCategoryTarget] = useState<{ id: string; name: string } | null>(null)
+  const [deletingCategoryTarget, setDeletingCategoryTarget] = useState<{ id: string; name: string; code: string; usageCount: number } | null>(null)
 
   // Naming Convention Template State
   const [selectedPresetId, setSelectedPresetId] = useState<string>('default')
@@ -215,17 +216,18 @@ export function UploadReport() {
   // Handle Deleting Custom Category
   const handleConfirmDeleteCategory = async () => {
     if (!deletingCategoryTarget) return
-    const { id, name } = deletingCategoryTarget
+    const { id, code } = deletingCategoryTarget
     try {
-      await deleteCategoryMutation.mutateAsync(id)
-      addToast({ title: 'Category Removed', message: `${name} deleted`, variant: 'info' })
-      setDeletingCategoryTarget(null)
-    } catch (err: any) {
+      const res = await deleteCategoryMutation.mutateAsync(id)
+      if (selectedCategoryCode === code) setSelectedCategoryCode('')
+      addToast({ title: 'Category deleted', message: res.message, variant: 'success' })
+    } catch (err) {
       addToast({
-        title: 'Delete Failed',
-        message: err.response?.data?.error?.message || 'Cannot delete category',
+        title: 'Could not delete category',
+        message: getErrorMessage(err, 'The category could not be deleted. Please try again.'),
         variant: 'error',
       })
+    } finally {
       setDeletingCategoryTarget(null)
     }
   }
@@ -392,7 +394,7 @@ export function UploadReport() {
             <div className="lg:col-span-2 space-y-5">
               {/* Section 1: Spacecraft & Category Allocation */}
               <div className="rounded-xl border border-border-default bg-card p-5 space-y-4 shadow-sm">
-                <h3 className="text-xs font-bold text-accent-light uppercase tracking-wider flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
                   <Radio size={14} />
                   <span>1. Mission & Spacecraft Allocation</span>
                 </h3>
@@ -484,7 +486,7 @@ export function UploadReport() {
 
               {/* Section 2: Report Metadata & Versioning */}
               <div className="rounded-xl border border-border-default bg-card p-5 space-y-4 shadow-sm">
-                <h3 className="text-xs font-bold text-accent-light uppercase tracking-wider flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
                   <FileText size={14} />
                   <span>2. Report Metadata & Version Details</span>
                 </h3>
@@ -541,7 +543,7 @@ export function UploadReport() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sparkles size={16} className="text-accent-light" />
-                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                    <h4 className="text-xs font-semibold text-white">
                       Naming Convention & Preset Engine
                     </h4>
                   </div>
@@ -652,10 +654,10 @@ export function UploadReport() {
             </div>
 
             {/* Right Column: File Dropzone & Ingest CTA */}
-            <div className="space-y-5">
-              <div className="rounded-xl border border-border-default bg-card p-5 space-y-4 shadow-sm flex flex-col justify-between h-full">
+            <div className="space-y-5 lg:sticky lg:top-4 lg:self-start">
+              <div className="rounded-xl border border-border-default bg-card p-5 space-y-4 shadow-sm flex flex-col">
                 <div>
-                  <h3 className="text-xs font-bold text-accent-light uppercase tracking-wider flex items-center gap-2 mb-3">
+                  <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2 mb-3">
                     <FolderUp size={14} />
                     <span>3. Attach Document</span>
                   </h3>
@@ -837,7 +839,7 @@ export function UploadReport() {
         {/* Existing Custom Categories List */}
         {categories.filter((c) => !c.isSystem).length > 0 && (
           <div className="mt-5 pt-4 border-t border-border-subtle space-y-2">
-            <h4 className="text-[11px] font-bold text-text-dim uppercase tracking-wider">
+            <h4 className="text-[11px] font-semibold text-text-dim">
               Saved Custom Categories
             </h4>
             <div className="space-y-1.5 max-h-36 overflow-y-auto">
@@ -850,11 +852,12 @@ export function UploadReport() {
                   >
                     <div>
                       <span className="font-bold text-white">{cat.name}</span>{' '}
-                      <code className="num text-accent-light text-[11px]">({cat.code})</code>
+                      <code className="num text-accent-light text-[11px]">({cat.code})</code>{' '}
+                      <span className="text-text-dim text-[11px]">· {cat.usageCount ?? 0} file(s)</span>
                     </div>
                     <button
                       type="button"
-                      onClick={() => setDeletingCategoryTarget({ id: cat.id, name: cat.name })}
+                      onClick={() => setDeletingCategoryTarget({ id: cat.id, name: cat.name, code: cat.code, usageCount: cat.usageCount ?? 0 })}
                       className="p-1 rounded text-text-dim hover:text-critical hover:bg-critical/10 transition-colors"
                       title="Delete category preset"
                     >
@@ -931,10 +934,15 @@ export function UploadReport() {
         isOpen={deletingCategoryTarget !== null}
         onClose={() => setDeletingCategoryTarget(null)}
         onConfirm={handleConfirmDeleteCategory}
-        title="Delete Category Preset"
-        message={`Are you sure you want to permanently delete the custom report category "${deletingCategoryTarget?.name}"? Existing files with this category will remain, but the category preset will be removed.`}
-        confirmLabel="Delete Category"
+        title="Delete custom category?"
+        message={
+          deletingCategoryTarget?.usageCount
+            ? `"${deletingCategoryTarget.name}" is used by ${deletingCategoryTarget.usageCount} file(s). Deleting it moves those files to the General category; the files themselves are not deleted and stay accessible. This cannot be undone.`
+            : `"${deletingCategoryTarget?.name}" is not used by any files. It will be removed from the category list. This cannot be undone.`
+        }
+        confirmLabel="Delete category"
         variant="danger"
+        isSubmitting={deleteCategoryMutation.isPending}
       />
     </div>
   )

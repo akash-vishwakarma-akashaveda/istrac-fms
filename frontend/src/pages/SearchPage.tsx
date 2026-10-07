@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
+import { HelpTip } from '../components/HelpTip'
+import { CategoryOptions } from '../components/CategoryOptions'
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import {
   Search as SearchIcon,
@@ -283,14 +285,17 @@ export function SearchPage() {
               onBlur={() => setTimeout(() => setShowHistory(false), 200)}
               placeholder="Search reports, telemetry files, spacecraft, authors, or categories…"
               aria-label="Search query"
-              className="w-full rounded-xl border border-border-default bg-[#081226] py-3.5 pr-10 pl-11 text-base sm:text-sm text-white shadow-inner outline-none transition-all placeholder:text-text-dim hover:border-accent/40 focus:border-accent focus:bg-[#0c1a36]"
+              className="w-full rounded-xl border border-border-default bg-[#081226] py-3.5 pr-20 pl-11 text-base sm:text-sm text-white shadow-inner outline-none transition-all placeholder:text-text-dim hover:border-accent/40 focus:border-accent focus:bg-[#0c1a36]"
             />
+            <span className="absolute right-1 top-1/2 -translate-y-1/2">
+              <HelpTip topic="search" />
+            </span>
 
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery('')}
-                className="absolute right-3.5 p-1 rounded-md text-text-dim hover:text-white hover:bg-card-hover"
+                className="absolute right-10 p-1 rounded-md text-text-dim hover:text-white hover:bg-card-hover"
                 title="Clear search query"
               >
                 <X size={15} />
@@ -437,12 +442,7 @@ export function SearchPage() {
                 onChange={(e) => setCategoryFilter(e.target.value)}
                 className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-white outline-none focus:border-accent cursor-pointer"
               >
-                <option value="ALL">All Categories</option>
-                <option value="DAILY_REPORT">Daily Ops Report</option>
-                <option value="SPECIAL_OPERATIONS">Special Operations</option>
-                <option value="ANOMALY">Anomaly Review</option>
-                <option value="STUDY">Scientific Study</option>
-                <option value="OTHER">Other Archives</option>
+                <CategoryOptions />
               </select>
             </div>
 
@@ -611,12 +611,12 @@ export function SearchPage() {
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {file.satelliteName ? (
-                        <span className="rounded bg-accent/15 border border-accent/30 text-accent-light px-1.5 py-0.5 text-[9px] font-bold uppercase num">
+                        <span className="rounded bg-accent/15 border border-accent/30 text-accent-light px-1.5 py-0.5 text-[10px] font-bold uppercase num">
                           {file.satelliteName.includes('General') ? 'General' : file.satelliteName}
                         </span>
                       ) : null}
                       {(file.departmentCode || file.departmentName) ? (
-                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase border ${
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase border ${
                           file.departmentIsActive === false
                             ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
                             : 'bg-surface border-border-subtle text-text-dim'
@@ -629,7 +629,7 @@ export function SearchPage() {
 
                     {file.classificationLevel ? (
                       <span
-                        className={`text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded border ${
+                        className={`text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded border ${
                           file.classificationLevel === 'SECRET_MISSION'
                             ? 'bg-red-500/15 border-red-500/30 text-red-400'
                             : file.classificationLevel === 'INTERNAL_ONLY'
@@ -777,7 +777,7 @@ export function SearchPage() {
                         <p className="text-[10px] text-text-dim flex items-center gap-1.5">
                           <span>{file.departmentName}</span>
                           {file.departmentIsActive === false && (
-                            <span className="rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 px-1 py-0.2 text-[8px] font-bold uppercase">
+                            <span className="rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 px-1 py-0.2 text-[10px] font-bold uppercase">
                               Archived
                             </span>
                           )}

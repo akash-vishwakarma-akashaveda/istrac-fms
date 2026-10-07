@@ -194,11 +194,16 @@ The server dynamically recognizes:
    ```
 
 3. **Deploy Migration Offline:**
-   On the air-gapped RHEL server:
-   ```bash
-   cd /opt/istrac-fms/backend
-   node ./node_modules/prisma/build/index.js migrate deploy
-   ```
+   - **On Ubuntu Linux:**
+     ```bash
+     cd /opt/istrac-fms/backend
+     node ./node_modules/prisma/build/index.js migrate deploy
+     ```
+   - **On Microsoft Windows:**
+     ```powershell
+     cd D:\istrac-fms\backend
+     node .\node_modules\prisma\build\index.js migrate deploy
+     ```
 
 ---
 
@@ -247,8 +252,14 @@ cd backend
 npm run build
 ```
 
-This compiles TypeScript into `dist/`. On the RHEL server:
-```bash
-sudo cp -rf dist/* /opt/istrac-fms/backend/dist/
-sudo systemctl restart istrac-backend
-```
+This compiles TypeScript into `dist/`. To deploy the updated build:
+- **On Ubuntu Linux:**
+  ```bash
+  sudo cp -rf dist/* /opt/istrac-fms/backend/dist/
+  sudo systemctl restart istrac-backend
+  ```
+- **On Microsoft Windows:**
+  ```powershell
+  Copy-Item -Path ".\dist\*" -Destination "D:\istrac-fms\backend\dist\" -Recurse -Force
+  pm2 restart istrac-backend
+  ```

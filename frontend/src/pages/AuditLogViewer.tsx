@@ -71,6 +71,8 @@ export function AuditLogViewer() {
     const q = search.toLowerCase()
     return (
       (e.userName && e.userName.toLowerCase().includes(q)) ||
+      (e.summary && e.summary.toLowerCase().includes(q)) ||
+      (e.target && e.target.toLowerCase().includes(q)) ||
       (e.action && e.action.toLowerCase().includes(q)) ||
       (e.resourceType && e.resourceType.toLowerCase().includes(q)) ||
       (e.resourceId && e.resourceId.toLowerCase().includes(q)) ||
@@ -303,7 +305,7 @@ export function AuditLogViewer() {
             <table className="w-full text-left border-collapse min-w-[1000px]">
               <thead>
                 <tr className="border-b border-border-default bg-surface text-[11px] font-bold text-text-dim uppercase tracking-wider">
-                  <th className="px-5 py-3.5 w-[20%]">Timestamp (UTC)</th>
+                  <th className="px-5 py-3.5 w-[20%]">Time (local)</th>
                   <th className="px-4 py-3.5 w-[20%]">Officer / User</th>
                   <th className="px-4 py-3.5 w-[22%]">Action Description</th>
                   <th className="px-4 py-3.5 w-[14%]">Resource Target</th>
@@ -320,7 +322,7 @@ export function AuditLogViewer() {
                       {/* Timestamp */}
                       <td className="px-5 py-3.5 num text-text-secondary font-mono text-[11px]">
                         <span className="text-white font-bold block">
-                          {new Date(entry.createdAt).toLocaleTimeString([], { hour12: false })} UTC
+                          {new Date(entry.createdAt).toLocaleTimeString([], { hour12: false })}
                         </span>
                         <span className="text-[10px] text-text-dim block">
                           {new Date(entry.createdAt).toLocaleDateString()}
@@ -337,8 +339,8 @@ export function AuditLogViewer() {
                             <span className="font-bold text-white block truncate">
                               {entry.userName || 'System Authority'}
                             </span>
-                            <span className="text-[10px] text-text-dim block truncate font-mono">
-                              {entry.userId ? `${entry.userId.slice(0, 8)}…` : 'SYSTEM'}
+                            <span className="text-[10px] text-text-dim block truncate">
+                              {entry.actor ? `${entry.actor.email} · ${entry.actor.role}` : 'Not signed in'}
                             </span>
                           </div>
                         </div>
@@ -352,22 +354,25 @@ export function AuditLogViewer() {
                           >
                             <span>{actionMeta.label}</span>
                           </span>
-                          <p className="text-[11px] text-text-dim truncate max-w-xs font-mono">
-                            {entry.action}
+                          <p className="text-xs text-text-primary max-w-sm" title={entry.action}>
+                            {entry.summary || entry.action}
                           </p>
                         </div>
                       </td>
 
                       {/* Resource Target */}
                       <td className="px-4 py-3.5">
-                        <span className="num font-mono text-xs text-text-primary bg-[#060c18] px-2 py-1 rounded border border-border-subtle inline-block max-w-[120px] truncate">
-                          {entry.resourceType ? `${entry.resourceType.toUpperCase()}` : 'SYSTEM'}
+                        <span className="text-[10px] uppercase font-bold text-text-dim block">
+                          {entry.resourceType ? entry.resourceType.replace(/[_-]+/g, ' ') : 'system'}
+                        </span>
+                        <span className="text-xs text-text-primary block max-w-[200px] truncate" title={entry.target || ''}>
+                          {entry.target || '—'}
                         </span>
                       </td>
 
                       {/* IP Address */}
                       <td className="px-4 py-3.5 num font-mono text-[11px] text-text-dim">
-                        {entry.ipAddress || '127.0.0.1 (Local)'}
+                        {entry.ipAddress || 'Unknown'}
                       </td>
 
                       {/* Inspect Details Trigger */}
@@ -412,7 +417,7 @@ export function AuditLogViewer() {
       <Modal
         isOpen={selectedEntry !== null}
         onClose={() => setSelectedEntry(null)}
-        title="Audit Event Dossier & State Diff"
+        title="Audit entry details"
       >
         {selectedEntry && (
           <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
@@ -421,22 +426,35 @@ export function AuditLogViewer() {
                 EVENT ID: #{selectedEntry.id}
               </span>
               <h3 className="text-sm font-bold text-white">
-                {selectedEntry.action}
+                {selectedEntry.summary || selectedEntry.action}
               </h3>
-              <p className="text-xs text-text-secondary font-mono">
-                Initiated by: <strong className="text-white">{selectedEntry.userName || 'System Authority'}</strong> ({selectedEntry.userId || 'N/A'})
+              <p className="text-xs text-text-secondary">
+                By <strong className="text-white">{selectedEntry.userName || 'System'}</strong>
+                {selectedEntry.actor && <> · {selectedEntry.actor.email} · {selectedEntry.actor.role}</>}
               </p>
+              <p className="text-[10px] text-text-dim font-mono">Action code: {selectedEntry.action}</p>
             </div>
+
+            {selectedEntry.details && selectedEntry.details.length > 0 && (
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 rounded-xl border border-border-subtle bg-surface p-3.5 text-xs">
+                {selectedEntry.details.map((d: { label: string; value: string }) => (
+                  <div key={d.label} className="min-w-0">
+                    <dt className="text-[10px] uppercase font-bold text-text-dim">{d.label}</dt>
+                    <dd className="text-text-primary break-words">{d.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
 
             <div className="grid grid-cols-2 gap-3 text-xs num">
               <div className="p-3 rounded-lg border border-border-subtle bg-surface">
-                <span className="text-[10px] text-text-dim block uppercase font-bold">Timestamp (UTC)</span>
-                <strong className="text-white">{new Date(selectedEntry.createdAt).toUTCString()}</strong>
+                <span className="text-[10px] text-text-dim block uppercase font-bold">When</span>
+                <strong className="text-white">{new Date(selectedEntry.createdAt).toLocaleString()}</strong>
               </div>
 
               <div className="p-3 rounded-lg border border-border-subtle bg-surface">
-                <span className="text-[10px] text-text-dim block uppercase font-bold">Origin IP / Agent</span>
-                <span className="text-text-secondary">{selectedEntry.ipAddress || '127.0.0.1 (Localhost)'}</span>
+                <span className="text-[10px] text-text-dim block uppercase font-bold">IP address</span>
+                <span className="text-text-secondary">{selectedEntry.ipAddress || 'Unknown'}</span>
               </div>
 
               <div className="p-3 rounded-lg border border-border-subtle bg-surface">
@@ -452,7 +470,7 @@ export function AuditLogViewer() {
 
             {/* State Diffs (Old Value vs New Value) */}
             <div className="space-y-2">
-              <span className="text-xs font-bold text-text-primary block">Audit State Payload (Diff):</span>
+              <span className="text-xs font-bold text-text-primary block">Recorded values (sensitive fields removed):</span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-3 rounded-lg border border-border-subtle bg-[#060c18] space-y-1">
                   <span className="text-[10px] uppercase font-bold text-warning block">Prior State (Old Value)</span>

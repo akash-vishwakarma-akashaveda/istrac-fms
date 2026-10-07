@@ -55,7 +55,7 @@ export function NavFooterTab() {
       <div className="space-y-6">
         {/* Navbar Section */}
         <div className="space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-accent-light border-b border-border-subtle pb-2 flex items-center gap-1.5">
+          <h3 className="text-sm font-semibold text-text-primary border-b border-border-subtle pb-2 flex items-center gap-1.5">
             <Layers size={12} />
             Navbar Brand
           </h3>
@@ -69,10 +69,10 @@ export function NavFooterTab() {
           />
 
           <div className="p-3 rounded-lg border border-border-subtle bg-[#060c18] space-y-1">
-            <div className="text-[9px] uppercase tracking-widest text-text-dim mb-2">Navbar Preview</div>
+            <div className="text-[10px] uppercase tracking-widest text-text-dim mb-2">Navbar Preview</div>
             <div className="flex items-center gap-2">
               <div className="h-6 w-6 rounded bg-accent/20 flex items-center justify-center shrink-0">
-                <span className="text-[8px] font-bold text-accent-light">IS</span>
+                <span className="text-[10px] font-bold text-accent-light">IS</span>
               </div>
               <div>
                 <div className="text-xs font-bold text-white">ISTRAC-SIMS</div>
@@ -84,7 +84,7 @@ export function NavFooterTab() {
 
         {/* Footer Section */}
         <div className="space-y-4 border-t border-border-subtle pt-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-accent-light border-b border-border-subtle pb-2 flex items-center gap-1.5">
+          <h3 className="text-sm font-semibold text-text-primary border-b border-border-subtle pb-2 flex items-center gap-1.5">
             <MapPin size={12} />
             Footer Content
           </h3>

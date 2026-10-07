@@ -476,12 +476,25 @@ cd /path/to/istrac-fms/frontend
 npm run build
 ```
 
-### Deploying to Production RHEL Server:
+### Deploying to Production (Ubuntu Linux & Windows):
+
+#### On Ubuntu Linux:
 ```bash
 # Copy compiled bundle to Apache DocumentRoot
 sudo cp -rf dist/* /opt/istrac-fms/frontend/dist/
 sudo chmod -R 755 /opt/istrac-fms/frontend/dist
+sudo systemctl reload apache2
 
-# Hard-refresh browser cache
-# Press Ctrl + Shift + R in Firefox / Chrome
+# Hard-refresh browser cache in Chrome / Firefox:
+# Press Ctrl + Shift + R
+```
+
+#### On Microsoft Windows:
+```powershell
+# Copy compiled bundle to Apache / Web Server DocumentRoot
+Copy-Item -Path ".\dist\*" -Destination "D:\istrac-fms\frontend\dist\" -Recurse -Force
+Restart-Service Apache2.4
+
+# Hard-refresh browser cache:
+# Press Ctrl + Shift + R
 ```

@@ -1,8 +1,8 @@
-# 🛰️ ISTRAC-SIMS — Startup & Operations Manual
+# 🛰️ ISTRAC-SIMS — Startup & Operations Manual (Ubuntu Linux & Windows)
 
 ## 1. System Architecture Overview
 
-The system operates as an air-gapped on-premise service running on **Red Hat Enterprise Linux (RHEL 9 / 10)**.
+The system operates as an air-gapped on-premise service running on **Ubuntu Linux (22.04 / 24.04 LTS)** or **Microsoft Windows (10 / 11 / Windows Server 2022)**.
 
 ```
 Intranet User Browser
@@ -10,9 +10,9 @@ Intranet User Browser
   │ (Port 80 / 443)
   ▼
 ┌─────────────────────────────────────────────────────────┐
-│ Apache HTTP Server (httpd 2.4)                          │
+│ Web Server (Apache2 on Ubuntu / Apache Lounge on Win)   │
 │                                                         │
-│  ├── /           ──> Static SPA (/opt/istrac-fms/frontend/dist)
+│  ├── /           ──> Static SPA (frontend/dist)
 │  ├── /api/*      ──> Reverse Proxy to http://127.0.0.1:3000/api/*
 │  ├── /media/*    ──> Reverse Proxy to http://127.0.0.1:3000/media/*
 │  └── /ws         ──> WebSocket Proxy to ws://127.0.0.1:3000/ws
@@ -22,43 +22,53 @@ Intranet User Browser
 ┌─────────────────────────────────────────────────────────┐
 │ Node.js 24 Application Daemons                          │
 │                                                         │
-│  ├── istrac-backend.service (API Server on Port 3000)   │
-│  └── istrac-worker.service  (Telemetry Background Job) │
+│  ├── istrac-backend (API Server on Port 3000)           │
+│  └── istrac-worker  (Telemetry Background Job)          │
 └──────────────────────────┬──────────────────────────────┘
                            │
            ┌───────────────┴───────────────┐
            ▼                               ▼
 ┌──────────────────────┐       ┌──────────────────────────┐
 │ MariaDB (Port 3306)  │       │ Storage Volume           │
-│ DB: istrac_fms       │       │ Path: /mnt/istrac_storage│
-│ User: istrac_user    │       │ Quota: 500GB+            │
+│ DB: istrac_fms       │       │ Ubuntu: /mnt/istrac_data │
+│ User: istrac_user    │       │ Windows: D:\istrac_data  │
 └──────────────────────┘       └──────────────────────────┘
 ```
 
 ---
 
-## 2. Service Management CLI Utility
+## 2. Service Management CLI Utilities
 
-A management CLI is installed at `/opt/istrac-fms/manage-services-rhel.sh`.
-
+### On Ubuntu Linux:
+A management CLI is provided at `manage-services-ubuntu.sh`:
 ```bash
 # Display live status of all services, ports, and storage
-sudo /opt/istrac-fms/manage-services-rhel.sh status
+sudo ./manage-services-ubuntu.sh status
 
 # Start all system services
-sudo /opt/istrac-fms/manage-services-rhel.sh start
+sudo ./manage-services-ubuntu.sh start
 
 # Stop all application services
-sudo /opt/istrac-fms/manage-services-rhel.sh stop
+sudo ./manage-services-ubuntu.sh stop
 
 # Restart all services (after updates or config changes)
-sudo /opt/istrac-fms/manage-services-rhel.sh restart
+sudo ./manage-services-ubuntu.sh restart
 
 # Stream live backend logs in real-time
-sudo /opt/istrac-fms/manage-services-rhel.sh logs
+sudo ./manage-services-ubuntu.sh logs
 
 # Create an automated SQL database backup
-sudo /opt/istrac-fms/manage-services-rhel.sh backup
+sudo ./manage-services-ubuntu.sh backup
+```
+
+### On Microsoft Windows:
+A PowerShell management utility is provided at `manage-services-windows.ps1`:
+```powershell
+# Open PowerShell as Administrator:
+.\manage-services-windows.ps1 -Action status
+.\manage-services-windows.ps1 -Action restart
+.\manage-services-windows.ps1 -Action logs
+.\manage-services-windows.ps1 -Action backup
 ```
 
 ---

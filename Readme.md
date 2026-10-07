@@ -290,7 +290,7 @@ sudo bash /opt/istrac-fms/deploy/setup-domain.sh yourdomain.com letsencrypt
 sudo bash /opt/istrac-fms/deploy/setup-domain.sh yourdomain.com selfsigned
 ```
 
-*For complete details, see [**`CUSTOM_DOMAIN_SETUP_GUIDE.md`**](file:///D:/istrac-fms/CUSTOM_DOMAIN_SETUP_GUIDE.md).*
+*For complete details, see [**`CUSTOM_DOMAIN_SETUP_GUIDE.md`**](documents/CUSTOM_DOMAIN_SETUP_GUIDE.md).*
 
 ---
 
@@ -316,8 +316,8 @@ sudo /opt/istrac-fms/manage-services-rhel.sh backup
 For in-depth operational manuals, architectural, deployment, and configuration guides:
 
 - 🚀 [**Quick Start & Deployment Guide**](file:///D:/istrac-fms/STARTUP_GUIDE.md) *(Windows 1-click & Linux air-gapped setup)*
-- 🐧 [**Ubuntu 24.04 LTS Air-Gapped Setup Reference**](file:///D:/istrac-fms/UBUNTU_24_OFFLINE_SETUP_GUIDE.md) *(Verified for Ubuntu 24.04 + Apache 2.4.58 + MySQL 8.0)*
-- 🌐 [**Custom Domain & SSL Configuration Guide**](file:///D:/istrac-fms/CUSTOM_DOMAIN_SETUP_GUIDE.md) *(DNS routing, Apache VirtualHost, CORS, and SSL)*
+- 🐧 [**Ubuntu 24.04 LTS Air-Gapped Setup Reference**](documents/UBUNTU_24_OFFLINE_SETUP_GUIDE.md) *(Verified for Ubuntu 24.04 + Apache 2.4.58 + MySQL 8.0)*
+- 🌐 [**Custom Domain & SSL Configuration Guide**](documents/CUSTOM_DOMAIN_SETUP_GUIDE.md) *(DNS routing, Apache VirtualHost, CORS, and SSL)*
 - 📘 [**Software System Operational Handbook & Client Guide (IEEE 1063 / ISO 26514)**](documents/CLIENT_SYSTEM_AND_OPERATIONAL_HANDBOOK.md) *(Authoritative IEEE-compliant operational manual for directors, facility leads, and console operators)*
 - 📄 [**Software Requirements Specification (IEEE 830 SRS)**](documents/SOFTWARE_REQUIREMENTS_SPECIFICATION.md)
 - 🌐 [**Air-Gapped Intranet Server Deployment & Operations Guide**](file:///D:/istrac-fms/documents/INTRANET_SERVER_SETUP_GUIDE.md)

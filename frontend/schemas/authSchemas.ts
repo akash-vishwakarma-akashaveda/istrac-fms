@@ -27,7 +27,7 @@ export const newPasswordSchema = z
 
 export const loginSchema = z.object({
   email: z.email('Enter a valid email address'),
-  password: z.string().min(10).max(128),
+  password: z.string().min(1, 'Password is required').max(128, 'Password must be at most 128 characters'),
   
 })
 

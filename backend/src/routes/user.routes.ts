@@ -7,6 +7,7 @@ import { auditService } from '../services/audit.service.js'
 import { emailService } from '../services/email.service.js'
 import { notificationService } from '../services/notification.service.js'
 import { AppError } from '../lib/errors.js'
+import { categoryCodeOf } from '../lib/reportCategory.js'
 
 const router = Router()
 const VALID_STATUSES = ['PENDING', 'ACTIVE', 'SUSPENDED', 'REJECTED'] as const
@@ -814,6 +815,7 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
               title: true,
               spacecraft: true,
               category: true,
+              customCategory: true,
               versionLabel: true,
               status: true,
               classificationLevel: true,
@@ -932,23 +934,19 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
 
     // Calculate real category breakdown
     const categoryMap: Record<string, number> = {}
-    const categoryLabels: Record<string, { label: string; color: string }> = {
-      DAILY_REPORT: { label: 'Daily Operations', color: '#0066FF' },
-      ANOMALY: { label: 'Anomaly Reports', color: '#EF4444' },
-      HEALTH: { label: 'Subsystem Health', color: '#10B981' },
-      EVENT: { label: 'Flight Events', color: '#F59E0B' },
-      PAYLOAD: { label: 'Payload Science', color: '#8B5CF6' },
-      STUDY: { label: 'Mission Studies', color: '#6B7280' },
-    }
+    // Labels come from the admin-managed category presets so custom categories show by name.
+    const presets = await prisma.reportCategoryPreset.findMany({ select: { code: true, name: true } })
+    const presetNames = new Map(presets.map((p: any) => [p.code, p.name]))
+    const palette = ['#0066FF', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#6B7280', '#06B6D4', '#EC4899']
 
     allFiles.forEach((f: any) => {
-      const cat = f.report?.category || 'DAILY_REPORT'
+      const cat = categoryCodeOf(f.report) || 'GENERAL'
       categoryMap[cat] = (categoryMap[cat] || 0) + 1
     })
 
     const totalCategoryCount = Math.max(1, allFiles.length)
-    const categoryData = Object.entries(categoryMap).map(([cat, count]) => {
-      const meta = categoryLabels[cat] || { label: cat, color: '#3B82F6' }
+    const categoryData = Object.entries(categoryMap).map(([cat, count], i) => {
+      const meta = { label: presetNames.get(cat) || cat, color: palette[i % palette.length] }
       return {
         category: cat,
         label: meta.label,
@@ -979,7 +977,7 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
             id: f.id,
             name: displayName,
             title: f.report?.title || displayName.replace(/_/g, ' ').replace(/\.[^.]+$/, ''),
-            category: f.report?.category || 'DAILY_REPORT',
+            category: categoryCodeOf(f.report) || 'GENERAL',
             version: displayVer,
             status: f.report?.status || 'Published',
             reportDate: f.createdAt,

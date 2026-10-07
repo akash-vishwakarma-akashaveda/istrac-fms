@@ -173,7 +173,7 @@ export function EventsTab() {
                           </span>
                         )}
                       </h4>
-                      <span className="rounded bg-surface px-2 py-0.5 text-[9px] font-mono font-bold uppercase text-text-dim border border-border-subtle">
+                      <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-mono font-bold uppercase text-text-dim border border-border-subtle">
                         {opt.badge}
                       </span>
                     </div>

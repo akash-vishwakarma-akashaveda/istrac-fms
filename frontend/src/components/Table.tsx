@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react'
 
-interface Column<T> {
-  key: keyof T
+export interface Column<T> {
+  /** A field of the row, or any unique id when `render` supplies the content. */
+  key: keyof T | string
   header: string
   render?: (row: T) => ReactNode
   /** Machine-produced column: set in mono and right-aligned so figures stack. */
   numeric?: boolean
+  /** Allow long text (descriptions) to wrap instead of forcing one line. */
+  wrap?: boolean
 }
 
 interface TableProps<T> {
@@ -62,13 +65,13 @@ export function Table<T extends { id: string | number }>({
                 {columns.map((column) => (
                   <td
                     key={String(column.key)}
-                    className={`px-4 py-3 align-middle text-[13px] whitespace-nowrap ${
+                    className={`px-4 py-3 align-middle text-[13px] ${column.wrap ? 'max-w-xs' : 'whitespace-nowrap'} ${
                       column.numeric
                         ? 'num text-right text-text-secondary'
                         : 'text-text-primary'
                     }`}
                   >
-                    {column.render ? column.render(row) : String(row[column.key])}
+                    {column.render ? column.render(row) : String(row[column.key as keyof T] ?? '—')}
                   </td>
                 ))}
               </tr>

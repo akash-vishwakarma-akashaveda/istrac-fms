@@ -114,7 +114,7 @@ export function globalErrorHandler(
 
     if (err.code === 'P2002') {
       res.status(409).json({
-        error: { code: 'conflict', message: 'Resource already exists' },
+        error: { code: 'conflict', message: 'An item with the same name or identifier already exists. Use a different value.' },
         requestId,
       })
       return
@@ -122,14 +122,22 @@ export function globalErrorHandler(
 
     if (err.code === 'P2025') {
       res.status(404).json({
-        error: { code: 'not_found', message: 'Resource not found' },
+        error: { code: 'not_found', message: 'The item you are working with no longer exists. Refresh the page and try again.' },
+        requestId,
+      })
+      return
+    }
+
+    if (err.code === 'P2003') {
+      res.status(409).json({
+        error: { code: 'in_use', message: 'This item is still linked to other records, so it cannot be changed or removed yet.' },
         requestId,
       })
       return
     }
 
     res.status(500).json({
-      error: { code: 'database_error', message: 'Database query failed' },
+      error: { code: 'database_error', message: 'The server could not complete this request. Please try again in a moment.' },
       requestId,
     })
     return
@@ -167,7 +175,7 @@ export function globalErrorHandler(
   res.status(500).json({
     error: {
       code: 'internal_error',
-      message: 'An unexpected error occurred',
+      message: 'Something went wrong on the server. Please try again; if it keeps happening, contact your administrator.',
     },
     requestId,
   })

@@ -218,7 +218,7 @@ export function VersionHistoryPanel({
               <Layers size={15} />
             </div>
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-text-primary">
+              <h2 className="text-sm font-semibold text-text-primary">
                 Version History
               </h2>
             </div>
@@ -239,18 +239,18 @@ export function VersionHistoryPanel({
           <div className="flex items-start justify-between gap-2.5">
             <div className="min-w-0 space-y-1">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="rounded bg-accent/15 border border-accent/30 px-1.5 py-0.2 text-[9px] font-bold text-accent-light uppercase">
+                <span className="rounded bg-accent/15 border border-accent/30 px-1.5 py-0.2 text-[10px] font-bold text-accent-light uppercase">
                   {fileExtension}
                 </span>
 
                 {effectiveFile.spacecraft && effectiveFile.spacecraft !== 'General' && (
-                  <span className="rounded bg-sky-500/15 border border-sky-500/30 px-1.5 py-0.2 text-[9px] font-bold text-sky-300">
+                  <span className="rounded bg-sky-500/15 border border-sky-500/30 px-1.5 py-0.2 text-[10px] font-bold text-sky-300">
                     {effectiveFile.spacecraft}
                   </span>
                 )}
 
                 {effectiveFile.departmentCode && (
-                  <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.2 text-[9px] font-bold text-purple-300">
+                  <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.2 text-[10px] font-bold text-purple-300">
                     {effectiveFile.departmentCode}
                   </span>
                 )}
@@ -362,13 +362,13 @@ export function VersionHistoryPanel({
                       </span>
 
                       {isLatest && (
-                        <span className="text-[8px] font-bold uppercase tracking-wider px-1 py-0.2 rounded bg-nominal/15 text-nominal border border-nominal/30">
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-1 py-0.2 rounded bg-nominal/15 text-nominal border border-nominal/30">
                           Latest
                         </span>
                       )}
 
                       {!version.isVisible && (
-                        <span className="text-[8px] font-bold uppercase px-1 py-0.2 rounded bg-warning/15 text-warning border border-warning/30">
+                        <span className="text-[10px] font-bold uppercase px-1 py-0.2 rounded bg-warning/15 text-warning border border-warning/30">
                           Hidden
                         </span>
                       )}
@@ -429,7 +429,7 @@ export function VersionHistoryPanel({
                   {/* Notes if provided */}
                   {version.changeLog && (
                     <div className="text-[11px] text-text-secondary bg-surface/60 border border-border-subtle/50 px-2 py-1 rounded leading-relaxed">
-                      <span className="text-[9px] font-bold text-text-dim uppercase mr-1">Notes:</span>
+                      <span className="text-[10px] font-bold text-text-dim uppercase mr-1">Notes:</span>
                       {version.changeLog}
                     </div>
                   )}

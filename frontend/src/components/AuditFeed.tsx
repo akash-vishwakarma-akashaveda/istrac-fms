@@ -33,6 +33,7 @@ function timeAgo(dateStr: string) {
 }
 
 function getResourceLabel(entry: AuditLogEntry): string | null {
+  if (entry.target) return entry.target // resolved by the server (file/user/department name)
   const data = entry.newValue || entry.oldValue
   if (data && typeof data === 'object') {
     if (typeof data.title === 'string' && data.title) return data.title
@@ -455,7 +456,7 @@ export function AuditFeed() {
                       </span>
                     )}
                     {parsed.deptBadge && (
-                      <span className="ml-1.5 rounded px-1.5 py-0.2 text-[9px] font-mono font-bold bg-accent/15 text-accent-light border border-accent/25 inline-block">
+                      <span className="ml-1.5 rounded px-1.5 py-0.2 text-[10px] font-mono font-bold bg-accent/15 text-accent-light border border-accent/25 inline-block">
                         {parsed.deptBadge}
                       </span>
                     )}

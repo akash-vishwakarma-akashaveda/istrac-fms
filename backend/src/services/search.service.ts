@@ -1,4 +1,5 @@
 import { prisma } from "../config/db.js"
+import { categoryCodeOf, reportCategoryWhere } from '../lib/reportCategory.js'
 
 export interface SearchParams {
   query?: string
@@ -178,10 +179,7 @@ export const searchService = {
     if (params.category && params.category !== "ALL") {
       whereClause.report = {
         ...whereClause.report,
-        OR: [
-          { category: params.category as any },
-          { customCategory: { contains: params.category } },
-        ],
+        ...reportCategoryWhere(params.category),
       }
     }
 
@@ -253,7 +251,7 @@ export const searchService = {
       hddPath: f.hddPath || "",
       reportTitle: f.report?.title || f.name.replace(/\.[^/.]+$/, "").replace(/_/g, " "),
       reportAuthor: f.report?.createdBy?.name || f.uploader?.name || null,
-      reportCategory: f.report?.category || null,
+      reportCategory: categoryCodeOf(f.report),
       customCategory: f.report?.customCategory || null,
       classificationLevel: f.report?.classificationLevel || null,
       versionLabel: f.report?.versionLabel || null,

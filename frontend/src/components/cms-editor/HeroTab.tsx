@@ -12,6 +12,11 @@ interface HeroSlide {
   url: string
   caption?: string
   alt?: string
+  nodeHeadline?: string
+  stationText?: string
+  carrierText?: string
+  fallbackTitle?: string
+  fallbackSubtitle?: string
 }
 
 interface HeroContent {
@@ -20,6 +25,8 @@ interface HeroContent {
   ctaText?: string
   badgeText?: string
   cardHeadline?: string
+  stationText?: string
+  carrierText?: string
   imageUrl?: string
   imageAlt?: string
   slides?: HeroSlide[]
@@ -71,6 +78,8 @@ export function HeroTab() {
   const [ctaText, setCtaText] = useState(existing.ctaText ?? DEFAULT_HERO.ctaText ?? "Log In")
   const [badgeText, setBadgeText] = useState(existing.badgeText ?? DEFAULT_HERO.badgeText ?? "")
   const [cardHeadline, setCardHeadline] = useState(existing.cardHeadline ?? DEFAULT_HERO.cardHeadline ?? "IDSN BYALALU DEEP SPACE NODE")
+  const [stationText, setStationText] = useState(existing.stationText ?? DEFAULT_HERO.stationText ?? "STATION: ISTRAC BENGALURU MOX COMPLEX")
+  const [carrierText, setCarrierText] = useState(existing.carrierText ?? DEFAULT_HERO.carrierText ?? "CARRIER: NOMINAL LOCK")
 
   // Visibility toggles
   const [showBadge, setShowBadge] = useState(existing.showBadge ?? true)
@@ -97,6 +106,8 @@ export function HeroTab() {
       if (existing.ctaText !== undefined) setCtaText(existing.ctaText)
       if (existing.badgeText !== undefined) setBadgeText(existing.badgeText)
       if (existing.cardHeadline !== undefined) setCardHeadline(existing.cardHeadline)
+      if (existing.stationText !== undefined) setStationText(existing.stationText)
+      if (existing.carrierText !== undefined) setCarrierText(existing.carrierText)
       if (existing.showBadge !== undefined) setShowBadge(existing.showBadge)
       if (existing.showLoginBtn !== undefined) setShowLoginBtn(existing.showLoginBtn)
       if (existing.showRegisterBtn !== undefined) setShowRegisterBtn(existing.showRegisterBtn)
@@ -111,7 +122,20 @@ export function HeroTab() {
     }
   }, [cmsBlocks])
 
-  const handleAddSlide = () => setSlides((prev) => [...prev, { url: "", caption: "", alt: "" }])
+  const handleAddSlide = () =>
+    setSlides((prev) => [
+      ...prev,
+      {
+        url: "",
+        caption: "",
+        alt: "",
+        nodeHeadline: "",
+        stationText: "",
+        carrierText: "",
+        fallbackTitle: "",
+        fallbackSubtitle: "",
+      },
+    ])
   const handleRemoveSlide = (i: number) => setSlides((prev) => prev.filter((_, idx) => idx !== i))
   const handleUpdateSlide = (i: number, field: keyof HeroSlide, val: string) =>
     setSlides((prev) => { const n = [...prev]; n[i] = { ...n[i], [field]: val }; return n })
@@ -125,7 +149,7 @@ export function HeroTab() {
       {
         blockKey: "hero",
         content: {
-          title, subtitle, ctaText, badgeText, cardHeadline,
+          title, subtitle, ctaText, badgeText, cardHeadline, stationText, carrierText,
           imageUrl: primaryImage, imageAlt: primaryAlt,
           slides: validSlides,
           showBadge, showLoginBtn, showRegisterBtn, showSearchBtn, showDashboardBtn, showFileRepoBtn,
@@ -258,7 +282,7 @@ export function HeroTab() {
 
               {/* Live button preview strip */}
               <div className="p-3 rounded-lg border border-border-subtle bg-[#060c18] space-y-2">
-                <div className="text-[9px] uppercase tracking-widest text-text-dim">Active Guest Buttons Preview</div>
+                <div className="text-[10px] uppercase tracking-widest text-text-dim">Active Guest Buttons Preview</div>
                 <div className="flex flex-wrap gap-2">
                   {showLoginBtn && (
                     <div className="flex items-center gap-1.5 rounded-lg bg-accent/20 border border-accent/40 px-3 py-1.5 text-xs text-accent-light font-semibold">
@@ -276,7 +300,7 @@ export function HeroTab() {
                     </div>
                   )}
                 </div>
-                <div className="text-[9px] uppercase tracking-widest text-text-dim mt-2">Active Member Buttons Preview</div>
+                <div className="text-[10px] uppercase tracking-widest text-text-dim mt-2">Active Member Buttons Preview</div>
                 <div className="flex flex-wrap gap-2">
                   {showDashboardBtn && (
                     <div className="flex items-center gap-1.5 rounded-lg bg-accent/20 border border-accent/40 px-3 py-1.5 text-xs text-accent-light font-semibold">
@@ -345,6 +369,25 @@ export function HeroTab() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Input
+                  id="hero-station-text"
+                  label="Default Station Label (Bottom Left)"
+                  value={stationText}
+                  onChange={(e) => setStationText(e.target.value)}
+                  placeholder="e.g. STATION: ISTRAC BENGALURU MOX COMPLEX"
+                  hint="Telemetry station location tag displayed at the bottom of the card"
+                />
+                <Input
+                  id="hero-carrier-text"
+                  label="Default Carrier Status (Bottom Right)"
+                  value={carrierText}
+                  onChange={(e) => setCarrierText(e.target.value)}
+                  placeholder="e.g. CARRIER: NOMINAL LOCK"
+                  hint="Carrier link status tag displayed at the bottom of the card"
+                />
+              </div>
+
               <div className="space-y-3">
                 {slides.map((slide, idx) => (
                   <div key={idx} className="p-3.5 rounded-xl border border-border-default bg-[#060c18] space-y-2.5">
@@ -374,7 +417,7 @@ export function HeroTab() {
                     />
 
                     <div>
-                      <label className="block text-[11px] text-text-dim mb-1">Slide Caption</label>
+                      <label className="block text-[11px] font-medium text-text-dim mb-1">Slide Caption (Bottom Heading)</label>
                       <input
                         type="text"
                         value={slide.caption ?? ""}
@@ -382,6 +425,52 @@ export function HeroTab() {
                         placeholder="e.g. Indian Deep Space Network 32-Meter Antenna Dish at Byalalu"
                         className="w-full rounded-md border border-border-default bg-[#09101f] px-3 py-2 text-xs text-white outline-none focus:border-accent"
                       />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-border-subtle/60">
+                      <div>
+                        <label className="block text-[10px] uppercase font-semibold text-text-dim mb-1">Top HUD Bar Title (Optional override)</label>
+                        <input
+                          type="text"
+                          value={slide.nodeHeadline ?? ""}
+                          onChange={(e) => handleUpdateSlide(idx, "nodeHeadline", e.target.value)}
+                          placeholder={cardHeadline || "e.g. IDSN BYALALU DEEP SPACE NODE"}
+                          className="w-full rounded-md border border-border-default bg-[#09101f] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase font-semibold text-text-dim mb-1">Station Tag (Optional override)</label>
+                        <input
+                          type="text"
+                          value={slide.stationText ?? ""}
+                          onChange={(e) => handleUpdateSlide(idx, "stationText", e.target.value)}
+                          placeholder={stationText || "STATION: ISTRAC BENGALURU MOX COMPLEX"}
+                          className="w-full rounded-md border border-border-default bg-[#09101f] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] uppercase font-semibold text-text-dim mb-1">Carrier Status (Optional override)</label>
+                        <input
+                          type="text"
+                          value={slide.carrierText ?? ""}
+                          onChange={(e) => handleUpdateSlide(idx, "carrierText", e.target.value)}
+                          placeholder={carrierText || "CARRIER: NOMINAL LOCK"}
+                          className="w-full rounded-md border border-border-default bg-[#09101f] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase font-semibold text-text-dim mb-1">Fallback Card Subtitle</label>
+                        <input
+                          type="text"
+                          value={slide.fallbackSubtitle ?? ""}
+                          onChange={(e) => handleUpdateSlide(idx, "fallbackSubtitle", e.target.value)}
+                          placeholder="e.g. Primary Ground Station Antenna Node"
+                          className="w-full rounded-md border border-border-default bg-[#09101f] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent"
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}

@@ -35,7 +35,7 @@ import { startHddSyncService } from './services/hddSync.service.js'
 import { createWsServer } from './ws/wsServer.js'
 
 // Enable JSON.stringify for BigInt across all Prisma models
-;import { globalRateLimiter } from './middleware/rateLimiter.middleware.js'
+import { globalRateLimiter } from './middleware/rateLimiter.middleware.js'
 import { schedulerRouter } from './routes/scheduler.routes.js'
 (BigInt.prototype as any).toJSON = function () {
   return this.toString()
@@ -43,6 +43,12 @@ import { schedulerRouter } from './routes/scheduler.routes.js'
 
 const app = express()
 const server = createServer(app)
+
+// Behind nginx/Apache every request arrives from the proxy's address. Trusting only the local (same-host)
+// proxy makes req.ip the real client, which per-IP rate limits and audit logs depend on.
+// Override with TRUST_PROXY (e.g. "10.0.0.5" for a proxy on another host, or "false").
+const trustProxy = process.env.TRUST_PROXY ?? 'loopback'
+app.set('trust proxy', trustProxy === 'false' ? false : trustProxy)
 
 
 // F1: HTTP Security Headers
@@ -70,11 +76,12 @@ app.use((_req, res, next) => {
 })
 app.use(cors(corsOptions))
 app.use(express.json({ limit: '1mb' }))
-app.use(express.urlencoded({ extended: true, limit: '50mb' }))
+app.use(express.urlencoded({ extended: true, limit: '1mb' })) // uploads use multipart, not form bodies
 app.use(cookieParser())
 app.use(requestIdMiddleware)
 app.use(httpLoggerMiddleware)
 app.use(auditMiddleware)
+app.use(globalRateLimiter) // before the routes, so it applies to every API request
 
 // ============================================================
 // STATIC ASSETS — CMS uploaded images served at /media/*
@@ -122,7 +129,6 @@ apiRouter.use(schedulerRouter)
 // Mount both with and without /api prefix
 app.use('/api', apiRouter)
 app.use(apiRouter)
-app.use(globalRateLimiter) // Apply global rate limiter after all routes to catch any unhandled requests
 // ============================================================
 // GLOBAL ERROR HANDLER (MUST BE REGISTERED LAST)
 // ============================================================

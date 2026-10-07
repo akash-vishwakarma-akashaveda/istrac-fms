@@ -184,7 +184,7 @@ export function InfoTab() {
 
         {/* 1. Header & Text Narrative */}
         <div className="space-y-4 rounded-xl border border-border-default bg-[#070d1a] p-4">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-text-dim flex items-center gap-1.5">
+          <h4 className="text-xs font-semibold text-text-dim flex items-center gap-1.5">
             <Building2 size={13} className="text-accent-light" />
             Headline & Narrative
           </h4>
@@ -221,7 +221,7 @@ export function InfoTab() {
         <div className="space-y-4 rounded-xl border border-border-default bg-[#070d1a] p-4">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle pb-3">
             <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-text-dim flex items-center gap-1.5">
+              <h4 className="text-xs font-semibold text-text-dim flex items-center gap-1.5">
                 <Check size={14} className="text-nominal" strokeWidth={3} />
                 Feature Cards with Ticks ({assurances.length} Active)
               </h4>
@@ -342,7 +342,7 @@ export function InfoTab() {
 
         {/* 3. Facility Showcase Media & Node Badges */}
         <div className="space-y-4 rounded-xl border border-border-default bg-[#070d1a] p-4">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-text-dim flex items-center gap-1.5">
+          <h4 className="text-xs font-semibold text-text-dim flex items-center gap-1.5">
             <Image size={13} className="text-accent-light" />
             Showcase Image & Station Tags
           </h4>
@@ -403,7 +403,7 @@ export function InfoTab() {
 
         {/* 4. Action CTA */}
         <div className="space-y-3 rounded-xl border border-border-default bg-[#070d1a] p-4">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-text-dim flex items-center gap-1.5">
+          <h4 className="text-xs font-semibold text-text-dim flex items-center gap-1.5">
             <ExternalLink size={13} className="text-accent-light" />
             Call-to-Action Link
           </h4>

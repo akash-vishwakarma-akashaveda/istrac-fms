@@ -441,7 +441,7 @@ export function UserManagement() {
                             {userRow.departmentAccess.map((da: any) => (
                               <span
                                 key={da.department?.id || da.id}
-                                className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase num ${
+                                className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase num ${
                                   da.accessLevel === 'READ_WRITE'
                                     ? 'bg-nominal/15 text-nominal border border-nominal/30'
                                     : 'bg-accent/15 text-accent-light border border-accent/30'
@@ -469,7 +469,7 @@ export function UserManagement() {
                             <button
                               type="button"
                               onClick={() => setInspectingUser(userRow)}
-                              className="px-2.5 py-1.5 rounded-lg border border-yellow-400/40 bg-yellow-400/10 text-yellow-300 hover:bg-yellow-400/20 transition-all flex items-center gap-1.5 text-xs font-bold"
+                              className="px-2.5 py-1.5 rounded-lg border border-yellow-400/40 bg-yellow-400/10 text-yellow-300 hover:bg-yellow-400/20 transition-all flex items-center gap-1.5 text-xs font-bold whitespace-nowrap"
                               title="View Root Authority Dossier"
                             >
                               <Eye size={13} />
@@ -482,7 +482,7 @@ export function UserManagement() {
                             <button
                               type="button"
                               onClick={() => setInspectingUser(userRow)}
-                              className="px-2.5 py-1.5 rounded-lg border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-white transition-all flex items-center gap-1.5 text-xs font-bold"
+                              className="px-2.5 py-1.5 rounded-lg border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-white transition-all flex items-center gap-1.5 text-xs font-bold whitespace-nowrap"
                               title="View Officer Dossier"
                             >
                               <Eye size={13} className="text-accent-light" />
@@ -493,7 +493,7 @@ export function UserManagement() {
                             <button
                               type="button"
                               onClick={() => handleOpenEdit(userRow)}
-                              className="px-2.5 py-1.5 rounded-lg border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all flex items-center gap-1.5 text-xs font-bold"
+                              className="px-2.5 py-1.5 rounded-lg border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all flex items-center gap-1.5 text-xs font-bold whitespace-nowrap"
                               title="Edit Multi-Department Permissions"
                             >
                               <Edit2 size={12} />

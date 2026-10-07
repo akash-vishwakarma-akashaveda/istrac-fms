@@ -52,21 +52,41 @@ const DEFAULT_LANDING_SLIDES: HeroSlide[] = [
     url: 'https://images.unsplash.com/photo-1517976487515-56839a85703f?auto=format&fit=crop&w=1200&q=80',
     caption: 'Indian Deep Space Network (IDSN) 32-Meter Antenna Dish at Byalalu',
     alt: 'IDSN 32-Meter Antenna',
+    nodeHeadline: 'IDSN BYALALU DEEP SPACE NODE',
+    stationText: 'STATION: ISTRAC BENGALURU MOX COMPLEX',
+    carrierText: 'CARRIER: NOMINAL LOCK',
+    fallbackTitle: 'ISTRAC Deep Space Node',
+    fallbackSubtitle: 'Primary Ground Station Antenna Node',
   },
   {
     url: 'https://images.unsplash.com/photo-1541185933-ef5d8ed016c2?auto=format&fit=crop&w=1200&q=80',
     caption: 'Mission Operations Complex (MOX) Flight Dynamics & Control Consoles',
     alt: 'MOX Flight Control Consoles',
+    nodeHeadline: 'MOX-1 FLIGHT OPERATIONS COMPLEX',
+    stationText: 'STATION: ISTRAC BENGALURU MOX COMPLEX',
+    carrierText: 'CARRIER: NOMINAL LOCK',
+    fallbackTitle: 'Mission Operations Complex',
+    fallbackSubtitle: 'Flight Dynamics & Mission Control',
   },
   {
     url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
     caption: 'Real-time Global Satellite Telemetry Downlink Stream & Constellation Tracking',
     alt: 'Satellite Constellation Network',
+    nodeHeadline: 'GLOBAL GROUND NETWORK CONSTELLATION',
+    stationText: 'STATION: MULTI-GROUND TRACKING NETWORK',
+    carrierText: 'CARRIER: ACTIVE DOWNLINK',
+    fallbackTitle: 'Global Satellite Network',
+    fallbackSubtitle: 'Constellation Telemetry Stream',
   },
   {
     url: 'https://images.unsplash.com/photo-1516849841032-87cbac4d88f7?auto=format&fit=crop&w=1200&q=80',
     caption: 'ISTRAC Bengaluru Main Control Room Operations Gallery',
     alt: 'Control Room Gallery',
+    nodeHeadline: 'MAIN CONTROL ROOM OPERATIONS',
+    stationText: 'STATION: ISTRAC BENGALURU MOX COMPLEX',
+    carrierText: 'CARRIER: NOMINAL LOCK',
+    fallbackTitle: 'Main Control Room',
+    fallbackSubtitle: 'Real-time Mission Operations Center',
   },
 ]
 
@@ -100,6 +120,8 @@ export function Hero() {
     ctaText: '',
     badgeText: '',
     cardHeadline: '',
+    stationText: '',
+    carrierText: '',
     slides: [] as HeroSlide[],
   })
   const [savingCms, setSavingCms] = useState(false)
@@ -154,7 +176,23 @@ export function Hero() {
       ctaText: hero?.ctaText || 'Enter Mission Portal',
       badgeText: hero?.badgeText || 'ISTRAC Ground Network Active · 24/7 Mission Operations',
       cardHeadline: hero?.cardHeadline || 'IDSN BYALALU DEEP SPACE NODE',
-      slides: slides.length > 0 ? [...slides] : [{ url: '', caption: '', alt: '' }],
+      stationText: hero?.stationText || 'STATION: ISTRAC BENGALURU MOX COMPLEX',
+      carrierText: hero?.carrierText || 'CARRIER: NOMINAL LOCK',
+      slides:
+        slides.length > 0
+          ? [...slides]
+          : [
+              {
+                url: '',
+                caption: '',
+                alt: '',
+                nodeHeadline: '',
+                stationText: '',
+                carrierText: '',
+                fallbackTitle: '',
+                fallbackSubtitle: '',
+              },
+            ],
     })
     setIsEditModalOpen(true)
   }
@@ -162,7 +200,19 @@ export function Hero() {
   const handleAddSlide = () => {
     setEditForm((prev) => ({
       ...prev,
-      slides: [...prev.slides, { url: '', caption: '', alt: '' }],
+      slides: [
+        ...prev.slides,
+        {
+          url: '',
+          caption: '',
+          alt: '',
+          nodeHeadline: '',
+          stationText: '',
+          carrierText: '',
+          fallbackTitle: '',
+          fallbackSubtitle: '',
+        },
+      ],
     }))
   }
 
@@ -200,6 +250,8 @@ export function Hero() {
           ctaText: editForm.ctaText.trim(),
           badgeText: editForm.badgeText.trim(),
           cardHeadline: editForm.cardHeadline.trim() || 'IDSN BYALALU DEEP SPACE NODE',
+          stationText: editForm.stationText.trim() || 'STATION: ISTRAC BENGALURU MOX COMPLEX',
+          carrierText: editForm.carrierText.trim() || 'CARRIER: NOMINAL LOCK',
           imageUrl: primaryImg,
           imageAlt: primaryAlt,
           slides: validSlides,
@@ -245,6 +297,7 @@ export function Hero() {
     <>
       <section
         id="hero"
+        data-theme="dark"
         className="relative isolate overflow-hidden border-b border-border-subtle/80 bg-transparent py-14 sm:py-20"
         aria-labelledby="hero-title"
       >
@@ -368,7 +421,7 @@ export function Hero() {
                 <span className="eyebrow flex items-center gap-1.5 text-text-secondary min-w-0">
                   <Compass size={13} className="text-accent-light shrink-0" />
                   <span className="truncate max-w-[160px] sm:max-w-none">
-                    {hero?.cardHeadline || 'IDSN BYALALU DEEP SPACE NODE'}
+                    {activeSlide?.nodeHeadline || hero?.cardHeadline || 'IDSN BYALALU DEEP SPACE NODE'}
                   </span>
                 </span>
 
@@ -417,8 +470,8 @@ export function Hero() {
                   className="h-full w-full object-cover transition-transform duration-700"
                   aspectRatio="4/3"
                   fallbackIcon="satellite"
-                  fallbackTitle={activeSlide?.caption || 'ISTRAC Deep Space Node'}
-                  fallbackSubtitle="Primary Ground Station Antenna Node"
+                  fallbackTitle={activeSlide?.fallbackTitle || activeSlide?.caption || 'ISTRAC Deep Space Node'}
+                  fallbackSubtitle={activeSlide?.fallbackSubtitle || 'Primary Ground Station Antenna Node'}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#060b16] via-transparent to-transparent" />
 
@@ -456,8 +509,12 @@ export function Hero() {
               {/* Telemetry Station Caption & Progress Dots at Bottom */}
               <div className="absolute bottom-0 inset-x-0 z-20 p-3.5 bg-gradient-to-t from-[#0b1220] via-[#0b1220]/90 to-transparent space-y-2">
                 <div className="flex items-center justify-between text-[10px] text-text-dim border-b border-white/10 pb-1.5">
-                  <span className="num font-semibold text-text-primary">STATION: ISTRAC BENGALURU MOX COMPLEX</span>
-                  <span className="num text-accent-light font-semibold">CARRIER: NOMINAL LOCK</span>
+                  <span className="num font-semibold text-text-primary">
+                    {activeSlide?.stationText || hero?.stationText || 'STATION: ISTRAC BENGALURU MOX COMPLEX'}
+                  </span>
+                  <span className="num text-accent-light font-semibold">
+                    {activeSlide?.carrierText || hero?.carrierText || 'CARRIER: NOMINAL LOCK'}
+                  </span>
                 </div>
 
                 <p className="text-xs font-semibold text-white truncate drop-shadow-sm">
@@ -552,6 +609,27 @@ export function Hero() {
             />
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <Input
+                id="modal-hero-station"
+                label="Station Label (Bottom Left)"
+                value={editForm.stationText}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, stationText: e.target.value }))}
+                placeholder="e.g. STATION: ISTRAC BENGALURU MOX COMPLEX"
+              />
+            </div>
+            <div>
+              <Input
+                id="modal-hero-carrier"
+                label="Carrier Link Status (Bottom Right)"
+                value={editForm.carrierText}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, carrierText: e.target.value }))}
+                placeholder="e.g. CARRIER: NOMINAL LOCK"
+              />
+            </div>
+          </div>
+
           {/* Carousel Images Manager */}
           <div className="space-y-2.5 pt-2 border-t border-border-subtle">
             <div className="flex items-center justify-between">
@@ -600,14 +678,60 @@ export function Hero() {
                   />
 
                   <div>
-                    <label className="block text-[11px] font-medium text-text-dim mb-1">Slide Caption</label>
+                    <label className="block text-[11px] font-medium text-text-dim mb-1">Slide Caption (Bottom Heading)</label>
                     <input
                       type="text"
                       value={slide.caption || ''}
                       onChange={(e) => handleUpdateSlide(idx, 'caption', e.target.value)}
                       placeholder="Slide caption, e.g. IDSN 32-Meter Deep Space Antenna"
-                      className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-white outline-none focus:border-accent text-[11px]"
+                      className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent"
                     />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-border-subtle/60">
+                    <div>
+                      <label className="block text-[10px] uppercase font-semibold text-text-dim mb-1">HUD Top Bar Title (Optional)</label>
+                      <input
+                        type="text"
+                        value={slide.nodeHeadline || ''}
+                        onChange={(e) => handleUpdateSlide(idx, 'nodeHeadline', e.target.value)}
+                        placeholder={editForm.cardHeadline || 'IDSN BYALALU DEEP SPACE NODE'}
+                        className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase font-semibold text-text-dim mb-1">Station Tag (Optional)</label>
+                      <input
+                        type="text"
+                        value={slide.stationText || ''}
+                        onChange={(e) => handleUpdateSlide(idx, 'stationText', e.target.value)}
+                        placeholder={editForm.stationText || 'STATION: ISTRAC BENGALURU MOX COMPLEX'}
+                        className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] uppercase font-semibold text-text-dim mb-1">Carrier Status (Optional)</label>
+                      <input
+                        type="text"
+                        value={slide.carrierText || ''}
+                        onChange={(e) => handleUpdateSlide(idx, 'carrierText', e.target.value)}
+                        placeholder={editForm.carrierText || 'CARRIER: NOMINAL LOCK'}
+                        className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase font-semibold text-text-dim mb-1">Fallback Card Subtitle</label>
+                      <input
+                        type="text"
+                        value={slide.fallbackSubtitle || ''}
+                        onChange={(e) => handleUpdateSlide(idx, 'fallbackSubtitle', e.target.value)}
+                        placeholder="Primary Ground Station Antenna Node"
+                        className="w-full rounded-md border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-white outline-none focus:border-accent"
+                      />
+                    </div>
                   </div>
                 </div>
               ))}

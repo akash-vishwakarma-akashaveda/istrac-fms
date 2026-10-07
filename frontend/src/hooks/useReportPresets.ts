@@ -33,7 +33,8 @@ export function useDeleteCategory() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => reportPresetsApi.deleteCategory(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: REPORT_CATEGORIES_QUERY_KEY }),
+    // Files under the deleted category move to General, so every file list is stale too.
+    onSuccess: () => queryClient.invalidateQueries(),
   })
 }
 

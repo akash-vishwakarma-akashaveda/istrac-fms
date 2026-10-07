@@ -19,14 +19,25 @@ import { Modal, Button, Avatar, Input } from '.'
 interface UserProfileModalProps {
   isOpen: boolean
   onClose: () => void
+  initialTab?: 'profile' | 'security' | 'preferences'
 }
 
-export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
+export function UserProfileModal({ isOpen, onClose, initialTab = 'profile' }: UserProfileModalProps) {
   const user = useAuthStore((s) => s.user)
   const updateUser = useAuthStore((s) => s.updateUser)
   const addToast = useToastStore((s) => s.addToast)
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'preferences'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'preferences'>(initialTab)
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab)
+      setPasswordError('')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    }
+  }, [isOpen, initialTab])
 
   // Profile Edit State
   const [isEditingProfile, setIsEditingProfile] = useState(false)
@@ -102,16 +113,50 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
     }
   }
 
+  // Password Strength Criteria
+  const isMinLength = newPassword.length >= 10
+  const hasUpper = /[A-Z]/.test(newPassword)
+  const hasNumber = /[0-9]/.test(newPassword)
+  const hasSpecial = /[^A-Za-z0-9]/.test(newPassword)
+  const isMatched = Boolean(newPassword && confirmPassword && newPassword === confirmPassword)
+  const isDifferent = Boolean(!currentPassword || !newPassword || currentPassword !== newPassword)
+  const isPasswordValid = isMinLength && hasUpper && hasNumber && hasSpecial && isMatched && isDifferent
+
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setPasswordError('')
 
-    if (newPassword.length < 8) {
-      setPasswordError('New password must be at least 8 characters long.')
+    if (!currentPassword) {
+      setPasswordError('Current password is required.')
       return
     }
 
-    if (newPassword !== confirmPassword) {
+    if (!isMinLength) {
+      setPasswordError('New password must be at least 10 characters long.')
+      return
+    }
+
+    if (!hasUpper) {
+      setPasswordError('New password must contain at least one uppercase letter (A-Z).')
+      return
+    }
+
+    if (!hasNumber) {
+      setPasswordError('New password must contain at least one number (0-9).')
+      return
+    }
+
+    if (!hasSpecial) {
+      setPasswordError('New password must contain at least one special character.')
+      return
+    }
+
+    if (!isDifferent) {
+      setPasswordError('New password cannot be the same as your current password.')
+      return
+    }
+
+    if (!isMatched) {
       setPasswordError('New passwords do not match.')
       return
     }
@@ -132,7 +177,7 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-      setActiveTab('profile')
+      onClose()
     } catch (err: any) {
       const msg = err.response?.data?.error?.message || err.response?.data?.message || 'Failed to update password. Verify current password.'
       setPasswordError(msg)
@@ -449,9 +494,12 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
         {activeTab === 'security' && (
           <form onSubmit={handleChangePassword} className="space-y-3.5">
             <div className="p-3 rounded-lg border border-border-default bg-[#060c18] text-xs text-text-secondary space-y-1">
-              <p className="font-bold text-white">Update Security Credentials</p>
-              <p className="text-[11px]">
-                Ensure your new password contains at least 8 characters with numbers and symbols.
+              <p className="font-bold text-white flex items-center gap-1.5">
+                <Key size={13} className="text-accent-light" />
+                <span>Update Security Credentials</span>
+              </p>
+              <p className="text-[11px] text-text-dim">
+                Enter your current (old) password, then choose a strong new password with at least 10 characters including uppercase letters, numbers, and symbols.
               </p>
             </div>
 
@@ -466,11 +514,14 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
               <Input
                 id="current-password"
                 type="password"
-                label="Current Password *"
+                label="Current Password (Old Password) *"
                 required
                 value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="Enter current password"
+                onChange={(e) => {
+                  setCurrentPassword(e.target.value)
+                  if (passwordError) setPasswordError('')
+                }}
+                placeholder="Enter your current password"
               />
             </div>
 
@@ -481,10 +532,40 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
                 label="New Password *"
                 required
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter at least 8 characters"
+                onChange={(e) => {
+                  setNewPassword(e.target.value)
+                  if (passwordError) setPasswordError('')
+                }}
+                placeholder="Enter at least 10 characters"
               />
             </div>
+
+            {/* Real-time complexity checklist */}
+            {newPassword && (
+              <div className="p-2.5 rounded-lg border border-border-subtle bg-[#081020] space-y-1.5 text-[11px]">
+                <span className="text-[10px] uppercase font-bold text-text-dim tracking-wider block">
+                  Password Complexity Requirements:
+                </span>
+                <div className="grid grid-cols-2 gap-1 text-[11px]">
+                  <span className={`flex items-center gap-1.5 ${isMinLength ? 'text-nominal font-medium' : 'text-text-dim'}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${isMinLength ? 'bg-nominal' : 'bg-border-default'}`} />
+                    At least 10 characters
+                  </span>
+                  <span className={`flex items-center gap-1.5 ${hasUpper ? 'text-nominal font-medium' : 'text-text-dim'}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${hasUpper ? 'bg-nominal' : 'bg-border-default'}`} />
+                    One uppercase letter (A-Z)
+                  </span>
+                  <span className={`flex items-center gap-1.5 ${hasNumber ? 'text-nominal font-medium' : 'text-text-dim'}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${hasNumber ? 'bg-nominal' : 'bg-border-default'}`} />
+                    One number (0-9)
+                  </span>
+                  <span className={`flex items-center gap-1.5 ${hasSpecial ? 'text-nominal font-medium' : 'text-text-dim'}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${hasSpecial ? 'bg-nominal' : 'bg-border-default'}`} />
+                    One symbol (!@#$%^&*)
+                  </span>
+                </div>
+              </div>
+            )}
 
             <div>
               <Input
@@ -493,9 +574,17 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
                 label="Confirm New Password *"
                 required
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value)
+                  if (passwordError) setPasswordError('')
+                }}
                 placeholder="Repeat new password"
               />
+              {confirmPassword && !isMatched && (
+                <span className="text-[11px] text-critical pt-1 block">
+                  Passwords do not match.
+                </span>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-border-subtle">
@@ -517,7 +606,7 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
                 type="submit"
                 variant="primary"
                 size="sm"
-                disabled={isChangingPassword || !currentPassword || !newPassword}
+                disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword || !isPasswordValid}
                 className="bg-nominal hover:bg-nominal-hover shadow-md shadow-nominal/20"
               >
                 {isChangingPassword ? 'Updating Password…' : 'Save New Password'}

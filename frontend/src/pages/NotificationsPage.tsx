@@ -21,6 +21,7 @@ import { useActiveBanner } from "../hooks/useActiveBanner"
 import { eventsApi, type MissionEventItem } from "../api/events.api"
 import { Button, PageHeader } from "../components"
 import { useAuthStore } from "../store/authStore"
+import { kindOf } from "../lib/notificationKind"
 
 const TABS = [
   { id: "ALL", label: "All Operational Alerts", icon: Bell },
@@ -39,6 +40,7 @@ export function NotificationsPage() {
 
   const [activeTab, setActiveTab] = useState<string>("ALL")
   const [searchQuery, setSearchQuery] = useState("")
+  const [broadcastLabelFilter, setBroadcastLabelFilter] = useState("ALL")
   const { data: bannerData } = useActiveBanner()
 
   const { data, fetchNextPage, hasNextPage } = useNotifications()
@@ -51,43 +53,31 @@ export function NotificationsPage() {
   // Filter based on active tab and search
   const filteredNotifications = allNotifications.filter((n) => {
     if (activeTab === "UNREAD" && n.readAt) return false
-    if (activeTab === "BROADCASTS") {
-      const isBc =
-        n.type === "BROADCAST" ||
-        n.type === "NOTICE" ||
-        (n.category && n.category.toUpperCase() === "BROADCAST") ||
-        (n.category && n.category.toUpperCase() === "SYSTEM")
-      if (!isBc) return false
-    }
-    if (activeTab === "EVENTS") {
-      const isEv =
-        n.type === "PASS" ||
-        n.type === "EVENT" ||
-        n.type === "MISSION_PASS" ||
-        (n.category && (n.category.toLowerCase() === "event" || n.category.toLowerCase() === "events")) ||
-        (typeof n.message === "string" && n.message.toLowerCase().includes("mission event"))
-      if (!isEv) return false
-    }
-    if (activeTab === "FILES" && n.type !== "FILE_UPLOAD" && n.category !== "file") return false
+    const kind = kindOf(n)
+    if (activeTab === "BROADCASTS" && kind !== "broadcast") return false
+    if (activeTab === "BROADCASTS" && broadcastLabelFilter !== "ALL" && (n.label || "General") !== broadcastLabelFilter) return false
+    if (activeTab === "EVENTS" && kind !== "event") return false
+    if (activeTab === "FILES" && kind !== "file") return false
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       return (
         n.message?.toLowerCase().includes(q) ||
         n.type?.toLowerCase().includes(q) ||
-        n.category?.toLowerCase().includes(q)
+        n.category?.toLowerCase().includes(q) ||
+        n.label?.toLowerCase().includes(q)
       )
     }
     return true
   })
 
   const unreadCount = allNotifications.filter((i) => !i.readAt).length
+  const broadcastLabels = Array.from(
+    new Set(allNotifications.filter((n) => kindOf(n) === "broadcast").map((n) => n.label || "General"))
+  ).sort()
 
   // High-priority active broadcasts (exclude routine file uploads from the top marquee)
-  const priorityBroadcasts = bannerData?.broadcasts?.filter((b) => {
-    const m = b.message.toLowerCase()
-    return !m.includes("uploaded") && !m.includes("ingested")
-  }) || []
+  const priorityBroadcasts = bannerData?.broadcasts?.filter((b: any) => kindOf(b) === "broadcast") || []
 
   const activePassEvents = bannerData?.events || []
   const hasLiveMarquee = priorityBroadcasts.length > 0 || activePassEvents.length > 0
@@ -309,7 +299,7 @@ export function NotificationsPage() {
                 <Icon size={13} className={isSelected ? "text-white" : "text-text-dim"} />
                 <span>{t.label}</span>
                 {t.id === "UNREAD" && unreadCount > 0 && (
-                  <span className="ml-1 rounded-full bg-critical px-1.5 py-0.2 text-[9px] font-extrabold text-white">
+                  <span className="ml-1 rounded-full bg-critical px-1.5 py-0.2 text-[10px] font-extrabold text-white">
                     {unreadCount}
                   </span>
                 )}
@@ -331,6 +321,28 @@ export function NotificationsPage() {
         </div>
       </div>
 
+      {/* Broadcast category sub-filter (custom categories chosen by admins) */}
+      {activeTab === "BROADCASTS" && broadcastLabels.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter broadcasts by category">
+          <span className="text-[11px] font-semibold text-text-dim mr-1">Category:</span>
+          {["ALL", ...broadcastLabels].map((label) => (
+            <button
+              key={label}
+              type="button"
+              aria-pressed={broadcastLabelFilter === label}
+              onClick={() => setBroadcastLabelFilter(label)}
+              className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                broadcastLabelFilter === label
+                  ? "border-accent bg-accent/15 text-accent-light"
+                  : "border-border-default text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              {label === "ALL" ? "All" : label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* 3. ALERTS & NOTIFICATIONS FEED */}
       {filteredNotifications.length === 0 ? (
         <div className="rounded-2xl border border-white/10 bg-[#070e1c] p-16 text-center space-y-3 shadow-md">
@@ -347,15 +359,10 @@ export function NotificationsPage() {
           {filteredNotifications.map((n: any) => {
             const isUnread = !n.readAt
             const isHighlighted = String(n.id) === highlightId
-            const isCritical = n.category === "CRITICAL" || n.type === "EMERGENCY" || n.message?.includes("[CRITICAL")
-            const isPass =
-              n.type === "PASS" ||
-              n.type === "EVENT" ||
-              n.type === "MISSION_PASS" ||
-              n.resourceType === "mission_event" ||
-              (n.category && (n.category.toLowerCase() === "event" || n.category.toLowerCase() === "events")) ||
-              (typeof n.message === "string" && n.message.toLowerCase().includes("mission event"))
-            const isFile = n.type === "FILE_UPLOAD" || n.category === "file" || n.message?.includes("uploaded")
+            const kind = kindOf(n)
+            const isCritical = n.type === "CRITICAL" || n.type === "EMERGENCY" || n.message?.includes("[CRITICAL")
+            const isPass = kind === "event"
+            const isFile = kind === "file"
             const isImportant = n.type === "WARNING" || n.message?.includes("[IMPORTANT")
 
             return (
@@ -407,7 +414,7 @@ export function NotificationsPage() {
                     {/* Top Row: Type Pill, Time, Status */}
                     <div className="flex flex-wrap items-center gap-2">
                       <span
-                        className={`rounded px-2 py-0.5 text-[9px] font-extrabold uppercase font-mono tracking-wider ${
+                        className={`rounded px-2 py-0.5 text-[10px] font-extrabold uppercase font-mono tracking-wider ${
                           isCritical
                             ? "bg-rose-500/25 text-rose-300 border border-rose-500/40"
                             : isPass
@@ -430,8 +437,14 @@ export function NotificationsPage() {
                           : n.type || "NOTICE"}
                       </span>
 
+                      {kind === "broadcast" && (
+                        <span className="rounded border border-border-default px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-text-secondary">
+                          Broadcast · {n.label || "General"}
+                        </span>
+                      )}
+
                       {isUnread && (
-                        <span className="rounded bg-accent/90 text-white px-1.5 py-0.2 text-[9px] font-extrabold uppercase tracking-wider font-mono animate-pulse shadow-sm">
+                        <span className="rounded bg-accent/90 text-white px-1.5 py-0.2 text-[10px] font-extrabold uppercase tracking-wider font-mono animate-pulse shadow-sm">
                           NEW
                         </span>
                       )}

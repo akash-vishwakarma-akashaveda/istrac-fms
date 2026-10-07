@@ -1,4 +1,10 @@
 import { useState, useEffect } from 'react'
+import { HelpTip } from '../components/HelpTip'
+import { DateRangeFilter } from '../components/DateRangeFilter'
+import { EMPTY_DATE_RANGE, isDateRangeActive, resolveDateRange, type DateRangeValue } from '../lib/dateRange'
+import { getErrorMessage } from '../api/client'
+import { CategoryOptions } from '../components/CategoryOptions'
+import { copyText } from '../lib/browserCompat'
 import {
   HardDrive,
   Search,
@@ -64,6 +70,7 @@ interface AdminFileRecord {
     id: string
     title: string
     category: string
+    categoryCode?: string | null
     spacecraft?: string | null
     classificationLevel?: string | null
   } | null
@@ -108,7 +115,9 @@ export function AdminFileManager() {
   const [selectedExt, setSelectedExt] = useState('ALL')
   const [selectedSat, setSelectedSat] = useState('ALL')
   const [selectedCategory, setSelectedCategory] = useState('ALL')
-  const [dateFilter, setDateFilter] = useState('ALL')
+  const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE)
+  const [viewTrash, setViewTrash] = useState(false)
+  const [restoringId, setRestoringId] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<'createdAt' | 'sizeBytes' | 'name' | 'versionCount'>('createdAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [filterFeatured, setFilterFeatured] = useState<boolean>(false)
@@ -153,6 +162,8 @@ export function AdminFileManager() {
   const [copiedHashId, setCopiedHashId] = useState<string | null>(null)
 
   const fetchFiles = async () => {
+    const range = resolveDateRange(dateRange)
+    if (range.error) return // the filter shows the problem inline; keep current results
     setLoading(true)
     try {
       const filesRes = await apiClient.get('/admin/files', {
@@ -162,7 +173,9 @@ export function AdminFileManager() {
           satelliteId: selectedSat !== 'ALL' ? selectedSat : undefined,
           extension: selectedExt !== 'ALL' ? selectedExt : undefined,
           category: selectedCategory !== 'ALL' ? selectedCategory : undefined,
-          dateFilter: dateFilter !== 'ALL' ? dateFilter : undefined,
+          startDate: range.start?.toISOString(),
+          endDate: range.end?.toISOString(),
+          trash: viewTrash ? 'true' : undefined,
           sortBy,
           sortOrder,
           isFeatured: filterFeatured ? 'true' : undefined,
@@ -173,8 +186,8 @@ export function AdminFileManager() {
       if (filesRes.data?.data) {
         setFiles(filesRes.data.data)
       }
-    } catch {
-      addToast({ title: 'Error', message: 'Failed to load master file repository', variant: 'error' })
+    } catch (err) {
+      addToast({ title: 'Could not load files', message: getErrorMessage(err), variant: 'error' })
     } finally {
       setLoading(false)
     }
@@ -182,7 +195,7 @@ export function AdminFileManager() {
 
   useEffect(() => {
     fetchFiles()
-  }, [debouncedSearch, selectedDept, selectedExt, selectedSat, selectedCategory, dateFilter, sortBy, sortOrder, filterFeatured, includeArchived])
+  }, [debouncedSearch, selectedDept, selectedExt, selectedSat, selectedCategory, dateRange, sortBy, sortOrder, filterFeatured, includeArchived, viewTrash])
 
   const handleToggleSort = (field: 'createdAt' | 'sizeBytes' | 'name' | 'versionCount') => {
     if (sortBy === field) {
@@ -199,7 +212,7 @@ export function AdminFileManager() {
     setSelectedSat('ALL')
     setSelectedExt('ALL')
     setSelectedCategory('ALL')
-    setDateFilter('ALL')
+    setDateRange(EMPTY_DATE_RANGE)
     setSortBy('createdAt')
     setSortOrder('desc')
     setFilterFeatured(false)
@@ -213,7 +226,7 @@ export function AdminFileManager() {
     selectedSat !== 'ALL' ||
     selectedExt !== 'ALL' ||
     selectedCategory !== 'ALL' ||
-    dateFilter !== 'ALL' ||
+    isDateRangeActive(dateRange) ||
     sortBy !== 'createdAt' ||
     sortOrder !== 'desc' ||
     filterFeatured ||
@@ -227,7 +240,7 @@ export function AdminFileManager() {
       title: file.report?.title || file.name,
       description: file.description || '',
       spacecraft: file.report?.spacecraft || file.department?.satellite?.name || '',
-      category: file.report?.category || '',
+      category: file.report?.categoryCode || file.report?.category || '',
       classificationLevel: file.report?.classificationLevel || 'RESTRICTED',
       broadcastAlert: false,
       broadcastMessage: `[UPDATE] Telemetry dataset ${file.name} modified in /${file.department?.code || 'OPS'}.`,
@@ -303,26 +316,46 @@ export function AdminFileManager() {
   // Confirm Delete / Move to Trash
   const handleConfirmDelete = async () => {
     if (!deletingFile) return
-
+    const target = deletingFile
     setDeleting(true)
     try {
-      await apiClient.delete(`/files/${deletingFile.id}`)
+      await apiClient.delete(`/files/${target.id}`)
+      // Drop the row right away so the result is visible even before the refetch lands.
+      setFiles((prev) => prev.filter((f) => f.id !== target.id))
       addToast({
-        title: 'File Moved to Trash',
-        message: `Archived "${deletingFile.name}" with its ${deletingFile.versionCount} historical version(s).`,
-        variant: 'info',
+        title: 'Moved to Trash',
+        message: `"${target.name}" was moved to Trash. Open the Trash view to restore it.`,
+        variant: 'success',
       })
-      setDeletingFile(null)
       fetchFiles()
-    } catch {
-      addToast({ title: 'Delete Failed', message: 'Could not remove file', variant: 'error' })
+    } catch (err) {
+      addToast({
+        title: 'Could not move file to Trash',
+        message: getErrorMessage(err, 'The file was not moved. Please try again.'),
+        variant: 'error',
+      })
     } finally {
       setDeleting(false)
+      setDeletingFile(null)
+    }
+  }
+
+  const handleRestore = async (file: AdminFileRecord) => {
+    setRestoringId(file.id)
+    try {
+      await apiClient.put(`/files/${file.id}/restore`)
+      setFiles((prev) => prev.filter((f) => f.id !== file.id))
+      addToast({ title: 'File restored', message: `"${file.name}" is back in the repository.`, variant: 'success' })
+      fetchFiles()
+    } catch (err) {
+      addToast({ title: 'Could not restore file', message: getErrorMessage(err), variant: 'error' })
+    } finally {
+      setRestoringId(null)
     }
   }
 
   const handleCopyHash = (id: string, hash: string) => {
-    navigator.clipboard.writeText(hash)
+    void copyText(hash)
     setCopiedHashId(id)
     setTimeout(() => setCopiedHashId(null), 2000)
     addToast({ message: 'SHA-256 Checksum copied to clipboard', variant: 'info' })
@@ -344,6 +377,25 @@ export function AdminFileManager() {
         />
 
         <div className="flex items-center gap-2.5 shrink-0">
+          <div className="inline-flex rounded-lg border border-border-default bg-surface p-0.5" role="group" aria-label="Repository view">
+            <button
+              type="button"
+              aria-pressed={!viewTrash}
+              onClick={() => setViewTrash(false)}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${!viewTrash ? 'bg-accent text-white' : 'text-text-secondary hover:text-text-primary'}`}
+            >
+              Active files
+            </button>
+            <button
+              type="button"
+              aria-pressed={viewTrash}
+              onClick={() => setViewTrash(true)}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors inline-flex items-center gap-1.5 ${viewTrash ? 'bg-critical text-white' : 'text-text-secondary hover:text-text-primary'}`}
+            >
+              <Trash2 size={12} />
+              Trash
+            </button>
+          </div>
           <Link to="/admin/upload">
             <Button variant="primary" size="md" className="shadow-md shadow-accent/25">
               <Upload size={14} />
@@ -403,8 +455,11 @@ export function AdminFileManager() {
               placeholder="Search by name, hash, parameter…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-base sm:text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-11 py-2 text-base sm:text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
             />
+            <span className="absolute right-1 top-1/2 -translate-y-1/2">
+              <HelpTip topic="adminFiles" />
+            </span>
           </div>
 
           <div>
@@ -490,28 +545,17 @@ export function AdminFileManager() {
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
-              <option value="ALL">All Mission Categories</option>
-              <option value="DAILY_REPORT">Daily Operations Report</option>
-              <option value="ORBIT_MANEUVER">Orbit Maneuver Record</option>
-              <option value="CONJUNCTION_WARNING">Conjunction & Collision Warning</option>
-              <option value="ANOMALY_REPORT">Payload Anomaly Report</option>
-              <option value="TELEMETRY_PAYLOAD">Telemetry Payload Raw Stream</option>
-              <option value="MISSION_STUDY">Mission Study / Flight Dynamics</option>
-              <option value="GENERAL_DOC">General Operations Document</option>
+              <CategoryOptions allLabel="All Mission Categories" />
             </select>
           </div>
 
           <div>
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
-            >
-              <option value="ALL">All Upload Dates</option>
-              <option value="today">Uploaded Today</option>
-              <option value="7days">Uploaded in Last 7 Days</option>
-              <option value="30days">Uploaded in Last 30 Days</option>
-            </select>
+            <DateRangeFilter
+              value={dateRange}
+              onChange={setDateRange}
+              allLabel="All upload dates"
+              selectClassName="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+            />
           </div>
 
           <div>
@@ -742,7 +786,7 @@ export function AdminFileManager() {
                                 {file.name}
                               </p>
                               {file.isFeatured && (
-                                <span className="shrink-0 rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-bold text-amber-300 uppercase flex items-center gap-0.5">
+                                <span className="shrink-0 rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[10px] font-bold text-amber-300 uppercase flex items-center gap-0.5">
                                   <Star size={8} className="fill-amber-300" />
                                   <span>Featured</span>
                                 </span>
@@ -764,7 +808,7 @@ export function AdminFileManager() {
                             {file.department?.code || file.department?.name || 'TTC'}
                           </span>
                           {file.department?.isActive === false && (
-                            <span className="rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[8px] font-bold text-amber-300 uppercase tracking-wide">
+                            <span className="rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[10px] font-bold text-amber-300 uppercase tracking-wide">
                               Archived
                             </span>
                           )}
@@ -828,6 +872,18 @@ export function AdminFileManager() {
 
                       {/* Actions */}
                       <td className="px-4 py-3.5 text-right">
+                        {viewTrash ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={restoringId === file.id}
+                            onClick={() => handleRestore(file)}
+                          >
+                            <RotateCcw size={13} />
+                            <span>{restoringId === file.id ? 'Restoring…' : 'Restore'}</span>
+                          </Button>
+                        ) : (
                         <div className="flex items-center justify-end gap-1.5">
                           {/* Feature Toggle */}
                           <button
@@ -908,6 +964,7 @@ export function AdminFileManager() {
                             <Trash2 size={13} />
                           </button>
                         </div>
+                        )}
                       </td>
                     </tr>
                   )
@@ -1078,16 +1135,16 @@ export function AdminFileManager() {
       <Modal
         isOpen={deletingFile !== null}
         onClose={() => setDeletingFile(null)}
-        title="Move Dataset to Trash (Warning)"
+        title="Move file to Trash?"
       >
         <div className="space-y-4">
           <div className="rounded-xl border border-critical/30 bg-critical/10 p-4 space-y-2">
             <div className="flex items-center gap-2 text-xs font-bold text-critical">
               <AlertTriangle size={16} />
-              <span>CONFIRM FILE REMOVAL</span>
+              <span>This file will be moved to Trash</span>
             </div>
             <p className="text-xs text-text-secondary leading-relaxed">
-              Are you sure you want to remove <strong className="text-white font-mono">{deletingFile?.name}</strong>?
+              <strong className="text-white font-mono">{deletingFile?.name}</strong> and its version history will be hidden from all users.
             </p>
             <div className="pt-2 text-[11px] text-text-dim space-y-1 num">
               <div>Department: <span className="text-white font-semibold">{deletingFile?.department?.name}</span></div>
@@ -1097,11 +1154,11 @@ export function AdminFileManager() {
           </div>
 
           <p className="text-[11px] text-text-dim">
-            The file and all its previous snapshots will be soft-deleted to the staging trash directory and can be restored if necessary.
+            Nothing is erased from storage. You can bring the file back at any time from <strong>Trash</strong> (toggle at the top of this page) using <strong>Restore</strong>.
           </p>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-border-subtle">
-            <Button type="button" variant="outline" size="sm" onClick={() => setDeletingFile(null)}>
+            <Button type="button" variant="outline" size="sm" disabled={deleting} onClick={() => setDeletingFile(null)}>
               Cancel
             </Button>
             <Button
@@ -1113,7 +1170,7 @@ export function AdminFileManager() {
               className="bg-critical hover:bg-critical-hover shadow-md shadow-critical/20"
             >
               <Trash2 size={13} />
-              <span>{deleting ? 'Moving to Trash…' : 'Confirm Move to Trash'}</span>
+              <span>{deleting ? 'Moving to Trash…' : 'Move to Trash'}</span>
             </Button>
           </div>
         </div>
@@ -1133,7 +1190,7 @@ export function AdminFileManager() {
             departmentName: versionPanelFile.department?.name,
             departmentCode: versionPanelFile.department?.code,
             spacecraft: versionPanelFile.report?.spacecraft || versionPanelFile.department?.satellite?.name || 'General',
-            category: versionPanelFile.report?.category || 'DAILY_REPORT',
+            category: versionPanelFile.report?.categoryCode || 'GENERAL',
             classificationLevel: versionPanelFile.report?.classificationLevel || 'RESTRICTED',
             sizeBytes: versionPanelFile.sizeBytes,
             sha256: versionPanelFile.sha256,
@@ -1161,7 +1218,7 @@ export function AdminFileManager() {
           departmentId: uploadVersionFile.department?.id,
           departmentName: uploadVersionFile.department?.name,
           spacecraft: uploadVersionFile.report?.spacecraft || uploadVersionFile.department?.satellite?.name || '',
-          category: uploadVersionFile.report?.category || '',
+          category: uploadVersionFile.report?.categoryCode || '',
           title: uploadVersionFile.report?.title || uploadVersionFile.name,
           description: uploadVersionFile.description || '',
           versionCount: uploadVersionFile.versionCount,

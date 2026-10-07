@@ -214,7 +214,7 @@ export function FooterTab() {
                     >
                       <span className="font-semibold text-white truncate pr-1">{item.label}</span>
                       <span
-                        className={`num font-mono text-[9px] px-1.5 py-0.5 rounded truncate max-w-[120px] ${
+                        className={`num font-mono text-[10px] px-1.5 py-0.5 rounded truncate max-w-[120px] ${
                           item.isExternal
                             ? "bg-purple-950/60 text-purple-300 border border-purple-800/40"
                             : item.isAnchor
