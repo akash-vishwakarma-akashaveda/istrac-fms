@@ -159,6 +159,7 @@ export function DepartmentDetail() {
 
   // View Mode: 'card' (Grid) vs 'table' (List)
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card')
+  const [satelliteViewMode, setSatelliteViewMode] = useState<'card' | 'table'>('card')
 
   // Department Files State
   const [deptFiles, setDeptFiles] = useState<any[]>([])
@@ -201,6 +202,7 @@ export function DepartmentDetail() {
     maxFolderDepth: 5,
     includeSatellites: false,
     satelliteIds: [] as string[],
+    satelliteViewMode: 'card' as 'card' | 'table',
   })
   const [savingEdit, setSavingEdit] = useState(false)
   const [featureConfirmFile, setFeatureConfirmFile] = useState<{ id: string; name: string; isFeatured?: boolean } | null>(null)
@@ -226,8 +228,8 @@ export function DepartmentDetail() {
     )
   )
 
-  // Parse carousel configuration (visibility toggle + slides array) from dept.pageBannerUrl
-  const getCarouselConfig = (): { isCarouselVisible: boolean; slides: CarouselSlide[] } => {
+  // Parse carousel & page display configuration (visibility toggle + slides array + default satellite view format) from dept.pageBannerUrl
+  const getCarouselConfig = (): { isCarouselVisible: boolean; slides: CarouselSlide[]; satelliteViewMode: 'card' | 'table' } => {
     const deptCode = dept?.code?.toUpperCase() || 'TTC'
     const defaultSlides = DEFAULT_DEPT_SLIDES[deptCode] || DEFAULT_DEPT_SLIDES['TTC']
 
@@ -237,24 +239,36 @@ export function DepartmentDetail() {
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
           const isVisible = parsed.isCarouselVisible !== false
           const parsedSlides = Array.isArray(parsed.slides) && parsed.slides.length > 0 ? parsed.slides : defaultSlides
-          return { isCarouselVisible: isVisible, slides: parsedSlides }
+          const satViewMode = parsed.satelliteViewMode === 'table' ? 'table' : 'card'
+          return { isCarouselVisible: isVisible, slides: parsedSlides, satelliteViewMode: satViewMode }
         }
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return { isCarouselVisible: true, slides: parsed }
+          return { isCarouselVisible: true, slides: parsed, satelliteViewMode: 'card' }
         }
       } catch {
         if (dept.pageBannerUrl.startsWith('http')) {
           return {
             isCarouselVisible: true,
             slides: [{ url: dept.pageBannerUrl, caption: `${dept.name} Operations` }],
+            satelliteViewMode: 'card',
           }
         }
       }
     }
-    return { isCarouselVisible: true, slides: defaultSlides }
+    return { isCarouselVisible: true, slides: defaultSlides, satelliteViewMode: 'card' }
   }
 
   const { isCarouselVisible, slides } = getCarouselConfig()
+
+  // Sync satellite view mode when department configuration loads or changes
+  useEffect(() => {
+    if (dept?.pageBannerUrl) {
+      const config = getCarouselConfig()
+      if (config.satelliteViewMode) {
+        setSatelliteViewMode(config.satelliteViewMode)
+      }
+    }
+  }, [dept?.pageBannerUrl])
 
   // Carousel Auto-play logic
   useEffect(() => {
@@ -351,7 +365,7 @@ export function DepartmentDetail() {
   // Open Edit Modal with Current Data
   const handleOpenEditModal = () => {
     if (!dept) return
-    const { isCarouselVisible: currentIsVisible, slides: currentSlides } = getCarouselConfig()
+    const { isCarouselVisible: currentIsVisible, slides: currentSlides, satelliteViewMode: currentSatViewMode } = getCarouselConfig()
     const currentSatIds = dept.satellites?.map((s) => s.id) || (dept.satelliteId ? [dept.satelliteId] : [])
 
     setEditForm({
@@ -377,13 +391,14 @@ export function DepartmentDetail() {
       maxFolderDepth: dept.maxFolderDepth || 5,
       includeSatellites: currentSatIds.length > 0,
       satelliteIds: currentSatIds,
+      satelliteViewMode: currentSatViewMode || satelliteViewMode || 'card',
     })
     setIsEditModalOpen(true)
   }
 
   const handleOpenAddSatellitesModal = () => {
     if (!dept) return
-    const { isCarouselVisible: currentIsVisible, slides: currentSlides } = getCarouselConfig()
+    const { isCarouselVisible: currentIsVisible, slides: currentSlides, satelliteViewMode: currentSatViewMode } = getCarouselConfig()
     const currentSatIds = dept.satellites?.map((s) => s.id) || (dept.satelliteId ? [dept.satelliteId] : [])
 
     setEditForm({
@@ -409,6 +424,7 @@ export function DepartmentDetail() {
       maxFolderDepth: dept.maxFolderDepth || 5,
       includeSatellites: true,
       satelliteIds: currentSatIds,
+      satelliteViewMode: currentSatViewMode || satelliteViewMode || 'card',
     })
     setIsEditModalOpen(true)
     setTimeout(() => {
@@ -450,6 +466,7 @@ export function DepartmentDetail() {
     const bannerPayload = JSON.stringify({
       isCarouselVisible: editForm.isCarouselVisible,
       slides: validSlides,
+      satelliteViewMode: editForm.satelliteViewMode,
     })
 
     try {
@@ -471,6 +488,7 @@ export function DepartmentDetail() {
       // Fetch fresh full department to load populated satellites array
       const refreshed = await departmentsApi.getPublicDepartment(dept.id).catch(() => updated)
       setDept(refreshed)
+      setSatelliteViewMode(editForm.satelliteViewMode)
       setIsEditModalOpen(false)
       addToast({
         title: 'Department CMS Updated',
@@ -812,50 +830,60 @@ export function DepartmentDetail() {
                 </p>
               </div>
 
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={handleOpenEditModal}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent-light hover:bg-accent hover:text-white transition-all self-start sm:self-auto shrink-0"
-                >
-                  <Edit2 size={12} />
-                  <span>Configure Satellites</span>
-                </button>
-              )}
+              <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto flex-wrap">
+                {/* View Mode Switcher (Card Grid vs Table List) */}
+                <div className="flex items-center gap-1.5 p-1 rounded-lg border border-border-default bg-[#060c18]">
+                  <button
+                    type="button"
+                    onClick={() => setSatelliteViewMode('card')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                      satelliteViewMode === 'card'
+                        ? 'bg-accent text-white shadow-sm'
+                        : 'text-text-dim hover:text-white'
+                    }`}
+                    title="Card Grid View"
+                  >
+                    <LayoutGrid size={13} />
+                    <span>Cards</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSatelliteViewMode('table')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                      satelliteViewMode === 'table'
+                        ? 'bg-accent text-white shadow-sm'
+                        : 'text-text-dim hover:text-white'
+                    }`}
+                    title="Table List View"
+                  >
+                    <List size={13} />
+                    <span>Table</span>
+                  </button>
+                </div>
+
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={handleOpenEditModal}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent-light hover:bg-accent hover:text-white transition-all shrink-0"
+                  >
+                    <Edit2 size={12} />
+                    <span>Configure Satellites</span>
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {dept.satellites.map((sat) => {
-                const hasAccess = canAccessSatellite(user, sat, dept.id)
+            {satelliteViewMode === 'card' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {dept.satellites.map((sat) => {
+                  const hasAccess = canAccessSatellite(user, sat, dept.id)
 
-                return (
-                  <div
-                    key={sat.id}
-                    onClick={() => {
-                      if (!user) {
-                        openLogin()
-                        return
-                      }
-                      if (!hasAccess) {
-                        addToast({
-                          title: 'Access Restricted',
-                          message: 'You are not authorized to see',
-                          variant: 'warning',
-                        })
-                        return
-                      }
-                      setViewingSatelliteId(sat.id)
-                    }}
-                    className={`flex flex-col justify-between rounded-xl border p-4 transition-all shadow-sm group cursor-pointer hover:shadow-xl ${
-                      hasAccess
-                        ? 'border-border-default bg-card hover:border-accent/60 hover:bg-[#0c1527] hover:shadow-accent/5'
-                        : 'border-border-subtle bg-card/60 hover:border-warning/50 hover:bg-[#120d18]'
-                    }`}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
+                  return (
+                    <div
+                      key={sat.id}
+                      onClick={() => {
                         if (!user) {
                           openLogin()
                           return
@@ -869,122 +897,314 @@ export function DepartmentDetail() {
                           return
                         }
                         setViewingSatelliteId(sat.id)
-                      }
-                    }}
-                  >
-                  <div className="space-y-3">
-                    {/* Header: SAT_ID badge, code, status */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/25 group-hover:scale-105 transition-transform">
-                          <Radio size={18} />
+                      }}
+                      className={`flex flex-col justify-between rounded-xl border p-4 transition-all shadow-sm group cursor-pointer hover:shadow-xl ${
+                        hasAccess
+                          ? 'border-border-default bg-card hover:border-accent/60 hover:bg-[#0c1527] hover:shadow-accent/5'
+                          : 'border-border-subtle bg-card/60 hover:border-warning/50 hover:bg-[#120d18]'
+                      }`}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          if (!user) {
+                            openLogin()
+                            return
+                          }
+                          if (!hasAccess) {
+                            addToast({
+                              title: 'Access Restricted',
+                              message: 'You are not authorized to see',
+                              variant: 'warning',
+                            })
+                            return
+                          }
+                          setViewingSatelliteId(sat.id)
+                        }
+                      }}
+                    >
+                    <div className="space-y-3">
+                      {/* Header: SAT_ID badge, code, status */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/25 group-hover:scale-105 transition-transform">
+                            <Radio size={18} />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {(sat.satId || sat.code) && (
+                                <span className="num text-[10px] font-mono font-bold text-accent-light bg-accent/10 border border-accent/30 rounded px-1.5 py-0.2">
+                                  {sat.satId || sat.code}
+                                </span>
+                              )}
+                            </div>
+                            <h3 className="text-sm font-bold text-white truncate group-hover:text-accent-light transition-colors mt-0.5">
+                              {sat.name}
+                            </h3>
+                          </div>
+                        </div>
+
+                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-nominal/15 text-nominal border border-nominal/30 shrink-0">
+                          <CheckCircle2 size={10} />
+                          <span>{sat.status || 'Active'}</span>
+                        </span>
+                      </div>
+
+                      {/* Orbit & Description */}
+                      <div className="space-y-1">
+                        {sat.orbitType && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-accent-light">
+                            <Orbit size={12} className="shrink-0" />
+                            <span className="truncate font-medium">{sat.orbitType}</span>
+                          </div>
+                        )}
+                        <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
+                          {sat.description || 'Primary ISRO ISTRAC mission program.'}
+                        </p>
+                      </div>
+
+                      {/* Quick Metrics */}
+                      <div className="grid grid-cols-3 gap-1.5 p-2 rounded-lg border border-border-subtle bg-[#070d1a] text-[10px]">
+                        <div className="min-w-0">
+                          <span className="text-text-dim block flex items-center gap-1">
+                            <Fuel size={10} className="text-nominal" /> Fuel
+                          </span>
+                          <strong className="text-white font-mono truncate block mt-0.5">
+                            {sat.fuelBalance || 'Nominal'}
+                          </strong>
                         </div>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {(sat.satId || sat.code) && (
-                              <span className="num text-[10px] font-mono font-bold text-accent-light bg-accent/10 border border-accent/30 rounded px-1.5 py-0.2">
-                                {sat.satId || sat.code}
-                              </span>
-                            )}
-                          </div>
-                          <h3 className="text-sm font-bold text-white truncate group-hover:text-accent-light transition-colors mt-0.5">
-                            {sat.name}
-                          </h3>
+                          <span className="text-text-dim block flex items-center gap-1">
+                            <Weight size={10} className="text-accent-light" /> Mass
+                          </span>
+                          <strong className="text-white font-mono truncate block mt-0.5">
+                            {sat.launchMass || 'Standard'}
+                          </strong>
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-text-dim block flex items-center gap-1">
+                            <Calendar size={10} className="text-warning" /> Launch
+                          </span>
+                          <strong className="text-white font-mono truncate block mt-0.5">
+                            {sat.launchDate
+                              ? new Date(sat.launchDate).toLocaleDateString(undefined, {
+                                  month: 'short',
+                                  year: '2-digit',
+                                })
+                              : 'Active'}
+                          </strong>
                         </div>
                       </div>
 
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-nominal/15 text-nominal border border-nominal/30 shrink-0">
-                        <CheckCircle2 size={10} />
-                        <span>{sat.status || 'Active'}</span>
-                      </span>
-                    </div>
-
-                    {/* Orbit & Description */}
-                    <div className="space-y-1">
-                      {sat.orbitType && (
-                        <div className="flex items-center gap-1.5 text-[11px] text-accent-light">
-                          <Orbit size={12} className="shrink-0" />
-                          <span className="truncate font-medium">{sat.orbitType}</span>
+                      {/* Payloads */}
+                      {sat.payloads && (
+                        <div className="text-[10px] text-text-dim bg-surface/60 rounded-md px-2 py-1 border border-border-subtle/60 flex items-center gap-1.5">
+                          <span className="font-semibold text-text-muted shrink-0">Payloads:</span>
+                          <span className="truncate text-text-secondary font-mono">
+                            {sat.payloads}
+                          </span>
                         </div>
                       )}
-                      <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
-                        {sat.description || 'Primary ISRO ISTRAC mission program.'}
-                      </p>
                     </div>
 
-                    {/* Quick Metrics */}
-                    <div className="grid grid-cols-3 gap-1.5 p-2 rounded-lg border border-border-subtle bg-[#070d1a] text-[10px]">
-                      <div className="min-w-0">
-                        <span className="text-text-dim block flex items-center gap-1">
-                          <Fuel size={10} className="text-nominal" /> Fuel
-                        </span>
-                        <strong className="text-white font-mono truncate block mt-0.5">
-                          {sat.fuelBalance || 'Nominal'}
-                        </strong>
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-text-dim block flex items-center gap-1">
-                          <Weight size={10} className="text-accent-light" /> Mass
-                        </span>
-                        <strong className="text-white font-mono truncate block mt-0.5">
-                          {sat.launchMass || 'Standard'}
-                        </strong>
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-text-dim block flex items-center gap-1">
-                          <Calendar size={10} className="text-warning" /> Launch
-                        </span>
-                        <strong className="text-white font-mono truncate block mt-0.5">
-                          {sat.launchDate
-                            ? new Date(sat.launchDate).toLocaleDateString(undefined, {
-                                month: 'short',
-                                year: '2-digit',
-                              })
-                            : 'Active'}
-                        </strong>
-                      </div>
-                    </div>
-
-                    {/* Payloads */}
-                    {sat.payloads && (
-                      <div className="text-[10px] text-text-dim bg-surface/60 rounded-md px-2 py-1 border border-border-subtle/60 flex items-center gap-1.5">
-                        <span className="font-semibold text-text-muted shrink-0">Payloads:</span>
-                        <span className="truncate text-text-secondary font-mono">
-                          {sat.payloads}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-3.5 pt-3 border-t border-border-subtle/80 flex items-center justify-between text-xs">
-                    <span className="text-[11px] text-text-dim group-hover:text-accent-light transition-colors">
-                      {!user
-                        ? 'Sign in to view telemetry'
-                        : hasAccess
-                        ? 'Click to view live telemetry'
-                        : 'Department clearance required'}
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-accent-light group-hover:translate-x-0.5 transition-transform">
-                      <span>
+                    <div className="mt-3.5 pt-3 border-t border-border-subtle/80 flex items-center justify-between text-xs">
+                      <span className="text-[11px] text-text-dim group-hover:text-accent-light transition-colors">
                         {!user
-                          ? 'Sign In Required'
+                          ? 'Sign in to view telemetry'
                           : hasAccess
-                          ? 'Mission Dossier'
-                          : 'Restricted'}
+                          ? 'Click to view live telemetry'
+                          : 'Department clearance required'}
                       </span>
-                      {!user ? (
-                        <Lock size={12} />
-                      ) : hasAccess ? (
-                        <ChevronRight size={13} />
-                      ) : (
-                        <Lock size={12} className="text-warning" />
-                      )}
-                    </span>
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-accent-light group-hover:translate-x-0.5 transition-transform">
+                        <span>
+                          {!user
+                            ? 'Sign In Required'
+                            : hasAccess
+                            ? 'Mission Dossier'
+                            : 'Restricted'}
+                        </span>
+                        {!user ? (
+                          <Lock size={12} />
+                        ) : hasAccess ? (
+                          <ChevronRight size={13} />
+                        ) : (
+                          <Lock size={12} className="text-warning" />
+                        )}
+                      </span>
+                    </div>
                   </div>
+                )
+              })}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-border-default bg-card overflow-hidden shadow-sm">
+                <div className="overflow-x-auto touch-pan-x">
+                  <table className="w-full text-left border-collapse min-w-[760px]">
+                    <thead>
+                      <tr className="border-b border-border-default bg-surface text-[11px] font-bold text-text-dim uppercase tracking-wider">
+                        <th className="px-4 py-3.5">Mission / Spacecraft</th>
+                        <th className="px-4 py-3.5">Orbit</th>
+                        <th className="px-4 py-3.5">Status</th>
+                        <th className="px-4 py-3.5">Fuel / Mass</th>
+                        <th className="px-4 py-3.5">Launch Date</th>
+                        <th className="px-4 py-3.5">Payloads</th>
+                        <th className="px-4 py-3.5 text-right">Clearance / Dossier</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-subtle text-xs">
+                      {dept.satellites.map((sat) => {
+                        const hasAccess = canAccessSatellite(user, sat, dept.id)
+                        const handleSatClick = () => {
+                          if (!user) {
+                            openLogin()
+                            return
+                          }
+                          if (!hasAccess) {
+                            addToast({
+                              title: 'Access Restricted',
+                              message: 'You are not authorized to see',
+                              variant: 'warning',
+                            })
+                            return
+                          }
+                          setViewingSatelliteId(sat.id)
+                        }
+
+                        return (
+                          <tr
+                            key={sat.id}
+                            onClick={handleSatClick}
+                            className={`transition-colors cursor-pointer ${
+                              hasAccess
+                                ? 'hover:bg-card-hover'
+                                : 'hover:bg-warning/5 opacity-80 hover:opacity-100'
+                            }`}
+                          >
+                            {/* Mission / Satellite Name & Code */}
+                            <td className="px-4 py-3.5">
+                              <div className="flex items-center gap-2.5">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent-light border border-accent/25">
+                                  <Radio size={15} />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {(sat.satId || sat.code) && (
+                                      <span className="num text-[10px] font-mono font-bold text-accent-light bg-accent/10 border border-accent/30 rounded px-1.5 py-0.2">
+                                        {sat.satId || sat.code}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="font-bold text-white hover:text-accent-light truncate max-w-[200px] transition-colors mt-0.5" title={sat.name}>
+                                    {sat.name}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Orbit */}
+                            <td className="px-4 py-3.5">
+                              {sat.orbitType ? (
+                                <div className="flex items-center gap-1 text-[11px] text-accent-light">
+                                  <Orbit size={12} className="shrink-0" />
+                                  <span className="truncate max-w-[150px] font-medium">{sat.orbitType}</span>
+                                </div>
+                              ) : (
+                                <span className="text-text-dim text-[11px]">—</span>
+                              )}
+                            </td>
+
+                            {/* Status */}
+                            <td className="px-4 py-3.5">
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-nominal/15 text-nominal border border-nominal/30 shrink-0">
+                                <CheckCircle2 size={10} />
+                                <span>{sat.status || 'Active'}</span>
+                              </span>
+                            </td>
+
+                            {/* Fuel / Mass */}
+                            <td className="px-4 py-3.5">
+                              <div className="text-[11px] space-y-0.5 font-mono">
+                                <div className="flex items-center gap-1 text-white">
+                                  <Fuel size={10} className="text-nominal shrink-0" />
+                                  <span>{sat.fuelBalance || 'Nominal'}</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-text-dim">
+                                  <Weight size={10} className="text-accent-light shrink-0" />
+                                  <span>{sat.launchMass || 'Standard'}</span>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Launch Date */}
+                            <td className="px-4 py-3.5 text-text-secondary text-[11px] font-mono">
+                              {sat.launchDate ? (
+                                <div className="flex items-center gap-1">
+                                  <Calendar size={10} className="text-warning shrink-0" />
+                                  <span>
+                                    {new Date(sat.launchDate).toLocaleDateString(undefined, {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    })}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-text-dim">Active</span>
+                              )}
+                            </td>
+
+                            {/* Payloads */}
+                            <td className="px-4 py-3.5">
+                              {sat.payloads ? (
+                                <span className="text-[11px] text-text-secondary font-mono truncate max-w-[180px] block" title={sat.payloads}>
+                                  {sat.payloads}
+                                </span>
+                              ) : (
+                                <span className="text-text-dim text-[11px]">—</span>
+                              )}
+                            </td>
+
+                            {/* Clearance / Dossier button */}
+                            <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={handleSatClick}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
+                                  !user
+                                    ? 'border-border-default bg-[#0c1424] text-text-dim hover:text-white'
+                                    : hasAccess
+                                    ? 'border-accent/40 bg-accent/15 text-accent-light hover:bg-accent hover:text-white shadow-sm'
+                                    : 'border-warning/30 bg-warning/10 text-warning hover:bg-warning/20'
+                                }`}
+                              >
+                                {!user ? (
+                                  <>
+                                    <Lock size={12} />
+                                    <span>Sign In</span>
+                                  </>
+                                ) : hasAccess ? (
+                                  <>
+                                    <Eye size={12} />
+                                    <span>Dossier</span>
+                                    <ChevronRight size={12} />
+                                  </>
+                                ) : (
+                                  <>
+                                    <Lock size={12} />
+                                    <span>Restricted</span>
+                                  </>
+                                )}
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              )
-            })}
-            </div>
+              </div>
+            )}
           </section>
         ) : isAdmin ? (
           <div className="shell mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-dashed border-border-default/80 bg-surface/30 px-4 py-2.5">
@@ -1981,6 +2201,40 @@ export function DepartmentDetail() {
                     })}
                   </div>
                 )}
+
+                {/* Default Spacecraft Display Format */}
+                <div className="pt-2.5 border-t border-border-subtle/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="text-xs font-semibold text-white block">Default Spacecraft View Format</label>
+                    <span className="text-[11px] text-text-dim block">Configure whether spacecraft missions appear as cards or table by default</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 p-1 rounded-lg border border-border-default bg-[#060c18] self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => setEditForm((prev) => ({ ...prev, satelliteViewMode: 'card' }))}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                        editForm.satelliteViewMode === 'card'
+                          ? 'bg-accent text-white shadow-sm'
+                          : 'text-text-dim hover:text-white'
+                      }`}
+                    >
+                      <LayoutGrid size={12} />
+                      <span>Cards Grid</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditForm((prev) => ({ ...prev, satelliteViewMode: 'table' }))}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                        editForm.satelliteViewMode === 'table'
+                          ? 'bg-accent text-white shadow-sm'
+                          : 'text-text-dim hover:text-white'
+                      }`}
+                    >
+                      <List size={12} />
+                      <span>Table List</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

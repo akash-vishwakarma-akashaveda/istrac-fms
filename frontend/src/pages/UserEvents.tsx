@@ -240,7 +240,7 @@ export function UserEvents() {
           </span>
         }
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {/* Standard IST Indicator */}
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-default bg-[#060c18] text-xs font-mono font-bold text-accent-light">
               <Clock size={12} className="text-accent-light" />

@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react"
-import { Building2, Layers, ExternalLink, CheckCircle2, ArrowUp, ArrowDown, RotateCcw } from "lucide-react"
+import { Building2, Layers, ExternalLink, CheckCircle2, ArrowUp, ArrowDown, RotateCcw, LayoutGrid, Table2 } from "lucide-react"
 import { Link } from "react-router-dom"
 import { useCms } from "../../context/cmsContext"
 import { usePreviewRefresh } from "../../context/PreviewRefreshContext"
@@ -25,6 +25,7 @@ export interface DepartmentPagesBlock {
   sectionSubtitle?: string
   showFileCount?: boolean
   showLeadOfficer?: boolean
+  layoutMode?: 'cards' | 'table'
   order?: string[]
   customContent?: Record<string, DepartmentCmsData>
 }
@@ -49,6 +50,7 @@ export function DepartmentPagesTab() {
   )
   const [showFileCount, setShowFileCount] = useState(true)
   const [showLeadOfficer, setShowLeadOfficer] = useState(true)
+  const [layoutMode, setLayoutMode] = useState<'cards' | 'table'>('cards')
 
   // Per-division custom content dictionary
   const [allContent, setAllContent] = useState<Record<string, DepartmentCmsData>>({})
@@ -79,6 +81,7 @@ export function DepartmentPagesTab() {
       if (existing.sectionSubtitle !== undefined) setSectionSubtitle(existing.sectionSubtitle)
       if (existing.showFileCount !== undefined) setShowFileCount(existing.showFileCount)
       if (existing.showLeadOfficer !== undefined) setShowLeadOfficer(existing.showLeadOfficer)
+      if (existing.layoutMode !== undefined) setLayoutMode(existing.layoutMode)
       if (existing.customContent) setAllContent(existing.customContent)
       if (existing.order && Array.isArray(existing.order) && existing.order.length > 0) {
         setDeptOrder(existing.order)
@@ -155,6 +158,7 @@ export function DepartmentPagesTab() {
           sectionSubtitle,
           showFileCount,
           showLeadOfficer,
+          layoutMode,
           order: finalOrder,
           customContent: allContent,
         },
@@ -268,6 +272,88 @@ export function DepartmentPagesTab() {
                 className="h-4 w-4 accent-nominal pointer-events-none"
               />
             </div>
+          </div>
+        </div>
+      </Panel>
+
+      {/* SECTION: LANDING PAGE DISPLAY LAYOUT FORMAT (ADMIN ONLY) */}
+      <Panel title="Landing Page Display Layout Format (Admin Only)" meta="layout-mode">
+        <div className="space-y-4">
+          <p className="text-xs text-text-secondary leading-relaxed">
+            Select how the Operational Divisions are displayed on the public landing page. As an administrator, you can switch between <strong>Card Grid</strong> and <strong>Table Format</strong>. Public visitors cannot change this layout.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+            {/* Card Grid Option */}
+            <button
+              type="button"
+              onClick={() => setLayoutMode('cards')}
+              className={`flex items-start gap-3.5 p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                layoutMode === 'cards'
+                  ? 'border-accent bg-accent/15 ring-1 ring-accent text-white shadow-md'
+                  : 'border-border-default bg-[#070c18] hover:border-accent/40 text-text-secondary'
+              }`}
+            >
+              <div
+                className={`p-2.5 rounded-lg shrink-0 transition-colors ${
+                  layoutMode === 'cards' ? 'bg-accent text-white shadow-sm' : 'bg-surface text-text-dim'
+                }`}
+              >
+                <LayoutGrid size={20} />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-white">Card Grid Format</span>
+                  {layoutMode === 'cards' && (
+                    <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent-light border border-accent/40">
+                      Active
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">
+                  3-column responsive cards with division badges, mandate scope, active file counters, and interactive spacecraft chips.
+                </p>
+              </div>
+            </button>
+
+            {/* Table Format Option */}
+            <button
+              type="button"
+              onClick={() => setLayoutMode('table')}
+              className={`flex items-start gap-3.5 p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                layoutMode === 'table'
+                  ? 'border-accent bg-accent/15 ring-1 ring-accent text-white shadow-md'
+                  : 'border-border-default bg-[#070c18] hover:border-accent/40 text-text-secondary'
+              }`}
+            >
+              <div
+                className={`p-2.5 rounded-lg shrink-0 transition-colors ${
+                  layoutMode === 'table' ? 'bg-accent text-white shadow-sm' : 'bg-surface text-text-dim'
+                }`}
+              >
+                <Table2 size={20} />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-white">Table Format</span>
+                  {layoutMode === 'table' && (
+                    <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent-light border border-accent/40">
+                      Active
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">
+                  Compact tabular roster showing Code, Division & Mandate, Officer in Charge, Supported Spacecraft, and Action links.
+                </p>
+              </div>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 rounded-lg bg-surface/50 border border-border-subtle p-2.5 text-[11px] text-text-dim">
+            <CheckCircle2 size={14} className="text-nominal shrink-0" />
+            <span>
+              Landing page is currently configured to display in: <strong className="text-white capitalize">{layoutMode === 'table' ? 'Table Format' : 'Card Grid Format'}</strong>. Changes take effect on the landing page once saved.
+            </span>
           </div>
         </div>
       </Panel>
@@ -473,50 +559,117 @@ export function DepartmentPagesTab() {
                 hint="Appears on the public landing page card and the division's dedicated showcase portal."
               />
 
-              {/* Live Preview Card */}
+              {/* Live Preview Card / Table Row */}
               <div className="space-y-2 pt-2">
-                <span className="col-label block">Live Division Card Preview (Landing Page)</span>
-                <div className="p-5 rounded-2xl border border-border-default bg-[#0b1220] space-y-3.5 shadow-md">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-9 w-9 rounded-xl bg-accent/20 text-accent-light flex items-center justify-center font-bold text-xs border border-accent/30">
-                        {effectiveCode || "DIV"}
+                <div className="flex items-center justify-between">
+                  <span className="col-label block">
+                    Live Division Preview (Landing Page Format: <span className="text-white capitalize">{layoutMode === 'table' ? 'Table View' : 'Card Grid View'}</span>)
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setLayoutMode('cards')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                        layoutMode === 'cards'
+                          ? 'bg-accent text-white shadow-xs'
+                          : 'bg-surface border border-border-subtle text-text-dim hover:text-white'
+                      }`}
+                    >
+                      Card
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLayoutMode('table')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                        layoutMode === 'table'
+                          ? 'bg-accent text-white shadow-xs'
+                          : 'bg-surface border border-border-subtle text-text-dim hover:text-white'
+                      }`}
+                    >
+                      Table
+                    </button>
+                  </div>
+                </div>
+
+                {layoutMode === 'cards' ? (
+                  <div className="p-5 rounded-2xl border border-border-default bg-[#0b1220] space-y-3.5 shadow-md">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-9 w-9 rounded-xl bg-accent/20 text-accent-light flex items-center justify-center font-bold text-xs border border-accent/30">
+                          {effectiveCode || "DIV"}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-white">
+                            {effectiveTitle}
+                          </h4>
+                          <span className="text-[10px] text-text-dim">
+                            {effectiveLocation}
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-white">
-                          {effectiveTitle}
-                        </h4>
-                        <span className="text-[10px] text-text-dim">
-                          {effectiveLocation}
+                      {showFileCount && (
+                        <span className="num text-[10px] font-bold text-accent-light px-2.5 py-0.5 rounded-full bg-accent/10 border border-accent/20">
+                          {selectedDept.fileCount ?? 0} Active Files
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-text-secondary leading-relaxed line-clamp-3">
+                      {effectiveMandate}
+                    </p>
+
+                    <div className="pt-3 border-t border-border-subtle flex items-center justify-between text-xs text-text-dim">
+                      {showLeadOfficer && (
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-text-dim block">Officer in Charge</span>
+                          <strong className="text-white text-xs">
+                            {effectiveLead || "Division Director"}
+                          </strong>
+                        </div>
+                      )}
+                      <span className="text-xs font-bold text-accent-light flex items-center gap-1">
+                        <span>View Details</span>
+                        <ExternalLink size={12} />
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-border-default bg-[#0b1220] overflow-hidden shadow-md">
+                    <div className="p-2.5 bg-[#070d18] border-b border-border-subtle flex items-center justify-between text-[11px] font-bold text-text-dim uppercase tracking-wider">
+                      <span>Table Row Preview</span>
+                      <span className="font-mono text-accent-light">{effectiveCode || "DIV"}</span>
+                    </div>
+                    <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="h-8 w-8 rounded-lg bg-accent/20 text-accent-light flex items-center justify-center font-bold text-xs border border-accent/30 shrink-0 mt-0.5">
+                          {effectiveCode || "DIV"}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-bold text-white truncate">{effectiveTitle}</h4>
+                          <p className="text-xs text-text-secondary mt-0.5 line-clamp-1">{effectiveMandate}</p>
+                          <span className="text-[10px] text-text-dim block mt-0.5">{effectiveLocation}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs shrink-0 self-end sm:self-center">
+                        {showLeadOfficer && (
+                          <div className="text-right sm:text-left">
+                            <span className="text-[10px] uppercase font-bold text-text-dim block">Officer in Charge</span>
+                            <span className="font-semibold text-white">{effectiveLead || "Division Director"}</span>
+                          </div>
+                        )}
+                        {showFileCount && (
+                          <span className="font-mono text-xs text-text-secondary bg-surface px-2.5 py-0.5 rounded-full border border-border-subtle">
+                            {selectedDept.fileCount ?? 0} Files
+                          </span>
+                        )}
+                        <span className="text-xs font-bold text-accent-light flex items-center gap-1">
+                          <span>View Details</span>
+                          <ExternalLink size={12} />
                         </span>
                       </div>
                     </div>
-                    {showFileCount && (
-                      <span className="num text-[10px] font-bold text-accent-light px-2.5 py-0.5 rounded-full bg-accent/10 border border-accent/20">
-                        {selectedDept.fileCount ?? 0} Active Files
-                      </span>
-                    )}
                   </div>
-
-                  <p className="text-xs text-text-secondary leading-relaxed line-clamp-3">
-                    {effectiveMandate}
-                  </p>
-
-                  <div className="pt-3 border-t border-border-subtle flex items-center justify-between text-xs text-text-dim">
-                    {showLeadOfficer && (
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-text-dim block">Officer in Charge</span>
-                        <strong className="text-white text-xs">
-                          {effectiveLead || "Division Director"}
-                        </strong>
-                      </div>
-                    )}
-                    <span className="text-xs font-bold text-accent-light flex items-center gap-1">
-                      <span>View Details</span>
-                      <ExternalLink size={12} />
-                    </span>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           ) : (

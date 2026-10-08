@@ -3,6 +3,7 @@ import { redis } from '../config/redis.js'
 import { env } from '../config/env.js'
 import { AppError } from '../lib/errors.js'
 import { prisma } from '../config/db.js'
+import { logger } from '../lib/logger.js'
 
 // ============================================================
 // SHARED FIXED-WINDOW COUNTER (Redis, with in-memory fallback)
@@ -22,13 +23,20 @@ setInterval(() => {
 export async function hitCounter(key: string, windowSeconds: number): Promise<{ count: number; retryAfter: number }> {
   try {
     const count = await redis.incr(key)
+    if (count === 1) {
+      await redis.expire(key, windowSeconds)
+      return { count: 1, retryAfter: windowSeconds }
+    }
     let ttl = await redis.ttl(key)
-    if (count === 1 || ttl < 0) {
+    if (ttl < 0) {
       await redis.expire(key, windowSeconds)
       ttl = windowSeconds
     }
-    return { count, retryAfter: ttl }
-  } catch {
+    return { count, retryAfter: Math.max(1, ttl) }
+  } catch (err) {
+    if (env.NODE_ENV === 'production') {
+      logger.warn(`[RateLimiter] Redis unavailable for key '${key}', using in-memory counter: ${err instanceof Error ? err.message : String(err)}`)
+    }
     const now = Date.now()
     const rec = memory.get(key)
     if (!rec || rec.expiresAt < now) {
@@ -182,6 +190,15 @@ export const broadcastRateLimiter = createRateLimiter({
   windowSeconds: 3600,
   key: (req) => req.user?.id ?? null,
   message: (s) => `Broadcast limit reached (20 per hour). Please wait ${minutes(s)} before sending another.`,
+})
+
+/** Admin viewing/polling of password reset OTP queue */
+export const adminPasswordResetRateLimiter = createRateLimiter({
+  name: 'admin-password-resets',
+  max: isDev ? 120 : 30,
+  windowSeconds: 60,
+  key: (req) => (req.user?.id ? `user:${req.user.id}` : req.ip || 'unknown'),
+  message: (s) => `Too many password reset queries from this administrative session. Please wait ${minutes(s)} and try again.`,
 })
 
 // ============================================================

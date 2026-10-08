@@ -46,6 +46,7 @@ export function AdminHome() {
   const brandSubtitle = headerBlock?.brandSubtitle ?? 'ISRO Ground Network'
 
   const { data: stats, isLoading, refetch } = useAdminStats()
+  console.log('Admin Stats:', stats)
   const addToast = useToastStore((s) => s.addToast)
 
   const { data: pendingUsersData, isLoading: loadingPending, refetch: refetchPending } = usePendingUsers()
@@ -139,7 +140,7 @@ export function AdminHome() {
         </div>
 
         {/* Header Action Shortcuts */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {!storageStatus.mounted && (
             <button
               type="button"
@@ -218,8 +219,8 @@ export function AdminHome() {
       )}
 
       {/* System Telemetry Badges Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="flex items-center gap-2.5 rounded-xl border border-border-subtle bg-[#080e1b] p-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+        <div className="flex items-center gap-2.5 rounded-xl border border-border-subtle bg-[#080e1b] p-2.5 sm:p-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-nominal/15 text-nominal">
             <Radio size={16} className="animate-pulse" />
           </div>
@@ -231,7 +232,7 @@ export function AdminHome() {
 
         <Link
           to="/admin/settings"
-          className="flex items-center gap-2.5 rounded-xl border border-border-subtle bg-[#080e1b] p-3 transition-colors hover:border-accent/40 group"
+          className="flex items-center gap-2.5 rounded-xl border border-border-subtle bg-[#080e1b] p-2.5 sm:p-3 transition-colors hover:border-accent/40 group"
         >
           <div
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
@@ -252,7 +253,7 @@ export function AdminHome() {
           </div>
         </Link>
 
-        <div className="flex items-center gap-2.5 rounded-xl border border-border-subtle bg-[#080e1b] p-3">
+        <div className="flex items-center gap-2.5 rounded-xl border border-border-subtle bg-[#080e1b] p-2.5 sm:p-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-400/15 text-purple-400">
             <Shield size={16} />
           </div>
@@ -262,7 +263,7 @@ export function AdminHome() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 rounded-xl border border-border-subtle bg-[#080e1b] p-3">
+        <div className="flex items-center gap-2.5 rounded-xl border border-border-subtle bg-[#080e1b] p-2.5 sm:p-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning">
             <Clock size={16} />
           </div>
@@ -314,7 +315,7 @@ export function AdminHome() {
       {/* Recent Datasets Quick View (Live from MySQL) */}
       {stats?.recentFiles && stats.recentFiles.length > 0 && (
         <div className="rounded-xl border border-border-default bg-card shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-default bg-surface/50">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-border-default bg-surface/50 gap-2">
             <div className="flex items-center gap-2">
               <FileText size={15} className="text-accent-light" />
               <h3 className="text-sm font-semibold text-text-primary">
@@ -325,17 +326,20 @@ export function AdminHome() {
               </span>
             </div>
 
-            <Link
-              to="/admin/files"
-              className="text-xs font-bold text-accent-light hover:underline flex items-center gap-1"
-            >
-              <span>View All Files</span>
-              <ArrowRight size={13} />
-            </Link>
+            <div className="flex items-center gap-3 self-end sm:self-auto">
+              <span className="sm:hidden text-[10px] text-text-dim font-mono">Scroll table →</span>
+              <Link
+                to="/admin/files"
+                className="text-xs font-bold text-accent-light hover:underline flex items-center gap-1"
+              >
+                <span>View All Files</span>
+                <ArrowRight size={13} />
+              </Link>
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[750px]">
+          <div className="overflow-x-auto touch-pan-x">
+            <table className="w-full text-left border-collapse min-w-[700px]">
               <thead>
                 <tr className="border-b border-border-subtle bg-surface text-[10px] font-bold text-text-dim uppercase tracking-wider">
                   <th className="px-4 py-2.5">File Name</th>
@@ -567,7 +571,7 @@ export function AdminHome() {
                 <Building2 size={20} />
               </div>
               <span className="rounded bg-card px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
-                5 DIVISIONS
+                {stats?.departments} DIVISIONS
               </span>
             </div>
             <div className="mt-4">

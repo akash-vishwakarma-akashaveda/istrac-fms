@@ -1,5 +1,6 @@
 import { Redis } from 'ioredis'
 import { env } from './env.js'
+import { logger } from '../lib/logger.js'
 
 const redisOptions = {
   maxRetriesPerRequest: 1,
@@ -22,11 +23,17 @@ export const redis = new Redis(env.REDIS_URL, redisOptions)
 export const redisPub = new Redis(env.REDIS_URL, redisOptions)
 export const redisSub = new Redis(env.REDIS_URL, redisOptions)
 
+redis.on('connect', () => {
+  logger.info('[Redis] Client connected to Redis server')
+})
+redis.on('ready', () => {
+  logger.info('[Redis] Client ready for distributed rate-limiting and cache operations')
+})
 redis.on('error', (err) => {
   if (env.NODE_ENV === 'development') {
-    // Suppress spam in local dev
+    // Suppress spam in local dev if Redis is not installed
   } else {
-    // Suppressed warning in standalone environments
+    logger.warn(`[Redis] Connection warning: ${err.message}`)
   }
 })
 redisPub.on('error', () => {})

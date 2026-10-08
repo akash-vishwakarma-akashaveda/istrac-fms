@@ -280,51 +280,58 @@ body {
 /* ============================================================================
    LIGHT THEME
    Activated by <html data-theme="light"> (see src/store/themeStore.ts).
-   1. Swap the design tokens, so every token-based class follows automatically.
-   2. Remap the hard-coded dark colours used across older screens (bg-[#060c18],
-      text-white, border-white/10, *-300/400 accent text…) to readable equivalents.
-   Any subtree marked data-theme="dark" (e.g. the space hero) keeps the dark look.
-   All text tokens below meet WCAG AA (>=4.5:1) on page, card and hover surfaces.
+   1. Swap design tokens to a crisp architectural slate canvas with defined surfaces.
+   2. Remap hard-coded dark surfaces (bg-[#060c18]...), borders, and accent texts.
+   3. Ensure high contrast (WCAG AA/AAA) across all cards, tables, inputs, and badges.
+   DARK MODE IS PRESERVED UNCHANGED.
    ========================================================================== */
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --color-page: #f4f6fa;
-  --color-page-soft: #eaeef4;
+  --color-page: #f8f9fb;
+  --color-page-soft: #f1f3f7;
   --color-surface: #ffffff;
   --color-card: #ffffff;
-  --color-card-hover: #eef2f7;
+  --color-card-hover: #f5f7fa;
 
-  --color-border-subtle: #dde3ec;
-  --color-border-default: #c3cbd8;
-  --color-border-bright: #8794a8;
-  --color-border: #c3cbd8;
+  --color-border-subtle: #e2e6eb;
+  --color-border-default: #cbd2dc;
+  --color-border-bright: #94a3b8;
+  --color-border: #e2e6eb;
 
   --color-text-primary: #0f172a;
   --color-text-secondary: #334155;
   --color-text-muted: #475569;
-  --color-text-dim: #5b6779;
+  --color-text-dim: #64748b;
 
   --color-accent: #1d4ed8;
   --color-accent-hover: #1e40af;
-  --color-accent-light: #1e40af;
+  --color-accent-light: #2563eb;
   --color-accent-dark: #1e3a8a;
 
   --color-nominal: #047857;
-  --color-nominal-bg: #d1fae5;
+  --color-nominal-bg: #ecfdf5;
   --color-warning: #b45309;
-  --color-warning-bg: #fef3c7;
+  --color-warning-bg: #fffbeb;
   --color-critical: #b91c1c;
-  --color-critical-bg: #fee2e2;
+  --color-critical-bg: #fef2f2;
   --color-special: #7e22ce;
-  --color-special-bg: #f3e8ff;
+  --color-special-bg: #faf5ff;
 
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.08);
-  --shadow-card-hover: 0 6px 16px -4px rgba(15, 23, 42, 0.14);
-  --shadow-card-lg: 0 20px 40px -12px rgba(15, 23, 42, 0.22);
-  --shadow-button: 0 1px 2px rgba(15, 23, 42, 0.12);
+  --shadow-card:
+    0 1px 3px 0 rgba(15, 23, 42, 0.05),
+    0 1px 2px -1px rgba(15, 23, 42, 0.04);
+  --shadow-card-hover:
+    0 10px 15px -3px rgba(15, 23, 42, 0.08),
+    0 4px 6px -4px rgba(15, 23, 42, 0.04);
+  --shadow-card-lg:
+    0 20px 25px -5px rgba(15, 23, 42, 0.08),
+    0 8px 10px -6px rgba(15, 23, 42, 0.04);
+  --shadow-button: 0 1px 2px 0 rgba(15, 23, 42, 0.08);
+  --shadow-glow: 0 4px 14px 0 rgba(29, 78, 216, 0.15);
+  --shadow-glow-nominal: 0 4px 14px 0 rgba(4, 120, 87, 0.15);
 
-  /* Light accent shades used as text on dark backgrounds become their dark equivalents. */
+  /* Light accent shades used as text on dark backgrounds become their high-contrast equivalents */
   --color-amber-300: #b45309; --color-amber-400: #b45309;
   --color-purple-200: #6b21a8; --color-purple-300: #7e22ce; --color-purple-400: #7e22ce;
   --color-cyan-300: #0e7490; --color-cyan-400: #0e7490;
@@ -342,13 +349,77 @@ body {
   --color-teal-400: #0f766e;
   --color-fuchsia-300: #a21caf; --color-fuchsia-400: #a21caf;
 
-  /* Near-black tints used as tinted panel backgrounds become pale tints. */
+  /* Near-black tints become clean, readable pale tints */
   --color-rose-950: #fff1f2; --color-amber-950: #fffbeb; --color-purple-950: #faf5ff;
   --color-cyan-950: #ecfeff; --color-emerald-950: #ecfdf5; --color-blue-950: #eff6ff;
-  --color-slate-950: #f8fafc; --color-red-950: #fef2f2;
+  --color-slate-950: #f1f5f9; --color-red-950: #fef2f2;
 }
 
-/* A dark island inside a light page (hero imagery, image overlays). */
+/* Offwhite atmospheric canvas & gradients in light mode */
+:root[data-theme="light"] html,
+:root[data-theme="light"] body {
+  background-color: var(--color-page);
+  background-image:
+    radial-gradient(ellipse 100% 55% at 50% -5%, rgba(255, 255, 255, 0.95) 0%, rgba(248, 249, 251, 0.7) 45%, rgba(239, 242, 247, 0.9) 100%),
+    linear-gradient(180deg, #fdfefe 0%, #f7f9fb 35%, #edf1f7 100%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+:root[data-theme="light"] .bg-page,
+:root[data-theme="light"] [class~="bg-page"] {
+  background-color: var(--color-page);
+  background-image: linear-gradient(180deg, #fafbfe 0%, #f7f9fb 45%, #eff2f7 100%);
+}
+
+:root[data-theme="light"] .bg-page-soft,
+:root[data-theme="light"] [class~="bg-page-soft"] {
+  background-color: var(--color-page-soft);
+  background-image: linear-gradient(180deg, #f8f9fc 0%, #edf1f6 100%);
+}
+
+:root[data-theme="light"] .bg-card,
+:root[data-theme="light"] [class~="bg-card"] {
+  background-color: #ffffff;
+  background-image: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+}
+
+:root[data-theme="light"] .bg-surface,
+:root[data-theme="light"] [class~="bg-surface"] {
+  background-color: #ffffff;
+  background-image: linear-gradient(180deg, #ffffff 0%, #f9fafc 100%);
+}
+
+:root[data-theme="light"] [class*="hover:bg-card-hover"]:hover {
+  background-color: #f5f7fa;
+  background-image: linear-gradient(180deg, #fafbfe 0%, #edf1f6 100%);
+}
+
+/* Light scrollbars */
+:root[data-theme="light"] ::-webkit-scrollbar-track {
+  background: #eef2f6;
+}
+:root[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+:root[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Graticule technical grid overlay for light mode */
+:root[data-theme="light"] .graticule {
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.20) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.20) 1px, transparent 1px);
+}
+:root[data-theme="light"] .graticule-fine {
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+}
+
+/* Dark island inside light mode (preserves space hero and explicit dark subtrees) */
 :root[data-theme="light"] [data-theme="dark"] {
   color-scheme: dark;
   --color-page: #04070e;
@@ -374,38 +445,140 @@ body {
   --color-special: #a855f7;
 }
 
-/* Form controls are always white in light mode, however they were coded (consistency). */
+/* Fixed modal backdrops in light mode: rich dimming dark scrim instead of milky white fog */
+:root[data-theme="light"] :is([class*="fixed"][class*="inset-0"]):is([class*="bg-page/"], [class*="bg-[#02050e]/"], [class*="bg-[#040814]/"], [class*="bg-black/"]) {
+  background-color: rgba(15, 23, 42, 0.65) !important;
+}
+
+/* Modal dialogs in light mode: crisp white elevation with clear boundaries */
+:root[data-theme="light"] [role="dialog"] {
+  background-color: #ffffff;
+  border-color: var(--color-border-default);
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+}
+:root[data-theme="light"] [role="dialog"] header,
+:root[data-theme="light"] [role="dialog"] > div:first-child:has(h2, h3, [class*="Shield"]) {
+  background-color: #f8fafc;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+/* Table headers & rows in light mode */
+:root[data-theme="light"] thead tr {
+  background-color: #f1f5f9;
+  border-bottom: 2px solid var(--color-border-subtle);
+}
+:root[data-theme="light"] th {
+  color: #1e293b;
+  font-weight: 700;
+}
+:root[data-theme="light"] tbody tr {
+  background-color: #ffffff;
+}
+:root[data-theme="light"] tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Sidebar active navigation link in light mode */
+:root[data-theme="light"] aside a.active,
+:root[data-theme="light"] aside [class*="border-l-accent"]:is([class*="bg-accent/"]) {
+  background-color: #eff6ff !important;
+  color: var(--color-accent) !important;
+  font-weight: 600 !important;
+}
+:root[data-theme="light"] aside a.active svg,
+:root[data-theme="light"] aside [class*="border-l-accent"]:is([class*="bg-accent/"]) svg {
+  color: var(--color-accent) !important;
+}
+
+/* Form controls in light mode: crisp white with defined boundaries */
 :root[data-theme="light"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):is([class*="bg-[#"], [class*="bg-surface"], [class*="bg-page"], [class*="bg-card"]):not([data-theme="dark"] *) {
-  background-color: var(--color-surface);
+  background-color: #ffffff;
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+:root[data-theme="light"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):focus:not([data-theme="dark"] *) {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+:root[data-theme="light"] option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+:root[data-theme="light"] optgroup {
+  background-color: #f1f5f9;
+  color: #334155;
+  font-weight: 600;
+}
+:root[data-theme="light"] input[type="date"],
+:root[data-theme="light"] input[type="datetime-local"] {
+  color-scheme: light;
 }
 
-/* Hard-coded dark gradient stops -> card surface (panels, rows and image fades all end on the card). */
-:root[data-theme="light"] :is([class*="from-[#0"], [class*="from-[#1"], [class*="from-[#2"]):not([data-theme="dark"], [data-theme="dark"] *) {
-  --tw-gradient-from: var(--color-card);
+/* Dark photographic image overlays (keep dark so captions remain legible) */
+:root[data-theme="light"] :is([class*="from-[#0"], [class*="from-[#1"]):is([class*="to-transparent"], [class*="via-transparent"]) {
+  --tw-gradient-from: rgba(15, 23, 42, 0.90);
 }
-:root[data-theme="light"] :is([class*="via-[#0"], [class*="via-[#1"], [class*="via-[#2"]):not([data-theme="dark"], [data-theme="dark"] *) {
-  --tw-gradient-via: var(--color-card);
-}
-:root[data-theme="light"] :is([class*="to-[#0"], [class*="to-[#1"], [class*="to-[#2"]):not([data-theme="dark"], [data-theme="dark"] *) {
-  --tw-gradient-to: var(--color-card);
+:root[data-theme="light"] :is([class*="via-[#0"], [class*="via-[#1"]):is([class*="to-transparent"]) {
+  --tw-gradient-via: rgba(15, 23, 42, 0.60);
 }
 
-/* Hard-coded dark surfaces -> light surfaces. */
-:root[data-theme="light"] :is([class*="bg-[#0"], [class*="bg-[#1"]):not([data-theme="dark"], [data-theme="dark"] *) {
-  /* These are inner panels/inputs inside cards: a soft fill reads as nested without box-in-box borders. */
-  background-color: #f6f8fb;
+/* Telemetry & alert banner gradients in light mode */
+:root[data-theme="light"] :is([class*="from-warning"], [class*="border-warning"]):is([class*="via-[#"], [class*="bg-gradient"]) {
+  --tw-gradient-via: #fef3c7;
+  --tw-gradient-to: #fffbeb;
+  background-color: #fffbeb;
+}
+:root[data-theme="light"] :is([class*="from-critical"], [class*="border-critical"]):is([class*="via-[#"], [class*="bg-gradient"]) {
+  --tw-gradient-via: #fee2e2;
+  --tw-gradient-to: #fef2f2;
+  background-color: #fef2f2;
+}
+:root[data-theme="light"] :is([class*="from-accent"], [class*="border-accent"]):is([class*="via-[#"], [class*="bg-gradient"]) {
+  --tw-gradient-via: #e0e7ff;
+  --tw-gradient-to: #eff6ff;
+  background-color: #eff6ff;
+}
+:root[data-theme="light"] :is([class*="from-nominal"], [class*="border-nominal"]):is([class*="via-[#"], [class*="bg-gradient"]) {
+  --tw-gradient-via: #d1fae5;
+  --tw-gradient-to: #ecfdf5;
+  background-color: #ecfdf5;
+}
+
+/* Tech panel gradients in light mode transition gracefully across offwhite tones */
+:root[data-theme="light"] :is([class*="from-[#0"], [class*="from-[#1"], [class*="from-[#2"]):not([class*="to-transparent"], [class*="via-transparent"], [class*="from-warning"], [class*="from-critical"], [class*="from-accent"], [class*="from-nominal"], [data-theme="dark"], [data-theme="dark"] *) {
+  --tw-gradient-from: #ffffff;
+}
+:root[data-theme="light"] :is([class*="via-[#0"], [class*="via-[#1"], [class*="via-[#2"]):not([class*="to-transparent"], [class*="via-transparent"], [class*="from-warning"], [class*="from-critical"], [class*="from-accent"], [class*="from-nominal"], [data-theme="dark"], [data-theme="dark"] *) {
+  --tw-gradient-via: #fafbfe;
+}
+:root[data-theme="light"] :is([class*="to-[#0"], [class*="to-[#1"], [class*="to-[#2"]):not([class*="to-transparent"], [class*="via-transparent"], [class*="from-warning"], [class*="from-critical"], [class*="from-accent"], [class*="from-nominal"], [data-theme="dark"], [data-theme="dark"] *) {
+  --tw-gradient-to: #edf1f7;
+}
+
+/* Public navbar / header in light mode */
+:root[data-theme="light"] header:is([class*="bg-[#020408]"], [class*="bg-[#040814]"], [class*="bg-[#02050e]"]) {
+  background-color: rgba(255, 255, 255, 0.94) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 249, 251, 0.92) 100%) !important;
+  border-bottom-color: var(--color-border-subtle) !important;
+  box-shadow: 0 4px 16px -4px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Inner panels, wells, and nested containers inside cards */
+:root[data-theme="light"] :is([class*="bg-[#0"], [class*="bg-[#1"]):not([role="dialog"], [class*="fixed"], [data-theme="dark"], [data-theme="dark"] *) {
+  background-color: #f7f9fc;
+  background-image: linear-gradient(180deg, #fbfcfd 0%, #f1f4f8 100%);
 }
 :root[data-theme="light"] :is([class*="border-[#0"], [class*="border-[#1"], [class*="border-[#2"], [class*="border-white/"]):not([data-theme="dark"] *) {
-  border-color: var(--color-border-default);
+  border-color: var(--color-border-subtle);
 }
-:root[data-theme="light"] :is([class~="bg-black/20"], [class~="bg-black/30"], [class~="bg-black/40"]):not([data-theme="dark"] *) {
+:root[data-theme="light"] :is([class~="bg-black/20"], [class~="bg-black/30"], [class~="bg-black/40"]):not([class*="fixed"], [data-theme="dark"] *) {
   background-color: var(--color-page-soft);
 }
 :root[data-theme="light"] [class*="bg-white/"]:not([data-theme="dark"] *) {
-  background-color: rgba(15, 23, 42, 0.04);
+  background-color: rgba(15, 23, 42, 0.05);
 }
 
-/* White text -> ink, except on solid coloured or dark fills where it must stay white. */
+/* White text -> ink, except on solid colored or dark fills where it must stay white */
 :root[data-theme="light"] .text-white:not([data-theme="dark"] *) {
   color: var(--color-text-primary);
 }
@@ -415,21 +588,28 @@ body {
 :root[data-theme="light"] :is(
     [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-accent-dark"],
     [class~="bg-critical"], [class~="bg-nominal"], [class~="bg-warning"], [class~="bg-special"],
-    [class~="bg-blue-600"], [class~="bg-red-600"], [class~="bg-emerald-600"], [class~="bg-purple-600"],
-    [class~="bg-amber-600"], [class~="bg-[#FF6B00]"], [class~="bg-[#dc2626]"], [class*="bg-black/6"], [class*="bg-black/7"],
+    [class~="bg-blue-500"], [class~="bg-blue-600"], [class~="bg-blue-700"],
+    [class~="bg-indigo-600"], [class~="bg-indigo-700"],
+    [class~="bg-red-500"], [class~="bg-red-600"], [class~="bg-red-700"],
+    [class~="bg-emerald-500"], [class~="bg-emerald-600"], [class~="bg-emerald-700"],
+    [class~="bg-purple-500"], [class~="bg-purple-600"], [class~="bg-purple-700"],
+    [class~="bg-amber-500"], [class~="bg-amber-600"], [class~="bg-amber-700"],
+    [class~="bg-[#FF6B00]"], [class~="bg-[#dc2626]"], [class*="bg-black/6"], [class*="bg-black/7"],
     [class*="bg-black/8"], [class~="bg-black"]
   ):is(.text-white, [class*="text-white/"]),
-/* Descendants only for solid brand fills (buttons, chips). Translucent black is usually a
-   modal backdrop, whose light-themed dialog content must not inherit white text. */
 :root[data-theme="light"] :is(
     [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-accent-dark"],
     [class~="bg-critical"], [class~="bg-nominal"], [class~="bg-warning"], [class~="bg-special"],
-    [class~="bg-blue-600"], [class~="bg-red-600"], [class~="bg-emerald-600"], [class~="bg-purple-600"],
-    [class~="bg-amber-600"], [class~="bg-[#FF6B00]"], [class~="bg-[#dc2626]"]
+    [class~="bg-blue-500"], [class~="bg-blue-600"], [class~="bg-blue-700"],
+    [class~="bg-indigo-600"], [class~="bg-indigo-700"],
+    [class~="bg-red-500"], [class~="bg-red-600"], [class~="bg-red-700"],
+    [class~="bg-emerald-500"], [class~="bg-emerald-600"], [class~="bg-emerald-700"],
+    [class~="bg-purple-500"], [class~="bg-purple-600"], [class~="bg-purple-700"],
+    [class~="bg-amber-500"], [class~="bg-amber-600"], [class~="bg-amber-700"],
+    [class~="bg-[#FF6B00]"], [class~="bg-[#dc2626]"]
   ) :is(.text-white, [class*="text-white/"]) {
   color: #ffffff;
 }
-/* "hover:text-white" was written for dark hover fills; on light hover fills keep ink. */
 :root[data-theme="light"] [class*="hover:text-white"]:not([data-theme="dark"] *):hover {
   color: var(--color-text-primary);
 }
@@ -438,12 +618,24 @@ body {
   color: #ffffff;
 }
 
-/* Elevation shadows were tuned for black backgrounds; on white they read as smudges. */
-:root[data-theme="light"] :is(.shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl):not([data-theme="dark"] *) {
-  --tw-shadow-color: rgb(15 23 42 / 0.10);
+/* Subtle code & keyboard badges in light mode */
+:root[data-theme="light"] code:is([class*="bg-[#"]) {
+  background-color: #e2e8f0;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+:root[data-theme="light"] kbd:is([class*="bg-[#"]) {
+  background-color: #f1f5f9;
+  color: #334155;
+  border-color: #cbd5e1;
 }
 
-/* Orange brand accent text is too light on white. */
+/* Elevation shadows */
+:root[data-theme="light"] :is(.shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl):not([data-theme="dark"] *) {
+  --tw-shadow-color: rgb(15 23 42 / 0.12);
+}
+
+/* Orange brand accent text contrast */
 :root[data-theme="light"] :is([class*="text-[#FF8533]"], [class*="text-[#FF6B00]"], [class*="text-[#38BDF8]"]):not([data-theme="dark"] *) {
   color: #c2410c;
 }
