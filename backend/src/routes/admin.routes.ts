@@ -9,6 +9,8 @@ import { driveDetectorService } from '../services/driveDetector.service.js'
 import { bootstrapService } from '../services/bootstrap.service.js'
 import { emailService } from '../services/email.service.js'
 import { AppError } from '../lib/errors.js'
+import { adminPasswordResetRateLimiter } from '../middleware/rateLimiter.middleware.js'
+import { decryptField } from '../lib/encryption.js'
 
 const router = Router()
 const ALLOWED_CONFIG_KEYS = new Set([
@@ -34,8 +36,8 @@ router.get('/admin/stats', authMiddleware, adminMiddleware, async (req, res, nex
     ] = await Promise.all([
       prisma.user.count({ where: { deletedAt: null } }),
       prisma.file.count({ where: { nodeType: 'FILE', deletedAt: null } }),
-      prisma.department.count({ where: { deletedAt: null } }),
-      prisma.satellite.count({ where: { deletedAt: null } }),
+      prisma.department.count({ where: { isActive: true, deletedAt: null } }),
+      prisma.satellite.count({ where: { isActive: true, deletedAt: null } }),
       prisma.user.count({ where: { status: 'PENDING', deletedAt: null } }),
       prisma.file.aggregate({
         _sum: { sizeBytes: true },
@@ -405,7 +407,7 @@ router.post('/admin/setup/bootstrap-defaults', authMiddleware, adminMiddleware, 
 // ============================================================
 // PASSWORD RESET OTP QUEUE & TEMPLATES
 // ============================================================
-router.get('/admin/password-resets', authMiddleware, adminMiddleware, async (req, res, next) => {
+router.get('/admin/password-resets', authMiddleware, adminMiddleware, adminPasswordResetRateLimiter, async (req, res, next) => {
   try {
     const notifications = await prisma.notification.findMany({
       where: {
@@ -492,12 +494,15 @@ router.get('/admin/password-resets', authMiddleware, adminMiddleware, async (req
           'Unassigned / General'
         const departmentCode = userObj?.departmentAccess?.[0]?.department?.code || null
 
+        // Decrypt sensitive OTP code at rest for authorized administrative dispatch
+        const rawOtp = meta.otp ? decryptField(meta.otp) : ''
+
         const templateText = emailService.generatePasswordResetTemplate(
           {
             userName: userObj?.name || meta.userName || 'Operator',
             userEmail: userObj?.email || meta.userEmail || '',
             employeeId: userObj?.employeeId || meta.employeeId,
-            otp: meta.otp || '',
+            otp: rawOtp,
             expiryMinutes: meta.expiryMinutes || 15,
             expiresAt: expiresAt || new Date(Date.now() + 15 * 60 * 1000),
           },
@@ -516,7 +521,7 @@ router.get('/admin/password-resets', authMiddleware, adminMiddleware, async (req
           userStatus: userObj?.status || 'ACTIVE',
           department: departmentName,
           departmentCode,
-          otp: meta.otp,
+          otp: rawOtp,
           expiryMinutes: meta.expiryMinutes || 15,
           expiresAt: meta.expiresAt,
           createdAt: n.createdAt,

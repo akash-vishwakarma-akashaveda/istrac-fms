@@ -26,6 +26,8 @@ import { sessionStore } from '../services/sessionStore.js'
 
 import { validate } from '../lib/validate.js'
 import { LoginSchema, RegisterSchema } from '../lib/schema.js'
+import { encryptField } from '../lib/encryption.js'
+import { logger } from '../lib/logger.js'
 const router = Router()
 
 function validatePassword(password: string): void {
@@ -524,22 +526,25 @@ router.post('/forgot-password', forgotPasswordRateLimiter, async (req, res, next
         },
       })
 
-      // If the requester is an ADMIN, print the OTP directly to the terminal stdout.
-      // In single-admin offline environments, this allows the locked-out admin
-      // to immediately view their verification code in the server terminal / logs.
+      // If the requester is an ADMIN, print OTP to terminal stdout ONLY in non-production environments.
+      // In production, sensitive verification codes are never exposed to stdout/log collectors.
       if (user.role === 'ADMIN') {
         const formattedExpiry = expiresAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
-        console.log('\n' + '='.repeat(74))
-        console.log(' [SECURITY] SYSTEM ADMINISTRATOR PASSWORD RESET VERIFICATION CODE')
-        console.log('='.repeat(74))
-        console.log(` Administrator:   ${user.name} (${user.email})`)
-        console.log(` Verification OTP: ${otp}`)
-        console.log(` Validity Window:  ${expiryMinutes} minutes (Expires at ${formattedExpiry} IST)`)
-        console.log('')
-        console.log(' Enter this 6-digit code on the portal verification screen to reset password.')
-        console.log(' Alternatively, reset directly from the terminal:')
-        console.log('   npm run admin:reset-password')
-        console.log('='.repeat(74) + '\n')
+        if (env.NODE_ENV !== 'production') {
+          console.log('\n' + '='.repeat(74))
+          console.log(' [SECURITY] SYSTEM ADMINISTRATOR PASSWORD RESET VERIFICATION CODE')
+          console.log('='.repeat(74))
+          console.log(` Administrator:   ${user.name} (${user.email})`)
+          console.log(` Verification OTP: ${otp}`)
+          console.log(` Validity Window:  ${expiryMinutes} minutes (Expires at ${formattedExpiry} IST)`)
+          console.log('')
+          console.log(' Enter this 6-digit code on the portal verification screen to reset password.')
+          console.log(' Alternatively, reset directly from the terminal:')
+          console.log('   npm run admin:reset-password')
+          console.log('='.repeat(74) + '\n')
+        } else {
+          logger.info(`[SECURITY] Administrator password reset requested for ${user.email}. Verification notification dispatched to active administrators.`)
+        }
       }
 
       // 5. Fetch all active ADMIN users to notify them
@@ -548,7 +553,8 @@ router.post('/forgot-password', forgotPasswordRateLimiter, async (req, res, next
         select: { id: true, email: true, name: true },
       })
 
-      // 6. Create in-app Notifications for admins with OTP metadata
+      // 6. Create in-app Notifications for admins with encrypted OTP metadata
+      const encryptedOtp = encryptField(otp)
       const notificationPromises = adminUsers.map((admin) =>
         prisma.notification.create({
           data: {
@@ -557,9 +563,9 @@ router.post('/forgot-password', forgotPasswordRateLimiter, async (req, res, next
             category: 'SECURITY',
             resourceType: 'PASSWORD_RESET',
             resourceId: resetToken.id,
-            message: `Password reset verification code for ${user.name} (${user.email}): ${otp} (Valid for ${expiryMinutes}m)`,
+            message: `Password reset verification code generated for ${user.name} (${user.email}) (Valid for ${expiryMinutes}m)`,
             metadata: {
-              otp,
+              otp: encryptedOtp,
               tokenRecordId: resetToken.id,
               userId: user.id,
               userName: user.name,
@@ -667,9 +673,9 @@ router.post('/verify-reset-otp', otpRateLimiter, async (req, res, next) => {
       where: { email: normalizedEmail, deletedAt: null },
     })
 
-    if (!user) {
-      await registerOtpFailure(normalizedEmail)
-      throw new AppError('invalid_otp', 'Invalid or expired verification code', 400)
+    if (!user || user.status !== 'ACTIVE') {
+      await registerOtpFailure(normalizedEmail, user?.id)
+      throw new AppError('invalid_otp', 'Invalid or expired verification code. Account must be active and approved by administrator.', 400)
     }
 
     const tokenHash = crypto.createHash('sha256').update(`${normalizedEmail}:${cleanOtp}`).digest('hex')
@@ -736,6 +742,14 @@ router.post('/reset-password', otpRateLimiter, async (req, res, next) => {
 
     if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
       throw new AppError('token_invalid', 'Invalid or expired verification code. Please request a new code from admin.', 400)
+    }
+
+    const userToReset = await prisma.user.findUnique({
+      where: { id: resetToken.userId, deletedAt: null },
+    })
+
+    if (!userToReset || userToReset.status !== 'ACTIVE') {
+      throw new AppError('account_not_active', 'User account is not active or approved by administrator.', 403)
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 12)

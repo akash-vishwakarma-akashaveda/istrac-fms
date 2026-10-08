@@ -43,10 +43,10 @@ export function Files() {
           description="Browse, preview, and download mission telemetry datasets and flight logs."
         />
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
           {/* Department Selector */}
           {activeDepartments.length > 0 && (
-            <div className="w-full min-w-[220px] sm:w-72">
+            <div className="w-full sm:w-72">
               <Select
                 id="active-department"
                 aria-label="Select department"

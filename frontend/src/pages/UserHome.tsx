@@ -34,6 +34,25 @@ import { formatFileSize } from '../lib/formatFileSize'
 import { formatDateTimeIST, formatDateIST } from '../lib/formatDate'
 import { api } from '../lib/axios'
 
+const NOTICE_TYPE_LABELS: Record<string, string> = {
+  ALL: 'All Types',
+  EVENT: 'Mission Events',
+  PASS: 'Satellite Passes',
+  SYSTEM: 'System Alerts',
+  BROADCAST: 'Broadcasts',
+  MAINTENANCE: 'Maintenance',
+  CRITICAL: 'Critical Alerts',
+  EMERGENCY: 'Emergency Bulletins',
+  FILE_UPLOAD: 'File Operations',
+  NOTICE: 'General Notices',
+}
+
+function getNoticeTypeLabel(type: string): string {
+  const upper = type.toUpperCase()
+  if (NOTICE_TYPE_LABELS[upper]) return NOTICE_TYPE_LABELS[upper]
+  return upper.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
 export function UserHome() {
   const user = useAuthStore((state) => state.user)
   const isAdmin = user?.role === 'ADMIN'
@@ -49,7 +68,7 @@ export function UserHome() {
 
   // Fetch complete mission overview payload from real DB
   const { data: overview, isLoading } = useMissionOverview()
-
+  console.log('Mission Overview:', overview)
   // Selected Spacecraft Filter
   const [selectedSpacecraft, setSelectedSpacecraft] = useState<string>('ALL')
 
@@ -165,11 +184,22 @@ export function UserHome() {
     setFilterDateTo('')
   }
 
+  // Dynamic notice types derived from actual records in overview
+  const availableNoticeTypes = useMemo(() => {
+    if (!overview?.notices?.length) return []
+    const typeSet = new Set<string>()
+    overview.notices.forEach((n) => {
+      if (n.type) typeSet.add(n.type.toUpperCase())
+    })
+    return Array.from(typeSet).sort()
+  }, [overview?.notices])
+
   // Filtered notices for modal
   const filteredNotices = useMemo(() => {
     if (!overview?.notices) return []
     if (selectedNoticeType === 'ALL') return overview.notices
-    return overview.notices.filter((n) => n.type === selectedNoticeType)
+    const target = selectedNoticeType.toUpperCase()
+    return overview.notices.filter((n) => (n.type || '').toUpperCase() === target)
   }, [overview?.notices, selectedNoticeType])
 
   // Max spacecraft count for bar chart heights
@@ -219,33 +249,33 @@ export function UserHome() {
       {/* 2. DASHBOARD TOP HEADER & ACTIVE SPACECRAFT SELECTOR */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-border-subtle pb-5">
         <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-accent/40 bg-accent/10 text-accent-light shadow-inner mt-0.5">
-            <Radio size={22} className="animate-pulse" />
+          <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl border border-accent/40 bg-accent/10 text-accent-light shadow-inner mt-0.5">
+            <Radio size={20} className="animate-pulse" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-white leading-tight">
                 Mission Reports Repository
               </h1>
-              <span className="rounded-full bg-nominal/15 border border-nominal/30 px-2.5 py-0.5 text-[10px] font-bold text-nominal uppercase">
+              <span className="rounded-full bg-nominal/15 border border-nominal/30 px-2.5 py-0.5 text-[10px] font-bold text-nominal uppercase shrink-0">
                 Live Station Telemetry
               </span>
             </div>
-            <p className="text-xs text-text-secondary mt-0.5">
+            <p className="text-xs text-text-secondary mt-0.5 truncate">
               {brandTitle}{brandHighlight} • {brandSubtitle || 'Secure Mission Data Portal'}
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 rounded-xl border border-border-default bg-card px-3 py-1.5 shadow-sm">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim">
+        <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
+          <div className="flex items-center justify-between sm:justify-start gap-2 rounded-xl border border-border-default bg-card px-3 py-1.5 shadow-sm">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim shrink-0">
               Filter Spacecraft:
             </span>
             <select
               value={selectedSpacecraft}
               onChange={(e) => setSelectedSpacecraft(e.target.value)}
-              className="bg-transparent text-xs font-bold text-accent-light outline-none cursor-pointer border-0 pr-2"
+              className="bg-transparent text-xs font-bold text-accent-light outline-none cursor-pointer border-0 pr-2 truncate max-w-[180px] sm:max-w-none"
             >
               <option value="ALL" className="bg-[#060c18] text-white">
                 All Spacecraft ({overview?.metrics.totalReports ?? 0})
@@ -258,21 +288,23 @@ export function UserHome() {
             </select>
           </div>
 
-          <Link
-            to="/dashboard/events"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-[#080f1d] px-3.5 py-2 text-xs font-bold text-white hover:border-accent transition-all shadow-sm"
-          >
-            <Calendar size={14} className="text-accent-light" />
-            <span>Passes & Events</span>
-          </Link>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Link
+              to="/dashboard/events"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-default bg-[#080f1d] px-3.5 py-2 text-xs font-bold text-white hover:border-accent transition-all shadow-sm"
+            >
+              <Calendar size={14} className="text-accent-light" />
+              <span>Passes & Events</span>
+            </Link>
 
-          <Link
-            to="/dashboard/files"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-[#080f1d] px-3.5 py-2 text-xs font-bold text-white hover:border-accent transition-all shadow-sm"
-          >
-            <HardDrive size={14} className="text-nominal" />
-            <span>Division Files</span>
-          </Link>
+            <Link
+              to="/dashboard/files"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-default bg-[#080f1d] px-3.5 py-2 text-xs font-bold text-white hover:border-accent transition-all shadow-sm"
+            >
+              <HardDrive size={14} className="text-nominal" />
+              <span>Division Files</span>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -344,59 +376,64 @@ export function UserHome() {
       {/* 4. VISUAL METRICS CHARTS ROW (REAL DATABASE DISTRIBUTIONS) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Spacecraft Distribution */}
-        <div className="rounded-xl border border-border-default bg-card p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-border-subtle pb-3">
-            <div>
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <Radio size={15} className="text-accent-light" />
+        <div className="rounded-xl border border-border-default bg-card p-4 sm:p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-border-subtle pb-3 gap-2">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
+                <Radio size={15} className="text-accent-light shrink-0" />
                 <span>Reports by Spacecraft</span>
               </h3>
-              <p className="text-[11px] text-text-dim">Distribution of telemetry files across spacecraft missions</p>
+              <p className="text-[11px] text-text-dim truncate">Distribution of telemetry files across spacecraft missions</p>
             </div>
-            <span className="text-xs font-mono text-accent-light font-bold">
-              {selectedSpacecraft === 'ALL' ? 'All Missions' : selectedSpacecraft}
-            </span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="sm:hidden text-[10px] text-text-dim font-mono">Scroll →</span>
+              <span className="text-xs font-mono text-accent-light font-bold">
+                {selectedSpacecraft === 'ALL' ? 'All Missions' : selectedSpacecraft}
+              </span>
+            </div>
           </div>
 
           {overview?.spacecraftBreakdown && overview.spacecraftBreakdown.length > 0 ? (
-            <div className="h-56 flex items-end justify-between gap-3 pt-6 pb-2 px-2 border-b border-border-subtle relative">
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-15">
-                <div className="border-b border-dashed border-white w-full" />
-                <div className="border-b border-dashed border-white w-full" />
-                <div className="border-b border-dashed border-white w-full" />
-                <div className="border-b border-dashed border-white w-full" />
-              </div>
+            <div className="overflow-x-auto pb-2 -mx-2 px-2 scrollbar-none touch-pan-x">
+              <div className="h-56 min-w-[480px] sm:min-w-0 flex items-end justify-between gap-3 pt-6 pb-2 px-2 border-b border-border-subtle relative">
+                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-15">
+                  <div className="border-b border-dashed border-white w-full" />
+                  <div className="border-b border-dashed border-white w-full" />
+                  <div className="border-b border-dashed border-white w-full" />
+                  <div className="border-b border-dashed border-white w-full" />
+                </div>
 
-              {overview.spacecraftBreakdown.map((item) => {
-                const heightPercent = Math.max(14, Math.min(100, (item.count / maxSpacecraftCount) * 100))
-                const isSelected =
-                  selectedSpacecraft === 'ALL' ||
-                  selectedSpacecraft.toUpperCase() === item.spacecraft.toUpperCase()
+                {overview.spacecraftBreakdown.map((item) => {
+                  const heightPercent = Math.max(14, Math.min(100, (item.count / maxSpacecraftCount) * 100))
+                  const isSelected =
+                    selectedSpacecraft === 'ALL' ||
+                    selectedSpacecraft.toUpperCase() === item.spacecraft.toUpperCase()
 
-                return (
-                  <div
-                    key={item.spacecraft}
-                    onClick={() => setSelectedSpacecraft(item.spacecraft === selectedSpacecraft ? 'ALL' : item.spacecraft)}
-                    className={`flex flex-col items-center flex-1 h-full justify-end group cursor-pointer transition-all duration-200 ${
-                      isSelected ? 'opacity-100' : 'opacity-35 hover:opacity-80'
-                    }`}
-                  >
-                    <span className="num text-[11px] font-bold text-white mb-1.5 transition-transform group-hover:-translate-y-1">
-                      {item.count}
-                    </span>
+                  return (
                     <div
-                      style={{
-                        height: `${heightPercent}%`,
-                        backgroundColor: item.color,
-                      }}
-                      className="w-full max-w-[48px] rounded-t-md shadow-lg transition-all duration-300 group-hover:brightness-125"
-                    />
-                    <span className="text-[10px] font-semibold text-text-secondary mt-2 truncate max-w-[65px] text-center" title={item.spacecraft}>
-                      {item.spacecraft}
-                    </span>
-                  </div>
-                )
-              })}
+                      key={item.spacecraft}
+                      onClick={() => setSelectedSpacecraft(item.spacecraft === selectedSpacecraft ? 'ALL' : item.spacecraft)}
+                      className={`flex flex-col items-center flex-1 min-w-[48px] sm:min-w-0 h-full justify-end group cursor-pointer transition-all duration-200 ${
+                        isSelected ? 'opacity-100' : 'opacity-35 hover:opacity-80'
+                      }`}
+                    >
+                      <span className="num text-[11px] font-bold text-white mb-1.5 transition-transform group-hover:-translate-y-1">
+                        {item.count}
+                      </span>
+                      <div
+                        style={{
+                          height: `${heightPercent}%`,
+                          backgroundColor: item.color,
+                        }}
+                        className="w-full max-w-[44px] rounded-t-md shadow-lg transition-all duration-300 group-hover:brightness-125"
+                      />
+                      <span className="text-[10px] font-semibold text-text-secondary mt-2 truncate max-w-[62px] text-center" title={item.spacecraft}>
+                        {item.spacecraft}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           ) : (
             <div className="h-56 flex items-center justify-center text-xs text-text-dim">
@@ -406,7 +443,7 @@ export function UserHome() {
         </div>
 
         {/* Category Breakdown */}
-        <div className="rounded-xl border border-border-default bg-card p-5 shadow-sm space-y-4">
+        <div className="rounded-xl border border-border-default bg-card p-4 sm:p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-border-subtle pb-3">
             <div>
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
@@ -418,13 +455,21 @@ export function UserHome() {
             <span className="num text-xs text-nominal font-bold">100% Ingested</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 items-center pt-2">
             <div className="relative flex items-center justify-center">
-              <svg className="w-44 h-44 transform -rotate-90" viewBox="0 0 100 100">
-                {overview?.categoryBreakdown?.map((cat, idx) => {
+              <svg className="w-36 h-36 sm:w-44 sm:h-44 transform -rotate-90" viewBox="0 0 100 100">
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="38"
+                  fill="transparent"
+                  stroke="#1e293b"
+                  strokeWidth="18"
+                />
+                {overview?.categoryBreakdown?.filter((c) => c.percentage > 0).map((cat, idx, activeCats) => {
                   const circumference = 2 * Math.PI * 38 // 238.76
                   const strokeDash = (cat.percentage / 100) * circumference
-                  const prevPercentages = overview.categoryBreakdown
+                  const prevPercentages = activeCats
                     .slice(0, idx)
                     .reduce((acc, curr) => acc + curr.percentage, 0)
                   const offset = -(prevPercentages / 100) * circumference
@@ -452,14 +497,14 @@ export function UserHome() {
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
               {(overview?.categoryBreakdown || []).map((cat) => (
-                <div key={cat.category} className="flex items-center justify-between text-xs py-0.5">
-                  <div className="flex items-center gap-2">
+                <div key={cat.category} className="flex items-center justify-between text-xs py-0.5 gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <span className="h-3 w-3 rounded-sm shrink-0" style={{ backgroundColor: cat.color }} />
-                    <span className="text-text-secondary font-medium">{cat.label}</span>
+                    <span className="text-text-secondary font-medium truncate">{cat.label}</span>
                   </div>
-                  <span className="num font-bold text-white">{cat.count} files ({cat.percentage}%)</span>
+                  <span className="num font-bold text-white shrink-0 pl-1">{cat.count} ({cat.percentage}%)</span>
                 </div>
               ))}
             </div>
@@ -469,18 +514,18 @@ export function UserHome() {
 
       {/* 5. NOTICE BOARD & MISSION BULLETINS (REAL DATABASE NOTIFICATIONS) */}
       <div className="rounded-xl border border-border-default bg-card shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-default bg-surface/50">
-          <div className="flex items-center gap-2">
-            <BellRing size={16} className="text-accent-light animate-bounce" />
-            <h3 className="text-sm font-semibold text-text-primary">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-border-default bg-surface/50 gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <BellRing size={16} className="text-accent-light animate-bounce shrink-0" />
+            <h3 className="text-sm font-semibold text-text-primary truncate">
               Mission Notice Board & Broadcasts
             </h3>
-            <span className="num font-bold text-[10px] text-accent-light rounded-full bg-accent/15 border border-accent/30 px-2 py-0.5">
+            <span className="hidden sm:inline-flex num font-bold text-[10px] text-accent-light rounded-full bg-accent/15 border border-accent/30 px-2 py-0.5 shrink-0">
               Live Station Feed
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
             <Link
               to="/notifications"
               className="text-xs font-bold text-accent-light hover:underline flex items-center gap-1"
@@ -507,7 +552,7 @@ export function UserHome() {
             const isPass = notice.type === 'PASS'
 
             return (
-              <div key={notice.id} className="p-4 space-y-2 hover:bg-card-hover transition-colors">
+              <div key={notice.id} className="p-3.5 sm:p-4 space-y-2 hover:bg-card-hover transition-colors">
                 <div className="flex items-center justify-between">
                   <span
                     className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
@@ -538,7 +583,7 @@ export function UserHome() {
 
       {/* 6. INTERACTIVE DEPARTMENT ACCORDION (FILTERED STRICTLY BY USER ACCESS) */}
       <div className="rounded-xl border border-border-default bg-card shadow-sm overflow-hidden space-y-0">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-5 py-4 border-b border-border-default bg-surface/50 gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-border-default bg-surface/50 gap-2">
           <div>
             <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
               <Building2 size={16} className="text-accent-light" />
@@ -551,7 +596,7 @@ export function UserHome() {
 
           <Link
             to="/dashboard/files"
-            className="text-xs font-bold text-accent-light hover:underline flex items-center gap-1 shrink-0"
+            className="text-xs font-bold text-accent-light hover:underline flex items-center gap-1 shrink-0 self-start sm:self-center"
           >
             <span>Open Repositories</span>
             <ExternalLink size={13} />
@@ -575,25 +620,25 @@ export function UserHome() {
                   <button
                     type="button"
                     onClick={() => toggleDeptAccordion(dept.id)}
-                    className={`w-full flex items-center justify-between p-4 text-left hover:bg-card-hover transition-colors cursor-pointer ${
+                    className={`w-full flex items-center justify-between p-3.5 sm:p-4 text-left hover:bg-card-hover transition-colors cursor-pointer gap-2 ${
                       isExpanded ? 'bg-surface/80 border-b border-border-subtle' : ''
                     }`}
                   >
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-accent/10 text-accent-light font-bold text-xs num">
+                    <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+                      <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-accent/10 text-accent-light font-bold text-xs num">
                         {dept.code || 'DIV'}
                       </div>
 
                       <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-bold text-white truncate">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                          <span className="text-xs sm:text-sm font-bold text-white truncate max-w-[170px] sm:max-w-none">
                             {dept.name}
                           </span>
-                          <span className="rounded bg-nominal/15 border border-nominal/30 px-2 py-0.5 text-[10px] font-bold text-nominal uppercase flex items-center gap-1">
+                          <span className="rounded bg-nominal/15 border border-nominal/30 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold text-nominal uppercase flex items-center gap-1 shrink-0">
                             <Check size={10} />
-                            <span>Cleared Access</span>
+                            <span>Cleared</span>
                           </span>
-                          <span className="rounded bg-surface border border-border-subtle px-2 py-0.5 text-[10px] text-text-dim">
+                          <span className="rounded bg-surface border border-border-subtle px-1.5 py-0.5 text-[9px] sm:text-[10px] text-text-dim shrink-0">
                             {dept.accessLevel === 'READ_WRITE' ? 'READ & WRITE' : 'READ ONLY'}
                           </span>
                         </div>
@@ -603,24 +648,24 @@ export function UserHome() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4 shrink-0 pl-3">
+                    <div className="flex items-center gap-2.5 sm:gap-4 shrink-0 pl-2">
                       <div className="hidden sm:flex flex-col items-end">
                         <span className="text-xs font-bold text-white">{dept.leadOfficer}</span>
                         <span className="text-[10px] text-text-dim">{dept.leadRole}</span>
                       </div>
 
-                      <span className="num font-bold text-xs text-accent-light rounded-full bg-accent/15 border border-accent/30 px-2.5 py-1">
+                      <span className="num font-bold text-[11px] sm:text-xs text-accent-light rounded-full bg-accent/15 border border-accent/30 px-2 sm:px-2.5 py-0.5 sm:py-1 shrink-0">
                         {dept.fileCount} Files
                       </span>
 
-                      <div className="h-7 w-7 rounded-lg border border-border-default bg-surface flex items-center justify-center text-text-secondary">
-                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-lg border border-border-default bg-surface flex items-center justify-center text-text-secondary shrink-0">
+                        {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                       </div>
                     </div>
                   </button>
 
                   {isExpanded && (
-                    <div className="p-5 bg-[#060c18] space-y-4 border-b border-border-subtle animate-in fade-in-50 duration-200">
+                    <div className="p-4 sm:p-5 bg-[#060c18] space-y-4 border-b border-border-subtle animate-in fade-in-50 duration-200">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 rounded-xl border border-border-subtle bg-surface/50">
                         <div className="space-y-0.5">
                           <p className="text-xs font-bold text-white">
@@ -641,8 +686,8 @@ export function UserHome() {
                       </div>
 
                       {dept.files && dept.files.length > 0 ? (
-                        <div className="overflow-x-auto rounded-lg border border-border-subtle bg-card">
-                          <table className="w-full text-left border-collapse min-w-[650px]">
+                        <div className="overflow-x-auto rounded-lg border border-border-subtle bg-card touch-pan-x">
+                          <table className="w-full text-left border-collapse min-w-[620px]">
                             <thead>
                               <tr className="border-b border-border-subtle bg-surface text-[10px] font-bold text-text-dim uppercase tracking-wider">
                                 <th className="px-4 py-2.5">File Name</th>
@@ -802,24 +847,27 @@ export function UserHome() {
 
       {/* 8. RECENT TELEMETRY REPORTS TABLE (FULL WIDTH HIGH-DENSITY) */}
       <div className="rounded-xl border border-border-default bg-card shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-default bg-surface/50">
-          <div className="flex items-center gap-2">
-            <FileText size={15} className="text-accent-light" />
-            <h3 className="text-sm font-semibold text-text-primary">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-border-default bg-surface/50 gap-2">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <FileText size={15} className="text-accent-light shrink-0" />
+            <h3 className="text-sm font-semibold text-text-primary truncate">
               Active Telemetry Reports ({selectedSpacecraft === 'ALL' ? 'All Missions' : selectedSpacecraft})
             </h3>
-            <span className="num font-bold text-xs text-accent-light rounded-full bg-accent/15 border border-accent/30 px-2 py-0.5">
+            <span className="num font-bold text-xs text-accent-light rounded-full bg-accent/15 border border-accent/30 px-2 py-0.5 shrink-0">
               {filteredRecentReports.length} Files
             </span>
           </div>
 
-          <Link
-            to="/dashboard/files"
-            className="text-xs font-bold text-accent-light hover:underline flex items-center gap-1"
-          >
-            <span>Browse Full Catalog</span>
-            <ArrowRight size={13} />
-          </Link>
+          <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+            <span className="sm:hidden text-[10px] text-text-dim font-mono">Scroll table →</span>
+            <Link
+              to="/dashboard/files"
+              className="text-xs font-bold text-accent-light hover:underline flex items-center gap-1"
+            >
+              <span>Browse Full Catalog</span>
+              <ArrowRight size={13} />
+            </Link>
+          </div>
         </div>
 
         {isLoading ? (
@@ -832,18 +880,18 @@ export function UserHome() {
             <p className="text-xs text-text-dim">Try adjusting your active spacecraft or search criteria above.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[750px]">
+          <div className="overflow-x-auto touch-pan-x">
+            <table className="w-full text-left border-collapse min-w-[720px]">
               <thead>
                 <tr className="border-b border-border-default bg-surface text-[10px] font-bold text-text-dim uppercase tracking-wider">
-                  <th className="px-4 py-3">Report Title</th>
-                  <th className="px-4 py-3">Spacecraft</th>
-                  <th className="px-4 py-3">Category</th>
-                  <th className="px-4 py-3">Division</th>
-                  <th className="px-4 py-3">Size</th>
-                  <th className="px-4 py-3">Date Added</th>
-                  <th className="px-4 py-3">Author</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <th className="px-3 sm:px-4 py-2.5 sm:py-3">Report Title</th>
+                  <th className="px-3 sm:px-4 py-2.5 sm:py-3">Spacecraft</th>
+                  <th className="px-3 sm:px-4 py-2.5 sm:py-3">Category</th>
+                  <th className="px-3 sm:px-4 py-2.5 sm:py-3">Division</th>
+                  <th className="px-3 sm:px-4 py-2.5 sm:py-3">Size</th>
+                  <th className="px-3 sm:px-4 py-2.5 sm:py-3">Date Added</th>
+                  <th className="px-3 sm:px-4 py-2.5 sm:py-3">Author</th>
+                  <th className="px-3 sm:px-4 py-2.5 sm:py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle text-xs">
@@ -860,37 +908,37 @@ export function UserHome() {
                       })
                     }
                   >
-                    <td className="px-4 py-3">
+                    <td className="px-3 sm:px-4 py-2.5 sm:py-3">
                       <div className="flex items-center gap-2">
-                        <FileIcon nodeType="FILE" mimeType={file.mimeType} size={16} />
-                        <span className="font-bold text-white truncate max-w-[240px]" title={file.title}>
+                        <FileIcon nodeType="FILE" mimeType={file.mimeType} size={15} />
+                        <span className="font-bold text-white truncate max-w-[200px] sm:max-w-[240px]" title={file.title}>
                           {file.title}
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 sm:px-4 py-2.5 sm:py-3">
                       <span className="rounded bg-accent/10 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent-light">
                         {file.spacecraft}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 sm:px-4 py-2.5 sm:py-3">
                       <span className="rounded bg-surface border border-border-subtle px-2 py-0.5 text-[10px] text-text-secondary">
                         {file.category.replace(/_/g, ' ')}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-text-dim">
+                    <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-text-dim">
                       {file.departmentCode}
                     </td>
-                    <td className="px-4 py-3 num text-text-dim">
+                    <td className="px-3 sm:px-4 py-2.5 sm:py-3 num text-text-dim">
                       {formatFileSize(Number(file.sizeBytes))}
                     </td>
-                    <td className="px-4 py-3 num text-text-dim">
+                    <td className="px-3 sm:px-4 py-2.5 sm:py-3 num text-text-dim">
                       {formatDateIST(file.reportDate)} IST
                     </td>
-                    <td className="px-4 py-3 text-text-secondary truncate max-w-[120px]">
+                    <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-text-secondary truncate max-w-[100px] sm:max-w-[120px]">
                       {file.author}
                     </td>
-                    <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         <button
                           type="button"
@@ -939,11 +987,17 @@ export function UserHome() {
               onChange={(e) => setSelectedNoticeType(e.target.value)}
               className="rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1 text-xs text-white outline-none focus:border-accent cursor-pointer"
             >
-              <option value="ALL">All Types</option>
-              <option value="PASS">Satellite Passes</option>
-              <option value="SYSTEM">System Alerts</option>
-              <option value="BROADCAST">Broadcasts</option>
-              <option value="MAINTENANCE">Maintenance</option>
+              <option value="ALL">All Types ({overview?.notices?.length || 0})</option>
+              {availableNoticeTypes.map((type) => {
+                const count = overview?.notices?.filter(
+                  (n) => (n.type || '').toUpperCase() === type
+                ).length || 0
+                return (
+                  <option key={type} value={type}>
+                    {getNoticeTypeLabel(type)} ({count})
+                  </option>
+                )
+              })}
             </select>
           </div>
           <div className="space-y-2.5 max-h-[60vh] overflow-y-auto pr-1">

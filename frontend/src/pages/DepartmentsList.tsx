@@ -12,6 +12,9 @@ function getDeptBanner(dept: Department): string {
     try {
       const parsed = JSON.parse(dept.pageBannerUrl)
       if (Array.isArray(parsed) && parsed[0]?.url) return parsed[0].url
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.slides) && parsed.slides[0]?.url) {
+        return parsed.slides[0].url
+      }
     } catch {
       if (dept.pageBannerUrl.startsWith('http')) return dept.pageBannerUrl
     }

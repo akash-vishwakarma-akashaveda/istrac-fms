@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   Sparkles, FileText, Calendar, Building2,
   Headphones, Info, Radio, ExternalLink, BarChart3, Compass, MapPin, RefreshCw, Megaphone, Orbit,
@@ -155,14 +156,29 @@ function TabButton({
 }
 
 function CmsEditorInner() {
-  const [activeTab, setActiveTab] = useState<TabKey>("hero")
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get("tab") as TabKey | null
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    if (tabParam && TABS.some((t) => t.key === tabParam)) {
+      return tabParam
+    }
+    return "hero"
+  })
   const { triggerRefresh, scrollToSection } = usePreviewRefresh()
+
+  useEffect(() => {
+    if (tabParam && TABS.some((t) => t.key === tabParam) && tabParam !== activeTab) {
+      setActiveTab(tabParam)
+      scrollToSection(tabParam)
+    }
+  }, [tabParam, activeTab, scrollToSection])
 
   const currentTab = TABS.find((t) => t.key === activeTab) ?? TABS[0]
   const TabComponent = currentTab.component
 
   const handleTabChange = (key: TabKey) => {
     setActiveTab(key)
+    setSearchParams({ tab: key }, { replace: true })
     scrollToSection(key)
   }
 

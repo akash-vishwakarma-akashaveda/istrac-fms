@@ -16,7 +16,7 @@ export function AppShell() {
         <Topbar />
 
         <main className="flex-1 overflow-y-auto">
-          <div className="shell-wide py-6">
+          <div className="shell-wide py-4 sm:py-6">
             <Outlet />
           </div>
         </main>

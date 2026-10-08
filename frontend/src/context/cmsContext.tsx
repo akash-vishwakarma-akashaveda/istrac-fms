@@ -152,6 +152,7 @@ export const DEFAULT_CMS_BLOCKS: Record<string, Record<string, unknown>> = {
   department_pages: {
     customContent: {},
     order: [] as string[],
+    layoutMode: 'cards',
   },
   banner: {
     visible: true,

@@ -8,10 +8,12 @@ import {
   User,
   Key,
   ExternalLink,
+  Menu,
 } from 'lucide-react'
 import { useNavigate, Link } from 'react-router-dom'
 
 import { useAuthStore } from '../store/authStore'
+import { useUIStore } from '../store/uiStore'
 import { useNotificationStore } from '../store/notificationStore'
 import { Avatar, UserProfileModal } from '../components'
 import { useNotifications } from '../hooks/useNotifications'
@@ -30,6 +32,7 @@ export function Topbar() {
 
   const user = useAuthStore((state) => state.user)
   const unreadCount = useNotificationStore((state) => state.unreadCount)
+  const toggleMobileSidebar = useUIStore((state) => state.toggleMobileSidebar)
   const { addToast } = useToastStore()
   const { cmsBlocks } = useCms()
 
@@ -88,9 +91,18 @@ export function Topbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border-subtle bg-surface px-4">
-        {/* Readout strip — everything here is machine-produced, so it's all mono. */}
-        <div className="flex min-w-0 items-center gap-3">
+      <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center justify-between gap-3 sm:gap-4 border-b border-border-subtle bg-surface px-3 sm:px-4">
+        {/* Readout strip & Mobile Menu button */}
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={toggleMobileSidebar}
+            className="md:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-[#080e1b] text-text-secondary hover:border-accent hover:text-white transition-colors cursor-pointer shrink-0"
+            aria-label="Open navigation menu"
+          >
+            <Menu size={16} />
+          </button>
+
           <span className="readout text-text-secondary">
             <span
               aria-hidden="true"
@@ -100,7 +112,6 @@ export function Topbar() {
             <span className="sm:hidden font-mono text-xs truncate">{utcTime.slice(11)}</span>
             <span className="hidden sm:inline text-text-dim">UTC</span>
           </span>
-
         </div>
 
         {/* Controls */}
