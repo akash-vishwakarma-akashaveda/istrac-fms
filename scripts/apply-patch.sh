@@ -76,6 +76,55 @@ echo -e "${GREEN}✓ Verified target installation path: ${BOLD}${INSTALL_DIR}${N
 
 FE_BACKUP=""
 BE_BACKUP=""
+SCHEMA_BACKUP=""
+SERVICE_MANAGER=""
+
+# ------------------------------------------------------------------------------
+# Service helpers: systemd (istrac-backend/istrac-worker) or PM2 (ecosystem.config.cjs)
+# ------------------------------------------------------------------------------
+has_systemd_unit() {
+    systemctl cat "$1" >/dev/null 2>&1
+}
+
+pm2_cmd() {
+    # PM2 runs per user (often installed via nvm), so use a login shell of the invoking user.
+    if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+        sudo -u "${SUDO_USER}" -H bash -lc "pm2 $*"
+    else
+        bash -lc "pm2 $*"
+    fi
+}
+
+restart_backend_services() {
+    if has_systemd_unit istrac-backend; then
+        systemctl restart istrac-backend || true
+        has_systemd_unit istrac-worker && { systemctl restart istrac-worker || true; }
+        SERVICE_MANAGER="systemd"
+    elif pm2_cmd describe istrac-sims-backend >/dev/null 2>&1; then
+        pm2_cmd restart istrac-sims-backend --update-env || true
+        pm2_cmd restart istrac-sims-worker --update-env || true
+        SERVICE_MANAGER="pm2"
+    else
+        echo -e "${YELLOW}  ! No systemd unit or PM2 found. Restart the backend manually.${NC}"
+        SERVICE_MANAGER="manual"
+    fi
+}
+
+backend_is_running() {
+    case "${SERVICE_MANAGER:-}" in
+        systemd) systemctl is-active --quiet istrac-backend ;;
+        pm2) pm2_cmd describe istrac-sims-backend 2>/dev/null | grep -qi "status.*online" ;;
+        *) return 0 ;;
+    esac
+}
+
+reload_web_server() {
+    for svc in apache2 httpd nginx; do
+        if systemctl is-active --quiet "$svc" 2>/dev/null; then
+            systemctl reload "$svc" || true
+        fi
+    done
+}
 
 rollback() {
     local reason="${1:-Unknown verification failure}"
@@ -101,16 +150,16 @@ rollback() {
         cp -r "${BE_BACKUP}" "${INSTALL_DIR}/backend/dist"
         chown -R istrac:istrac "${INSTALL_DIR}/backend/dist" 2>/dev/null || true
         
+        if [[ -n "${SCHEMA_BACKUP}" && -f "${SCHEMA_BACKUP}" ]]; then
+            cp "${SCHEMA_BACKUP}" "${INSTALL_DIR}/backend/prisma/schema.prisma"
+        fi
         echo -e "${YELLOW}• Restarting restored backend & worker services...${NC}"
-        systemctl restart istrac-backend || true
-        systemctl restart istrac-worker || true
+        restart_backend_services
         echo -e "${GREEN}  ✓ Backend restored and services restarted.${NC}"
     fi
 
     # 3. Reload Web Server
-    if systemctl is-active --quiet apache2; then
-        systemctl reload apache2 || true
-    fi
+    reload_web_server
 
     echo -e "\n${BOLD}${RED}❌ PATCH ABORTED AND FULLY REVERTED.${NC}"
     echo -e "${BOLD}${YELLOW}Your application and database were NOT harmed and remain in their pre-patch operational state.${NC}"
@@ -137,6 +186,11 @@ if [[ -d "${PATCH_DIR}/backend/dist" && -d "${INSTALL_DIR}/backend/dist" ]]; the
     cp -r "${INSTALL_DIR}/backend/dist" "${BE_BACKUP}"
 fi
 
+if [[ -f "${PATCH_DIR}/backend/prisma/schema.prisma" && -f "${INSTALL_DIR}/backend/prisma/schema.prisma" ]]; then
+    SCHEMA_BACKUP="${INSTALL_DIR}/backend/prisma/schema.prisma.bak_${TIMESTAMP}"
+    cp "${INSTALL_DIR}/backend/prisma/schema.prisma" "${SCHEMA_BACKUP}"
+fi
+
 echo -e "${GREEN}✓ Pre-patch safety backups secured.${NC}"
 
 # ------------------------------------------------------------------------------
@@ -160,11 +214,16 @@ if [[ -d "${PATCH_DIR}/backend/dist" ]]; then
     mkdir -p "${INSTALL_DIR}/backend"
     cp -r "${PATCH_DIR}/backend/dist/." "${INSTALL_DIR}/backend/dist/"
     chown -R istrac:istrac "${INSTALL_DIR}/backend/dist" 2>/dev/null || true
-    
-    echo -e " • Restarting systemd daemons (istrac-backend & istrac-worker)..."
-    systemctl restart istrac-backend || true
-    systemctl restart istrac-worker || true
-    echo -e "${GREEN}  ✓ Backend services restarted.${NC}"
+
+    # Prisma 7 schema fix (no data/migration change): keeps `prisma migrate deploy` working.
+    if [[ -f "${PATCH_DIR}/backend/prisma/schema.prisma" ]]; then
+        mkdir -p "${INSTALL_DIR}/backend/prisma"
+        cp "${PATCH_DIR}/backend/prisma/schema.prisma" "${INSTALL_DIR}/backend/prisma/schema.prisma"
+    fi
+
+    echo -e " • Restarting backend & worker..."
+    restart_backend_services
+    echo -e "${GREEN}  ✓ Backend services restarted (${SERVICE_MANAGER}).${NC}"
 fi
 
 # 2C. Sync helper CLI utilities
@@ -179,7 +238,7 @@ fi
 echo -e "\n${BOLD}${CYAN}Step 3/3: Comprehensive Post-Patch Health Audit...${NC}"
 
 # Audit Test 1: Frontend Entry File Verification
-echo -n " • [Check 1/5] Verifying frontend document root... "
+echo -n " • [Check 1/6] Verifying frontend document root... "
 if [[ -f "${INSTALL_DIR}/frontend/dist/index.html" ]] && grep -q "Iterator" "${INSTALL_DIR}/frontend/dist/index.html"; then
     echo -e "${GREEN}PASSED (Index & Polyfill present)${NC}"
 else
@@ -187,24 +246,24 @@ else
 fi
 
 # Audit Test 2: Backend Systemd Daemon Status
-echo -n " • [Check 2/5] Checking istrac-backend systemd process... "
-sleep 2
-if systemctl is-active --quiet istrac-backend; then
+echo -n " • [Check 2/6] Checking backend process (${SERVICE_MANAGER:-unknown})... "
+sleep 3
+if backend_is_running; then
     echo -e "${GREEN}PASSED (Active / Running)${NC}"
 else
     rollback "istrac-backend daemon failed to stay active after patch!"
 fi
 
 # Audit Test 3: Backend Worker Daemon Status
-echo -n " • [Check 3/5] Checking istrac-worker systemd process... "
-if systemctl is-active --quiet istrac-worker; then
+echo -n " • [Check 3/6] Checking worker process... "
+if [[ "${SERVICE_MANAGER}" != "systemd" ]] || systemctl is-active --quiet istrac-worker; then
     echo -e "${GREEN}PASSED (Active / Running)${NC}"
 else
     echo -e "${YELLOW}WARNING (Worker inactive, non-fatal)${NC}"
 fi
 
 # Audit Test 4: Dynamic Backend HTTP API Health Probe
-echo -n " • [Check 4/5] Probing Backend HTTP API (/api/health)... "
+echo -n " • [Check 4/6] Probing Backend HTTP API (/api/health)... "
 
 # Detect configured backend port from .env or fallback
 DETECTED_PORT="3000"
@@ -238,16 +297,33 @@ else
 fi
 
 # Audit Test 5: Web Server (Apache2) Proxy Verification
-echo -n " • [Check 5/5] Checking Web Server (Apache2) proxy routing... "
-if systemctl is-active --quiet apache2; then
-    APACHE_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1/ 2>/dev/null || echo "000")
-    if [[ "${APACHE_CODE}" == "200" || "${APACHE_CODE}" == "304" ]]; then
-        echo -e "${GREEN}PASSED (Apache serving frontend)${NC}"
+echo -n " • [Check 5/6] Confirming the patched backend code is live... "
+# POST /api/files/tags only exists in this release: 401 (sign-in required) = new code, 404 = old code.
+NEWCODE_CODE="000"
+for base in "http://127.0.0.1:${DETECTED_PORT}" "http://127.0.0.1:3000" "http://127.0.0.1"; do
+    NEWCODE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H 'Content-Type: application/json' -d '{}' "${base}/api/files/tags" 2>/dev/null || echo "000")
+    [[ "${NEWCODE_CODE}" == "401" ]] && break
+done
+if [[ "${NEWCODE_CODE}" == "401" ]]; then
+    echo -e "${GREEN}PASSED (new API routes active)${NC}"
+else
+    rollback "Backend is still serving the old code (probe returned HTTP ${NEWCODE_CODE}). Check that ${INSTALL_DIR}/backend/dist is what the service runs."
+fi
+
+echo -n " • [Check 6/6] Checking web server (Apache/httpd/nginx)... "
+WEB_SVC=""
+for svc in apache2 httpd nginx; do
+    if systemctl is-active --quiet "$svc" 2>/dev/null; then WEB_SVC="$svc"; break; fi
+done
+if [[ -n "${WEB_SVC}" ]]; then
+    WEB_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1/ 2>/dev/null || echo "000")
+    if [[ "${WEB_CODE}" == "200" || "${WEB_CODE}" == "304" ]]; then
+        echo -e "${GREEN}PASSED (${WEB_SVC} serving frontend)${NC}"
     else
-        echo -e "${YELLOW}PASSED WITH NOTICE (Port 80 responded with HTTP ${APACHE_CODE})${NC}"
+        echo -e "${YELLOW}PASSED WITH NOTICE (${WEB_SVC} answered HTTP ${WEB_CODE} on port 80)${NC}"
     fi
 else
-    echo -e "${YELLOW}SKIPPED (Apache2 not managed by this host)${NC}"
+    echo -e "${YELLOW}SKIPPED (no Apache/httpd/nginx service on this host)${NC}"
 fi
 
 # Remove error trap on successful completion

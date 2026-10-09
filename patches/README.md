@@ -7,6 +7,13 @@ Each patch includes all compiled code, installation scripts (`.sh`), service man
 
 ## 📦 Available Patch Releases
 
+### Latest: `patch-2026-10-09-bugfix-security-ui.zip` (Size: ~2.6 MB)
+* **Date**: 2026-10-09
+* **Contents**: BUG-01…17 fixes, security hardening (rate limits, login lockout, OTP cap), light/dark theme, UI consistency, Prisma 7 schema fix, `/api/health` no longer fails without Redis.
+* **Includes the earlier 2026-09-24 patches** (built from current source), so it can be applied directly on top of either.
+* **No database migration, no dependency changes.** Installer supports systemd or PM2 and Apache/httpd/nginx, with automatic rollback.
+* **Instructions**: [`patch-2026-10-09-bugfix-security-ui/README.md`](patch-2026-10-09-bugfix-security-ui/README.md) · full change list in `CHANGES.md`.
+
 ### 1. `patch-2026-09-24-browser-and-resiliency.zip` (Size: ~2.4 MB)
 * **Date**: 2026-09-24
 * **Target Audience**: Systems with older customer browsers experiencing white screens, or servers running without active Redis.

@@ -46,6 +46,53 @@ if [[ ! -d "${INSTALL_DIR}" ]]; then
     exit 1
 fi
 
+# ------------------------------------------------------------------------------
+# Service helpers: systemd (istrac-backend/istrac-worker) or PM2 (ecosystem.config.cjs)
+# ------------------------------------------------------------------------------
+has_systemd_unit() {
+    systemctl cat "$1" >/dev/null 2>&1
+}
+
+pm2_cmd() {
+    # PM2 runs per user (often installed via nvm), so use a login shell of the invoking user.
+    if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+        sudo -u "${SUDO_USER}" -H bash -lc "pm2 $*"
+    else
+        bash -lc "pm2 $*"
+    fi
+}
+
+restart_backend_services() {
+    if has_systemd_unit istrac-backend; then
+        systemctl restart istrac-backend || true
+        has_systemd_unit istrac-worker && { systemctl restart istrac-worker || true; }
+        SERVICE_MANAGER="systemd"
+    elif pm2_cmd describe istrac-sims-backend >/dev/null 2>&1; then
+        pm2_cmd restart istrac-sims-backend --update-env || true
+        pm2_cmd restart istrac-sims-worker --update-env || true
+        SERVICE_MANAGER="pm2"
+    else
+        echo -e "${YELLOW}  ! No systemd unit or PM2 found. Restart the backend manually.${NC}"
+        SERVICE_MANAGER="manual"
+    fi
+}
+
+backend_is_running() {
+    case "${SERVICE_MANAGER:-}" in
+        systemd) systemctl is-active --quiet istrac-backend ;;
+        pm2) pm2_cmd describe istrac-sims-backend 2>/dev/null | grep -qi "status.*online" ;;
+        *) return 0 ;;
+    esac
+}
+
+reload_web_server() {
+    for svc in apache2 httpd nginx; do
+        if systemctl is-active --quiet "$svc" 2>/dev/null; then
+            systemctl reload "$svc" || true
+        fi
+    done
+}
+
 # Find latest frontend backup
 LATEST_FE=$(ls -td "${INSTALL_DIR}/frontend/dist.bak_"* 2>/dev/null | head -n 1 || echo "")
 # Find latest backend backup
@@ -71,11 +118,16 @@ if [[ -n "${LATEST_BE}" ]]; then
     cp -r "${LATEST_BE}" "${INSTALL_DIR}/backend/dist"
     chown -R istrac:istrac "${INSTALL_DIR}/backend/dist" 2>/dev/null || true
     
+    LATEST_SCHEMA=$(ls -t "${INSTALL_DIR}/backend/prisma/schema.prisma.bak_"* 2>/dev/null | head -n 1 || echo "")
+    if [[ -n "${LATEST_SCHEMA}" ]]; then
+        cp "${LATEST_SCHEMA}" "${INSTALL_DIR}/backend/prisma/schema.prisma"
+    fi
     echo -e "${CYAN}🔄 Restarting backend daemons...${NC}"
-    systemctl restart istrac-backend || true
-    systemctl restart istrac-worker || true
-    echo -e "${GREEN}✅ Backend restored and restarted.${NC}"
+    restart_backend_services
+    echo -e "${GREEN}✅ Backend restored and restarted (${SERVICE_MANAGER}).${NC}"
 fi
+
+reload_web_server
 
 echo -e "\n${BOLD}${GREEN}==============================================================================${NC}"
 echo -e "${BOLD}${GREEN} ✅ SYSTEM ROLLED BACK TO PRE-PATCH STATE SUCCESSFULLY!${NC}"

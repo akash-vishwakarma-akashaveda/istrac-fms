@@ -35,7 +35,10 @@ router.get('/health', async (_req, res) => {
     timestamp: new Date().toISOString(),
   }
 
-  res.status(allHealthy ? 200 : 503).json(responsePayload)
+  // Only the database is fatal. Redis has in-memory fallbacks and a missing storage mount
+  // still leaves the app usable, so those report "degraded" with 200; otherwise installers and
+  // load balancers would treat a working server as down.
+  res.status(dbOk ? 200 : 503).json(responsePayload)
 })
 
 // ============================================================
