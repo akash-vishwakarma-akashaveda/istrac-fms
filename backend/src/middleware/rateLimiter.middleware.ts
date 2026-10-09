@@ -19,6 +19,8 @@ setInterval(() => {
   for (const [k, v] of memory) if (v.expiresAt < now) memory.delete(k)
 }, 60_000).unref()
 
+let lastFallbackWarn = 0
+
 /** Increments `key` within a fixed window and returns the new count and seconds left. */
 export async function hitCounter(key: string, windowSeconds: number): Promise<{ count: number; retryAfter: number }> {
   try {
@@ -34,8 +36,10 @@ export async function hitCounter(key: string, windowSeconds: number): Promise<{ 
     }
     return { count, retryAfter: Math.max(1, ttl) }
   } catch (err) {
-    if (env.NODE_ENV === 'production') {
-      logger.warn(`[RateLimiter] Redis unavailable for key '${key}', using in-memory counter: ${err instanceof Error ? err.message : String(err)}`)
+    // Runs on every request while Redis is down, so warn at most once per 10 minutes.
+    if (env.NODE_ENV === 'production' && Date.now() - lastFallbackWarn > 10 * 60_000) {
+      lastFallbackWarn = Date.now()
+      logger.warn(`[RateLimiter] Redis unavailable, using in-memory counters: ${err instanceof Error ? err.message : String(err)}`)
     }
     const now = Date.now()
     const rec = memory.get(key)
@@ -105,21 +109,41 @@ const isDev = env.NODE_ENV === 'development'
 // ============================================================
 
 /** All API traffic per IP. Generous: the SPA polls notifications and banners. */
+// A page load makes ~10-20 API calls and each open tab polls notifications; offices behind
+// one proxy/NAT share an address. Override with GLOBAL_RATE_LIMIT_PER_MIN if needed.
+const GLOBAL_PER_MIN = Number(process.env.GLOBAL_RATE_LIMIT_PER_MIN) || (isDev ? 3000 : 1000)
+
 export const globalRateLimiter = createRateLimiter({
   name: 'global',
-  max: isDev ? 2000 : 300,
+  max: GLOBAL_PER_MIN,
   windowSeconds: 60,
-  key: (req) => (req.path.endsWith('/health') ? null : req.ip || 'unknown'),
+  // Health probes and static media (images) are not API work and are excluded.
+  key: (req) => (/\/health$|^\/(api\/)?media\//.test(req.path) ? null : req.ip || 'unknown'),
   message: (s) => `Too many requests from this network address. Please wait ${minutes(s)} and try again.`,
 })
 
 /** Sign-in attempts per IP (per-account lockout is enforced in the login handler). */
-export const loginRateLimiter = createRateLimiter({
-  name: 'login',
-  max: isDev ? 200 : 20,
-  windowSeconds: 900,
-  message: (s) => `Too many sign-in attempts. Please wait ${minutes(s)} and try again.`,
-})
+/**
+ * Failed sign-ins per IP. Only failures count: offices behind one proxy/NAT share an address,
+ * so counting successful sign-ins would lock everyone out at the start of a shift.
+ * The login handler calls recordLoginFailureForIp() on each failed attempt.
+ */
+const LOGIN_IP_MAX_FAILURES = isDev ? 200 : 30
+const LOGIN_IP_WINDOW = 900
+const loginIpKey = (req: Request) => `rate:login-fail:${req.ip || req.socket.remoteAddress || 'unknown'}`
+
+export async function loginRateLimiter(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const { count, retryAfter } = await peekCounter(loginIpKey(req))
+  if (count >= LOGIN_IP_MAX_FAILURES) {
+    res.setHeader('Retry-After', String(retryAfter || LOGIN_IP_WINDOW))
+    return next(new AppError('rate_limit_exceeded', `Too many failed sign-in attempts from this network address. Please wait ${minutes(retryAfter || LOGIN_IP_WINDOW)} and try again.`, 429))
+  }
+  next()
+}
+
+export async function recordLoginFailureForIp(req: Request): Promise<void> {
+  await hitCounter(loginIpKey(req), LOGIN_IP_WINDOW)
+}
 
 /** Password-reset requests per IP. */
 export const forgotPasswordRateLimiter = createRateLimiter({

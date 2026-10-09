@@ -349,3 +349,38 @@ Review covered all 21 routes in both themes, on desktop and mobile.
 - **Dead route:** `browse.routes.ts` also defines `GET /departments/:deptId/files`, but `department.routes.ts` registers the same path first, so the browse version never runs. It was left in place and should be removed in a later cleanup.
 - **Dialogs in light mode:** the dialogs (edit metadata, upload version, file broadcast, add satellite, schedule event, new department, profile, custom category) and all 11 CMS editor tabs were reviewed in the light theme. Form controls now have one consistent white fill.
 - **Tests:** API checks **18/18** (new: tagging); browser checks **7/7**; builds clean.
+
+---
+
+## 8. Patch verification round (2026-10-09)
+
+The patch was tested as shipped:
+- the compiled `backend/dist` running with `NODE_ENV=production`
+- the built `frontend/dist` behind an Apache-style `/api` proxy
+- the installer on real Linux (WSL Ubuntu)
+- the client's browser version (Chromium **110.0.5481**)
+
+These problems were found and fixed:
+
+| # | Problem found | Impact | Fix |
+|---|---|---|---|
+| 1 | **Home page made ~300 API requests per load** (`/api/cms/blocks` in a loop): `refetch` was a new function every render, and `Landing.tsx` re-ran its effect on each one | Server load; tripped the global rate limit for normal users | `cmsContext.tsx`: memoized `refetch`/`updateBlockLocally` (`useCallback`). Home page: **297 → 17 requests** |
+| 2 | **PDF preview blank in Chrome 110.** pdf.js calls `ArrayBuffer.transferToFixedLength` (Chrome 114+) in its worker; the error is swallowed and the page renders empty | BUG-05 not actually fixed for the client's browser | Polyfill injected into the PDF worker. Verified in Chromium 110 with a 70-page real document |
+| 3 | **Log flood without Redis:** a "[Redis] Connection warning" every 1–3 s, plus one rate-limiter warning **per API request** (from the 2026-10-08 commit) | Fills the journal/disk on servers without Redis | One warning per outage, a reminder every 10 min, and a log line when Redis reconnects |
+| 4 | **Per-IP login limit counted successful sign-ins** (20 / 15 min) | An office behind one proxy/NAT gets locked out at shift start | Only **failed** sign-ins count (30 per IP per 15 min); the per-account lockout is unchanged |
+| 5 | **Global limit too tight** (300 / min per IP) and counted media/image requests | Shared-IP offices hit it | 1000 / min default, `GLOBAL_RATE_LIMIT_PER_MIN` to override, `/media` and `/health` excluded |
+| 6 | **Patch zip had backslash paths** (PowerShell 5 `Compress-Archive`); on Linux the files extract flat (`backend\dist\src\index.js`) | Install fails, or relies on `unzip` quietly converting paths. The 2026-09-24 zips have the same issue | `scripts/make-patch-zip.py` (forward slashes, `*.sh` executable); `build-hot-patch.ps1` now uses it |
+| 7 | **Event job logged every minute** (~1,440 lines/day) even with no changes | Log noise | Logs only when a status actually changes |
+
+**Final results on the shipped artifacts:**
+
+| Check | Result |
+|---|---|
+| Zip contents | Identical to a fresh build from the committed source; no `.env`, source maps or `node_modules` |
+| API checks (production mode) | 18/18 |
+| Upload / category end-to-end | 5/5 |
+| Browser flows (built frontend) | 7/7 |
+| Legacy (no-ES-module) bundle | Signs in, pages load, PDF renders, no page errors |
+| Chromium 110 | Signs in, pages load, PDF text renders (test PDF and a 70-page real document), no page errors |
+| Installer on real Linux | Success path passes all 6 checks; `revert-patch.sh` restores exactly; when the old code is detected it rolls back automatically |
+| Compiled worker | Starts in standalone mode and runs the scheduled job |

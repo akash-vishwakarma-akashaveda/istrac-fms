@@ -45,7 +45,10 @@
 - Consistent buttons and headings
 - Clearer navigation names
 
-**Ops:** `/api/health` now returns 503 only when the database is down. Redis or storage problems report `"status":"degraded"` with HTTP 200, so servers running without Redis aren't treated as down.
+**Ops:**
+- `/api/health` returns 503 only when the database is down. Redis or storage problems report `"status":"degraded"` with HTTP 200.
+- Without Redis, the logs get one warning per outage instead of a line every second.
+- The home page no longer loops on `/api/cms/blocks` (297 → 17 requests per load).
 
 ## Before you apply
 
@@ -54,6 +57,15 @@
    TRUST_PROXY=10.0.0.5          # proxy/load-balancer IP or CIDR
    ```
 2. **Sessions:** nobody is logged out by the patch; open sessions keep working after the restart.
+3. **Rate limits (optional tuning in `backend/.env`):**
+
+   | Limit | Default |
+   |---|---|
+   | API requests per client IP | 1000 / min (`GLOBAL_RATE_LIMIT_PER_MIN`) |
+   | Failed sign-ins per IP | 30 / 15 min (successful sign-ins don't count) |
+   | Wrong passwords per account | 5 → 15-minute lock |
+
+   Raise `GLOBAL_RATE_LIMIT_PER_MIN` only if many users share one proxy/NAT address.
 
 ## Apply
 
@@ -91,9 +103,17 @@ Restores the most recent `dist.bak_*` and `schema.prisma.bak_*` backups made by 
 - Open a PDF preview.
 - Toggle the sun/moon button in the header → light theme; reload → theme is kept.
 
-## Tested
+## Tested (on the shipped files, 2026-10-09)
 
-- API checks: 18/18
-- Upload/category end-to-end: 5/5
-- Browser flows with HTTPS-only features disabled, to mimic an HTTP intranet: 7/7
-- Installer sandbox, both paths: success, and automatic rollback when the old code is detected
+- **Zip:** identical to a fresh build of the committed source; no `.env`, source maps or `node_modules`.
+- **Compiled backend in production mode:**
+  - API checks 18/18
+  - upload/category end-to-end 5/5
+  - compiled worker starts and runs its scheduled job
+- **Built frontend behind an Apache-style proxy:** browser flows 7/7.
+- **Client browser, Chromium 110.0.5481:** sign-in, pages and PDF preview (including a 70-page real document) all work, with no errors.
+- **Legacy bundle (older browsers):** sign-in, pages and PDF preview work.
+- **Installer on real Linux (Ubuntu):**
+  - success path passes all 6 checks
+  - `revert-patch.sh` restores everything exactly
+  - when the old code is still running, the installer rolls back automatically

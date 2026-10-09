@@ -16,6 +16,7 @@ import {
   assertAccountNotLocked,
   recordFailedLogin,
   clearFailedLogins,
+  recordLoginFailureForIp,
   ACCOUNT_LOCK_MAX_FAILURES,
 } from '../middleware/rateLimiter.middleware.js'
 import { signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken } from '../lib/jwt.js'
@@ -134,6 +135,7 @@ router.post('/login', loginRateLimiter, validate(LoginSchema), async (req, res, 
         userAgent: req.get('user-agent'),
         newValue: { email, reason: 'user_not_found' },
       })
+      await recordLoginFailureForIp(req)
       throw new AppError('account_not_found', 'Account not found. Check the email address, or request access if you are new.', 401)
     }
 
@@ -147,6 +149,7 @@ router.post('/login', loginRateLimiter, validate(LoginSchema), async (req, res, 
         userAgent: req.get('user-agent'),
         newValue: { email, reason: 'bad_password' },
       })
+      await recordLoginFailureForIp(req)
       // Generic on purpose: never confirm which half of the credentials was wrong.
       const failures = await recordFailedLogin(email)
       if (failures >= ACCOUNT_LOCK_MAX_FAILURES) {

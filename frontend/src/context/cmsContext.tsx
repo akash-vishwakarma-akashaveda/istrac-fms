@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { cmsApi } from '../api'
 import { wsClient } from '../lib/ws'
 
@@ -220,14 +220,16 @@ export function CmsProvider({ children }: { children: ReactNode }) {
   const [cmsBlocks, setCmsBlocks] = useState<Record<string, Record<string, unknown>>>(DEFAULT_CMS_BLOCKS)
   const [isLoading, setIsLoading] = useState(true)
 
-  function updateBlockLocally(blockKey: string, content: Record<string, unknown>) {
+  const updateBlockLocally = useCallback((blockKey: string, content: Record<string, unknown>) => {
     setCmsBlocks((prev) => ({
       ...prev,
       [blockKey]: content,
     }))
-  }
+  }, [])
 
-  async function fetchBlocks() {
+  // Stable identity matters: pages call refetch() from effects that list it as a dependency.
+  // A new function per render re-ran those effects after every fetch -> endless request loop.
+  const fetchBlocks = useCallback(async () => {
     try {
       const blockMap = await cmsApi.getBlocks()
       if (blockMap && typeof blockMap === 'object') {
@@ -241,7 +243,7 @@ export function CmsProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     fetchBlocks()
@@ -266,7 +268,7 @@ export function CmsProvider({ children }: { children: ReactNode }) {
       unsub2()
       unsub3()
     }
-  }, [])
+  }, [fetchBlocks])
 
   useEffect(() => {
     const navHeader = cmsBlocks['nav_header'] as Record<string, any> | undefined

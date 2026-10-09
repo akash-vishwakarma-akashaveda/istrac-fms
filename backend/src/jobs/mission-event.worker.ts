@@ -70,10 +70,7 @@ export const startMissionEventWorker = async () => {
           await acquireLock()
 
         if (lockAcquired) {
-          console.log(
-            '[Scheduler] Running mission event status job'
-          )
-
+          // The job itself logs when it changes something; a line per run would be ~1,440/day.
           await updateMissionEventStatuses()
 
           lastRun = now

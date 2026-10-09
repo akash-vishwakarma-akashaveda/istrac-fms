@@ -45,11 +45,14 @@ Copy-Item -Recurse (Join-Path $rootDir "backend\dist\*") (Join-Path $tempPatchDi
 # 4. Copy Patch Installer & Guide
 Set-Location $rootDir
 Copy-Item (Join-Path $rootDir "scripts\apply-patch.sh") (Join-Path $tempPatchDir "apply-patch.sh")
+Copy-Item (Join-Path $rootDir "scripts\revert-patch.sh") (Join-Path $tempPatchDir "revert-patch.sh")
 Copy-Item (Join-Path $rootDir "documents\HOT_PATCHING_GUIDE.md") (Join-Path $tempPatchDir "HOT_PATCHING_GUIDE.md")
 
 # 5. Compress Bundle
 Write-Host "`n📦 Creating Compressed Patch Archive: $archivePath" -ForegroundColor Green
-Compress-Archive -Path (Join-Path $tempPatchDir "*") -DestinationPath $archivePath -Force
+# Not Compress-Archive: PowerShell 5 writes backslash paths that extract as flat file names on Linux.
+python (Join-Path $rootDir "scripts\make-patch-zip.py") $tempPatchDir $archivePath
+if ($LASTEXITCODE -ne 0) { Write-Error "Patch zip creation failed!" }
 
 # 6. Cleanup Temporary Folder
 Remove-Item -Recurse -Force $tempPatchDir

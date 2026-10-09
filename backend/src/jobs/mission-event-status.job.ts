@@ -24,6 +24,7 @@ export const updateMissionEventStatuses = async () => {
     }
 
     const count = (k: string) => changes.get(k)?.length ?? 0
+    if (changes.size === 0) return // nothing changed: stay quiet (this runs every minute)
     console.log(
       `[Mission Event Job] Ran status sync at ${now.toISOString()}: ` +
       `${count('UPCOMING')} → UPCOMING | ` +

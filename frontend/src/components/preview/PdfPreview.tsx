@@ -20,10 +20,30 @@ import {
 } from 'lucide-react'
 import { apiClient } from '../../api/client'
 
+// The legacy build still calls ArrayBuffer#transferToFixedLength (Chrome 114+) inside the worker.
+// On Chrome 110 that throws, pdf.js swallows it and renders a blank page, so polyfill it there.
+// A copy is enough: pdf.js only needs a buffer of the requested length.
+const workerPolyfills = `
+for (const name of ['transfer', 'transferToFixedLength']) {
+  if (typeof ArrayBuffer.prototype[name] !== 'function') {
+    Object.defineProperty(ArrayBuffer.prototype, name, {
+      configurable: true,
+      writable: true,
+      value: function (length) {
+        const size = length === undefined ? this.byteLength : length
+        const copy = new ArrayBuffer(size)
+        new Uint8Array(copy).set(new Uint8Array(this, 0, Math.min(size, this.byteLength)))
+        return copy
+      },
+    })
+  }
+}
+`
+
 // Initialize in-memory Blob Worker (self-contained, no extra network request)
 try {
   if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    const blob = new Blob([workerCode], { type: 'text/javascript' })
+    const blob = new Blob([workerPolyfills, workerCode], { type: 'text/javascript' })
     pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob)
   }
 } catch (e) {
