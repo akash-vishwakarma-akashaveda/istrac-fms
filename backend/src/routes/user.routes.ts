@@ -7,6 +7,7 @@ import { auditService } from '../services/audit.service.js'
 import { emailService } from '../services/email.service.js'
 import { notificationService } from '../services/notification.service.js'
 import { AppError } from '../lib/errors.js'
+import { sessionStore } from '../services/sessionStore.js'
 import { categoryCodeOf } from '../lib/reportCategory.js'
 
 const router = Router()
@@ -318,8 +319,9 @@ const suspendUserHandler = async (req: any, res: any, next: any) => {
     if (nextStatus === 'SUSPENDED') {
       await prisma.refreshToken.updateMany({
         where: { userId: user.id, revoked: false },
-        data: { revoked: true, revokedAt: new Date() },
+        data: { revoked: true, revokedAt: new Date(), expiresAt: new Date() },
       })
+      await sessionStore.revokeAllForUser(user.id) // already-issued access tokens stop working now
       emailService.sendSuspensionEmail(user.email, user.name)
     }
 
@@ -349,8 +351,9 @@ const forceLogoutHandler = async (req: any, res: any, next: any) => {
 
     await prisma.refreshToken.updateMany({
       where: { userId, revoked: false },
-      data: { revoked: true, revokedAt: new Date() },
+      data: { revoked: true, revokedAt: new Date(), expiresAt: new Date() },
     })
+    await sessionStore.revokeAllForUser(userId)
 
     res.json({
       data: { message: 'User forced logout successfully' },

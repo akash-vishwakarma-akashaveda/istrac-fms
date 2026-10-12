@@ -15,6 +15,7 @@
   import { hddService } from '../services/hdd.service.js'
   import { auditService } from '../services/audit.service.js'
   import { AppError } from '../lib/errors.js'
+  import { logger } from '../lib/logger.js'
   import { categoryCodeOf, categoryEnumFor, normalizeCategoryCode, reportCategoryWhere } from '../lib/reportCategory.js'
   import { sanitizeSafeFilename } from '../lib/security.js'
   import express from 'express'
@@ -414,6 +415,11 @@
         if (!fileName || chunkIndex === undefined || !departmentId) {
           throw new AppError('missing_chunk_params', 'fileName, chunkIndex, departmentId required', 400)
         }
+        // chunkIndex becomes part of a file path ("part_00012"): only plain integers are allowed,
+        // otherwise a value like "/../../x" would write outside the chunk folder.
+        if (!/^\d{1,4}$/.test(String(chunkIndex)) || Number(chunkIndex) > 999) {
+          throw new AppError('invalid_chunk_index', 'chunkIndex must be a whole number between 0 and 999', 400)
+        }
 
         const safeName = sanitizeSafeFilename(path.basename(fileName))
         const safeDeptId = String(departmentId).replace(/[^a-zA-Z0-9_-]/g, '_')
@@ -654,6 +660,12 @@
           res.setHeader('Content-Length', sizeBytes.toString())
         }
 
+        stream.on('error', (streamErr: Error) => {
+          // Disk unmounted or file removed mid-transfer: end the response instead of crashing.
+          logger.error('FILE_STREAM', `Download stream failed: ${streamErr.message}`)
+          if (!res.headersSent) next(new AppError('file_read_failed', 'The file could not be read from storage. Please try again later.', 503))
+          else res.destroy(streamErr)
+        })
         stream.pipe(res)
 
         if (req.user) {
@@ -814,8 +826,8 @@
         },
       })
 
-      if (!file) throw new AppError('file_not_found', 'File not found', 404)
       const isAdmin = req.user!.role === 'ADMIN'
+      if (!file || (file.deletedAt && !isAdmin)) throw new AppError('file_not_found', 'File not found', 404)
       if (!isAdmin) {
         const hasAccess = await prisma.userDepartmentAccess.findFirst({
           where: { userId: req.user!.id, departmentId: file.departmentId, deletedAt: null },
@@ -1052,10 +1064,10 @@
 
         const version = await prisma.fileVersion.findFirst({
           where: { id: versionId, fileId, deletedAt: null },
-          include: { file: { select: { id: true, name: true, mimeType: true, departmentId: true } } },
+          include: { file: { select: { id: true, name: true, mimeType: true, departmentId: true, deletedAt: true } } },
         })
 
-        if (!version) {
+        if (!version || (version.file.deletedAt && req.user!.role !== 'ADMIN')) {
           throw new AppError('version_not_found', 'Specified file version not found', 404)
         }
 
@@ -1096,6 +1108,12 @@
           res.setHeader('Content-Length', version.sizeBytes.toString())
         }
 
+        stream.on('error', (streamErr: Error) => {
+          // Disk unmounted or file removed mid-transfer: end the response instead of crashing.
+          logger.error('FILE_STREAM', `Download stream failed: ${streamErr.message}`)
+          if (!res.headersSent) next(new AppError('file_read_failed', 'The file could not be read from storage. Please try again later.', 503))
+          else res.destroy(streamErr)
+        })
         stream.pipe(res)
 
         auditService.log({

@@ -384,3 +384,26 @@ These problems were found and fixed:
 | Chromium 110 | Signs in, pages load, PDF text renders (test PDF and a 70-page real document), no page errors |
 | Installer on real Linux | Success path passes all 6 checks; `revert-patch.sh` restores exactly; when the old code is detected it rolls back automatically |
 | Compiled worker | Starts in standalone mode and runs the scheduled job |
+
+## 9. Full-code regression round (2026-10-12)
+
+Every route, middleware and main UI flow was reviewed, and a new regression suite was run against the compiled production backend: `scripts/qa/regression-check.mjs` covers anonymous, member and admin users. These problems were found and fixed:
+
+| # | Problem found | Impact | Fix |
+|---|---|---|---|
+| A | Search showed members files from their *registration preference* department, even without an access grant | Data exposure across departments | Members search only departments they have been granted. Anonymous visitors see featured files in active departments only |
+| B | Chunk upload `chunkIndex` went into a file path unchecked | Path traversal (writes outside the chunk folder) | Must be an integer from 0 to 999 |
+| C | The department hub was open to any signed-in user | Data exposure | `deptAccessMiddleware` added; resolves the department by id **or** code |
+| D | `dept:CODE` search operator was ignored | Wrong results | Applied; an unknown code returns no results |
+| E | `hddPath` (server disk path) returned to non-admins | Infrastructure disclosure | Admin-only |
+| F | Any user could delete shared naming presets | Integrity | Admin-only |
+| G | A disk read error mid-download crashed the process (unhandled stream `error`) | Outage | Logged; returns 503 or closes the response |
+| H | Version history and downloads of trashed files were open to non-admins | Bypasses Trash | Admin-only |
+| I | Suspend, force-logout, password reset and change-password did not end existing sessions (access tokens stayed valid for up to 15 min) | Account takeover persisted | Per-user revocation timestamp (`iatMs` claim, millisecond precision). Change-password signs out other devices and gives the current device fresh tokens |
+| J | Department access denials were cached | A newly granted user stayed blocked | Only grants are cached (30 s) |
+| K | Re-uploading a file whose old copy was in Trash collided on disk | Upload failure or overwrite | The new copy gets a unique stored name |
+| L | `DynamicAlertBanner` called a React hook after early returns | Page crash ("Rendered more hooks…") when the first alert appears | Hook moved above the returns |
+
+Other lint findings were reviewed: the `exhaustive-deps` and `set-state-in-effect` warnings are intentional (each effect lists the inputs of its fetch function), and none caused a runtime bug.
+
+**Results:** regression 25/25, API 18/18, upload 5/5 and browser flows 7/7, all on rebuilt artifacts. The patch folder and zip have been rebuilt.

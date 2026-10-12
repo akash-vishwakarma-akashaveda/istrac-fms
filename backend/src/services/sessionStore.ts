@@ -6,8 +6,37 @@ const BLACKLIST_PREFIX = 'blacklist:'
 // In-memory fallback map if Redis is not running
 const memSessions = new Map<string, { value: string; expiresAt: number }>()
 const memBlacklist = new Map<string, number>()
+const memUserRevoked = new Map<string, number>()
+// Access tokens live 15 minutes; remembering a revocation for 20 covers every token it affects.
+const USER_REVOKE_TTL_SECONDS = 20 * 60
 
 export const sessionStore = {
+  /** Invalidate every access token already issued to this user (suspend, force logout, password change). */
+  async revokeAllForUser(userId: string) {
+    const at = Date.now()
+    try {
+      await redis.set(`user-revoked:${userId}`, String(at), 'EX', USER_REVOKE_TTL_SECONDS)
+    } catch {
+      memUserRevoked.set(userId, at)
+    }
+  },
+
+  /** Time (ms) after which this user's tokens are valid again, or null. */
+  async userRevokedAt(userId: string): Promise<number | null> {
+    try {
+      const v = await redis.get(`user-revoked:${userId}`)
+      return v ? Number(v) : null
+    } catch {
+      const at = memUserRevoked.get(userId)
+      if (!at) return null
+      if (Date.now() - at > USER_REVOKE_TTL_SECONDS * 1000) {
+        memUserRevoked.delete(userId)
+        return null
+      }
+      return at
+    }
+  },
+
   // Store an active refresh token session, TTL matches token expiry (7 days)
   async set(userId: string, tokenId: string, ttlSeconds = 60 * 60 * 24 * 7) {
     try {

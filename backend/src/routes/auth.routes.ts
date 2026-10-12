@@ -2,7 +2,6 @@ import { Router } from 'express'
 import bcrypt from 'bcrypt'
 import * as crypto from 'node:crypto'
 import { prisma } from '../config/db.js'
-import { redis } from '../config/redis.js'
 import { env } from '../config/env.js'
 import { authMiddleware } from '../middleware/auth.middleware.js'
 import {
@@ -772,6 +771,8 @@ router.post('/reset-password', otpRateLimiter, async (req, res, next) => {
       }),
     ])
 
+    await sessionStore.revokeAllForUser(resetToken.userId)
+
     auditService.log({
       userId: resetToken.userId,
       action: 'PASSWORD_RESET_SUCCESS',
@@ -827,23 +828,33 @@ const handleChangePassword = async (req: any, res: any, next: any) => {
       }),
       prisma.refreshToken.updateMany({
         where: { userId: user.id, revoked: false },
-        data: { revoked: true, revokedAt: new Date() },
+        data: { revoked: true, revokedAt: new Date(), expiresAt: new Date() },
       }),
     ])
 
-    const authHeader = req.headers.authorization
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      try {
-        const decoded = verifyAccessToken(authHeader.slice(7))
-        const remainingTtl = Math.ceil(decoded.exp! - Date.now() / 1000)
-        if (remainingTtl > 0 && redis && redis.status === 'ready') {
-          await redis.setex(`blacklist:${decoded.jti}`, remainingTtl, '1')
-        }
-      } catch {}
-    }
+    // Sign out every session that used the old password (works with or without Redis)...
+    await sessionStore.revokeAllForUser(user.id)
+
+    // ...but keep this one: hand back a fresh token pair so the user stays signed in here.
+    const accessToken = signAccessToken({ id: user.id, role: user.role, email: user.email, name: user.name })
+    const rawRefreshToken = signRefreshToken(user.id)
+    await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: crypto.createHash('sha256').update(rawRefreshToken).digest('hex'),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    })
+    const isProdCookie = env.NODE_ENV === 'production'
+    res.cookie('refreshToken', rawRefreshToken, {
+      httpOnly: true,
+      sameSite: isProdCookie ? 'none' : 'lax',
+      secure: isProdCookie,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    })
 
     res.json({
-      data: { message: 'Password updated successfully' },
+      data: { message: 'Password updated. Other devices have been signed out.', accessToken, refreshToken: rawRefreshToken },
       requestId: req.requestId,
     })
   } catch (err) {

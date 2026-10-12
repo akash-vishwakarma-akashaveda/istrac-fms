@@ -9,6 +9,7 @@ import { adminMiddleware } from '../middleware/admin.middleware.js'
 import { auditService } from '../services/audit.service.js'
 import { notificationService } from '../services/notification.service.js'
 import { AppError } from '../lib/errors.js'
+import { deptAccessMiddleware } from '../middleware/deptAccess.middleware.js'
 import { categoryCodeOf } from '../lib/reportCategory.js'
 
 const router = Router()
@@ -339,7 +340,7 @@ router.get('/departments/:deptId/files', optionalAuthMiddleware, async (req, res
 // ============================================================
 // DEPARTMENT WORKSPACE & SHOWCASE HUB
 // ============================================================
-router.get('/departments/:deptId/hub', authMiddleware, async (req, res, next) => {
+router.get('/departments/:deptId/hub', authMiddleware, deptAccessMiddleware, async (req, res, next) => {
   try {
     const rawDeptId = req.params.deptId
     const deptId = Array.isArray(rawDeptId) ? rawDeptId[0] : rawDeptId

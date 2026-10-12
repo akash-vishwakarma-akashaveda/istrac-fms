@@ -7,6 +7,15 @@ import { AppError } from '../lib/errors.js'
 // AUTH MIDDLEWARE
 // ============================================================
 
+/** True if an admin suspended/force-logged-out this user (or their password changed) after the token was issued. */
+async function issuedBeforeRevocation(payload: { id: string; iat?: number; iatMs?: number }): Promise<boolean> {
+  const revokedAt = await sessionStore.userRevokedAt(payload.id)
+  if (!revokedAt) return false
+  // Tokens carry a millisecond issue time; older tokens only have whole-second iat.
+  const issuedAt = payload.iatMs ?? (payload.iat ? payload.iat * 1000 : 0)
+  return issuedAt < revokedAt
+}
+
 /**
  * Extracts and validates the Bearer token from the Authorization header.
  *
@@ -32,7 +41,7 @@ export async function authMiddleware(req: Request, _res: Response, next: NextFun
     const payload = verifyAccessToken(token)
  
     // Check blacklist safely (handles Redis & in-memory fallback)
-    const blacklisted = await sessionStore.isBlacklisted(payload.jti) 
+    const blacklisted = await sessionStore.isBlacklisted(payload.jti) || (await issuedBeforeRevocation(payload)) 
     if (blacklisted) {
       throw new AppError('token_revoked', 'Token has been revoked', 401)
     }
@@ -75,7 +84,7 @@ export async function optionalAuthMiddleware(req: Request, _res: Response, next:
     const token = authHeader.slice(7)
     const payload = verifyAccessToken(token)
 
-    const blacklisted = await sessionStore.isBlacklisted(payload.jti)
+    const blacklisted = await sessionStore.isBlacklisted(payload.jti) || (await issuedBeforeRevocation(payload))
     if (blacklisted) {
       throw new AppError('token_revoked', 'Token has been revoked', 401)
     }

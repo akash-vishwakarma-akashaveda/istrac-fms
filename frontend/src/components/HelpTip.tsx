@@ -55,6 +55,7 @@ const HELP: Record<HelpTopic, { title: string; full: string[]; public: string[] 
     full: [
       'Search looks across report titles, file names, descriptions, spacecraft, authors and department names or codes.',
       'Partial words work and case is ignored, so "chandra" finds "Chandrayaan-3".',
+      'Shortcuts: type:pdf (or ext:csv) limits the file type, dept:FDD limits to one division.',
       'Use the side filters (category, format, date) to narrow the results; they combine with the search text.',
     ],
     public: ['Sign in to search mission reports.'],

@@ -68,32 +68,9 @@ export const searchService = {
         select: { departmentId: true },
       })
 
-      if (userAccess.length > 0) {
-        allowedDeptIds = userAccess.map((a: any) => a.departmentId)
-      } else {
-        // Fallback to user's assigned department preference if any
-        const user = await prisma.user.findUnique({
-          where: { id: params.userId },
-          select: { departmentPreference: true },
-        })
-        if (user?.departmentPreference) {
-          const dept = await prisma.department.findFirst({
-            where: {
-              OR: [
-                { id: user.departmentPreference },
-                { code: user.departmentPreference },
-                { name: user.departmentPreference },
-              ],
-              isActive: true,
-              deletedAt: null,
-            },
-            select: { id: true },
-          })
-          if (dept) {
-            allowedDeptIds = [dept.id]
-          }
-        }
-      }
+      // Only departments an administrator has granted. (The self-chosen registration
+      // preference must not grant anything.)
+      allowedDeptIds = userAccess.map((a: any) => a.departmentId)
 
       // If member has no assigned department access at all, return empty results
       if (!allowedDeptIds || allowedDeptIds.length === 0) {
@@ -113,10 +90,17 @@ export const searchService = {
       }
     }
 
+    // dept:FDD narrows to one department (by code); previously parsed but never applied.
+    let departmentFilter = params.departmentId
     if (cleanTerm.includes("dept:")) {
       const deptMatch = cleanTerm.match(/dept:([a-zA-Z0-9_-]+)/i)
       if (deptMatch && deptMatch[1]) {
         cleanTerm = cleanTerm.replace(/dept:[a-zA-Z0-9_-]+/gi, "").trim()
+        if (!departmentFilter || departmentFilter === "ALL") {
+          const byCode = await prisma.department.findFirst({ where: { code: deptMatch[1], deletedAt: null }, select: { id: true } })
+          if (!byCode) return { results: [], total: 0, page, limit }
+          departmentFilter = byCode.id
+        }
       }
     }
 
@@ -126,13 +110,21 @@ export const searchService = {
       nodeType: "FILE",
     }
 
+    // Anonymous visitors only see the public showcase: featured files in active departments
+    // (the same rule the download route applies).
+    if (!params.userId) {
+      whereClause.isFeatured = true
+      whereClause.department = { isActive: true, deletedAt: null }
+    }
+
     // Text search condition
     if (cleanTerm) {
       whereClause.OR = [
         { name: { contains: cleanTerm } },
         { description: { contains: cleanTerm } },
         { extension: { contains: cleanTerm } },
-        { hddPath: { contains: cleanTerm } },
+        // Server paths are internal: only administrators may search by them.
+        ...(params.isAdmin ? [{ hddPath: { contains: cleanTerm } }] : []),
         { report: { title: { contains: cleanTerm } } },
         { report: { spacecraft: { contains: cleanTerm } } },
         { report: { createdBy: { name: { contains: cleanTerm } } } },
@@ -142,12 +134,12 @@ export const searchService = {
     }
 
     // Department filtering (Admin can choose ANY department; Member is constrained by their allowedDeptIds)
-    if (params.departmentId && params.departmentId !== "ALL") {
-      if (allowedDeptIds && !allowedDeptIds.includes(params.departmentId)) {
+    if (departmentFilter && departmentFilter !== "ALL") {
+      if (allowedDeptIds && !allowedDeptIds.includes(departmentFilter)) {
         // User requested a department they don't have access to
         return { results: [], total: 0, page, limit }
       }
-      whereClause.departmentId = params.departmentId
+      whereClause.departmentId = departmentFilter
     } else if (allowedDeptIds && allowedDeptIds.length > 0) {
       whereClause.departmentId = { in: allowedDeptIds }
     }
@@ -248,7 +240,7 @@ export const searchService = {
       satelliteId: f.department?.satelliteId || f.department?.satellite?.id || null,
       satelliteName: f.report?.spacecraft || f.department?.satellite?.name || "",
       satelliteCode: f.department?.satellite?.code || null,
-      hddPath: f.hddPath || "",
+      hddPath: params.isAdmin ? f.hddPath || "" : "",
       reportTitle: f.report?.title || f.name.replace(/\.[^/.]+$/, "").replace(/_/g, " "),
       reportAuthor: f.report?.createdBy?.name || f.uploader?.name || null,
       reportCategory: categoryCodeOf(f.report),

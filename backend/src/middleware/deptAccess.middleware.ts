@@ -30,8 +30,9 @@ export async function deptAccessMiddleware(req: Request, _res: Response, next: N
     // ----------------------------------------------------------
     // 1. Department active status check (Non-admins cannot access archived depts)
     // ----------------------------------------------------------
-    const dept = await prisma.department.findUnique({
-      where: { id: deptId, deletedAt: null },
+    // Routes accept a department id or its short code (e.g. /departments/FDD/hub).
+    const dept = await prisma.department.findFirst({
+      where: { OR: [{ id: deptId }, { code: deptId }], deletedAt: null },
       select: { id: true, isActive: true },
     })
 
@@ -43,7 +44,7 @@ export async function deptAccessMiddleware(req: Request, _res: Response, next: N
       )
     }
 
-    const cacheKey = `dept-access:${userId}:${deptId}`
+    const cacheKey = `dept-access:${userId}:${dept.id}`
 
     // ----------------------------------------------------------
     // 2. Cache read (safe fallback if Redis offline)
@@ -51,9 +52,6 @@ export async function deptAccessMiddleware(req: Request, _res: Response, next: N
     try {
       const cached = await redis.get(cacheKey)
       if (cached !== null) {
-        if (cached === 'none') {
-          throw new AppError('dept_access_denied', 'You do not have access to this department', 403)
-        }
         req.deptAccessLevel = cached
         next()
         return
@@ -69,7 +67,7 @@ export async function deptAccessMiddleware(req: Request, _res: Response, next: N
     const access = await prisma.userDepartmentAccess.findFirst({
       where: {
         userId,
-        departmentId: deptId,
+        departmentId: dept.id,
         deletedAt: null,
       },
       select: { accessLevel: true },
@@ -77,11 +75,14 @@ export async function deptAccessMiddleware(req: Request, _res: Response, next: N
 
     const level = access?.accessLevel ?? null
 
-    // Cache result (5 min = 300 sec)
-    try {
-      await redis.setex(cacheKey, 300, level ?? 'none')
-    } catch {
-      // Ignore cache write errors if Redis is offline
+    // Cache grants only, briefly: denials are never cached (a fresh grant works immediately)
+    // and a revoked grant stops working within 30 seconds.
+    if (level) {
+      try {
+        await redis.setex(cacheKey, 30, level)
+      } catch {
+        // Ignore cache write errors if Redis is offline
+      }
     }
 
     if (!level) {

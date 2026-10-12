@@ -254,7 +254,7 @@ router.post('/report-presets/naming', authMiddleware, async (req, res, next) => 
 // ============================================================
 // DELETE CUSTOM NAMING PRESET
 // ============================================================
-router.delete('/report-presets/naming/:id', authMiddleware, async (req, res, next) => {
+router.delete('/report-presets/naming/:id', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     const rawId = req.params.id
     const id = Array.isArray(rawId) ? rawId[0] : rawId

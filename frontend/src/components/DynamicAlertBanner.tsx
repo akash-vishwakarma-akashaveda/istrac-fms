@@ -17,6 +17,7 @@ export function DynamicAlertBanner() {
   const { data } = useActiveBanner()
   const [dismissedIds, setDismissedIds] = useState<string[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
+  const user = useAuthStore((s) => s.user)
 
   // Consolidate broadcasts and events into unified items
   const items: Array<{
@@ -75,7 +76,6 @@ export function DynamicAlertBanner() {
   const isCritical = activeItem.urgency === 'CRITICAL'
   const isImportant = activeItem.urgency === 'IMPORTANT'
 
-  const user = useAuthStore((s) => s.user)
   const isAdmin = user?.role === 'ADMIN'
 
   const handleDismiss = (e: React.MouseEvent) => {

@@ -206,7 +206,7 @@ if (ext === 'svg') {
       ? path.resolve(storageConfig.configValue)
       : path.resolve(env.HDD_MOUNT_PATH)
     const destDir = path.join(baseMount, deptFolder, satFolder, cleanParentPath)
-    const destPath = path.join(destDir, sanitizedFilename)
+    let destPath = path.join(destDir, sanitizedFilename)
 
     // Security check: ensure path never escapes baseMount
     if (!path.resolve(destPath).startsWith(baseMount)) {
@@ -228,14 +228,30 @@ if (ext === 'svg') {
         throw new AppError('file_not_found', 'Target file for version upload not found', 404)
       }
     } else {
-      existingFile = await prisma.file.findFirst({
-        where: { hddPath: destPath, deletedAt: null },
-        include: {
-          versions: { orderBy: { versionNum: 'desc' }, take: 1 },
-          report: true,
-          department: true,
-        },
-      })
+      const include = {
+        versions: { orderBy: { versionNum: 'desc' as const }, take: 1 },
+        report: true,
+        department: true,
+      }
+      // Same name in the same folder = new version of the active file. Match by name too,
+      // because a file re-created after an earlier one was trashed lives at a different path.
+      existingFile =
+        (await prisma.file.findFirst({ where: { hddPath: destPath, deletedAt: null }, include })) ??
+        (await prisma.file.findFirst({
+          where: { departmentId: dept.id, parentId: params.parentId || null, name: sanitizedFilename, nodeType: 'FILE', deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+          include,
+        }))
+
+      if (!existingFile) {
+        // A trashed file still owns this path (and its bytes, for restore). Store the new file
+        // under a unique physical name; its display name stays the same.
+        const trashedOwner = await prisma.file.findFirst({ where: { hddPath: destPath }, select: { id: true } })
+        if (trashedOwner) {
+          const ext = path.extname(sanitizedFilename)
+          destPath = path.join(destDir, `${path.basename(sanitizedFilename, ext)}~${Date.now()}${ext}`)
+        }
+      }
     }
 
     const versionNum = existingFile ? existingFile.versionCount + 1 : 1

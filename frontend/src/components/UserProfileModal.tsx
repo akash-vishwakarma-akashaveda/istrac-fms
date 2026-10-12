@@ -163,10 +163,16 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'profile' }: Us
 
     setIsChangingPassword(true)
     try {
-      await apiClient.put('/auth/change-password', {
+      const res = await apiClient.put('/auth/change-password', {
         currentPassword,
         newPassword,
       })
+      // Other sessions are signed out server-side; this one continues with the fresh tokens.
+      const fresh = res.data?.data
+      const current = useAuthStore.getState()
+      if (fresh?.accessToken && current.user) {
+        current.setAuth(current.user, fresh.accessToken, fresh.refreshToken ?? current.refreshToken)
+      }
 
       addToast({
         title: 'Password Updated',

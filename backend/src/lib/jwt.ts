@@ -10,6 +10,8 @@ import { AppError } from './errors.js'
 
 export interface AccessTokenPayload extends AuthUser {
   jti: string
+  iat?: number
+  iatMs?: number
   exp?: number // optional because jwt.verify() may not include it in the decoded payload
 }
 
@@ -29,7 +31,8 @@ export interface RefreshTokenPayload {
  */
 export function signAccessToken(user: AuthUser): string {
   return jwt.sign(
-    { id: user.id, role: user.role, email: user.email, name: user.name, jti: crypto.randomUUID() },
+    // iatMs: millisecond issue time, so a revocation can be compared exactly (iat is whole seconds).
+    { id: user.id, role: user.role, email: user.email, name: user.name, jti: crypto.randomUUID(), iatMs: Date.now() },
     env.JWT_SECRET,
     { expiresIn: '15m' },
   )
