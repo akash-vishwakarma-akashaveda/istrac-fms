@@ -62,6 +62,7 @@ export function useCreateSatellite() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SATELLITES_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: ADMIN_SATELLITES_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: ['satellite'] })
     },
   })
 }
@@ -77,6 +78,7 @@ export function useUpdateSatellite() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SATELLITES_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: ADMIN_SATELLITES_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: ['satellite'] })
     },
   })
 }
@@ -91,6 +93,7 @@ export function useDeleteSatellite() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SATELLITES_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: ADMIN_SATELLITES_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: ['satellite'] })
     },
   })
 }

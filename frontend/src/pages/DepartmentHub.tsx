@@ -448,7 +448,7 @@ export function DepartmentHub() {
                   <h4 className="text-sm font-bold text-white">{r.title}</h4>
                   {r.description && <p className="text-xs text-text-secondary">{r.description}</p>}
                   <div className="flex items-center justify-between pt-2 border-t border-border-subtle text-[11px] text-text-dim">
-                    <span>Spacecraft: <strong className="text-white">{r.spacecraft || 'ISRO'}</strong></span>
+                    <span>Spacecraft: <strong className="text-white">{r.spacecraft || 'General'}</strong></span>
                     <span>Author: <strong className="text-text-primary">{r.createdBy}</strong></span>
                   </div>
                 </div>

@@ -377,7 +377,7 @@ export function UserProfileModal({ isOpen, onClose, initialTab = 'profile' }: Us
                           key={da.department?.id || da.id}
                           className="flex items-center gap-1.5 rounded-lg border border-accent/30 bg-accent/10 px-2.5 py-1.5 text-xs text-accent-light"
                         >
-                          <span className="font-bold">{da.department?.code || da.department?.name || 'TTC'}</span>
+                          <span className="font-bold">{da.department?.code || da.department?.name || '—'}</span>
                           <span className="text-[10px] num px-1 py-0.2 rounded bg-surface border border-accent/20">
                             {da.accessLevel === 'READ_WRITE' ? 'READ/WRITE' : 'READ ONLY'}
                           </span>

@@ -276,14 +276,17 @@ export const hddService = {
     mountPath: string
     writable: boolean
     status: 'ONLINE' | 'DEGRADED' | 'OFFLINE'
+    directories?: string[]
   }> {
     try {
       await fs.access(MOUNT_ROOT, fs.constants.R_OK | fs.constants.W_OK)
+      const entries = await fs.readdir(MOUNT_ROOT, { withFileTypes: true })
       return {
         mounted: true,
         mountPath: MOUNT_ROOT,
         writable: true,
         status: 'ONLINE',
+        directories: entries.filter((e) => e.isDirectory()).map((e) => e.name).sort(),
       }
     } catch {
       return {

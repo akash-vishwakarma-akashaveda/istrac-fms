@@ -35,7 +35,7 @@ export function useFeaturedReports() {
           id: f.id,
           title: f.title || f.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
           filename: f.filename || f.name,
-          department: f.department || f.departmentCode || 'TTC',
+          department: f.department || f.departmentCode || '',
           departmentName: f.departmentName,
           departmentCode: f.departmentCode,
           departmentId: f.departmentId,

@@ -19,14 +19,7 @@ function getDeptBanner(dept: Department): string {
       if (dept.pageBannerUrl.startsWith('http')) return dept.pageBannerUrl
     }
   }
-  const fallbackImages: Record<string, string> = {
-    TTC: 'https://images.unsplash.com/photo-1517976487515-56839a85703f?auto=format&fit=crop&w=800&q=80',
-    MOX: 'https://images.unsplash.com/photo-1541185933-ef5d8ed016c2?auto=format&fit=crop&w=800&q=80',
-    FDD: 'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?auto=format&fit=crop&w=800&q=80',
-    NETRA: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=800&q=80',
-    GSO: 'https://images.unsplash.com/photo-1517976487515-56839a85703f?auto=format&fit=crop&w=800&q=80',
-  }
-  return fallbackImages[dept.code?.toUpperCase() || 'TTC'] || fallbackImages['TTC']
+  return ''
 }
 
 export function DepartmentsList() {

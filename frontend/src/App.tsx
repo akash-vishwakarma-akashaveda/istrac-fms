@@ -3,7 +3,6 @@ import { PublicLayout } from "./layouts/PublicLayout"
 import { AppShell } from "./layouts/AppShell"
 import { ProtectedRoute } from "./routes/ProtectedRoute"
 import { AdminRoute } from "./routes/AdminRoute"
-import { ComponentDemo } from "./pages/ComponentDemo"
 import { useInitAuth } from "./hooks/useInitAuth"
 import { useLiveNotificationSync } from "./hooks/useLiveNotificationSync"
 import { Login } from "./pages/Login"
@@ -82,7 +81,6 @@ export default function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ForgotPassword />} />
-            <Route path="/demo" element={<ComponentDemo />} />
           </Route>
 
           {/* Mission Console smart redirect route */}

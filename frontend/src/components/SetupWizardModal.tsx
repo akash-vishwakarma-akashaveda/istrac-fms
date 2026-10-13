@@ -130,7 +130,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
             setMountResult({
               mounted: true,
               writable: res.data.data.writable,
-              directoriesCreated: ['TTC', 'FDD', 'MOX', 'NETRA', 'GSO', '.chunks', '.trash'],
+              directoriesCreated: res.data.data.directories ?? [],
             })
             if (res.data.data.mountPath) {
               setMountPath(res.data.data.mountPath)

@@ -228,7 +228,7 @@ export function Topbar() {
                   {user?.name}
                 </span>
                 <span className="num block text-[10px] leading-tight text-text-dim">
-                  {user?.role} · {user?.employeeId || 'ISRO'}
+                  {user?.role}{user?.employeeId ? ` · ${user.employeeId}` : ''}
                 </span>
               </div>
 

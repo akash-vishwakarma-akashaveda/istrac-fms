@@ -132,8 +132,8 @@ export function DepartmentPagesTab() {
   const effectiveTitle = currentData.title !== undefined ? currentData.title : (selectedDept?.name || "")
   const effectiveCode = currentData.code !== undefined ? currentData.code : (selectedDept?.code || "")
   const effectiveLead = currentData.labLead !== undefined ? currentData.labLead : (selectedDept?.pageLeadOfficer || "")
-  const effectiveRole = currentData.leadRole !== undefined ? currentData.leadRole : (selectedDept?.pageLeadRole || "Lead Astrodynamics Specialist")
-  const effectiveLocation = currentData.roomLocation !== undefined ? currentData.roomLocation : (selectedDept?.pageContact ? `ISTRAC ${selectedDept.code || "MOX"} Complex` : "MOX-2 Building, ISTRAC Bengaluru")
+  const effectiveRole = currentData.leadRole !== undefined ? currentData.leadRole : (selectedDept?.pageLeadRole || "")
+  const effectiveLocation = currentData.roomLocation !== undefined ? currentData.roomLocation : ""
   const effectiveMandate = currentData.customMandate !== undefined ? currentData.customMandate : (selectedDept?.pageAbout || selectedDept?.description || "")
 
   function updateCurrent(patch: Partial<DepartmentCmsData>) {

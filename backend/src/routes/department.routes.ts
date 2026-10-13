@@ -305,7 +305,7 @@ router.get('/departments/:deptId/files', optionalAuthMiddleware, async (req, res
           id: f.id,
           name: displayName,
           nodeType: f.nodeType,
-          extension: (f.extension || 'DAT').toUpperCase(),
+          extension: (f.extension || '').toUpperCase(),
           sizeBytes: displaySize,
           sha256: displaySha256,
           versionCount,

@@ -95,3 +95,13 @@ export async function deptAccessMiddleware(req: Request, _res: Response, next: N
     next(err)
   }
 }
+
+/** Drops every cached grant for a user; call after their department access is replaced or reduced. */
+export async function clearDeptAccessCache(userId: string): Promise<void> {
+  try {
+    if (redis.status !== 'ready') return
+    // ponytail: KEYS on a narrow pattern; switch to SCAN if the keyspace grows large
+    const keys = await redis.keys(`dept-access:${userId}:*`)
+    if (keys.length) await redis.del(...keys)
+  } catch {}
+}

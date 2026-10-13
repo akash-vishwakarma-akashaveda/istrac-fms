@@ -237,9 +237,9 @@ export function UploadVersionModal({
   const catObj = categories.find((c) => c.code === selectedCategoryCode)
 
   const satCode = satObj?.code || (satObj?.name ? satObj.name.substring(0, 4).toUpperCase() : 'ISRO')
-  const deptCode = deptObj?.code || 'MOX'
+  const deptCode = deptObj?.code || 'DEPT'
   const catCode = catObj?.code || selectedCategoryCode || 'REPORT'
-  const dateCompact = reportDate ? reportDate.replace(/-/g, '') : '20260903'
+  const dateCompact = (reportDate || new Date().toISOString().slice(0, 10)).replace(/-/g, '')
   const titleClean = (reportTitle || 'UNTITLED').replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()
   const authorClean = (author || 'OPERATOR').replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()
 

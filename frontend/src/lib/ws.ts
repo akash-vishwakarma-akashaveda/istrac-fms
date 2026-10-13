@@ -27,10 +27,6 @@ function getBaseWsUrl(): string {
     envUrl = `${proto}//${window.location.host}/ws`
   }
 
-  if (!envUrl) {
-    envUrl = "wss://d2qycovk79gx2n.cloudfront.net/ws"
-  }
-
   // Force wss:// when running over HTTPS (e.g. AWS Amplify)
   if (typeof window !== "undefined" && window.location.protocol === "https:") {
     envUrl = envUrl.replace(/^ws:\/\//i, "wss://")

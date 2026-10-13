@@ -77,75 +77,6 @@ interface CarouselSlide {
   tag?: string
 }
 
-const DEFAULT_DEPT_SLIDES: Record<string, CarouselSlide[]> = {
-  TTC: [
-    {
-      url: 'https://images.unsplash.com/photo-1517976487515-56839a85703f?auto=format&fit=crop&w=1200&q=80',
-      caption: '32-Meter Deep Space Tracking Antenna Dish · S/X-Band Terminal',
-      spacecraft: 'Chandrayaan-3',
-      tag: 'DEEP SPACE NETWORK',
-    },
-    {
-      url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
-      caption: 'Real-time Telemetry Acquisition & Downlink Pass Monitoring',
-      spacecraft: 'Aditya-L1',
-      tag: 'REAL-TIME TELEMETRY',
-    },
-  ],
-  MOX: [
-    {
-      url: 'https://images.unsplash.com/photo-1541185933-ef5d8ed016c2?auto=format&fit=crop&w=1200&q=80',
-      caption: 'Main Operations Complex Flight Control Consoles',
-      spacecraft: 'Gaganyaan',
-      tag: 'FLIGHT CONTROL',
-    },
-    {
-      url: 'https://images.unsplash.com/photo-1516849841032-87cbac4d88f7?auto=format&fit=crop&w=1200&q=80',
-      caption: 'Mission Directors Gallery & Integrated Telemetry Display',
-      spacecraft: 'NISAR',
-      tag: 'MISSION GALLERY',
-    },
-  ],
-  FDD: [
-    {
-      url: 'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?auto=format&fit=crop&w=1200&q=80',
-      caption: 'Lagrange Point L1 / L2 Halo Orbit Ephemeris Simulation',
-      spacecraft: 'Aditya-L1',
-      tag: 'ORBIT PROPAGATION',
-    },
-    {
-      url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1200&q=80',
-      caption: 'High-Precision Orbit Determination & State Vector Modeling',
-      spacecraft: 'Chandrayaan-3',
-      tag: 'STATE VECTOR',
-    },
-  ],
-  NETRA: [
-    {
-      url: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1200&q=80',
-      caption: 'IS4OM Space Situational Awareness & Debris Tracking Sensor',
-      tag: 'SSA RADAR',
-    },
-    {
-      url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
-      caption: 'Low-Earth Orbit Close Approach Conjunction Analysis',
-      tag: 'CONJUNCTION ANALYSIS',
-    },
-  ],
-  GSO: [
-    {
-      url: 'https://images.unsplash.com/photo-1517976487515-56839a85703f?auto=format&fit=crop&w=1200&q=80',
-      caption: 'Bengaluru Ground Station Ground Terminal & Dish Array',
-      tag: 'BLR GROUND STATION',
-    },
-    {
-      url: 'https://images.unsplash.com/photo-1541185933-ef5d8ed016c2?auto=format&fit=crop&w=1200&q=80',
-      caption: 'Antenna Control Unit (ACU) Automated Pass Steering',
-      tag: 'ACU PASS STEERING',
-    },
-  ],
-}
-
 export function DepartmentDetail() {
   const { deptId } = useParams<{ deptId: string }>()
   const user = useAuthStore((s) => s.user)
@@ -230,8 +161,7 @@ export function DepartmentDetail() {
 
   // Parse carousel & page display configuration (visibility toggle + slides array + default satellite view format) from dept.pageBannerUrl
   const getCarouselConfig = (): { isCarouselVisible: boolean; slides: CarouselSlide[]; satelliteViewMode: 'card' | 'table' } => {
-    const deptCode = dept?.code?.toUpperCase() || 'TTC'
-    const defaultSlides = DEFAULT_DEPT_SLIDES[deptCode] || DEFAULT_DEPT_SLIDES['TTC']
+    const defaultSlides: CarouselSlide[] = []
 
     if (dept?.pageBannerUrl) {
       try {
@@ -240,7 +170,7 @@ export function DepartmentDetail() {
           const isVisible = parsed.isCarouselVisible !== false
           const parsedSlides = Array.isArray(parsed.slides) && parsed.slides.length > 0 ? parsed.slides : defaultSlides
           const satViewMode = parsed.satelliteViewMode === 'table' ? 'table' : 'card'
-          return { isCarouselVisible: isVisible, slides: parsedSlides, satelliteViewMode: satViewMode }
+          return { isCarouselVisible: isVisible && parsedSlides.length > 0, slides: parsedSlides, satelliteViewMode: satViewMode }
         }
         if (Array.isArray(parsed) && parsed.length > 0) {
           return { isCarouselVisible: true, slides: parsed, satelliteViewMode: 'card' }
@@ -255,7 +185,7 @@ export function DepartmentDetail() {
         }
       }
     }
-    return { isCarouselVisible: true, slides: defaultSlides, satelliteViewMode: 'card' }
+    return { isCarouselVisible: false, slides: defaultSlides, satelliteViewMode: 'card' }
   }
 
   const { isCarouselVisible, slides } = getCarouselConfig()

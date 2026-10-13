@@ -221,15 +221,15 @@
           name: f.name,
           title: f.report?.title || f.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
           filename: f.name,
-          extension: (f.extension || 'DAT').toUpperCase(),
+          extension: (f.extension || '').toUpperCase(),
           sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
           mimeType: f.mimeType || null,
-          department: f.department?.code || f.department?.name || 'TTC',
-          departmentName: f.department?.name || 'TTC Operations',
-          departmentCode: f.department?.code || 'TTC',
+          department: f.department?.code || f.department?.name || '',
+          departmentName: f.department?.name || '',
+          departmentCode: f.department?.code || '',
           departmentId: f.departmentId,
           satellite: (f.report?.spacecraft && f.report.spacecraft.includes('General') ? 'General' : f.report?.spacecraft) || (f.department?.satellite?.name && f.department.satellite.name.includes('General') ? 'General' : f.department?.satellite?.name) || 'General',
-          uploader: f.uploader?.name || 'Flight Operator',
+          uploader: f.uploader?.name || 'System',
           classification: f.report?.classificationLevel || 'RESTRICTED',
           description: f.description || f.report?.description || `Official telemetry archive and observation report for ${f.department?.name || 'ISRO'}.`,
           isFeatured: true,
@@ -372,12 +372,12 @@
         data: files.map((f: any) => ({
           id: f.id,
           name: f.name,
-          extension: (f.extension || 'DAT').toUpperCase(),
+          extension: (f.extension || '').toUpperCase(),
           sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
-          department: f.department?.code || f.department?.name || 'TTC',
+          department: f.department?.code || f.department?.name || '',
           departmentId: f.departmentId,
-          satellite: f.report?.spacecraft || f.department?.satellite?.name || 'Primary Fleet',
-          uploader: f.uploader?.name || 'Operator',
+          satellite: f.report?.spacecraft || f.department?.satellite?.name || 'General',
+          uploader: f.uploader?.name || 'System',
           createdAt: f.createdAt,
           isFeatured: Boolean(f.isFeatured),
           versionCount: f.versionCount || 1,
@@ -1197,6 +1197,21 @@
   // ============================================================
   // ADMIN: MASTER REPOSITORY FILE LIST (WITH FULL DETAILS)
   // ============================================================
+  // Extensions actually stored, for the admin "format" filter.
+  router.get('/admin/files/extensions', authMiddleware, adminMiddleware, async (req, res, next) => {
+    try {
+      const rows = await prisma.file.findMany({
+        where: { deletedAt: null, extension: { not: null } },
+        distinct: ['extension'],
+        select: { extension: true },
+      })
+      const extensions = [...new Set(rows.map((r: any) => String(r.extension).toUpperCase()).filter(Boolean))].sort()
+      res.json({ data: extensions, requestId: req.requestId })
+    } catch (err) {
+      next(err)
+    }
+  })
+
   router.get('/admin/files', authMiddleware, adminMiddleware, async (req, res, next) => {
     try {
       const { search, departmentId, satelliteId, extension, status, isFeatured, includeArchived, sortBy, sortOrder, category, dateFilter, startDate, endDate, trash } = req.query
@@ -1330,7 +1345,7 @@
           id: f.id,
           name: f.name,
           nodeType: f.nodeType,
-          extension: (f.extension || 'DAT').toUpperCase(),
+          extension: (f.extension || '').toUpperCase(),
           sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
           sha256: f.sha256 || 'Verified SHA-256',
           versionCount: f.versionCount || 1,
@@ -1480,7 +1495,7 @@
 
       const broadcastMsg =
         message?.trim() ||
-        `[${urgency || 'NOTICE'}] Operational telemetry archive ${file.name} available in /${file.department.code || 'TTC'}.`
+        `[${urgency || 'NOTICE'}] Operational telemetry archive ${file.name} available in ${file.department.code || file.department.name}.`
 
       const notif = await prisma.notification.create({
         data: {

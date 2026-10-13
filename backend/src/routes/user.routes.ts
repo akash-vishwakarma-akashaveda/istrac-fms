@@ -8,7 +8,13 @@ import { emailService } from '../services/email.service.js'
 import { notificationService } from '../services/notification.service.js'
 import { AppError } from '../lib/errors.js'
 import { sessionStore } from '../services/sessionStore.js'
+import { clearDeptAccessCache } from '../middleware/deptAccess.middleware.js'
 import { categoryCodeOf } from '../lib/reportCategory.js'
+import { env } from '../config/env.js'
+
+/** The bootstrap administrator (ADMIN_EMAIL) can't be suspended or edited away. */
+const isRootAdmin = (u: { email: string; employeeId?: string | null }) =>
+  u.email.toLowerCase() === (env.ADMIN_EMAIL || '').toLowerCase() || u.employeeId === 'ISRO-DIR-001'
 
 const router = Router()
 const VALID_STATUSES = ['PENDING', 'ACTIVE', 'SUSPENDED', 'REJECTED'] as const
@@ -220,6 +226,7 @@ const approveUserHandler = async (req: any, res: any, next: any) => {
 
       return u
     })
+    await clearDeptAccessCache(userId)
 
     auditService.log({
       userId: req.user!.id,
@@ -304,7 +311,7 @@ const suspendUserHandler = async (req: any, res: any, next: any) => {
       throw new AppError('user_not_found', 'User not found', 404)
     }
 
-    if (user.email === 'admin@istrac.local' || user.employeeId === 'ISRO-DIR-001') {
+    if (isRootAdmin(user)) {
       throw new AppError('root_protected', 'System Root Super Admin account is permanent and cannot be suspended.', 403)
     }
 
@@ -460,7 +467,7 @@ router.put('/admin/users/:userId', authMiddleware, adminMiddleware, async (req, 
       throw new AppError('user_not_found', 'User not found', 404)
     }
 
-    if (targetUser.email === 'admin@istrac.local' || targetUser.employeeId === 'ISRO-DIR-001') {
+    if (isRootAdmin(targetUser)) {
       throw new AppError('root_protected', 'System Root Super Admin account is permanently locked from external modification.', 403)
     }
 
@@ -521,6 +528,7 @@ router.put('/admin/users/:userId', authMiddleware, adminMiddleware, async (req, 
 
       return u
     })
+    await clearDeptAccessCache(userId)
 
     auditService.log({
       userId: req.user!.id,
@@ -604,7 +612,7 @@ router.get('/admin/approvals/history', authMiddleware, adminMiddleware, async (r
 
     const historyItems = users.map((u) => {
       const log = auditMap.get(u.id)
-      const isSuperAdmin = u.email === 'admin@istrac.local' || u.employeeId === 'ISRO-DIR-001'
+      const isSuperAdmin = isRootAdmin(u)
       return {
         id: u.id,
         name: u.name,
@@ -623,10 +631,10 @@ router.get('/admin/approvals/history', authMiddleware, adminMiddleware, async (r
           accessLevel: da.accessLevel,
         })),
         reviewedBy: isSuperAdmin
-          ? { name: 'System Root Authority', email: 'root@istrac.isro.gov.in' }
+          ? { name: 'System (initial setup)', email: '' }
           : log?.user
           ? { name: log.user.name, email: log.user.email }
-          : { name: 'Admin Officer', email: 'admin@isro.gov.in' },
+          : { name: 'Not recorded', email: '' },
         decisionAction: isSuperAdmin ? 'ROOT_PRE_CLEARED' : log?.action || (u.status === 'ACTIVE' ? 'APPROVED' : u.status),
       }
     })
@@ -1111,14 +1119,14 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
             version: displayVer,
             status: f.report?.status || 'Published',
             reportDate: f.createdAt,
-            author: f.uploader?.name || 'Mission Ops',
-            classification: f.report?.classificationLevel || 'ISRO_LEVEL',
+            author: f.uploader?.name || 'System',
+            classification: f.report?.classificationLevel || '',
             spacecraft: fileSat,
-            departmentName: f.department?.name || 'Mission Operations',
-            departmentCode: f.department?.code || 'MOX',
+            departmentName: f.department?.name || '',
+            departmentCode: f.department?.code || '',
             sizeBytes: displaySize,
             mimeType: f.mimeType,
-            extension: (f.extension || 'DAT').toUpperCase(),
+            extension: (f.extension || '').toUpperCase(),
           }
         }),
         departments: departments.map((d: any) => {
@@ -1141,7 +1149,7 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
                 id: f.id,
                 name,
                 mimeType: f.mimeType,
-                extension: (f.extension || 'DAT').toUpperCase(),
+                extension: (f.extension || '').toUpperCase(),
                 sizeBytes: size,
                 createdAt: f.createdAt,
               }

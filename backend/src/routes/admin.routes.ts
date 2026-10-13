@@ -74,7 +74,7 @@ router.get('/admin/stats', authMiddleware, adminMiddleware, async (req, res, nex
         recentFiles: recentFiles.map((f: any) => ({
           id: f.id,
           name: f.name,
-          extension: (f.extension || 'DAT').toUpperCase(),
+          extension: (f.extension || '').toUpperCase(),
           sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
           sha256: f.sha256,
           department: f.department,

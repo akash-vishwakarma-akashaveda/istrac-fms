@@ -34,6 +34,7 @@ import {
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { apiClient } from '../api/client'
+import { useQuery } from '@tanstack/react-query'
 import { useAdminDepartments } from '../hooks/useDepartments'
 import { useAdminSatellites } from '../hooks/useSatellites'
 import { useDebounce } from '../hooks/useDebounce'
@@ -113,6 +114,10 @@ export function AdminFileManager() {
   const debouncedSearch = useDebounce(search, 300)
   const [selectedDept, setSelectedDept] = useState(deptIdParam || 'ALL')
   const [selectedExt, setSelectedExt] = useState('ALL')
+  const { data: extensions = [] } = useQuery({
+    queryKey: ['admin-files', 'extensions'],
+    queryFn: async () => (await apiClient.get('/admin/files/extensions')).data.data as string[],
+  })
   const [selectedSat, setSelectedSat] = useState('ALL')
   const [selectedCategory, setSelectedCategory] = useState('ALL')
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE)
@@ -527,12 +532,9 @@ export function AdminFileManager() {
               className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All File Formats</option>
-              <option value="PDF">PDF (Mission Reports)</option>
-              <option value="BIN">BIN (Raw Telemetry)</option>
-              <option value="DAT">DAT (Ephemeris / Science)</option>
-              <option value="CSV">CSV (Separation / State Tables)</option>
-              <option value="LOG">LOG (Tracking Logs)</option>
-              <option value="DOCX">DOCX (Office Docs)</option>
+              {extensions.map((ext) => (
+                <option key={ext} value={ext}>{ext}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -805,7 +807,7 @@ export function AdminFileManager() {
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-1.5">
                           <span className={`num font-bold ${file.department?.isActive === false ? 'text-text-dim' : 'text-accent-light'}`}>
-                            {file.department?.code || file.department?.name || 'TTC'}
+                            {file.department?.code || file.department?.name || '—'}
                           </span>
                           {file.department?.isActive === false && (
                             <span className="rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[10px] font-bold text-amber-300 uppercase tracking-wide">
@@ -945,7 +947,7 @@ export function AdminFileManager() {
                               setBroadcastingFile(file)
                               setBroadcastUrgency('')
                               setBroadcastMessage(
-                                `[NOTICE] Spacecraft telemetry archive ${file.name} updated in /${file.department?.code || 'TTC'}.`
+                                `[NOTICE] Spacecraft telemetry archive ${file.name} updated in ${file.department?.code || file.department?.name || 'the archive'}.`
                               )
                             }}
                             className="p-1.5 rounded-md border border-border-default bg-[#0c1424] text-text-muted hover:border-[#FF6B00] hover:text-[#FF8533] transition-all"

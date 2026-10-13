@@ -159,14 +159,6 @@ const UnderlineTextarea = forwardRef<HTMLTextAreaElement, UnderlineTextareaProps
 // ERROR MAPPINGS & DEPARTMENTS
 // ============================================================================
 
-const FALLBACK_DEPARTMENTS = [
-  'Telemetry, Tracking & Command (TTC)',
-  'Flight Dynamics Division (FDD)',
-  'Mission Operations Complex (MOX)',
-  'IS4OM / NETRA Space Situational Awareness',
-  'Ground Station Operations (GSO)',
-]
-
 export function AuthModal() {
   const { cmsBlocks } = useCms()
   const headerBlock = (cmsBlocks['nav_header']?.content || cmsBlocks['nav_header'] || cmsBlocks['nav_footer']) as Record<string, any> | undefined
@@ -232,7 +224,7 @@ export function AuthModal() {
   }, [prefillEmail, setLoginValue])
 
   const { data: publicDepts } = usePublicDepartments()
-  const departments = publicDepts && publicDepts.length > 0 ? publicDepts.map((d) => d.name) : FALLBACK_DEPARTMENTS
+  const departments = (publicDepts ?? []).map((d) => d.name)
 
   // Lockout Countdown Timer
   useEffect(() => {
