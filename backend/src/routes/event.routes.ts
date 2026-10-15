@@ -27,6 +27,10 @@ router.get('/events', optionalAuthMiddleware, async (req, res, next) => {
     const take = limit ? Math.min(500, Math.max(1, Number(limit))) : 200
 
     const now = new Date()
+    const config = await getStoredEventConfig()
+    const deletedCatSet = new Set((config.deletedCategories || []).map((c: string) => c.toUpperCase()))
+    const deletedLocSet = new Set((config.deletedLocations || []).map((l: string) => l.trim().toUpperCase()))
+
     const events = (
       await prisma.missionEvent.findMany({
         where,
@@ -37,6 +41,11 @@ router.get('/events', optionalAuthMiddleware, async (req, res, next) => {
         },
       })
     )
+      .filter((e: any) => {
+        if (e.eventType && deletedCatSet.has(e.eventType.toUpperCase())) return false
+        if (e.location && deletedLocSet.has(e.location.trim().toUpperCase())) return false
+        return true
+      })
       .map((e: any) => withLiveStatus(e, now))
       .filter((e: any) => !status || e.status === String(status))
       .slice(0, take)
@@ -59,20 +68,32 @@ router.get('/events/active-banner', optionalAuthMiddleware, async (req, res, nex
     const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000)
     const prev24h = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
+    const config = await getStoredEventConfig()
+    const deletedCatSet = new Set((config.deletedCategories || []).map((c: string) => c.toUpperCase()))
+    const deletedLocSet = new Set((config.deletedLocations || []).map((l: string) => l.trim().toUpperCase()))
+
     // 1. Fetch upcoming / in-progress events
-    const activeEvents = await prisma.missionEvent.findMany({
+    const rawEvents = await prisma.missionEvent.findMany({
       where: {
         deletedAt: null,
         showOnBanner: true,
         eventDate: { gte: prev24h, lte: next24h },
       },
-      take: 5,
+      take: 15,
       orderBy: { eventDate: 'asc' },
       include: {
         satellite: { select: { name: true, code: true } },
         department: { select: { name: true, code: true } },
       },
     })
+
+    const activeEvents = rawEvents
+      .filter((e: any) => {
+        if (e.eventType && deletedCatSet.has(e.eventType.toUpperCase())) return false
+        if (e.location && deletedLocSet.has(e.location.trim().toUpperCase())) return false
+        return true
+      })
+      .slice(0, 5)
 
     // 2. Fetch latest broadcast notifications across all priority types
     const recentBroadcasts = await prisma.notification.findMany({
@@ -461,9 +482,11 @@ const DEFAULT_CATEGORIES = [
 ]
 
 async function getStoredEventConfig() {
-  const [locationsRow, categoriesRow] = await Promise.all([
+  const [locationsRow, categoriesRow, deletedLocsRow, deletedCatsRow] = await Promise.all([
     prisma.systemConfig.findUnique({ where: { configKey: 'event_locations' } }),
     prisma.systemConfig.findUnique({ where: { configKey: 'event_categories' } }),
+    prisma.systemConfig.findUnique({ where: { configKey: 'deleted_event_locations' } }),
+    prisma.systemConfig.findUnique({ where: { configKey: 'deleted_event_categories' } }),
   ])
 
   let locations: string[] = [...DEFAULT_LOCATIONS]
@@ -482,14 +505,44 @@ async function getStoredEventConfig() {
     } catch {}
   }
 
-  return { locations, categories }
+  let deletedLocations: string[] = []
+  if (deletedLocsRow?.configValue) {
+    try {
+      const parsed = JSON.parse(deletedLocsRow.configValue)
+      if (Array.isArray(parsed)) deletedLocations = parsed
+    } catch {}
+  }
+
+  let deletedCategories: string[] = []
+  if (deletedCatsRow?.configValue) {
+    try {
+      const parsed = JSON.parse(deletedCatsRow.configValue)
+      if (Array.isArray(parsed)) deletedCategories = parsed
+    } catch {}
+  }
+
+  // Filter out any locations or categories that are in deleted lists
+  if (deletedLocations.length > 0) {
+    const delLocSet = new Set(deletedLocations.map((l) => l.trim().toLowerCase()))
+    locations = locations.filter((l) => !delLocSet.has(l.trim().toLowerCase()))
+  }
+
+  if (deletedCategories.length > 0) {
+    const delCatSet = new Set(deletedCategories.map((c) => c.trim().toLowerCase()))
+    categories = categories.filter((c) => !delCatSet.has(c.id.toLowerCase()) && !delCatSet.has(c.label.toLowerCase()))
+  }
+
+  return { locations, categories, deletedLocations, deletedCategories }
 }
 
 router.get('/events/config', optionalAuthMiddleware, async (req, res, next) => {
   try {
     const config = await getStoredEventConfig()
     res.json({
-      data: config,
+      data: {
+        locations: config.locations,
+        categories: config.categories,
+      },
       requestId: req.requestId,
     })
   } catch (err) {
@@ -505,6 +558,10 @@ router.get('/events/:id', optionalAuthMiddleware, async (req, res, next) => {
     const rawId = req.params.id
     const id = Array.isArray(rawId) ? rawId[0] : rawId
 
+    const config = await getStoredEventConfig()
+    const deletedCatSet = new Set((config.deletedCategories || []).map((c: string) => c.toUpperCase()))
+    const deletedLocSet = new Set((config.deletedLocations || []).map((l: string) => l.trim().toUpperCase()))
+
     const event = await prisma.missionEvent.findUnique({
       where: { id, deletedAt: null },
       include: {
@@ -513,7 +570,11 @@ router.get('/events/:id', optionalAuthMiddleware, async (req, res, next) => {
       },
     })
 
-    if (!event) {
+    if (
+      !event ||
+      (event.eventType && deletedCatSet.has(event.eventType.toUpperCase())) ||
+      (event.location && deletedLocSet.has(event.location.trim().toUpperCase()))
+    ) {
       throw new AppError('event_not_found', 'Mission event not found', 404)
     }
 
@@ -536,20 +597,37 @@ router.post('/events/config/locations', authMiddleware, adminMiddleware, async (
     const trimmed = location.trim()
     const config = await getStoredEventConfig()
 
+    // Un-delete if previously deleted
+    const updatedDeletedLocs = config.deletedLocations.filter((l) => l.trim().toLowerCase() !== trimmed.toLowerCase())
+
     if (!config.locations.includes(trimmed)) {
       config.locations.push(trimmed)
-      await prisma.systemConfig.upsert({
-        where: { configKey: 'event_locations' },
-        update: {
-          configValue: JSON.stringify(config.locations),
-          updatedBy: req.user!.id,
-        },
-        create: {
-          configKey: 'event_locations',
-          configValue: JSON.stringify(config.locations),
-          updatedBy: req.user!.id,
-        },
-      })
+      await Promise.all([
+        prisma.systemConfig.upsert({
+          where: { configKey: 'event_locations' },
+          update: {
+            configValue: JSON.stringify(config.locations),
+            updatedBy: req.user!.id,
+          },
+          create: {
+            configKey: 'event_locations',
+            configValue: JSON.stringify(config.locations),
+            updatedBy: req.user!.id,
+          },
+        }),
+        prisma.systemConfig.upsert({
+          where: { configKey: 'deleted_event_locations' },
+          update: {
+            configValue: JSON.stringify(updatedDeletedLocs),
+            updatedBy: req.user!.id,
+          },
+          create: {
+            configKey: 'deleted_event_locations',
+            configValue: JSON.stringify(updatedDeletedLocs),
+            updatedBy: req.user!.id,
+          },
+        }),
+      ])
     }
 
     res.status(201).json({
@@ -567,19 +645,56 @@ router.delete('/events/config/locations/:location', authMiddleware, adminMiddlew
     const locToDelete = decodeURIComponent(Array.isArray(rawLoc) ? rawLoc[0] : rawLoc).trim()
 
     const config = await getStoredEventConfig()
-    config.locations = config.locations.filter((l) => l.toLowerCase() !== locToDelete.toLowerCase())
+    config.locations = config.locations.filter((l) => l.trim().toLowerCase() !== locToDelete.toLowerCase())
 
-    await prisma.systemConfig.upsert({
-      where: { configKey: 'event_locations' },
-      update: {
-        configValue: JSON.stringify(config.locations),
-        updatedBy: req.user!.id,
+    const updatedDeletedLocs = Array.from(new Set([...config.deletedLocations, locToDelete, locToDelete.toLowerCase(), locToDelete.toUpperCase()]))
+
+    // Soft-delete all mission events that were assigned this location so their data is completely removed from the UI
+    await prisma.missionEvent.updateMany({
+      where: {
+        OR: [
+          { location: locToDelete },
+          { location: locToDelete.trim() },
+        ],
+        deletedAt: null,
       },
-      create: {
-        configKey: 'event_locations',
-        configValue: JSON.stringify(config.locations),
-        updatedBy: req.user!.id,
+      data: {
+        deletedAt: new Date(),
       },
+    })
+
+    await Promise.all([
+      prisma.systemConfig.upsert({
+        where: { configKey: 'event_locations' },
+        update: {
+          configValue: JSON.stringify(config.locations),
+          updatedBy: req.user!.id,
+        },
+        create: {
+          configKey: 'event_locations',
+          configValue: JSON.stringify(config.locations),
+          updatedBy: req.user!.id,
+        },
+      }),
+      prisma.systemConfig.upsert({
+        where: { configKey: 'deleted_event_locations' },
+        update: {
+          configValue: JSON.stringify(updatedDeletedLocs),
+          updatedBy: req.user!.id,
+        },
+        create: {
+          configKey: 'deleted_event_locations',
+          configValue: JSON.stringify(updatedDeletedLocs),
+          updatedBy: req.user!.id,
+        },
+      }),
+    ])
+
+    auditService.log({
+      userId: req.user!.id,
+      action: 'EVENT_LOCATION:DELETE',
+      resourceType: 'system_config',
+      resourceId: locToDelete,
     })
 
     res.json({
@@ -612,18 +727,37 @@ router.post('/events/config/categories', authMiddleware, adminMiddleware, async 
       config.categories.push({ id: catId, label: trimmedLabel })
     }
 
-    await prisma.systemConfig.upsert({
-      where: { configKey: 'event_categories' },
-      update: {
-        configValue: JSON.stringify(config.categories),
-        updatedBy: req.user!.id,
-      },
-      create: {
-        configKey: 'event_categories',
-        configValue: JSON.stringify(config.categories),
-        updatedBy: req.user!.id,
-      },
-    })
+    // Un-delete if previously deleted
+    const updatedDeletedCats = config.deletedCategories.filter(
+      (c) => c.toLowerCase() !== catId.toLowerCase() && c.toLowerCase() !== trimmedLabel.toLowerCase()
+    )
+
+    await Promise.all([
+      prisma.systemConfig.upsert({
+        where: { configKey: 'event_categories' },
+        update: {
+          configValue: JSON.stringify(config.categories),
+          updatedBy: req.user!.id,
+        },
+        create: {
+          configKey: 'event_categories',
+          configValue: JSON.stringify(config.categories),
+          updatedBy: req.user!.id,
+        },
+      }),
+      prisma.systemConfig.upsert({
+        where: { configKey: 'deleted_event_categories' },
+        update: {
+          configValue: JSON.stringify(updatedDeletedCats),
+          updatedBy: req.user!.id,
+        },
+        create: {
+          configKey: 'deleted_event_categories',
+          configValue: JSON.stringify(updatedDeletedCats),
+          updatedBy: req.user!.id,
+        },
+      }),
+    ])
 
     res.status(201).json({
       data: config.categories,
@@ -640,19 +774,72 @@ router.delete('/events/config/categories/:categoryId', authMiddleware, adminMidd
     const catIdToDelete = decodeURIComponent(Array.isArray(rawId) ? rawId[0] : rawId).trim()
 
     const config = await getStoredEventConfig()
-    config.categories = config.categories.filter((c) => c.id !== catIdToDelete)
+    const targetCat = config.categories.find(
+      (c) => c.id.toUpperCase() === catIdToDelete.toUpperCase() || c.label.toUpperCase() === catIdToDelete.toUpperCase()
+    )
+    config.categories = config.categories.filter(
+      (c) => c.id.toUpperCase() !== catIdToDelete.toUpperCase() && c.label.toUpperCase() !== catIdToDelete.toUpperCase()
+    )
 
-    await prisma.systemConfig.upsert({
-      where: { configKey: 'event_categories' },
-      update: {
-        configValue: JSON.stringify(config.categories),
-        updatedBy: req.user!.id,
+    const catIdentifiers = new Set<string>([
+      catIdToDelete,
+      catIdToDelete.toUpperCase(),
+      catIdToDelete.toLowerCase(),
+    ])
+    if (targetCat) {
+      catIdentifiers.add(targetCat.id)
+      catIdentifiers.add(targetCat.id.toUpperCase())
+      catIdentifiers.add(targetCat.id.toLowerCase())
+      catIdentifiers.add(targetCat.label)
+      catIdentifiers.add(targetCat.label.toUpperCase())
+      catIdentifiers.add(targetCat.label.toLowerCase())
+    }
+
+    const updatedDeletedCats = Array.from(new Set([...config.deletedCategories, ...Array.from(catIdentifiers)]))
+
+    // Soft-delete all mission events that were assigned this event category so their data is completely removed from the UI
+    await prisma.missionEvent.updateMany({
+      where: {
+        eventType: { in: Array.from(catIdentifiers) },
+        deletedAt: null,
       },
-      create: {
-        configKey: 'event_categories',
-        configValue: JSON.stringify(config.categories),
-        updatedBy: req.user!.id,
+      data: {
+        deletedAt: new Date(),
       },
+    })
+
+    await Promise.all([
+      prisma.systemConfig.upsert({
+        where: { configKey: 'event_categories' },
+        update: {
+          configValue: JSON.stringify(config.categories),
+          updatedBy: req.user!.id,
+        },
+        create: {
+          configKey: 'event_categories',
+          configValue: JSON.stringify(config.categories),
+          updatedBy: req.user!.id,
+        },
+      }),
+      prisma.systemConfig.upsert({
+        where: { configKey: 'deleted_event_categories' },
+        update: {
+          configValue: JSON.stringify(updatedDeletedCats),
+          updatedBy: req.user!.id,
+        },
+        create: {
+          configKey: 'deleted_event_categories',
+          configValue: JSON.stringify(updatedDeletedCats),
+          updatedBy: req.user!.id,
+        },
+      }),
+    ])
+
+    auditService.log({
+      userId: req.user!.id,
+      action: 'EVENT_CATEGORY:DELETE',
+      resourceType: 'system_config',
+      resourceId: catIdToDelete,
     })
 
     res.json({

@@ -227,9 +227,11 @@
           department: f.department?.code || f.department?.name || '',
           departmentName: f.department?.name || '',
           departmentCode: f.department?.code || '',
-          departmentId: f.departmentId,
-          satellite: (f.report?.spacecraft && f.report.spacecraft.includes('General') ? 'General' : f.report?.spacecraft) || (f.department?.satellite?.name && f.department.satellite.name.includes('General') ? 'General' : f.department?.satellite?.name) || 'General',
-          uploader: f.uploader?.name || 'System',
+          satellite: (f.report?.spacecraft && !f.report.spacecraft.toUpperCase().includes('GENERAL'))
+            ? f.report.spacecraft
+            : (f.department?.satellite?.name && !f.department.satellite.name.toUpperCase().includes('GENERAL'))
+              ? f.department.satellite.name
+              : null,
           classification: f.report?.classificationLevel || 'RESTRICTED',
           description: f.description || f.report?.description || `Official telemetry archive and observation report for ${f.department?.name || 'ISRO'}.`,
           isFeatured: true,
@@ -375,9 +377,11 @@
           extension: (f.extension || '').toUpperCase(),
           sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
           department: f.department?.code || f.department?.name || '',
-          departmentId: f.departmentId,
-          satellite: f.report?.spacecraft || f.department?.satellite?.name || 'General',
-          uploader: f.uploader?.name || 'System',
+          satellite: (f.report?.spacecraft && !f.report.spacecraft.toUpperCase().includes('GENERAL'))
+            ? f.report.spacecraft
+            : (f.department?.satellite?.name && !f.department.satellite.name.toUpperCase().includes('GENERAL'))
+              ? f.department.satellite.name
+              : null,
           createdAt: f.createdAt,
           isFeatured: Boolean(f.isFeatured),
           versionCount: f.versionCount || 1,
@@ -710,6 +714,40 @@
   })
 
   // ============================================================
+  // ADMIN: HARD DELETE FILE (DATABASE / STORAGE / BOTH)
+  // ============================================================
+  router.delete('/admin/files/:fileId/hard-delete', authMiddleware, adminMiddleware, async (req, res, next) => {
+    try {
+      const rawId = req.params.fileId
+      const fileId = Array.isArray(rawId) ? rawId[0] : rawId
+      const mode = String(req.body?.mode || 'BOTH').toUpperCase()
+
+      if (!['BOTH', 'STORAGE_ONLY', 'DATABASE_ONLY'].includes(mode)) {
+        throw new AppError(
+          'invalid_delete_mode',
+          'Invalid hard-delete mode. Allowed options are: BOTH, STORAGE_ONLY, DATABASE_ONLY.',
+          400
+        )
+      }
+
+      const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress
+      const result = await fileService.hardDeleteFile(
+        fileId,
+        mode as 'BOTH' | 'STORAGE_ONLY' | 'DATABASE_ONLY',
+        req.user!.id,
+        clientIp
+      )
+
+      res.json({
+        data: result,
+        requestId: req.requestId,
+      })
+    } catch (err) {
+      next(err)
+    }
+  })
+
+  // ============================================================
   // BULK TAG FILES
   // Admins, or users with READ_WRITE access to every file's department.
   // ============================================================
@@ -871,9 +909,11 @@
           uploaderEmail: file.uploader?.email,
           departmentId: file.department?.id,
           departmentName: file.department?.name,
-          departmentCode: file.department?.code,
-          spacecraft: file.report?.spacecraft || file.department?.satellite?.name || 'General',
-          category: categoryCodeOf(file.report) || 'GENERAL',
+          spacecraft: (file.report?.spacecraft && !file.report.spacecraft.toUpperCase().includes('GENERAL'))
+            ? file.report.spacecraft
+            : (file.department?.satellite?.name && !file.department.satellite.name.toUpperCase().includes('GENERAL'))
+              ? file.department.satellite.name
+              : null,
           classificationLevel: file.report?.classificationLevel || 'RESTRICTED',
           versionCount: !isAdmin ? versions.length : (file.versionCount || versions.length || 1),
         },

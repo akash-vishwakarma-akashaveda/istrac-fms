@@ -66,8 +66,20 @@ export function CreateDeptModal({
     if (isOpen) {
       setLoadingSatellites(true)
       satellitesApi
-        .getAllAdminSatellites()
-        .then((sats) => setSatellitesList(sats || []))
+        .getActiveSatellites()
+        .then((sats) => {
+          const activeOnly = (sats || []).filter(
+            (s) => s.isActive && !s.deletedAt && s.status !== 'DECOMMISSIONED' && s.status !== 'INACTIVE'
+          )
+          setSatellitesList(activeOnly)
+          // If editing an existing department, ensure only currently active satellites remain selected
+          if (initialValues?.satelliteIds && initialValues.satelliteIds.length > 0) {
+            const activeInitialIds = initialValues.satelliteIds.filter((id) =>
+              activeOnly.some((s) => s.id === id)
+            )
+            setSelectedSatIds(activeInitialIds)
+          }
+        })
         .catch(() => {})
         .finally(() => setLoadingSatellites(false))
 
@@ -245,7 +257,7 @@ export function CreateDeptModal({
         />
 
         {/* Satellite Configuration / Multi-Select Section */}
-        <div className="rounded-xl border border-border-default bg-[#070d1a] p-4 space-y-3">
+        <div className="rounded-xl border border-border-default bg-surface p-4 space-y-3">
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-2.5 cursor-pointer select-none">
               <input
@@ -260,7 +272,7 @@ export function CreateDeptModal({
                 }}
                 className="h-4 w-4 rounded border-border-default bg-surface text-accent focus:ring-accent"
               />
-              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+              <span className="text-xs font-bold text-text-primary flex items-center gap-1.5">
                 <Radio size={14} className="text-accent-light" />
                 <span>Link Spacecraft & Satellite Programs</span>
               </span>
@@ -274,13 +286,13 @@ export function CreateDeptModal({
           </div>
 
           <p className="text-[11px] text-text-dim leading-relaxed">
-            Link satellite mission programs supported by this department. Selected satellites will be displayed as interactive mission cards on the division landing page with live telemetry dossiers.
+            Link active satellite mission programs supported by this department. Only active operational spacecraft can be selected. Selected satellites will be displayed as interactive mission cards on the division landing page with live telemetry dossiers.
           </p>
 
           {enableSatellites && (
             <div className="pt-2 border-t border-border-subtle/80 space-y-2">
               <div className="flex items-center justify-between text-[11px]">
-                <span className="text-text-secondary font-medium">Select Active Spacecraft:</span>
+                <span className="text-text-secondary font-medium">Select Active Spacecraft (Active Only):</span>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -302,11 +314,11 @@ export function CreateDeptModal({
 
               {loadingSatellites ? (
                 <div className="py-4 text-center text-xs text-text-dim">
-                  Loading satellite mission registry…
+                  Loading active satellite mission registry…
                 </div>
               ) : satellitesList.length === 0 ? (
                 <div className="py-3 text-center text-xs text-text-dim">
-                  No satellite programs registered yet.
+                  No active satellite programs available to link.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto p-1.5 rounded-lg border border-border-subtle bg-surface">
@@ -334,7 +346,12 @@ export function CreateDeptModal({
                           className="mt-0.5 h-3.5 w-3.5 rounded border-border-default bg-card text-accent focus:ring-accent"
                         />
                         <div className="min-w-0 flex-1 text-xs">
-                          <div className="font-semibold truncate">{sat.name}</div>
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-semibold truncate">{sat.name}</span>
+                            <span className="shrink-0 text-[9px] font-bold text-nominal bg-nominal/15 border border-nominal/30 rounded px-1 py-0.2">
+                              ACTIVE
+                            </span>
+                          </div>
                           <div className="flex items-center gap-2 text-[10px] text-text-dim mt-0.5">
                             <span className="text-accent-light font-mono font-bold">
                               {sat.satId || sat.code || 'ISRO'}

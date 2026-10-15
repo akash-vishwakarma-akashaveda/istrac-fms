@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { HelpTip } from '../components/HelpTip'
 import { Link } from 'react-router-dom'
-import { Satellite, ArrowRight, HardDrive, Maximize2 } from 'lucide-react'
+import { Satellite, ArrowRight, HardDrive, Maximize2, Search, X, RotateCcw } from 'lucide-react'
 import { departmentsApi, type Department } from '../api/departments.api'
-import { Navbar, Footer, Input, ImageLightboxModal, Table } from '../components'
+import { Navbar, Footer, ImageLightboxModal, Table } from '../components'
 import { ViewToggle, useViewMode } from '../components/ViewToggle'
 import { ImageWithFallback } from '../components/ImageWithFallback'
 
@@ -65,26 +65,59 @@ export function DepartmentsList() {
               Browse ISTRAC departmental mission centers, tracking divisions, and telemetry processing units across ground stations.
             </p>
 
-            {/* Search Filter */}
-            <div className="mt-8 flex flex-col sm:flex-row sm:items-end gap-3">
-              <div className="w-full max-w-md">
-                <Input
-                  id="dept-search"
-                  placeholder="Search division name, code (e.g. FDD, TTC)..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-              </div>
-              <div className="flex items-center gap-1">
+          </div>
+        </section>
+
+        {/* Directory Controls (STICKY ON SCROLL) */}
+        <div className="shell mt-6 sticky top-16 z-20">
+          <div className="p-3.5 rounded-xl border border-border-default bg-[#070d18]/95 backdrop-blur-md shadow-lg shadow-black/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all">
+            <div className="relative flex-1 max-w-md">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
+              <input
+                id="dept-search"
+                type="text"
+                placeholder="Search division name, code (e.g. FDD, TTC)..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-8 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-dim hover:text-white cursor-pointer"
+                  title="Clear search"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+              <span className="text-xs text-text-dim whitespace-nowrap">
+                Showing <strong className="text-white num">{filtered.length}</strong> divisions
+              </span>
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-accent/40 bg-accent/10 text-xs font-bold text-accent-light hover:text-white hover:bg-accent transition-all cursor-pointer shrink-0"
+                  title="Clear search filter"
+                >
+                  <RotateCcw size={12} />
+                  <span>Reset</span>
+                </button>
+              )}
+              <div className="flex items-center gap-1.5">
                 <ViewToggle mode={viewMode} onChange={setViewMode} />
                 <HelpTip topic="departments" />
               </div>
             </div>
           </div>
-        </section>
+        </div>
 
         {/* Directory Grid */}
-        <div className="shell mt-12">
+        <div className="shell mt-6">
           {isLoading ? (
             <div className="py-20 text-center text-text-dim">
               <Satellite size={32} className="mx-auto text-accent-light animate-spin-slow mb-4" />

@@ -454,15 +454,15 @@ export function AuthModal() {
     >
       {/* Spacious Translucent Minimalist Modal Dialog */}
       <div
-        className={`relative w-full my-6 sm:my-8 rounded-2xl border border-white/15 bg-[#0a0f1d]/90 shadow-2xl overflow-hidden transition-all duration-300 animate-rise text-text-primary backdrop-blur-md ${
+        className={`relative w-full my-6 sm:my-8 rounded-2xl border border-border-default bg-card shadow-card-lg overflow-hidden transition-all duration-300 animate-rise text-text-primary backdrop-blur-md ${
           isRegisterMode ? 'max-w-2xl' : 'max-w-lg'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Top Header */}
-        <div className="border-b border-white/10 bg-[#080d19]/85 px-5 sm:px-8 py-4 sm:py-5 flex items-center justify-between">
+        <div className="border-b border-border-subtle bg-surface/80 px-5 sm:px-8 py-4 sm:py-5 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/10 text-accent-light">
+            <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 border border-accent/25 text-accent-light">
               <ShieldCheck size={20} />
             </div>
             <div className="min-w-0">
@@ -471,7 +471,7 @@ export function AuthModal() {
                 <span>·</span>
                 <span className="text-nominal">SECURED</span>
               </div>
-              <h2 id="auth-modal-title" className="text-base sm:text-lg font-bold text-white mt-0.5 truncate">
+              <h2 id="auth-modal-title" className="text-base sm:text-lg font-bold text-text-primary mt-0.5 truncate">
                 {mode === 'login'
                   ? 'Mission Operations Login'
                   : mode === 'register'
@@ -484,7 +484,7 @@ export function AuthModal() {
           <button
             type="button"
             onClick={handleClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-text-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer ml-2"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface text-text-muted hover:text-text-primary hover:bg-card-hover hover:border-border-default transition-colors cursor-pointer ml-2 shadow-sm"
             aria-label="Close modal (Esc)"
           >
             <X size={16} />
@@ -492,14 +492,14 @@ export function AuthModal() {
         </div>
 
         {/* Minimalist Spacious Underline Tabs */}
-        <div className="flex border-b border-white/10 bg-black/20 px-5 sm:px-8">
+        <div className="flex border-b border-border-subtle bg-page-soft/40 px-5 sm:px-8">
           <button
             type="button"
             onClick={() => handleSwitchMode('login')}
             className={`pb-3.5 sm:pb-4 pt-3 sm:pt-3.5 mr-6 sm:mr-8 flex items-center gap-2 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
               mode === 'login'
-                ? 'border-accent text-white'
-                : 'border-transparent text-text-dim hover:text-text-secondary'
+                ? 'border-accent text-accent font-bold'
+                : 'border-transparent text-text-muted hover:text-text-primary'
             }`}
           >
             <LogIn size={15} />
@@ -513,8 +513,8 @@ export function AuthModal() {
               mode === 'reset' ? 'mr-6 sm:mr-8' : ''
             } flex items-center gap-2 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
               mode === 'register'
-                ? 'border-accent text-white'
-                : 'border-transparent text-text-dim hover:text-text-secondary'
+                ? 'border-accent text-accent font-bold'
+                : 'border-transparent text-text-muted hover:text-text-primary'
             }`}
           >
             <UserPlus size={15} />
@@ -524,7 +524,7 @@ export function AuthModal() {
           {mode === 'reset' && (
             <button
               type="button"
-              className="pb-3.5 sm:pb-4 pt-3 sm:pt-3.5 flex items-center gap-2 text-sm font-semibold transition-colors border-b-2 border-accent text-white"
+              className="pb-3.5 sm:pb-4 pt-3 sm:pt-3.5 flex items-center gap-2 text-sm font-semibold transition-colors border-b-2 border-accent text-accent font-bold"
             >
               <KeyRound size={15} />
               <span>Reset Password</span>
@@ -996,7 +996,7 @@ export function AuthModal() {
         </div>
 
         {/* Modal Footer Strip */}
-        <div className="border-t border-white/10 bg-[#080d19]/85 px-8 py-4 flex items-center justify-between text-xs text-text-dim">
+        <div className="border-t border-border-subtle bg-surface/80 px-8 py-4 flex items-center justify-between text-xs text-text-dim">
           <div className="flex items-center gap-2 font-mono text-[11px]">
             <Lock size={13} className="text-nominal" />
             

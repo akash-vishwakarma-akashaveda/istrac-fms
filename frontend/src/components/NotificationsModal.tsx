@@ -75,6 +75,7 @@ export function NotificationsModal({ isOpen, onClose, notifications }: Notificat
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('ALL')
   const inputRef = useRef<HTMLInputElement>(null)
+  const backdropMouseDownRef = useRef<EventTarget | null>(null)
 
   useEffect(() => {
     if (isOpen) {
@@ -119,7 +120,15 @@ export function NotificationsModal({ isOpen, onClose, notifications }: Notificat
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-page/85 backdrop-blur-md transition-opacity"
-        onClick={onClose}
+        onMouseDown={(e) => {
+          backdropMouseDownRef.current = e.target
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget && backdropMouseDownRef.current === e.currentTarget) {
+            const hasSelection = Boolean(window.getSelection()?.toString().trim().length)
+            if (!hasSelection) onClose()
+          }
+        }}
         aria-hidden="true"
       />
 

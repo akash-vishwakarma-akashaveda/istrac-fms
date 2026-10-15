@@ -108,5 +108,31 @@ export const satellitesApi = {
     const res = await apiClient.post(`/admin/satellites/${id}/restore`)
     return extractData<Satellite>(res)
   },
+
+  async checkRelatedFiles(id: string): Promise<SatelliteRelatedFilesCheck> {
+    const res = await apiClient.get(`/admin/satellites/${id}/related-files`)
+    return extractData<SatelliteRelatedFilesCheck>(res)
+  },
+
+  async hardDeleteSatellite(id: string): Promise<{ message: string }> {
+    const res = await apiClient.delete(`/admin/satellites/${id}/hard-delete`)
+    return extractData<{ message: string }>(res)
+  },
 }
+
+export interface SatelliteRelatedFilesCheck {
+  satelliteId: string
+  satelliteName: string
+  count: number
+  canDelete: boolean
+  sampleFiles: Array<{
+    id: string
+    name: string
+    departmentName?: string
+    departmentCode?: string
+    reportTitle?: string
+    createdAt: string
+  }>
+}
+
 

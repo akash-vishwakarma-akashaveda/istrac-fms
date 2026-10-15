@@ -26,6 +26,7 @@ import { StatCard, SetupWizardModal } from '../components'
 import { apiClient } from '../api/client'
 import { useToastStore } from '../store/toastStore'
 import { useCms } from '../context/cmsContext'
+import { useCategoryLabel } from '../components/CategoryOptions'
 
 function formatBytes(bytes: number) {
   if (!bytes) return '0 B'
@@ -47,6 +48,7 @@ export function AdminHome() {
 
   const { data: stats, isLoading, refetch } = useAdminStats()
   console.log('Admin Stats:', stats)
+  const categoryLabel = useCategoryLabel()
   const addToast = useToastStore((s) => s.addToast)
 
   const { data: pendingUsersData, isLoading: loadingPending, refetch: refetchPending } = usePendingUsers()
@@ -161,7 +163,7 @@ export function AdminHome() {
 
           <Link
             to="/admin/broadcast"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/15 px-3 py-1.5 text-xs font-bold text-accent-light hover:bg-accent hover:text-white shadow-sm transition-all"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-accent/50 bg-accent/15 px-3 py-1.5 text-xs font-bold text-accent hover:bg-accent hover:text-white shadow-sm transition-all cursor-pointer"
           >
             <Megaphone size={14} />
             <span>Broadcast Alert</span>
@@ -169,7 +171,7 @@ export function AdminHome() {
 
           <Link
             to="/admin/users"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-card px-3 py-1.5 text-xs font-semibold text-text-primary hover:border-accent hover:text-white transition-all shadow-sm"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-card px-3 py-1.5 text-xs font-semibold text-text-primary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all shadow-sm cursor-pointer"
           >
             <Users size={14} />
             <span>Manage Users</span>
@@ -220,8 +222,8 @@ export function AdminHome() {
 
       {/* System Telemetry Badges Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-        <div className="flex items-center gap-2.5 rounded-xl border border-border-subtle bg-[#080e1b] p-2.5 sm:p-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-nominal/15 text-nominal">
+        <div className="group relative overflow-hidden flex items-center gap-2.5 rounded-xl border border-border-default bg-card shadow-card p-2.5 sm:p-3 hover:border-nominal/40 hover:shadow-card-hover transition-all">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-nominal/15 border border-nominal/30 text-nominal shadow-sm transition-transform duration-300 group-hover:scale-105">
             <Radio size={16} className="animate-pulse" />
           </div>
           <div className="min-w-0">
@@ -232,11 +234,11 @@ export function AdminHome() {
 
         <Link
           to="/admin/settings"
-          className="flex items-center gap-2.5 rounded-xl border border-border-subtle bg-[#080e1b] p-2.5 sm:p-3 transition-colors hover:border-accent/40 group"
+          className="group relative overflow-hidden flex items-center gap-2.5 rounded-xl border border-border-default bg-card shadow-card p-2.5 sm:p-3 transition-all hover:border-accent/40 hover:shadow-card-hover"
         >
           <div
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-              storageStatus.mounted ? 'bg-accent/15 text-accent-light' : 'bg-critical/15 text-critical'
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg shadow-sm transition-transform duration-300 group-hover:scale-105 ${
+              storageStatus.mounted ? 'bg-accent/15 border border-accent/30 text-accent-light' : 'bg-critical/15 border border-critical/30 text-critical'
             }`}
           >
             <HardDrive size={16} />
@@ -253,8 +255,8 @@ export function AdminHome() {
           </div>
         </Link>
 
-        <div className="flex items-center gap-2.5 rounded-xl border border-border-subtle bg-[#080e1b] p-2.5 sm:p-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-400/15 text-purple-400">
+        <div className="group relative overflow-hidden flex items-center gap-2.5 rounded-xl border border-border-default bg-card shadow-card p-2.5 sm:p-3 hover:border-purple-400/40 hover:shadow-card-hover transition-all">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-400/15 border border-purple-400/30 text-purple-400 shadow-sm transition-transform duration-300 group-hover:scale-105">
             <Shield size={16} />
           </div>
           <div className="min-w-0">
@@ -263,8 +265,8 @@ export function AdminHome() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 rounded-xl border border-border-subtle bg-[#080e1b] p-2.5 sm:p-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning">
+        <div className="group relative overflow-hidden flex items-center gap-2.5 rounded-xl border border-border-default bg-card shadow-card p-2.5 sm:p-3 hover:border-warning/40 hover:shadow-card-hover transition-all">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-warning/15 border border-warning/30 text-warning shadow-sm transition-transform duration-300 group-hover:scale-105">
             <Clock size={16} />
           </div>
           <div className="min-w-0">
@@ -314,7 +316,7 @@ export function AdminHome() {
 
       {/* Recent Datasets Quick View (Live from MySQL) */}
       {stats?.recentFiles && stats.recentFiles.length > 0 && (
-        <div className="rounded-xl border border-border-default bg-card shadow-sm overflow-hidden">
+        <div className="rounded-xl border border-border-default bg-card shadow-card overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-border-default bg-surface/50 gap-2">
             <div className="flex items-center gap-2">
               <FileText size={15} className="text-accent-light" />
@@ -343,6 +345,7 @@ export function AdminHome() {
               <thead>
                 <tr className="border-b border-border-subtle bg-surface text-[10px] font-bold text-text-dim uppercase tracking-wider">
                   <th className="px-4 py-2.5">File Name</th>
+                  <th className="px-4 py-2.5">Report Category</th>
                   <th className="px-4 py-2.5">Department</th>
                   <th className="px-4 py-2.5">Spacecraft Target</th>
                   <th className="px-4 py-2.5">Size</th>
@@ -350,10 +353,20 @@ export function AdminHome() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle text-xs">
-                {stats.recentFiles.map((file) => (
+                {stats.recentFiles
+                  .filter((file) => {
+                    const sc = (file.report?.spacecraft || file.department?.satellite?.name || '').trim().toUpperCase()
+                    return sc && sc !== 'GENERAL' && !sc.includes('GENERAL')
+                  })
+                  .map((file) => (
                   <tr key={file.id} className="hover:bg-card-hover transition-colors">
                     <td className="px-4 py-2.5">
-                      <span className="font-bold text-white block truncate max-w-xs">{file.name}</span>
+                      <span className="font-bold text-text-primary block truncate max-w-xs">{file.name}</span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent-light uppercase">
+                        {categoryLabel(file.report?.customCategory || file.report?.category) || 'GENERAL'}
+                      </span>
                     </td>
                     <td className="px-4 py-2.5">
                       <span className="num text-[11px] font-mono text-accent-light">
@@ -362,7 +375,11 @@ export function AdminHome() {
                     </td>
                     <td className="px-4 py-2.5">
                       <span className="text-xs text-text-primary">
-                        {(file.report?.spacecraft && file.report.spacecraft.includes('General')) ? 'General' : (file.report?.spacecraft || 'General')}
+                        {file.report?.spacecraft && !file.report.spacecraft.toUpperCase().includes('GENERAL')
+                          ? file.report.spacecraft
+                          : (file.department?.satellite?.name && !file.department.satellite.name.toUpperCase().includes('GENERAL'))
+                            ? file.department.satellite.name
+                            : '—'}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 num text-text-secondary text-[11px]">
@@ -388,7 +405,7 @@ export function AdminHome() {
                 <AlertTriangle size={14} />
               </span>
               <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
                   <span>Pending Access Approvals</span>
                   <span className="rounded-full bg-warning/20 px-2 py-0.5 text-[10px] font-bold text-warning border border-warning/30">
                     {pendingUsers.length} Action Required
@@ -416,7 +433,7 @@ export function AdminHome() {
                 className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 gap-3"
               >
                 <div>
-                  <p className="text-xs font-bold text-white">{u.name}</p>
+                  <p className="text-xs font-bold text-text-primary">{u.name}</p>
                   <div className="flex items-center gap-3 text-[11px] text-text-dim mt-0.5">
                     <span>{u.email}</span>
                     {u.employeeId && (
@@ -468,18 +485,18 @@ export function AdminHome() {
           {/* Card 1: Satellites & Missions */}
           <Link
             to="/admin/satellites"
-            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-[#0d162a] shadow-sm"
+            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-card-hover shadow-card hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/25">
                 <Radio size={20} />
               </div>
-              <span className="rounded bg-card px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
+              <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
                 FLEET REGISTRY
               </span>
             </div>
             <div className="mt-4">
-              <h4 className="text-sm font-bold text-white group-hover:text-accent-light flex items-center justify-between">
+              <h4 className="text-sm font-bold text-text-primary group-hover:text-accent-light flex items-center justify-between">
                 <span>Satellites & Missions</span>
                 <ArrowRight size={14} className="opacity-0 -translate-x-2 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
               </h4>
@@ -492,18 +509,18 @@ export function AdminHome() {
           {/* Card 2: Approval Queue */}
           <Link
             to="/admin/approvals"
-            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-[#0d162a] shadow-sm"
+            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-card-hover shadow-card hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/15 text-warning border border-warning/25">
                 <UserCheck size={20} />
               </div>
-              <span className="rounded bg-card px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
+              <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
                 {pendingUsers.length > 0 ? `${pendingUsers.length} PENDING` : '0 PENDING'}
               </span>
             </div>
             <div className="mt-4">
-              <h4 className="text-sm font-bold text-white group-hover:text-accent-light flex items-center justify-between">
+              <h4 className="text-sm font-bold text-text-primary group-hover:text-accent-light flex items-center justify-between">
                 <span>Approval Queue</span>
                 <ArrowRight size={14} className="opacity-0 -translate-x-2 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
               </h4>
@@ -516,18 +533,18 @@ export function AdminHome() {
           {/* Card 2: User Accounts & RBAC */}
           <Link
             to="/admin/users"
-            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-[#0d162a] shadow-sm"
+            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-card-hover shadow-card hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/25">
                 <Users size={20} />
               </div>
-              <span className="rounded bg-card px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
+              <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
                 RBAC MATRIX
               </span>
             </div>
             <div className="mt-4">
-              <h4 className="text-sm font-bold text-white group-hover:text-accent-light flex items-center justify-between">
+              <h4 className="text-sm font-bold text-text-primary group-hover:text-accent-light flex items-center justify-between">
                 <span>User Accounts & Roles</span>
                 <ArrowRight size={14} className="opacity-0 -translate-x-2 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
               </h4>
@@ -540,18 +557,18 @@ export function AdminHome() {
           {/* Card: Password Reset OTPs & Verification */}
           <Link
             to="/admin/password-resets"
-            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-[#0d162a] shadow-sm"
+            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-card-hover shadow-card hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/25">
                 <KeyRound size={20} />
               </div>
-              <span className="rounded bg-card px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light font-mono">
+              <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light font-mono">
                 OTP DISPATCH
               </span>
             </div>
             <div className="mt-4">
-              <h4 className="text-sm font-bold text-white group-hover:text-accent-light flex items-center justify-between">
+              <h4 className="text-sm font-bold text-text-primary group-hover:text-accent-light flex items-center justify-between">
                 <span>Password Reset OTPs</span>
                 <ArrowRight size={14} className="opacity-0 -translate-x-2 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
               </h4>
@@ -564,18 +581,18 @@ export function AdminHome() {
           {/* Card 3: Department Management */}
           <Link
             to="/admin/departments"
-            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-[#0d162a] shadow-sm"
+            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-card-hover shadow-card hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-nominal/15 text-nominal border border-nominal/25">
                 <Building2 size={20} />
               </div>
-              <span className="rounded bg-card px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
+              <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
                 {stats?.departments} DIVISIONS
               </span>
             </div>
             <div className="mt-4">
-              <h4 className="text-sm font-bold text-white group-hover:text-accent-light flex items-center justify-between">
+              <h4 className="text-sm font-bold text-text-primary group-hover:text-accent-light flex items-center justify-between">
                 <span>Departments & Quotas</span>
                 <ArrowRight size={14} className="opacity-0 -translate-x-2 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
               </h4>
@@ -588,18 +605,18 @@ export function AdminHome() {
           {/* Card 4: Broadcast Alert */}
           <Link
             to="/admin/broadcast"
-            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-[#0d162a] shadow-sm"
+            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-card-hover shadow-card hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-400/15 text-purple-400 border border-purple-400/25">
                 <Megaphone size={20} />
               </div>
-              <span className="rounded bg-card px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
+              <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
                 REAL-TIME WS
               </span>
             </div>
             <div className="mt-4">
-              <h4 className="text-sm font-bold text-white group-hover:text-accent-light flex items-center justify-between">
+              <h4 className="text-sm font-bold text-text-primary group-hover:text-accent-light flex items-center justify-between">
                 <span>Broadcast Alert System</span>
                 <ArrowRight size={14} className="opacity-0 -translate-x-2 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
               </h4>
@@ -612,18 +629,18 @@ export function AdminHome() {
           {/* Card 5: Portal CMS */}
           <Link
             to="/admin/cms"
-            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-[#0d162a] shadow-sm"
+            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-card-hover shadow-card hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400/15 text-cyan-400 border border-cyan-400/25">
                 <Layout size={20} />
               </div>
-              <span className="rounded bg-card px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
+              <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
                 LIVE EDIT
               </span>
             </div>
             <div className="mt-4">
-              <h4 className="text-sm font-bold text-white group-hover:text-accent-light flex items-center justify-between">
+              <h4 className="text-sm font-bold text-text-primary group-hover:text-accent-light flex items-center justify-between">
                 <span>Public Portal CMS</span>
                 <ArrowRight size={14} className="opacity-0 -translate-x-2 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
               </h4>
@@ -636,18 +653,18 @@ export function AdminHome() {
           {/* Card 6: System Settings */}
           <Link
             to="/admin/settings"
-            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-[#0d162a] shadow-sm"
+            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-card-hover shadow-card hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-400/15 text-indigo-400 border border-indigo-400/25">
                 <Settings size={20} />
               </div>
-              <span className="rounded bg-card px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
+              <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
                 CONFIG
               </span>
             </div>
             <div className="mt-4">
-              <h4 className="text-sm font-bold text-white group-hover:text-accent-light flex items-center justify-between">
+              <h4 className="text-sm font-bold text-text-primary group-hover:text-accent-light flex items-center justify-between">
                 <span>System & Storage Settings</span>
                 <ArrowRight size={14} className="opacity-0 -translate-x-2 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
               </h4>

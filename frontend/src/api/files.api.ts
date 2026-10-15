@@ -101,6 +101,16 @@ export const filesApi = {
     return extractData<{ message: string }>(res)
   },
 
+  async hardDeleteFile(
+    fileId: string,
+    mode: 'BOTH' | 'STORAGE_ONLY' | 'DATABASE_ONLY'
+  ): Promise<{ message: string; deletedPaths?: string[] }> {
+    const res = await apiClient.delete(`/admin/files/${fileId}/hard-delete`, {
+      data: { mode },
+    })
+    return extractData<{ message: string; deletedPaths?: string[] }>(res)
+  },
+
   async getFileVersions(fileId: string): Promise<{ versions: FileVersion[]; file?: any }> {
     const res = await apiClient.get(`/files/${fileId}/versions`)
     const rawList = res.data?.data || []

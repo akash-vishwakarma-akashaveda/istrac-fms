@@ -250,7 +250,7 @@ export function Footer() {
           </div>
 
           {/* Clean Functional Links */}
-          <nav aria-label="Footer quick links" className="flex flex-wrap items-center gap-x-6 gap-y-2.5 text-xs text-slate-300">
+          <nav aria-label="Footer quick links" className="flex flex-wrap items-center gap-x-6 gap-y-2.5 text-xs text-text-muted">
             {parsedLinks.map((item, idx) => {
               if (item.isExternal) {
                 return (
@@ -259,10 +259,10 @@ export function Footer() {
                     href={item.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hover:text-white transition-colors flex items-center gap-1"
+                    className="hover:text-text-primary transition-colors flex items-center gap-1"
                   >
                     <span>{item.label}</span>
-                    <ExternalLink size={11} className="text-slate-400" />
+                    <ExternalLink size={11} className="text-text-dim" />
                   </a>
                 )
               }
@@ -272,7 +272,7 @@ export function Footer() {
                     key={`${item.label}-${idx}`}
                     href={item.href}
                     onClick={(e) => handleAnchorClick(e, item.href)}
-                    className="hover:text-white transition-colors cursor-pointer"
+                    className="hover:text-text-primary transition-colors cursor-pointer"
                   >
                     {item.label}
                   </a>
@@ -282,14 +282,14 @@ export function Footer() {
                 <Link
                   key={`${item.label}-${idx}`}
                   to={item.href}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-text-primary transition-colors"
                 >
                   {item.label}
                 </Link>
               )
             })}
             <span className="text-border-default select-none">|</span>
-            <Link to="/login" className="font-semibold text-accent-light hover:text-white transition-colors">
+            <Link to="/login" className="font-semibold text-accent hover:text-accent-hover transition-colors">
               Log In →
             </Link>
           </nav>
@@ -323,13 +323,13 @@ export function Footer() {
         onClick={scrollToTop}
         aria-label="Scroll back to top"
         title="Back to Top"
-        className={`group fixed bottom-6 right-6 z-[90] flex items-center gap-2 rounded-full border border-[#223049] bg-[#050c1b]/95 p-3 sm:px-3.5 sm:py-2.5 text-slate-200 shadow-2xl backdrop-blur-xl hover:border-accent hover:text-white hover:bg-[#08152e] hover:shadow-accent/25 transition-all duration-300 cursor-pointer ${
+        className={`group fixed bottom-6 right-6 z-[90] flex items-center gap-2 rounded-full border border-border-default bg-surface/95 p-3 sm:px-3.5 sm:py-2.5 text-text-primary shadow-xl backdrop-blur-xl hover:border-accent hover:text-accent hover:bg-accent/10 hover:shadow-accent/25 transition-all duration-300 cursor-pointer ${
           showFloatingTop
             ? "opacity-100 translate-y-0 pointer-events-auto"
             : "opacity-0 translate-y-4 pointer-events-none"
         }`}
       >
-        <ArrowUp size={16} className="text-accent-light transition-transform group-hover:-translate-y-0.5" />
+        <ArrowUp size={16} className="text-accent transition-transform group-hover:-translate-y-0.5" />
         <span className="hidden sm:inline text-xs font-semibold tracking-wider uppercase">Top</span>
       </button>
     </footer>

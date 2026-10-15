@@ -7,6 +7,8 @@ export function useAdminStats() {
   return useQuery({
     queryKey: ['admin-stats'],
     queryFn: () => adminApi.getStats(),
-    refetchInterval: 30_000,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchInterval: 15_000,
   })
 }

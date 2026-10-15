@@ -12,6 +12,7 @@ import {
   ArrowUpRight,
   Clock,
   Check,
+  X,
   FileText,
 } from "lucide-react"
 import { useNavigate, useSearchParams } from "react-router-dom"
@@ -131,7 +132,7 @@ export function NotificationsPage() {
           description="Real-time operational stream consolidating emergency advisories, spacecraft tracking passes, station bulletins, and automated telemetry file ingests."
           meta={
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="rounded-full bg-accent/15 border border-accent/30 px-3 py-0.5 text-xs font-bold font-mono text-accent-light flex items-center gap-1.5 shadow-sm">
+              <span className="rounded-full bg-accent/15 border border-accent/30 px-3 py-0.5 text-xs font-bold font-mono text-accent dark:text-accent-light flex items-center gap-1.5 shadow-sm">
                 <span className="h-2 w-2 rounded-full bg-accent-light animate-ping" />
                 <span>{priorityBroadcasts.length + activePassEvents.length} Active Advisories</span>
               </span>
@@ -161,8 +162,8 @@ export function NotificationsPage() {
       {hasLiveMarquee && (
         <div className="space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-              <Megaphone size={14} className="text-accent-light" />
+            <span className="text-xs font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
+              <Megaphone size={14} className="text-accent" />
               <span>Active Air-Gapped Station Advisories & Passes</span>
             </span>
             <span className="text-[11px] font-mono text-text-dim">
@@ -179,21 +180,21 @@ export function NotificationsPage() {
               return (
                 <div
                   key={b.id}
-                  className={`p-4 rounded-xl border flex items-start gap-3.5 transition-all shadow-lg backdrop-blur-md ${
+                  className={`p-4 rounded-xl border flex items-start gap-3.5 transition-all shadow-sm ${
                     isCritical
-                      ? "border-rose-500/60 bg-gradient-to-br from-rose-950/40 via-[#18080c] to-[#070b16] text-white shadow-rose-950/30"
+                      ? "border-rose-300 bg-rose-50/70 text-text-primary dark:border-rose-500/50 dark:bg-card dark:hover:bg-card-hover dark:shadow-card"
                       : isImportant
-                      ? "border-amber-500/50 bg-gradient-to-br from-amber-950/35 via-[#160d05] to-[#070b16] text-white shadow-amber-950/20"
-                      : "border-cyan-500/40 bg-gradient-to-br from-cyan-950/30 via-[#07152b] to-[#070b16] text-white shadow-cyan-950/20"
+                      ? "border-amber-300 bg-amber-50/70 text-text-primary dark:border-amber-500/50 dark:bg-card dark:hover:bg-card-hover dark:shadow-card"
+                      : "border-sky-300 bg-sky-50/70 text-text-primary dark:border-secondary/40 dark:bg-card dark:hover:bg-card-hover dark:shadow-card"
                   }`}
                 >
                   <div
-                    className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 border mt-0.5 shadow-inner ${
+                    className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 border mt-0.5 shadow-xs ${
                       isCritical
-                        ? "bg-rose-500/25 border-rose-500/50 text-rose-400 animate-pulse"
+                        ? "bg-rose-100 border-rose-300 text-rose-700 dark:bg-rose-500/20 dark:border-rose-500/40 dark:text-rose-400 animate-pulse"
                         : isImportant
-                        ? "bg-amber-500/25 border-amber-500/50 text-amber-300"
-                        : "bg-cyan-500/20 border-cyan-500/40 text-cyan-400"
+                        ? "bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-500/20 dark:border-amber-500/40 dark:text-amber-300"
+                        : "bg-sky-100 border-sky-300 text-sky-700 dark:bg-secondary/20 dark:border-secondary/40 dark:text-secondary-light"
                     }`}
                   >
                     {isCritical ? <Flame size={18} /> : isImportant ? <AlertTriangle size={18} /> : <Megaphone size={18} />}
@@ -204,10 +205,10 @@ export function NotificationsPage() {
                       <span
                         className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full font-mono tracking-wider ${
                           isCritical
-                            ? "bg-rose-500 text-white shadow-sm shadow-rose-500/50"
+                            ? "bg-rose-600 text-white shadow-sm"
                             : isImportant
                             ? "bg-amber-500 text-black font-bold"
-                            : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
+                            : "bg-sky-100 text-sky-800 border border-sky-300 dark:bg-secondary/20 dark:text-secondary-light dark:border-secondary/40"
                         }`}
                       >
                         {isCritical ? "CRITICAL ADVISORY" : isImportant ? "PRIORITY NOTICE" : "STATION BULLETIN"}
@@ -217,7 +218,7 @@ export function NotificationsPage() {
                       </span>
                     </div>
 
-                    <p className="text-xs font-semibold leading-relaxed text-slate-100">
+                    <p className="text-xs sm:text-sm font-semibold leading-relaxed text-text-primary">
                       {b.message}
                     </p>
                   </div>
@@ -233,38 +234,38 @@ export function NotificationsPage() {
                 <div
                   key={ev.id}
                   onClick={() => handleNavigateEvent(ev.id)}
-                  className="p-4 rounded-xl border border-accent/40 bg-gradient-to-br from-accent/20 via-[#071328] to-[#070b16] hover:border-accent hover:shadow-lg hover:shadow-accent/15 text-white flex items-start gap-3.5 cursor-pointer group transition-all"
+                  className="p-4 rounded-xl border border-accent/40 bg-orange-50/50 dark:bg-card dark:hover:bg-card-hover hover:border-accent hover:shadow-card-hover text-text-primary flex items-start gap-3.5 cursor-pointer group transition-all shadow-sm dark:shadow-card"
                 >
-                  <div className="h-9 w-9 rounded-xl bg-accent/25 border border-accent/40 text-accent-light flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform mt-0.5 shadow-inner">
+                  <div className="h-9 w-9 rounded-xl bg-accent/15 border border-accent/30 text-accent dark:text-accent-light flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform mt-0.5 shadow-xs">
                     <Radio size={18} className="animate-pulse" />
                   </div>
 
                   <div className="min-w-0 flex-1 space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-accent/30 text-accent-light border border-accent/40 font-mono tracking-wider">
+                        <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-accent/15 text-accent dark:text-accent-light border border-accent/30 font-mono tracking-wider">
                           TRACKING PASS
                         </span>
                         {ev.satellite?.code && (
-                          <span className="text-[10px] font-bold font-mono text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/30">
+                          <span className="text-[10px] font-bold font-mono text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-400/30">
                             {ev.satellite.code}
                           </span>
                         )}
                       </div>
-                      <span className="text-[11px] font-mono text-accent-light font-bold">
+                      <span className="text-[11px] font-mono text-accent dark:text-accent-light font-bold">
                         {timeStr} UTC
                       </span>
                     </div>
 
-                    <p className="text-xs font-bold text-white group-hover:text-accent-light transition-colors">
+                    <p className="text-xs sm:text-sm font-bold text-text-primary group-hover:text-accent transition-colors">
                       {ev.title}
                     </p>
 
                     <div className="flex items-center justify-between pt-1">
-                      <span className="text-[10px] text-text-dim truncate">
+                      <span className="text-[10px] sm:text-xs text-text-dim truncate">
                         {ev.location || "ISTRAC Deep Space Network"}
                       </span>
-                      <span className="text-[11px] font-bold text-accent-light flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                      <span className="text-[11px] font-bold text-accent dark:text-accent-light flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
                         <span>View Details</span>
                         <ArrowUpRight size={12} />
                       </span>
@@ -277,8 +278,8 @@ export function NotificationsPage() {
         </div>
       )}
 
-      {/* 2. FILTER TABS & SEARCH BAR */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+      {/* 2. FILTER TABS & SEARCH BAR (STICKY ON SCROLL) */}
+      <div className="sticky top-0 z-20 p-2.5 rounded-2xl bg-card/95 backdrop-blur-md border border-border-default shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 transition-all">
         {/* Navigation Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
           {TABS.map((t) => {
@@ -292,8 +293,8 @@ export function NotificationsPage() {
                 onClick={() => setActiveTab(t.id)}
                 className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                   isSelected
-                    ? "bg-accent text-white shadow-md shadow-accent/25 border border-accent"
-                    : "bg-[#091122] text-text-secondary hover:text-white hover:bg-[#0e1b36] border border-white/10"
+                    ? "bg-accent text-white shadow-sm border border-accent"
+                    : "bg-surface text-text-secondary hover:text-text-primary hover:bg-card-hover border border-border-subtle"
                 }`}
               >
                 <Icon size={13} className={isSelected ? "text-white" : "text-text-dim"} />
@@ -316,8 +317,18 @@ export function NotificationsPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search alerts, filenames, passes…"
-            className="w-full pl-9 pr-3 py-2 rounded-xl border border-white/10 bg-[#070e1d] text-xs text-white placeholder:text-text-dim outline-none focus:border-accent transition-colors shadow-inner"
+            className="w-full pl-9 pr-8 py-2 rounded-xl border border-border-default bg-surface text-xs text-text-primary placeholder:text-text-dim outline-none focus:border-accent transition-colors shadow-inner"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-primary transition-colors cursor-pointer"
+              title="Clear search query"
+            >
+              <X size={13} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -345,14 +356,26 @@ export function NotificationsPage() {
 
       {/* 3. ALERTS & NOTIFICATIONS FEED */}
       {filteredNotifications.length === 0 ? (
-        <div className="rounded-2xl border border-white/10 bg-[#070e1c] p-16 text-center space-y-3 shadow-md">
-          <div className="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-text-dim">
+        <div className="rounded-2xl border border-border-default bg-card p-16 text-center space-y-3 shadow-sm">
+          <div className="h-12 w-12 rounded-2xl bg-surface border border-border-default flex items-center justify-center mx-auto text-text-dim">
             <Bell size={24} />
           </div>
-          <p className="text-sm font-bold text-white">No Matching Notifications</p>
+          <p className="text-sm font-bold text-text-primary">No Matching Notifications</p>
           <p className="text-xs text-text-dim max-w-sm mx-auto">
             All telemetry logs, operational passes, and broadcasts matching your current filter are caught up.
           </p>
+          {searchQuery && (
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSearchQuery('')}
+                className="cursor-pointer"
+              >
+                Clear Search Filter
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-2.5">
@@ -368,33 +391,35 @@ export function NotificationsPage() {
             return (
               <div
                 key={n.id}
-                className={`p-3.5 sm:p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 shadow-md ${
+                className={`p-3.5 sm:p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 ${
                   isHighlighted
-                    ? "border-accent ring-2 ring-accent/50 bg-[#0e1c3a] shadow-lg"
+                    ? "border-accent ring-2 ring-accent/40 bg-accent/10 shadow-md"
                     : isUnread
                     ? isCritical
-                      ? "border-rose-500/50 bg-gradient-to-r from-rose-950/30 to-[#070d1a]"
+                      ? "border-rose-300 border-l-4 border-l-rose-500 bg-rose-50/50 dark:border-rose-500/40 dark:border-l-rose-500 dark:bg-card dark:hover:bg-card-hover shadow-sm dark:shadow-card"
                       : isImportant
-                      ? "border-amber-500/40 bg-gradient-to-r from-amber-950/25 to-[#070d1a]"
+                      ? "border-amber-300 border-l-4 border-l-amber-500 bg-amber-50/50 dark:border-amber-500/40 dark:border-l-amber-500 dark:bg-card dark:hover:bg-card-hover shadow-sm dark:shadow-card"
                       : isFile
-                      ? "border-purple-500/40 bg-gradient-to-r from-purple-950/25 to-[#070d1a]"
-                      : "border-accent/40 bg-gradient-to-r from-accent/15 to-[#070d1a]"
-                    : "border-white/10 bg-[#060a16] hover:bg-[#0a1224] hover:border-white/20"
+                      ? "border-purple-300 border-l-4 border-l-purple-500 bg-purple-50/50 dark:border-purple-500/40 dark:border-l-purple-500 dark:bg-card dark:hover:bg-card-hover shadow-sm dark:shadow-card"
+                      : isPass
+                      ? "border-sky-300 border-l-4 border-l-secondary bg-sky-50/50 dark:border-secondary/40 dark:border-l-secondary dark:bg-card dark:hover:bg-card-hover shadow-sm dark:shadow-card"
+                      : "border-accent/30 border-l-4 border-l-accent bg-orange-50/50 dark:border-accent/40 dark:border-l-accent dark:bg-card dark:hover:bg-card-hover shadow-sm dark:shadow-card"
+                    : "border-border-default border-l-4 border-l-border-default bg-card/70 hover:bg-card hover:border-border-bright opacity-85 hover:opacity-100 shadow-sm"
                 }`}
               >
                 <div className="flex items-start gap-3.5 min-w-0 flex-1">
                   {/* Category Icon Badge */}
                   <div
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border mt-0.5 shadow-inner ${
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border mt-0.5 shadow-xs ${
                       isCritical
-                        ? "bg-rose-500/20 border-rose-500/40 text-rose-400"
+                        ? "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/15 dark:border-rose-500/30 dark:text-rose-400"
                         : isPass
-                        ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400"
+                        ? "bg-sky-100 text-secondary border-sky-200 dark:bg-secondary/15 dark:border-secondary/30 dark:text-secondary-light"
                         : isFile
-                        ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
+                        ? "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-500/15 dark:border-purple-500/30 dark:text-purple-300"
                         : isImportant
-                        ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
-                        : "bg-accent/20 border-accent/40 text-accent-light"
+                        ? "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:border-amber-500/30 dark:text-amber-300"
+                        : "bg-accent/15 text-accent border-accent/25 dark:bg-accent/15 dark:border-accent/30 dark:text-accent-light"
                     }`}
                   >
                     {isCritical ? (
@@ -410,20 +435,20 @@ export function NotificationsPage() {
                     )}
                   </div>
 
-                  <div className="min-w-0 space-y-1 flex-1">
+                  <div className="min-w-0 space-y-1.5 flex-1">
                     {/* Top Row: Type Pill, Time, Status */}
                     <div className="flex flex-wrap items-center gap-2">
                       <span
                         className={`rounded px-2 py-0.5 text-[10px] font-extrabold uppercase font-mono tracking-wider ${
                           isCritical
-                            ? "bg-rose-500/25 text-rose-300 border border-rose-500/40"
+                            ? "bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/35"
                             : isPass
-                            ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                            ? "bg-sky-100 text-sky-800 border border-sky-200 dark:bg-secondary/20 dark:text-secondary-light dark:border-secondary/35"
                             : isFile
-                            ? "bg-purple-500/25 text-purple-300 border border-purple-500/40"
+                            ? "bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-500/35"
                             : isImportant
-                            ? "bg-amber-500/25 text-amber-300 border border-amber-500/40"
-                            : "bg-accent/20 text-accent-light border border-accent/30"
+                            ? "bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/35"
+                            : "bg-accent/15 text-accent border border-accent/30 dark:bg-accent/20 dark:text-accent-light dark:border-accent/35"
                         }`}
                       >
                         {isCritical
@@ -444,7 +469,7 @@ export function NotificationsPage() {
                       )}
 
                       {isUnread && (
-                        <span className="rounded bg-accent/90 text-white px-1.5 py-0.2 text-[10px] font-extrabold uppercase tracking-wider font-mono animate-pulse shadow-sm">
+                        <span className="rounded bg-accent text-white px-1.5 py-0.2 text-[10px] font-extrabold uppercase tracking-wider font-mono animate-pulse shadow-sm">
                           NEW
                         </span>
                       )}
@@ -456,7 +481,7 @@ export function NotificationsPage() {
                     </div>
 
                     {/* Notification Message Text */}
-                    <p className={`text-xs leading-relaxed ${isUnread ? "text-white font-semibold" : "text-slate-300"}`}>
+                    <p className={`text-xs sm:text-sm leading-relaxed ${isUnread ? "text-text-primary font-semibold" : "text-text-secondary"}`}>
                       {n.message}
                     </p>
 
@@ -466,7 +491,7 @@ export function NotificationsPage() {
                         <button
                           type="button"
                           onClick={() => handleNavigateEvent(n.resourceId)}
-                          className="text-[11px] font-bold text-accent-light hover:underline flex items-center gap-1 cursor-pointer"
+                          className="text-[11px] font-bold text-secondary dark:text-secondary-light hover:underline flex items-center gap-1 cursor-pointer"
                         >
                           <Calendar size={12} />
                           <span>View in Mission Calendar →</span>
@@ -477,7 +502,7 @@ export function NotificationsPage() {
                         <button
                           type="button"
                           onClick={handleNavigateFile}
-                          className="text-[11px] font-bold text-purple-300 hover:underline flex items-center gap-1 cursor-pointer"
+                          className="text-[11px] font-bold text-purple-700 dark:text-purple-300 hover:underline flex items-center gap-1 cursor-pointer"
                         >
                           <FolderArchive size={12} />
                           <span>Open Ingest Repository →</span>
@@ -493,14 +518,14 @@ export function NotificationsPage() {
                     <button
                       type="button"
                       onClick={() => markRead.mutate(n.id)}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-accent/40 bg-accent/15 text-accent-light hover:bg-accent hover:text-white transition-all text-xs font-semibold cursor-pointer shadow-sm active:scale-95"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-accent/40 bg-accent/10 text-accent hover:bg-accent hover:text-white dark:border-accent/40 dark:bg-accent/15 dark:text-accent-light dark:hover:bg-accent dark:hover:text-white transition-all text-xs font-semibold cursor-pointer shadow-sm active:scale-95"
                     >
                       <Check size={13} />
                       <span>Acknowledge</span>
                     </button>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-[10px] text-text-dim font-mono px-2 py-0.5 rounded-md bg-white/5 border border-white/10">
-                      <Check size={11} className="text-emerald-400" />
+                    <span className="inline-flex items-center gap-1 text-[10px] text-text-dim font-mono px-2 py-0.5 rounded-md bg-surface border border-border-default">
+                      <Check size={11} className="text-nominal" />
                       <span>Acknowledged</span>
                     </span>
                   )}

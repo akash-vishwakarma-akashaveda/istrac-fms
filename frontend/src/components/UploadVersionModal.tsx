@@ -415,8 +415,7 @@ export function UploadVersionModal({
       formData.append('file', renamedFile)
       formData.append('departmentId', selectedDept)
       formData.append('title', reportTitle || finalFileName)
-      formData.append('description', description)
-      formData.append('spacecraft', satObj?.code === 'GENERAL' ? 'General' : (satObj?.name || 'General'))
+      formData.append('spacecraft', satObj && satObj.code !== 'GENERAL' ? satObj.name : '')
       formData.append('category', catObj?.name || selectedCategoryCode)
       formData.append('versionLabel', version.trim().toUpperCase() || 'V1.0')
       formData.append('reportNumber', `${satCode}-${catCode}-${dateCompact}`)
@@ -460,6 +459,10 @@ export function UploadVersionModal({
 
       queryClient.invalidateQueries({ queryKey: ['dept-files'] })
       queryClient.invalidateQueries({ queryKey: ['admin-files'] })
+      queryClient.invalidateQueries({ queryKey: ['mission-overview'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['recent-files'] })
+      queryClient.invalidateQueries({ queryKey: ['user-departments'] })
       queryClient.invalidateQueries({ queryKey: ['featured-reports'] })
       queryClient.invalidateQueries({ queryKey: ['file-versions'] })
       queryClient.invalidateQueries({ queryKey: ['file-detail'] })
@@ -503,7 +506,7 @@ export function UploadVersionModal({
                   </span>
                 )}
               </div>
-              <h2 className="text-sm sm:text-lg font-bold text-white truncate">
+              <h2 className="text-sm sm:text-lg font-bold text-text-primary truncate">
                 {file ? 'Upload New File Version' : 'Upload Mission Report / File'}
               </h2>
             </div>
@@ -513,7 +516,7 @@ export function UploadVersionModal({
             type="button"
             onClick={onClose}
             disabled={uploading}
-            className="rounded-lg p-1.5 text-text-muted hover:bg-card-hover hover:text-white transition-colors shrink-0 ml-2"
+            className="rounded-lg p-1.5 text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors shrink-0 ml-2 cursor-pointer"
           >
             <X size={18} />
           </button>
@@ -551,11 +554,12 @@ export function UploadVersionModal({
                         >
                           <option value="">-- Select Spacecraft / Satellite * --</option>
                           {satellites
+                            .filter((s) => s.code !== 'GENERAL' && s.name.toUpperCase() !== 'GENERAL')
                             .slice()
-                            .sort((a, b) => (a.code === 'GENERAL' ? -1 : b.code === 'GENERAL' ? 1 : a.name.localeCompare(b.name)))
+                            .sort((a, b) => a.name.localeCompare(b.name))
                             .map((s) => (
                               <option key={s.id} value={s.id}>
-                                {s.code === 'GENERAL' ? 'General' : `${s.name} (${s.code || 'ISRO'})`}
+                                {s.name} ({s.code || 'ISRO'})
                               </option>
                             ))}
                         </Select>

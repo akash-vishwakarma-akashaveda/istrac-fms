@@ -3,7 +3,7 @@ import { HelpTip } from './HelpTip'
 import { DateRangeFilter } from './DateRangeFilter'
 import { EMPTY_DATE_RANGE, isDateRangeActive, isInDateRange, resolveDateRange, type DateRangeValue } from '../lib/dateRange'
 import { getErrorMessage } from '../api/client'
-import { CategoryOptions } from './CategoryOptions'
+import { CategoryOptions, useCategoryLabel } from './CategoryOptions'
 import {
   LayoutGrid,
   List,
@@ -63,6 +63,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
         da.accessLevel === 'READ_WRITE'
     )
   )
+  const categoryLabel = useCategoryLabel()
 
   const { fileViewMode, setFileViewMode } = useUIStore()
   const [searchQuery, setSearchQuery] = useState('')
@@ -200,7 +201,9 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
     if (!filesData) return []
     const set = new Set<string>()
     filesData.forEach((f) => {
-      if (f.spacecraft) set.add(f.spacecraft)
+      if (f.spacecraft && f.spacecraft.toUpperCase() !== 'GENERAL' && !f.spacecraft.toUpperCase().includes('GENERAL')) {
+        set.add(f.spacecraft)
+      }
     })
     return Array.from(set).sort()
   }, [filesData])
@@ -209,7 +212,8 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
     if (!filesData) return []
     const set = new Set<string>()
     filesData.forEach((f) => {
-      if (f.category) set.add(f.category)
+      const cat = f.category || f.customCategory || f.report?.category
+      if (cat) set.add(cat)
     })
     return Array.from(set).sort()
   }, [filesData])
@@ -243,7 +247,9 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
         const q = searchQuery.toLowerCase()
         const matchesName = file.name.toLowerCase().includes(q)
         const matchesSat = file.spacecraft?.toLowerCase().includes(q)
-        const matchesCat = file.category?.toLowerCase().includes(q)
+        const fileCat = file.category || file.customCategory || file.report?.category
+        const catName = fileCat ? categoryLabel(fileCat).toLowerCase() : ''
+        const matchesCat = (fileCat && fileCat.toLowerCase().includes(q)) || catName.includes(q)
         const matchesTag = file.tags?.some((t) => t.toLowerCase().includes(q))
         if (!matchesName && !matchesSat && !matchesCat && !matchesTag) return false
       }
@@ -254,15 +260,14 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
       }
 
       if (selectedSpacecraft !== 'ALL') {
-        if (selectedSpacecraft === 'General') {
-          if (file.spacecraft && file.spacecraft !== 'General') return false
-        } else if (file.spacecraft !== selectedSpacecraft) {
+        if (file.spacecraft !== selectedSpacecraft) {
           return false
         }
       }
 
       if (selectedCategory !== 'ALL') {
-        if (file.category !== selectedCategory) return false
+        const fileCat = file.category || file.customCategory || file.report?.category
+        if (fileCat !== selectedCategory) return false
       }
 
       if (!range.error && !isInDateRange(file.createdAt, range)) return false
@@ -292,7 +297,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
   return (
     <div className="space-y-4">
       {/* Search & Clearance Header Strip */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 rounded-xl border border-border-default bg-card shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 rounded-xl border border-border-default bg-card shadow-card">
         {/* Search within current directory */}
         <div className="relative flex-1 max-w-md">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
@@ -301,7 +306,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
             placeholder="Search datasets in this repository…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-11 py-1.5 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+            className="w-full rounded-lg border border-border-default bg-surface pl-9 pr-11 py-1.5 text-xs text-text-primary placeholder:text-text-dim outline-none focus:border-accent"
           />
           <span className="absolute right-1 top-1/2 -translate-y-1/2">
             <HelpTip topic="repository" />
@@ -315,7 +320,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer shrink-0 ${
             filterFeatured
               ? 'bg-amber-500 text-white border-amber-500 shadow-sm shadow-amber-500/20'
-              : 'bg-[#060c18] border-border-default text-text-dim hover:text-amber-400 hover:border-amber-500/40'
+              : 'bg-surface border-border-default text-text-dim hover:text-amber-400 hover:border-amber-500/40'
           }`}
           title="Filter Featured Mission Reports (Appearing in public showcase)"
         >
@@ -339,14 +344,14 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
               <span>Upload File</span>
             </Button>
           ) : (
-            <span className="flex items-center gap-1.5 rounded-lg border border-border-default bg-[#080e1b] px-3 py-1.5 text-xs font-semibold text-text-dim">
+            <span className="flex items-center gap-1.5 rounded-lg border border-border-default bg-surface px-3 py-1.5 text-xs font-semibold text-text-dim">
               <Lock size={12} className="text-accent-light" />
               <span>READ-ONLY CLEARANCE</span>
             </span>
           )}
 
           {/* Segmented Grid / List View Toggle */}
-          <div className="flex overflow-hidden rounded-lg border border-border-default bg-[#060c18]">
+          <div className="flex overflow-hidden rounded-lg border border-border-default bg-surface">
             <button
               type="button"
               onClick={() => setFileViewMode('grid')}
@@ -382,15 +387,15 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
         </div>
       </div>
 
-      {/* Comprehensive Filter & Sort Toolbar */}
-      <div className="p-3 rounded-xl border border-border-default bg-card shadow-sm space-y-2.5">
+      {/* Comprehensive Filter & Sort Toolbar (STICKY ON SCROLL) */}
+      <div className="sticky top-16 z-20 p-3 rounded-xl border border-border-default bg-card/95 backdrop-blur-md shadow-card-lg space-y-2.5 transition-all">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
           {/* Format Filter */}
           <div>
             <select
               value={selectedFormat}
               onChange={(e) => setSelectedFormat(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-surface px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All Formats</option>
               {availableFormats.map((fmt) => (
@@ -404,7 +409,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
             <select
               value={selectedSpacecraft}
               onChange={(e) => setSelectedSpacecraft(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-surface px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All Spacecraft</option>
               {availableSpacecraft.map((sat) => (
@@ -418,7 +423,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-surface px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <CategoryOptions extraCodes={availableCategories} />
             </select>
@@ -430,7 +435,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
               value={dateRange}
               onChange={setDateRange}
               allLabel="All dates"
-              selectClassName="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+              selectClassName="w-full rounded-lg border border-border-default bg-surface px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             />
           </div>
 
@@ -443,7 +448,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                 setSortField(f)
                 setSortDirection(d)
               }}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent cursor-pointer font-medium"
+              className="w-full rounded-lg border border-border-default bg-surface px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent cursor-pointer font-medium"
             >
               <option value="createdAt-desc">Date Added: Newest ↓</option>
               <option value="createdAt-asc">Date Added: Oldest ↑</option>
@@ -464,7 +469,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
               <button
                 type="button"
                 onClick={resetAllFilters}
-                className="inline-flex items-center gap-1 text-[10px] text-text-dim hover:text-white px-2 py-0.5 rounded border border-border-subtle bg-surface cursor-pointer ml-2"
+                className="inline-flex items-center gap-1 text-[10px] text-text-muted hover:text-accent hover:border-accent/60 hover:bg-accent/10 px-2 py-0.5 rounded border border-border-subtle bg-surface cursor-pointer ml-2 transition-colors shadow-sm"
               >
                 <RotateCcw size={10} />
                 <span>Reset Filters</span>
@@ -502,7 +507,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
         {isEmpty && (
           <div className="px-4 py-14 text-center space-y-2">
             <p className="num text-sm text-text-dim">—</p>
-            <p className="text-sm font-bold text-white">No Telemetry Datasets Found</p>
+            <p className="text-sm font-bold text-text-primary">No Telemetry Datasets Found</p>
             <p className="text-xs text-text-muted">
               {searchQuery ? 'No files match your search query.' : 'This division repository is currently empty.'}
             </p>
@@ -519,7 +524,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                 className={`group relative rounded-xl border p-4 transition-all duration-200 cursor-pointer flex flex-col justify-between ${
                   selectedIds.has(file.id)
                     ? 'border-accent bg-accent/[0.08] shadow-md shadow-accent/15'
-                    : 'border-border-default bg-[#060c18] hover:border-accent hover:bg-card-hover'
+                    : 'border-border-default bg-card shadow-card hover:border-accent/50 hover:bg-card-hover hover:shadow-card-hover'
                 }`}
               >
                 {canWrite && (
@@ -543,7 +548,13 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                       <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent-light uppercase">
                         {file.name.split('.').pop() || 'FILE'}
                       </span>
-                      {file.spacecraft && (
+                      <span
+                        className="rounded bg-accent/15 border border-accent/30 px-1.5 py-0.5 text-[10px] font-bold text-accent-light uppercase truncate max-w-[130px]"
+                        title={`Category: ${categoryLabel(file.category || file.customCategory || file.report?.category) || 'GENERAL'}`}
+                      >
+                        {categoryLabel(file.category || file.customCategory || file.report?.category) || 'GENERAL'}
+                      </span>
+                      {file.spacecraft && file.spacecraft.toUpperCase() !== 'GENERAL' && !file.spacecraft.toUpperCase().includes('GENERAL') && (
                         <span className="rounded bg-sky-500/15 border border-sky-500/30 px-1.5 py-0.5 text-[10px] font-bold text-sky-300 uppercase truncate max-w-[110px]" title={`Spacecraft: ${file.spacecraft}`}>
                           {file.spacecraft}
                         </span>
@@ -559,7 +570,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
 
                   {/* File Name */}
                   <h4
-                    className="text-xs font-bold text-white group-hover:text-accent-light transition-colors line-clamp-2 leading-relaxed"
+                    className="text-xs font-bold text-text-primary group-hover:text-accent-light transition-colors line-clamp-2 leading-relaxed"
                     title={file.name}
                   >
                     {file.name}
@@ -595,10 +606,10 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                           e.stopPropagation()
                           setConfirmFeatureFile(file)
                         }}
-                        className={`p-1 rounded-md border transition-all ${
+                        className={`p-1 rounded-md border transition-all cursor-pointer shadow-sm ${
                           file.isFeatured
-                            ? 'border-amber-500/50 bg-amber-500/20 text-amber-400'
-                            : 'border-border-subtle bg-surface text-text-dim hover:border-amber-500/50 hover:text-amber-400'
+                            ? 'border-amber-500/60 bg-amber-500/20 text-amber-500 font-bold'
+                            : 'border-border-subtle bg-surface text-text-muted hover:border-amber-500/60 hover:text-amber-500 hover:bg-amber-500/10'
                         }`}
                         title={file.isFeatured ? 'Featured Mission Report (Click to unfeature)' : 'Feature in Public Mission Reports'}
                       >
@@ -608,19 +619,19 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                     <button
                       type="button"
                       onClick={(e) => handleFileNameClick(e, file)}
-                      className="p-1 rounded-md border border-border-subtle bg-surface text-text-muted hover:border-accent hover:text-white transition-all"
+                      className="p-1 rounded-md border border-border-subtle bg-surface text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
                       title="Preview Dataset"
                     >
-                      <Eye size={12} className="text-accent-light" />
+                      <Eye size={13} />
                     </button>
 
                     <button
                       type="button"
                       onClick={(e) => handleDownload(e, file)}
-                      className="p-1 rounded-md border border-border-subtle bg-surface text-text-muted hover:border-nominal hover:text-nominal transition-all"
+                      className="p-1 rounded-md border border-border-subtle bg-surface text-text-secondary hover:border-nominal hover:text-nominal hover:bg-nominal/10 transition-all cursor-pointer shadow-sm"
                       title="Download File"
                     >
-                      <Download size={12} />
+                      <Download size={13} />
                     </button>
 
                     {file.nodeType === 'FILE' && (
@@ -628,10 +639,10 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                         <button
                           type="button"
                           onClick={(e) => handleVersionClick(e, file)}
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-border-default bg-surface text-text-secondary hover:border-accent hover:text-accent-light transition-all font-mono text-[10px] font-bold cursor-pointer"
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-border-default bg-surface text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all font-mono text-[10px] font-bold cursor-pointer shadow-sm"
                           title={`Version history (${file.versionLabel || `v${file.versionCount ?? 1}`})`}
                         >
-                          <Layers size={10} />
+                          <Layers size={11} />
                           <span>{file.versionLabel || `v${file.versionCount ?? 1}`}</span>
                           {(file.versionCount ?? 1) > 1 && (
                             <span className="text-[10px] opacity-75 font-normal">({file.versionCount})</span>
@@ -645,10 +656,10 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                               e.stopPropagation()
                               setUploadVersionFile(file)
                             }}
-                            className="p-1 rounded-md border border-border-subtle bg-surface text-text-muted hover:border-accent hover:text-accent-light transition-all cursor-pointer"
+                            className="p-1 rounded-md border border-border-subtle bg-surface text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
                             title="Upload New Version"
                           >
-                            <Upload size={11} />
+                            <Upload size={12} />
                           </button>
                         )}
                       </div>
@@ -663,7 +674,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
         {/* LIST / TABLE VIEW */}
         {!isEmpty && fileViewMode === 'list' && (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[700px]">
+            <table className="w-full text-left border-collapse min-w-[780px]">
               <thead>
                 <tr className="border-b border-border-default bg-surface text-[11px] font-bold text-text-dim uppercase tracking-wider">
                   {canWrite && <th className="w-8 px-3 py-2.5" />}
@@ -685,6 +696,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                     </div>
                   </th>
                   <th className="px-4 py-2.5">Format</th>
+                  <th className="px-4 py-2.5">Report Category</th>
                   <th
                     className="px-4 py-2.5 text-right cursor-pointer select-none hover:text-white transition-colors"
                     onClick={() => toggleSort('sizeBytes')}
@@ -796,6 +808,18 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                       </span>
                     </td>
 
+                    {/* Report Category */}
+                    <td className="px-4 py-3">
+                      <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent-light uppercase whitespace-nowrap">
+                        {categoryLabel(file.category || file.customCategory || file.report?.category) || 'GENERAL'}
+                      </span>
+                      {file.classificationLevel && (
+                        <span className="block text-[9px] text-text-dim uppercase mt-0.5 font-mono">
+                          {file.classificationLevel.replace(/_/g, ' ')}
+                        </span>
+                      )}
+                    </td>
+
                     {/* Size */}
                     <td className="px-4 py-3 text-right num text-text-secondary font-mono">
                       {formatFileSize(file.sizeBytes)}
@@ -842,7 +866,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                             className={`p-1.5 rounded-lg border transition-all ${
                               file.isFeatured
                                 ? 'border-amber-500/50 bg-amber-500/20 text-amber-400'
-                                : 'border-border-default bg-[#0c1424] text-text-muted hover:border-amber-500/50 hover:text-amber-400'
+                                : 'border-border-default bg-surface text-text-muted hover:border-amber-500/50 hover:text-amber-400'
                             }`}
                             title={file.isFeatured ? 'Featured Mission Report (Click to unfeature)' : 'Feature in Public Mission Reports'}
                           >
@@ -852,7 +876,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                         <button
                           type="button"
                           onClick={(e) => handleFileNameClick(e, file)}
-                          className="p-1.5 rounded-lg border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-white transition-all"
+                          className="p-1.5 rounded-lg border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent-light transition-all"
                           title="Preview Dataset"
                         >
                           <Eye size={13} className="text-accent-light" />
@@ -861,7 +885,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                         <button
                           type="button"
                           onClick={(e) => handleDownload(e, file)}
-                          className="p-1.5 rounded-lg border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all"
+                          className="p-1.5 rounded-lg border border-border-default bg-surface text-text-muted hover:border-nominal hover:text-nominal transition-all"
                           title="Download Dataset"
                         >
                           <Download size={13} />
@@ -874,7 +898,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                               e.stopPropagation()
                               setUploadVersionFile(file)
                             }}
-                            className="p-1.5 rounded-lg border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-accent-light transition-all cursor-pointer"
+                            className="p-1.5 rounded-lg border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent-light transition-all cursor-pointer"
                             title="Upload New Version"
                           >
                             <Upload size={13} />

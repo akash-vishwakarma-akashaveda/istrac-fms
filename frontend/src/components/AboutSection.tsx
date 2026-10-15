@@ -71,13 +71,13 @@ export function AboutSection() {
   return (
     <section
       id="about"
-      className="relative border-b border-border-subtle/80 bg-[#080d17]/65 py-18 sm:py-24"
+      className="relative border-b border-border-subtle/80 bg-page-soft/65 py-18 sm:py-24"
       aria-labelledby="about-title"
     >
       <div className="shell grid items-center gap-10 lg:grid-cols-12 lg:gap-14">
         {/* Left Column: CMS-Managed Ground Complex Image (5 Cols) */}
         <div
-          className="relative aspect-[4/3] w-full max-w-[460px] mx-auto overflow-hidden rounded-2xl border border-border-default bg-[#070c17] shadow-2xl transition-all duration-300 hover:border-accent/40 lg:col-span-5 group cursor-pointer"
+          className="relative aspect-[4/3] w-full max-w-[460px] mx-auto overflow-hidden rounded-2xl border border-border-default bg-card shadow-2xl transition-all duration-300 hover:border-accent/40 lg:col-span-5 group cursor-pointer"
           onClick={() => setIsLightboxOpen(true)}
           role="button"
           tabIndex={0}
@@ -90,7 +90,7 @@ export function AboutSection() {
           }}
         >
           {/* Top Tag Header */}
-          <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between border-b border-border-subtle/80 bg-[#0b1220]/80 px-4 py-2.5 backdrop-blur-md text-[11px]">
+          <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between border-b border-border-subtle/80 bg-surface/80 px-4 py-2.5 backdrop-blur-md text-[11px]">
             <span className="eyebrow flex items-center gap-1.5 text-accent-light">
               <Compass size={13} />
               {facilityTag}
@@ -134,7 +134,7 @@ export function AboutSection() {
           </div>
 
           {/* Bottom Station Node Strip */}
-          <div className="absolute bottom-0 inset-x-0 z-20 flex items-center justify-between border-t border-border-subtle/80 bg-[#0b1220]/85 px-4 py-2.5 backdrop-blur-md">
+          <div className="absolute bottom-0 inset-x-0 z-20 flex items-center justify-between border-t border-border-subtle/80 bg-surface/85 px-4 py-2.5 backdrop-blur-md">
             <div>
               <p className="eyebrow text-[10px] text-text-dim">{primaryNodeLabel}</p>
               <p className="num text-xs font-bold text-text-primary">{primaryNodeLocation}</p>

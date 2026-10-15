@@ -20,10 +20,32 @@ export interface NamingPreset {
   createdAt?: string
 }
 
+export interface CategoryRelatedFilesResult {
+  categoryId: string
+  categoryName: string
+  categoryCode: string
+  isSystem: boolean
+  count: number
+  canDelete: boolean
+  sampleFiles: Array<{
+    id: string
+    name: string
+    departmentName?: string
+    departmentCode?: string
+    reportTitle?: string
+    createdAt: string
+  }>
+}
+
 export const reportPresetsApi = {
   async getCategories(): Promise<CategoryPreset[]> {
     const res = await apiClient.get('/report-presets/categories')
     return extractData<CategoryPreset[]>(res)
+  },
+
+  async checkRelatedFiles(id: string): Promise<CategoryRelatedFilesResult> {
+    const res = await apiClient.get(`/report-presets/categories/${id}/related-files`)
+    return extractData<CategoryRelatedFilesResult>(res)
   },
 
   async createCategory(payload: { name: string; code: string; description?: string }): Promise<CategoryPreset> {
@@ -31,7 +53,7 @@ export const reportPresetsApi = {
     return extractData<CategoryPreset>(res)
   },
 
-  async deleteCategory(id: string): Promise<{ message: string; filesMovedToGeneral?: number }> {
+  async deleteCategory(id: string): Promise<{ message: string }> {
     const res = await apiClient.delete(`/report-presets/categories/${id}`)
     return extractData<{ message: string }>(res)
   },

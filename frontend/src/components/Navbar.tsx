@@ -327,11 +327,11 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             />
 
             <div className="flex flex-col">
-              <span className="text-sm font-bold tracking-wider uppercase leading-tight sm:text-base text-white">
+              <span className="text-sm font-bold tracking-wider uppercase leading-tight sm:text-base text-text-primary">
                 {brandTitle}
-                <span className="text-accent-light">{brandHighlight}</span>
+                <span className="text-accent">{brandHighlight}</span>
               </span>
-              <span className="text-[10px] sm:text-[10px] text-slate-300 font-medium uppercase tracking-widest truncate max-w-[140px] sm:max-w-none">
+              <span className="text-[10px] sm:text-[10px] text-text-muted font-medium uppercase tracking-widest truncate max-w-[140px] sm:max-w-none">
                 {brandSubtitle}
               </span>
             </div>
@@ -343,12 +343,12 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
               href="/#hero"
               onClick={(e) => handleSectionClick(e, "hero", "home")}
               className={`group relative flex h-full items-center px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none ${
-                isHomeActive ? "text-white" : "text-slate-200 hover:text-white"
+                isHomeActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"
               }`}
             >
               <span>{homeLabel}</span>
               <span
-                className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent-light transition-all duration-200 pointer-events-none ${
+                className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent transition-all duration-200 pointer-events-none ${
                   isHomeActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
                 }`}
               />
@@ -364,28 +364,28 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 onClick={() => setDeptOpen((prev) => !prev)}
                 onMouseEnter={() => setDeptOpen(true)}
                 className={`group relative flex h-full items-center gap-1 px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none cursor-pointer ${
-                  isDeptActive ? "text-white" : "text-slate-200 hover:text-white"
+                  isDeptActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"
                 }`}
               >
                 <span>{departmentsLabel}</span>
                 <ChevronDown
                   size={13}
                   className={`transition-transform duration-150 ${
-                    deptOpen ? "rotate-180 text-accent-light" : isDeptActive ? "text-accent-light" : "text-slate-400"
+                    deptOpen ? "rotate-180 text-accent" : isDeptActive ? "text-accent" : "text-text-muted"
                   }`}
                 />
                 <span
-                  className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent-light transition-all duration-200 pointer-events-none ${
+                  className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent transition-all duration-200 pointer-events-none ${
                     isDeptActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
                   }`}
                 />
               </button>
 
               {deptOpen && (
-                <div className="absolute top-full left-0 w-72 rounded-xl border border-[#223049] bg-[#02050e]/98 shadow-2xl shadow-black/80 p-2 z-50 animate-rise backdrop-blur-2xl">
-                  <div className="px-3 py-2 border-b border-[#223049] text-[10px] uppercase font-bold text-slate-300 flex items-center justify-between">
+                <div className="absolute top-full left-0 w-72 rounded-xl border border-border-default bg-card shadow-2xl p-2 z-50 animate-rise backdrop-blur-2xl">
+                  <div className="px-3 py-2 border-b border-border-subtle text-[10px] uppercase font-bold text-text-muted flex items-center justify-between">
                     <span>ISTRAC Divisions</span>
-                    <span className="text-accent-light num font-mono">{departments.length} Units</span>
+                    <span className="text-accent num font-mono font-semibold">{departments.length} Units</span>
                   </div>
                   <div className="py-1 max-h-64 overflow-y-auto space-y-0.5">
                     {departments.map((dept) => (
@@ -393,29 +393,29 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                         key={dept.id}
                         to={`/departments/${dept.id}`}
                         onClick={() => setDeptOpen(false)}
-                        className="flex items-center justify-between rounded-lg px-3 py-2 text-xs text-slate-200 hover:bg-accent/20 hover:text-white transition-all group"
+                        className="flex items-center justify-between rounded-lg px-3 py-2 text-xs text-text-secondary hover:bg-card-hover hover:text-text-primary transition-all group"
                       >
                         <span className="truncate font-medium group-hover:translate-x-0.5 transition-transform">
                           {dept.name}
                         </span>
                         {dept.code && (
-                          <span className="num text-[10px] text-accent-light rounded bg-[#0b1426] px-1.5 py-0.5 border border-[#223049] shrink-0 font-mono font-semibold">
+                          <span className="num text-[10px] text-accent rounded bg-page-soft px-1.5 py-0.5 border border-border-subtle shrink-0 font-mono font-semibold">
                             {dept.code}
                           </span>
                         )}
                       </Link>
                     ))}
                     {departments.length === 0 && (
-                      <div className="px-3 py-3 text-xs text-slate-400 text-center">
+                      <div className="px-3 py-3 text-xs text-text-muted text-center">
                         No departments listed.
                       </div>
                     )}
                   </div>
-                  <div className="border-t border-[#223049] pt-1.5">
+                  <div className="border-t border-border-subtle pt-1.5">
                     <Link
                       to="/departments"
                       onClick={() => setDeptOpen(false)}
-                      className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold text-accent-light hover:bg-accent/15 hover:text-white transition-colors"
+                      className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold text-accent hover:bg-accent/10 transition-colors"
                     >
                       <span className="flex items-center gap-1.5">
                         <Layers size={13} />
@@ -432,12 +432,12 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
               href="/#calendar"
               onClick={(e) => handleSectionClick(e, "calendar", "calendar")}
               className={`group relative flex h-full items-center px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none ${
-                isCalendarActive ? "text-white" : "text-slate-200 hover:text-white"
+                isCalendarActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"
               }`}
             >
               <span>{calendarLabel}</span>
               <span
-                className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent-light transition-all duration-200 pointer-events-none ${
+                className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent transition-all duration-200 pointer-events-none ${
                   isCalendarActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
                 }`}
               />
@@ -447,12 +447,12 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
               href="/#about"
               onClick={(e) => handleSectionClick(e, "about", "about")}
               className={`group relative flex h-full items-center px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none ${
-                isAboutActive ? "text-white" : "text-slate-200 hover:text-white"
+                isAboutActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"
               }`}
             >
               <span>{aboutLabel}</span>
               <span
-                className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent-light transition-all duration-200 pointer-events-none ${
+                className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent transition-all duration-200 pointer-events-none ${
                   isAboutActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
                 }`}
               />
@@ -462,12 +462,12 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
               href="/#contact"
               onClick={(e) => handleSectionClick(e, "contact", "contact")}
               className={`group relative flex h-full items-center px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none ${
-                isContactActive ? "text-white" : "text-slate-200 hover:text-white"
+                isContactActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"
               }`}
             >
               <span>{contactLabel}</span>
               <span
-                className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent-light transition-all duration-200 pointer-events-none ${
+                className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent transition-all duration-200 pointer-events-none ${
                   isContactActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
                 }`}
               />
@@ -481,12 +481,12 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
               <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
-                className="flex items-center gap-1.5 lg:gap-2 rounded-xl border border-[#223049] bg-[#050c1b] px-2.5 lg:px-3 py-1.5 text-xs text-slate-200 hover:border-accent/70 hover:text-white hover:bg-[#08142a] transition-all cursor-pointer shadow-inner"
+                className="flex items-center gap-1.5 lg:gap-2 rounded-xl border border-border-default bg-surface/80 px-2.5 lg:px-3 py-1.5 text-xs text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
               >
-                <Search size={13} className="text-accent-light" />
+                <Search size={13} className="text-accent" />
                 <span className="hidden lg:inline font-medium">Search Repository</span>
                 <span className="lg:hidden font-medium">Search</span>
-                <kbd className="num hidden xl:inline-block rounded bg-[#0a1224] px-1.5 py-0.5 text-[10px] text-slate-400 border border-[#223049] font-mono font-medium">
+                <kbd className="num hidden xl:inline-block rounded bg-page-soft px-1.5 py-0.5 text-[10px] text-text-muted border border-border-subtle font-mono font-medium">
                   Ctrl K
                 </kbd>
               </button>
@@ -496,7 +496,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             <button
               type="button"
               onClick={() => setNotifsModalOpen(true)}
-              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-[#223049] bg-[#050c1b] text-slate-300 hover:border-accent/70 hover:text-white hover:bg-[#08142a] transition-all shadow-inner cursor-pointer"
+              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-border-default bg-surface/80 text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all shadow-sm cursor-pointer"
               title="Operational Broadcasts & Mission Notices"
               aria-label="Operational Broadcasts & Mission Notices"
             >
@@ -506,16 +506,16 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                   unreadCount > 0
                     ? "text-critical animate-pulse"
                     : notificationsList.length > 0
-                    ? "text-accent-light"
+                    ? "text-accent"
                     : ""
                 }
               />
               {unreadCount > 0 ? (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-[#020408]">
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-page">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               ) : notificationsList.length > 0 ? (
-                <span className="absolute -top-1 -right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white shadow-sm ring-1 ring-[#020408]">
+                <span className="absolute -top-1 -right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white shadow-sm ring-1 ring-page">
                   {notificationsList.length > 9 ? "9+" : notificationsList.length}
                 </span>
               ) : null}
@@ -539,10 +539,10 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                     variant="outline"
                     size="sm"
                     onClick={handleLogout}
-                    className="gap-1.5 border-[#223049] bg-[#050c1b] text-slate-300 hover:border-critical/60 hover:text-critical font-semibold cursor-pointer shadow-inner transition-colors"
+                    className="gap-1.5 border-border-default bg-surface text-text-secondary hover:border-critical hover:text-critical hover:bg-critical/10 font-semibold cursor-pointer shadow-sm transition-colors"
                     title="Sign Out Session"
                   >
-                    <LogOut size={13} className="text-critical/90" />
+                    <LogOut size={13} className="text-critical" />
                     <span>Logout</span>
                   </Button>
                 </div>
@@ -552,9 +552,9 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                     variant="outline"
                     size="sm"
                     onClick={openRegister}
-                    className="gap-1.5 font-semibold text-slate-200 hover:text-white border-[#223049] hover:border-accent/70 bg-[#050c1b] cursor-pointer"
+                    className="gap-1.5 font-semibold text-text-secondary hover:text-accent hover:border-accent hover:bg-accent/10 border-border-default bg-surface cursor-pointer shadow-sm"
                   >
-                    <UserPlus size={14} className="text-accent-light" />
+                    <UserPlus size={14} className="text-accent" />
                     <span>Request Access</span>
                   </Button>
                   <Button
@@ -578,7 +578,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
               <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#223049] bg-[#050c1b] text-slate-200 hover:border-accent/60 hover:text-white transition-colors cursor-pointer"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-border-default bg-surface/80 text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-colors cursor-pointer shadow-sm"
                 aria-label="Search"
               >
                 <Search size={18} />
@@ -589,7 +589,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             <button
               type="button"
               onClick={() => setNotifsModalOpen(true)}
-              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[#223049] bg-[#050c1b] text-slate-200 hover:border-accent/60 hover:text-white transition-colors cursor-pointer"
+              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-border-default bg-surface/80 text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-colors cursor-pointer shadow-sm"
               title="Operational Broadcasts & Mission Notices"
               aria-label="Operational Broadcasts & Mission Notices"
             >
@@ -599,16 +599,16 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                   unreadCount > 0
                     ? "text-critical animate-pulse"
                     : notificationsList.length > 0
-                    ? "text-accent-light"
+                    ? "text-accent"
                     : ""
                 }
               />
               {unreadCount > 0 ? (
-                <span className="absolute top-1.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[10px] font-bold text-white shadow-sm ring-1 ring-[#020408]">
+                <span className="absolute top-1.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[10px] font-bold text-white shadow-sm ring-1 ring-page">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               ) : notificationsList.length > 0 ? (
-                <span className="absolute top-1.5 right-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-0.5 text-[10px] font-bold text-white shadow-sm ring-1 ring-[#020408]">
+                <span className="absolute top-1.5 right-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-0.5 text-[10px] font-bold text-white shadow-sm ring-1 ring-page">
                   {notificationsList.length > 9 ? "9+" : notificationsList.length}
                 </span>
               ) : null}
@@ -618,7 +618,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#223049] bg-[#050c1b] text-slate-200 hover:border-critical/60 hover:text-critical transition-colors cursor-pointer"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-border-default bg-surface/80 text-text-secondary hover:border-critical hover:text-critical hover:bg-critical/10 transition-colors cursor-pointer shadow-sm"
                 title="Logout"
                 aria-label="Logout"
               >
@@ -629,10 +629,10 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             <button
               type="button"
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#223049] bg-[#050c1b] text-slate-200 hover:border-accent/60 hover:text-white transition-colors cursor-pointer"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border-default bg-surface/80 text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-colors cursor-pointer shadow-sm"
               aria-label="Toggle navigation menu"
             >
-              {mobileOpen ? <X size={20} className="text-accent-light" /> : <Menu size={20} />}
+              {mobileOpen ? <X size={20} className="text-accent" /> : <Menu size={20} />}
             </button>
           </div>
         </nav>
@@ -640,7 +640,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
 
       {/* Mobile Full-Screen Navigation Drawer (Outside Header to eliminate overflow & stacking context clipping) */}
       {mobileOpen && (
-        <div className="fixed inset-0 top-16 z-[999] bg-[#010309]/98 backdrop-blur-2xl md:hidden overflow-y-auto animate-fade-in flex flex-col justify-between p-5 pb-12 space-y-6">
+        <div className="fixed inset-0 top-16 z-[999] bg-page/98 border-t border-border-default backdrop-blur-2xl md:hidden overflow-y-auto animate-fade-in flex flex-col justify-between p-5 pb-12 space-y-6">
           <div className="space-y-4">
             {/* Quick Search Bar in Mobile Menu */}
             {showSearchButton && (
@@ -650,13 +650,13 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                   setMobileOpen(false)
                   setSearchOpen(true)
                 }}
-                className="flex w-full items-center justify-between rounded-xl border border-[#223049] bg-[#030612] p-3.5 text-xs text-slate-300 hover:border-accent/50 hover:text-white transition-all shadow-inner cursor-pointer"
+                className="flex w-full items-center justify-between rounded-xl border border-border-default bg-card p-3.5 text-xs text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all shadow-sm cursor-pointer"
               >
                 <span className="flex items-center gap-2.5">
-                  <Search size={16} className="text-accent-light" />
+                  <Search size={16} className="text-accent" />
                   <span>Search telemetry records & files…</span>
                 </span>
-                <span className="num text-[10px] text-slate-400 bg-[#0a1020] px-2 py-0.5 rounded border border-[#223049]">
+                <span className="num text-[10px] text-text-muted bg-page-soft px-2 py-0.5 rounded border border-border-subtle font-mono">
                   Search
                 </span>
               </button>
@@ -672,11 +672,11 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 }}
                 className="flex items-center gap-3 py-2.5 px-1 text-sm font-semibold transition-colors"
               >
-                <Home size={16} className={isHomeActive ? "text-accent-light" : "text-slate-400"} />
-                <span className={`relative pb-1 ${isHomeActive ? "text-white font-bold" : "text-slate-200 hover:text-white"}`}>
+                <Home size={16} className={isHomeActive ? "text-accent" : "text-text-muted"} />
+                <span className={`relative pb-1 ${isHomeActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"}`}>
                   {homeLabel}
                   <span
-                    className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent-light transition-all duration-200 ${
+                    className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent transition-all duration-200 ${
                       isHomeActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
                     }`}
                   />
@@ -691,11 +691,11 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                   className="flex w-full items-center justify-between py-2.5 px-1 text-sm font-semibold transition-colors cursor-pointer"
                 >
                   <span className="flex items-center gap-3">
-                    <Layers size={16} className={isDeptActive ? "text-accent-light" : "text-slate-400"} />
-                    <span className={`relative pb-1 ${isDeptActive ? "text-white font-bold" : "text-slate-200 hover:text-white"}`}>
+                    <Layers size={16} className={isDeptActive ? "text-accent" : "text-text-muted"} />
+                    <span className={`relative pb-1 ${isDeptActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"}`}>
                       {departmentsLabel}
                       <span
-                        className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent-light transition-all duration-200 ${
+                        className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent transition-all duration-200 ${
                           isDeptActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
                         }`}
                       />
@@ -704,23 +704,23 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                   <ChevronDown
                     size={14}
                     className={`transition-transform duration-200 ${
-                      mobileDeptOpen ? "rotate-180 text-accent-light" : "text-slate-400"
+                      mobileDeptOpen ? "rotate-180 text-accent" : "text-text-muted"
                     }`}
                   />
                 </button>
 
                 {mobileDeptOpen && (
-                  <div className="mx-2 my-1.5 rounded-xl border border-[#223049] bg-[#050b18] p-2 space-y-1 animate-fade-in">
+                  <div className="mx-2 my-1.5 rounded-xl border border-border-subtle bg-surface p-2 space-y-1 animate-fade-in shadow-inner">
                     {departments.map((dept) => (
                       <Link
                         key={dept.id}
                         to={`/departments/${dept.id}`}
                         onClick={() => setMobileOpen(false)}
-                        className="flex items-center justify-between rounded-lg px-3 py-2 text-xs text-slate-200 hover:bg-card-hover hover:text-white transition-colors"
+                        className="flex items-center justify-between rounded-lg px-3 py-2 text-xs text-text-secondary hover:bg-card-hover hover:text-text-primary transition-colors"
                       >
                         <span className="truncate">{dept.name}</span>
                         {dept.code && (
-                          <span className="num text-[10px] text-accent-light bg-[#02050e] px-1.5 py-0.5 rounded border border-[#223049] font-mono font-medium">
+                          <span className="num text-[10px] text-accent bg-page-soft px-1.5 py-0.5 rounded border border-border-subtle font-mono font-medium">
                             {dept.code}
                           </span>
                         )}
@@ -729,7 +729,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                     <Link
                       to="/departments"
                       onClick={() => setMobileOpen(false)}
-                      className="flex items-center justify-between rounded-lg px-3 py-2 text-xs font-bold text-accent-light hover:bg-accent/15 transition-colors pt-2 border-t border-[#223049]"
+                      className="flex items-center justify-between rounded-lg px-3 py-2 text-xs font-bold text-accent hover:bg-accent/10 transition-colors pt-2 border-t border-border-subtle"
                     >
                       <span>View All Divisions Directory</span>
                       <span>→</span>
@@ -746,11 +746,11 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 }}
                 className="flex items-center gap-3 py-2.5 px-1 text-sm font-semibold transition-colors"
               >
-                <Calendar size={16} className={isCalendarActive ? "text-accent-light" : "text-slate-400"} />
-                <span className={`relative pb-1 ${isCalendarActive ? "text-white font-bold" : "text-slate-200 hover:text-white"}`}>
+                <Calendar size={16} className={isCalendarActive ? "text-accent" : "text-text-muted"} />
+                <span className={`relative pb-1 ${isCalendarActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"}`}>
                   {calendarLabel}
                   <span
-                    className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent-light transition-all duration-200 ${
+                    className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent transition-all duration-200 ${
                       isCalendarActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
                     }`}
                   />
@@ -765,11 +765,11 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 }}
                 className="flex items-center gap-3 py-2.5 px-1 text-sm font-semibold transition-colors"
               >
-                <Info size={16} className={isAboutActive ? "text-accent-light" : "text-slate-400"} />
-                <span className={`relative pb-1 ${isAboutActive ? "text-white font-bold" : "text-slate-200 hover:text-white"}`}>
+                <Info size={16} className={isAboutActive ? "text-accent" : "text-text-muted"} />
+                <span className={`relative pb-1 ${isAboutActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"}`}>
                   {aboutLabel}
                   <span
-                    className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent-light transition-all duration-200 ${
+                    className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent transition-all duration-200 ${
                       isAboutActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
                     }`}
                   />
@@ -784,11 +784,11 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 }}
                 className="flex items-center gap-3 py-2.5 px-1 text-sm font-semibold transition-colors"
               >
-                <Headphones size={16} className={isContactActive ? "text-accent-light" : "text-slate-400"} />
-                <span className={`relative pb-1 ${isContactActive ? "text-white font-bold" : "text-slate-200 hover:text-white"}`}>
+                <Headphones size={16} className={isContactActive ? "text-accent" : "text-text-muted"} />
+                <span className={`relative pb-1 ${isContactActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"}`}>
                   {contactLabel}
                   <span
-                    className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent-light transition-all duration-200 ${
+                    className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent transition-all duration-200 ${
                       isContactActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
                     }`}
                   />
@@ -798,23 +798,23 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
           </div>
 
           {/* Mobile Footer & Auth Button */}
-          <div className="space-y-4 pt-4 border-t border-[#223049]">
+          <div className="space-y-4 pt-4 border-t border-border-subtle">
             {showAuthButton && (
               <div>
                 {user ? (
                   <div className="space-y-2.5">
-                    <div className="flex items-center justify-between rounded-xl border border-[#223049] bg-[#030612] p-3 text-xs">
+                    <div className="flex items-center justify-between rounded-xl border border-border-default bg-card p-3 text-xs shadow-sm">
                       <div className="truncate pr-2">
-                        <div className="font-bold text-white truncate">{user.name}</div>
-                        <div className="num text-[10px] text-slate-400 font-mono truncate">{user.email}</div>
+                        <div className="font-bold text-text-primary truncate">{user.name}</div>
+                        <div className="num text-[10px] text-text-muted font-mono truncate">{user.email}</div>
                       </div>
-                      <span className="rounded bg-accent/20 border border-accent/30 px-2 py-0.5 text-[10px] font-bold uppercase num text-accent-light shrink-0">
+                      <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold uppercase num text-accent shrink-0">
                         {user.role}
                       </span>
                     </div>
 
                     <Link to="/app" onClick={() => setMobileOpen(false)}>
-                      <Button variant="primary" size="lg" className="w-full justify-center gap-2 shadow-lg shadow-accent/20">
+                      <Button variant="primary" size="lg" className="w-full justify-center gap-2 shadow-sm shadow-accent/20">
                         <UserCheck size={16} />
                         <span>Launch Mission Console</span>
                       </Button>
@@ -827,7 +827,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                         setMobileOpen(false)
                         handleLogout()
                       }}
-                      className="w-full justify-center gap-2 border-[#223049] text-slate-200 hover:border-critical/60 hover:text-critical cursor-pointer"
+                      className="w-full justify-center gap-2 border-border-default bg-surface text-text-secondary hover:border-critical hover:text-critical hover:bg-critical/10 cursor-pointer shadow-sm transition-colors"
                     >
                       <LogOut size={16} className="text-critical" />
                       <span>Sign Out / Logout</span>
@@ -842,7 +842,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                         setMobileOpen(false)
                         openLogin()
                       }}
-                      className="w-full justify-center gap-2 shadow-lg shadow-accent/20 cursor-pointer"
+                      className="w-full justify-center gap-2 shadow-sm shadow-accent/20 cursor-pointer"
                     >
                       <LogIn size={16} />
                       <span>Sign In to Mission Portal</span>
@@ -854,9 +854,9 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                         setMobileOpen(false)
                         openRegister()
                       }}
-                      className="w-full justify-center gap-2 border-[#223049] hover:border-accent/60 cursor-pointer text-slate-200"
+                      className="w-full justify-center gap-2 border-border-default bg-surface text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 cursor-pointer shadow-sm transition-colors"
                     >
-                      <UserPlus size={16} className="text-accent-light" />
+                      <UserPlus size={16} className="text-accent" />
                       <span>Request Operational Access</span>
                     </Button>
                   </div>

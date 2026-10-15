@@ -56,7 +56,7 @@ export function ConfirmFeatureModal({ isOpen, file, onClose, onSuccess }: Confir
     >
       <div className="space-y-4">
         {/* Header Icon + Summary */}
-        <div className="flex items-start gap-3 p-3.5 rounded-xl border border-border-default bg-[#060c18]">
+        <div className="flex items-start gap-3 p-3.5 rounded-xl border border-border-default bg-surface">
           <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
             isCurrentlyFeatured
               ? 'border-amber-500/30 bg-amber-500/10 text-amber-400'
@@ -65,7 +65,7 @@ export function ConfirmFeatureModal({ isOpen, file, onClose, onSuccess }: Confir
             <Star size={20} className={isCurrentlyFeatured ? 'fill-amber-400' : ''} />
           </div>
           <div className="min-w-0">
-            <h4 className="text-sm font-bold text-white truncate">{file.name}</h4>
+            <h4 className="text-sm font-bold text-text-primary truncate">{file.name}</h4>
             <span className={`inline-flex items-center gap-1 mt-1 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded border ${
               isCurrentlyFeatured
                 ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
@@ -82,7 +82,7 @@ export function ConfirmFeatureModal({ isOpen, file, onClose, onSuccess }: Confir
             ? 'border-amber-500/20 bg-amber-500/5 text-text-secondary'
             : 'border-accent/20 bg-accent/5 text-text-secondary'
         }`}>
-          <div className="flex items-center gap-1.5 font-bold text-white">
+          <div className="flex items-center gap-1.5 font-bold text-text-primary">
             {isCurrentlyFeatured ? <AlertTriangle size={13} className="text-amber-400 shrink-0" /> : <CheckCircle2 size={13} className="text-accent-light shrink-0" />}
             <span>{isCurrentlyFeatured ? 'Unfeaturing this file:' : 'Featuring this file:'}</span>
           </div>

@@ -383,14 +383,14 @@ export function PdfPreview({ fileUrl, fileName = 'telemetry_document.pdf', onDow
               onClick={goToPrev}
               disabled={activePage <= 1}
               aria-label="Previous Page"
-              className="p-1.5 rounded hover:bg-card-hover hover:text-white disabled:opacity-30 transition-colors cursor-pointer"
+              className="p-1.5 rounded hover:bg-card-hover hover:text-text-primary disabled:opacity-30 transition-colors cursor-pointer"
               title="Previous Page (Up Arrow)"
             >
               <ChevronLeft size={15} />
             </button>
 
-            <span className="px-2.5 text-xs font-mono font-semibold text-white min-w-[4rem] text-center select-none">
-              <span className="text-accent-light font-bold">{activePage}</span>
+            <span className="px-2.5 text-xs font-mono font-semibold text-text-primary min-w-[4rem] text-center select-none">
+              <span className="text-accent font-bold">{activePage}</span>
               <span className="text-text-dim mx-1">/</span>
               <span>{numPages}</span>
             </span>
@@ -400,7 +400,7 @@ export function PdfPreview({ fileUrl, fileName = 'telemetry_document.pdf', onDow
               onClick={goToNext}
               disabled={activePage >= numPages}
               aria-label="Next Page"
-              className="p-1.5 rounded hover:bg-card-hover hover:text-white disabled:opacity-30 transition-colors cursor-pointer"
+              className="p-1.5 rounded hover:bg-card-hover hover:text-text-primary disabled:opacity-30 transition-colors cursor-pointer"
               title="Next Page (Down Arrow)"
             >
               <ChevronRight size={15} />
@@ -419,7 +419,7 @@ export function PdfPreview({ fileUrl, fileName = 'telemetry_document.pdf', onDow
             <button
               type="button"
               onClick={fitWidth}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono text-text-secondary hover:text-white hover:bg-card-hover rounded transition-colors cursor-pointer"
+              className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono text-text-secondary hover:text-text-primary hover:bg-card-hover rounded transition-colors cursor-pointer"
               title="Fit to Width"
             >
               <MoveHorizontal size={12} />
@@ -428,7 +428,7 @@ export function PdfPreview({ fileUrl, fileName = 'telemetry_document.pdf', onDow
             <button
               type="button"
               onClick={fitPage}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono text-text-secondary hover:text-white hover:bg-card-hover rounded transition-colors cursor-pointer"
+              className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono text-text-secondary hover:text-text-primary hover:bg-card-hover rounded transition-colors cursor-pointer"
               title="Fit Entire Page"
             >
               <Maximize size={12} />
@@ -442,7 +442,7 @@ export function PdfPreview({ fileUrl, fileName = 'telemetry_document.pdf', onDow
               type="button"
               onClick={zoomOut}
               disabled={scale <= 0.5}
-              className="p-1.5 rounded hover:bg-card-hover hover:text-white disabled:opacity-30 transition-colors cursor-pointer"
+              className="p-1.5 rounded hover:bg-card-hover hover:text-text-primary disabled:opacity-30 transition-colors cursor-pointer"
               title="Zoom Out (-)"
             >
               <ZoomOut size={14} />
@@ -451,7 +451,7 @@ export function PdfPreview({ fileUrl, fileName = 'telemetry_document.pdf', onDow
             <button
               type="button"
               onClick={resetZoom}
-              className="px-2 text-xs font-mono font-bold text-accent-light hover:text-white transition-colors cursor-pointer min-w-[3.5rem] text-center"
+              className="px-2 text-xs font-mono font-bold text-accent hover:text-accent-hover transition-colors cursor-pointer min-w-[3.5rem] text-center"
               title="Reset to 100%"
             >
               {Math.round(scale * 100)}%
@@ -461,7 +461,7 @@ export function PdfPreview({ fileUrl, fileName = 'telemetry_document.pdf', onDow
               type="button"
               onClick={zoomIn}
               disabled={scale >= 2.5}
-              className="p-1.5 rounded hover:bg-card-hover hover:text-white disabled:opacity-30 transition-colors cursor-pointer"
+              className="p-1.5 rounded hover:bg-card-hover hover:text-text-primary disabled:opacity-30 transition-colors cursor-pointer"
               title="Zoom In (+)"
             >
               <ZoomIn size={14} />
@@ -472,7 +472,7 @@ export function PdfPreview({ fileUrl, fileName = 'telemetry_document.pdf', onDow
           <button
             type="button"
             onClick={rotateClockwise}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-card text-text-muted hover:bg-card-hover hover:text-white transition-colors cursor-pointer"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-card text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors cursor-pointer"
             title="Rotate 90° Clockwise"
           >
             <RotateCw size={14} />

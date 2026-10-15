@@ -26,9 +26,16 @@ export const hddService = {
    * Path Traversal Guard: Prevents directory traversal attacks.
    */
   guardPath(targetPath: string): string {
+    if (!targetPath || typeof targetPath !== 'string') {
+      throw new AppError('invalid_path', 'Storage path cannot be empty', 400)
+    }
     const resolved = path.resolve(targetPath)
-    if (targetPath.includes('..')) {
+    if (targetPath.includes('..') || resolved.includes('..')) {
       throw new AppError('path_traversal', 'Invalid storage path access attempt', 400)
+    }
+    const rootDir = path.parse(resolved).root
+    if (resolved === rootDir || resolved === path.resolve('/')) {
+      throw new AppError('path_traversal', 'Root system directory cannot be targeted', 403)
     }
     return resolved
   },
@@ -113,7 +120,16 @@ export const hddService = {
    */
   async deleteFile(filePath: string): Promise<void> {
     try {
-      const safePath = this.guardPath(filePath)
+      let safePath = this.guardPath(filePath)
+      try {
+        await fs.access(safePath, fs.constants.F_OK)
+      } catch {
+        try {
+          safePath = await this.resolvePhysicalPath(filePath)
+        } catch {
+          // File does not exist under any known candidate roots
+        }
+      }
       await fs.unlink(safePath)
     } catch (err: any) {
       if (err.code !== 'ENOENT') {

@@ -13,8 +13,8 @@ export interface AdminStats {
     extension: string
     sizeBytes: string
     sha256?: string
-    department?: { id: string; name: string; code?: string }
-    report?: { id: string; title: string; spacecraft?: string; category?: string }
+    department?: { id: string; name: string; code?: string; satellite?: { name: string; code?: string } | null }
+    report?: { id: string; title: string; spacecraft?: string; category?: string; customCategory?: string }
     updatedAt: string
   }>
   recentLogs?: Array<{

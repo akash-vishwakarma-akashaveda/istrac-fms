@@ -97,7 +97,7 @@ export function Topbar() {
           <button
             type="button"
             onClick={toggleMobileSidebar}
-            className="md:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-[#080e1b] text-text-secondary hover:border-accent hover:text-white transition-colors cursor-pointer shrink-0"
+            className="md:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-card text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-colors cursor-pointer shrink-0 shadow-sm"
             aria-label="Open navigation menu"
           >
             <Menu size={16} />
@@ -119,10 +119,10 @@ export function Topbar() {
           {/* Back to Home / Public Portal Button */}
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-[#080e1b] px-3 py-1.5 text-xs font-semibold text-text-secondary hover:border-accent hover:text-white transition-all shadow-sm group"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-card px-3 py-1.5 text-xs font-semibold text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all shadow-sm group cursor-pointer"
             title={`Return to ${brandTitle}${brandHighlight} Public Portal Homepage`}
           >
-            <Home size={14} className="text-accent-light group-hover:scale-110 transition-transform" />
+            <Home size={14} className="text-accent group-hover:scale-110 transition-transform" />
             <span className="hidden sm:inline">Back to Home</span>
           </Link>
 

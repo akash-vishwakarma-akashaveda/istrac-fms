@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { HelpTip } from '../components/HelpTip'
 import { useParams, Link } from 'react-router-dom'
 import {
@@ -32,9 +32,14 @@ import {
   Fuel,
   Weight,
   CheckCircle2,
+  XCircle,
+  AlertTriangle,
   Radio,
   Calendar,
+  RotateCcw,
 } from 'lucide-react'
+
+import { CategoryOptions, useCategoryLabel } from '../components/CategoryOptions'
 import { departmentsApi, type Department } from '../api/departments.api'
 import { type Satellite as SatelliteType } from '../api/satellites.api'
 import { useDebounce } from '../hooks/useDebounce'
@@ -80,7 +85,9 @@ interface CarouselSlide {
 export function DepartmentDetail() {
   const { deptId } = useParams<{ deptId: string }>()
   const user = useAuthStore((s) => s.user)
+  const isPublicVisitor = !user
   const addToast = useToastStore((s) => s.addToast)
+  const categoryLabel = useCategoryLabel()
 
   const [dept, setDept] = useState<Department | null>(null)
   const [satellites, setSatellites] = useState<SatelliteType[]>([])
@@ -88,9 +95,17 @@ export function DepartmentDetail() {
 
   const { data: cachedSatellites = [] } = useSatellites()
 
+  // Only active satellites can be linked to departments
+  const activeSatellites = useMemo(() => {
+    return satellites.filter(
+      (s) => s.isActive !== false && !s.deletedAt && s.status !== 'DECOMMISSIONED' && s.status !== 'INACTIVE'
+    )
+  }, [satellites])
+
   // View Mode: 'card' (Grid) vs 'table' (List)
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card')
   const [satelliteViewMode, setSatelliteViewMode] = useState<'card' | 'table'>('card')
+  const [satelliteStatusFilter, setSatelliteStatusFilter] = useState<'ACTIVE' | 'DEACTIVATED'>('ACTIVE')
 
   // Department Files State
   const [deptFiles, setDeptFiles] = useState<any[]>([])
@@ -98,7 +113,33 @@ export function DepartmentDetail() {
   const [fileSearch, setFileSearch] = useState('')
   const debouncedFileSearch = useDebounce(fileSearch, 300)
   const [fileSpacecraft, setFileSpacecraft] = useState('ALL')
+  const [fileCategory, setFileCategory] = useState('ALL')
   const [fileExt, setFileExt] = useState('ALL')
+  const [fileClassification, setFileClassification] = useState('ALL')
+  const [fileDate, setFileDate] = useState('ALL')
+  const [fileSort, setFileSort] = useState('updatedAt-desc')
+  const [featuredOnly, setFeaturedOnly] = useState<boolean>(false)
+
+  const hasActiveFilters = Boolean(
+    fileSearch.trim() ||
+    fileSpacecraft !== 'ALL' ||
+    fileCategory !== 'ALL' ||
+    fileExt !== 'ALL' ||
+    fileClassification !== 'ALL' ||
+    fileDate !== 'ALL' ||
+    featuredOnly
+  )
+
+  const handleResetFilters = () => {
+    setFileSearch('')
+    setFileSpacecraft('ALL')
+    setFileCategory('ALL')
+    setFileExt('ALL')
+    setFileClassification('ALL')
+    setFileDate('ALL')
+    setFileSort('updatedAt-desc')
+    setFeaturedOnly(false)
+  }
 
   // Hero Carousel State
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
@@ -137,7 +178,6 @@ export function DepartmentDetail() {
   })
   const [savingEdit, setSavingEdit] = useState(false)
   const [featureConfirmFile, setFeatureConfirmFile] = useState<{ id: string; name: string; isFeatured?: boolean } | null>(null)
-  const [featuredOnly, setFeaturedOnly] = useState<boolean>(false)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false)
 
   const isAdmin = user?.role === 'ADMIN'
@@ -261,11 +301,17 @@ export function DepartmentDetail() {
       return
     }
     setLoadingFiles(true)
+    const [sortBy, sortOrder] = fileSort.split('-') as [string, 'asc' | 'desc']
     try {
       const files = await departmentsApi.getDepartmentFiles(dept?.id || deptId!, {
         search: debouncedFileSearch || undefined,
         spacecraft: fileSpacecraft !== 'ALL' ? fileSpacecraft : undefined,
         extension: fileExt !== 'ALL' ? fileExt : undefined,
+        category: fileCategory !== 'ALL' ? fileCategory : undefined,
+        classification: fileClassification !== 'ALL' ? fileClassification : undefined,
+        dateFilter: fileDate !== 'ALL' ? fileDate : undefined,
+        sortBy,
+        sortOrder,
       })
       setDeptFiles(files)
     } catch {
@@ -284,7 +330,7 @@ export function DepartmentDetail() {
     if (dept) {
       loadDeptFiles()
     }
-  }, [dept, debouncedFileSearch, fileSpacecraft, fileExt, user, hasDeptAccess])
+  }, [dept, debouncedFileSearch, fileSpacecraft, fileExt, fileCategory, fileClassification, fileDate, fileSort, user, hasDeptAccess])
 
   useEffect(() => {
     if (featuredOnly && !deptFiles.some((f) => f.isFeatured)) {
@@ -296,7 +342,9 @@ export function DepartmentDetail() {
   const handleOpenEditModal = () => {
     if (!dept) return
     const { isCarouselVisible: currentIsVisible, slides: currentSlides, satelliteViewMode: currentSatViewMode } = getCarouselConfig()
-    const currentSatIds = dept.satellites?.map((s) => s.id) || (dept.satelliteId ? [dept.satelliteId] : [])
+    const currentSatIds = (dept.satellites || [])
+      .filter((s) => s.isActive !== false && !s.deletedAt && s.status !== 'DECOMMISSIONED' && s.status !== 'INACTIVE')
+      .map((s) => s.id)
 
     setEditForm({
       name: dept.name,
@@ -329,7 +377,9 @@ export function DepartmentDetail() {
   const handleOpenAddSatellitesModal = () => {
     if (!dept) return
     const { isCarouselVisible: currentIsVisible, slides: currentSlides, satelliteViewMode: currentSatViewMode } = getCarouselConfig()
-    const currentSatIds = dept.satellites?.map((s) => s.id) || (dept.satelliteId ? [dept.satelliteId] : [])
+    const currentSatIds = (dept.satellites || [])
+      .filter((s) => s.isActive !== false && !s.deletedAt && s.status !== 'DECOMMISSIONED' && s.status !== 'INACTIVE')
+      .map((s) => s.id)
 
     setEditForm({
       name: dept.name,
@@ -472,7 +522,15 @@ export function DepartmentDetail() {
     : '/fallback-hero.jpg'
 
   const MAX_PUBLIC_PREVIEW_FILES = 3
-  const filteredDeptFiles = deptFiles.filter((f) => {
+  // Defensive check: Ensure that any trashed or hard-deleted file or file with a trashed report is omitted
+  const nonDeletedFiles = deptFiles.filter((f) => {
+    if (f.deletedAt) return false
+    if (f.status === 'DELETED') return false
+    if (f.report && f.report.deletedAt) return false
+    return true
+  })
+
+  const filteredDeptFiles = nonDeletedFiles.filter((f) => {
     if (featuredOnly && !f.isFeatured) return false
     return true
   })
@@ -485,6 +543,8 @@ export function DepartmentDetail() {
           ...filteredDeptFiles.filter((f) => f.isFeatured),
           ...filteredDeptFiles.filter((f) => !f.isFeatured).slice(0, 3),
         ]
+
+  const hasZeroFiles = !loadingFiles && nonDeletedFiles.length === 0 && !hasActiveFilters
 
   return (
     <div className="min-h-screen bg-page text-text-primary antialiased">
@@ -741,251 +801,209 @@ export function DepartmentDetail() {
         {/* ============================================================ */}
         {/* 2. ASSIGNED SPACECRAFT & SATELLITE MISSIONS */}
         {/* ============================================================ */}
-        {dept.satellites && dept.satellites.length > 0 ? (
-          <section className="shell mt-10 space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 border-b border-border-default pb-4">
-              <div>
-                <div className="flex items-center gap-2 text-accent-light text-xs font-mono uppercase tracking-wider font-bold">
-                  <Radio size={14} />
-                  <span>Spacecraft Fleet Operations</span>
+        {(() => {
+          const isSatelliteDeactivated = (sat?: SatelliteType | null) =>
+            Boolean(sat?.isActive === false || sat?.deletedAt || sat?.status === 'DECOMMISSIONED' || sat?.status === 'INACTIVE')
+
+          // Filter out any hard-deleted / invalid satellite records so they are never seen
+          const rawAssignedSatellites = (
+            dept.satellites && dept.satellites.length > 0
+              ? dept.satellites
+              : dept.satellite
+              ? [dept.satellite]
+              : []
+          ).filter(
+            (s): s is SatelliteType => Boolean(s && s.id && s.name)
+          )
+
+          // In public page when no user is signed in, ONLY show activated satellites (filter out deactivated)
+          const assignedSatellites = isPublicVisitor
+            ? rawAssignedSatellites.filter((s) => !isSatelliteDeactivated(s))
+            : rawAssignedSatellites
+
+          const activeCount = assignedSatellites.filter((s) => !isSatelliteDeactivated(s)).length
+          const deactivatedCount = isPublicVisitor ? 0 : assignedSatellites.filter((s) => isSatelliteDeactivated(s)).length
+
+          const displayedSatellites = isPublicVisitor
+            ? assignedSatellites
+            : assignedSatellites.filter((sat) => {
+                const isDeactivated = isSatelliteDeactivated(sat)
+                if (satelliteStatusFilter === 'ACTIVE') return !isDeactivated
+                return isDeactivated
+              })
+
+          const hasZeroSatellites = assignedSatellites.length === 0
+
+          return (
+            <section className="shell mt-10 space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 border-b border-border-default pb-4">
+                <div>
+                  <div className="flex items-center gap-2 text-accent-light text-xs font-mono uppercase tracking-wider font-bold">
+                    <Radio size={14} />
+                    <span>Spacecraft Fleet Operations</span>
+                  </div>
+                  <h2 className="text-xl font-bold text-white mt-1 flex items-center gap-2.5 flex-wrap">
+                    <span>Assigned Spacecraft & Satellites</span>
+                    <span className="rounded-full bg-accent/20 border border-accent/40 text-accent-light px-2.5 py-0.5 text-xs font-mono num font-bold">
+                      {assignedSatellites.length} {assignedSatellites.length === 1 ? 'Mission' : 'Missions'}
+                    </span>
+                    {!isPublicVisitor && activeCount > 0 && (
+                      <span className="rounded-full bg-nominal/20 border border-nominal/40 text-nominal px-2.5 py-0.5 text-xs font-mono num font-bold">
+                        {activeCount} Active
+                      </span>
+                    )}
+                    {!isPublicVisitor && deactivatedCount > 0 && (
+                      <span className="rounded-full bg-critical/20 border border-critical/40 text-critical px-2.5 py-0.5 text-xs font-mono num font-bold">
+                        {deactivatedCount} Deactivated
+                      </span>
+                    )}
+                  </h2>
+                  <p className="text-xs text-text-secondary mt-1 max-w-2xl">
+                    Spacecraft missions supported by {dept.name} ({dept.code || 'DIV'}) for orbital tracking, telemetry downlink, flight dynamics, and payload telemetry downlinks.
+                  </p>
                 </div>
-                <h2 className="text-xl font-bold text-white mt-1 flex items-center gap-2.5">
-                  <span>Assigned Spacecraft & Satellites</span>
-                  <span className="rounded-full bg-accent/20 border border-accent/40 text-accent-light px-2.5 py-0.5 text-xs font-mono num font-bold">
-                    {dept.satellites.length} Missions
-                  </span>
-                </h2>
-                <p className="text-xs text-text-secondary mt-1 max-w-2xl">
-                  Spacecraft missions supported by {dept.name} ({dept.code || 'DIV'}) for orbital tracking, telemetry downlink, flight dynamics, and payload telemetry downlinks.
-                </p>
-              </div>
 
-              <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto flex-wrap">
-                {/* View Mode Switcher (Card Grid vs Table List) */}
-                <div className="flex items-center gap-1.5 p-1 rounded-lg border border-border-default bg-[#060c18]">
-                  <button
-                    type="button"
-                    onClick={() => setSatelliteViewMode('card')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-                      satelliteViewMode === 'card'
-                        ? 'bg-accent text-white shadow-sm'
-                        : 'text-text-dim hover:text-white'
-                    }`}
-                    title="Card Grid View"
-                  >
-                    <LayoutGrid size={13} />
-                    <span>Cards</span>
-                  </button>
+                {!hasZeroSatellites && (
+                  <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto flex-wrap">
+                    {/* Active / Deactivated Status Toggle - Only for logged-in staff */}
+                    {!isPublicVisitor && (
+                      <div className="flex items-center gap-1 p-1 rounded-lg border border-border-default bg-[#060c18]">
+                        <button
+                          type="button"
+                          onClick={() => setSatelliteStatusFilter('ACTIVE')}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                            satelliteStatusFilter === 'ACTIVE'
+                              ? 'bg-nominal/20 text-nominal border border-nominal/40 shadow-sm'
+                              : 'text-text-dim hover:text-nominal'
+                          }`}
+                          title="Show only operational active satellites"
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-nominal" />
+                          <span>Active</span>
+                          <span className="num text-[10px] px-1.5 py-0.2 rounded-full bg-black/40 font-mono">
+                            {activeCount}
+                          </span>
+                        </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setSatelliteViewMode('table')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-                      satelliteViewMode === 'table'
-                        ? 'bg-accent text-white shadow-sm'
-                        : 'text-text-dim hover:text-white'
-                    }`}
-                    title="Table List View"
-                  >
-                    <List size={13} />
-                    <span>Table</span>
-                  </button>
-                </div>
+                        <button
+                          type="button"
+                          onClick={() => setSatelliteStatusFilter('DEACTIVATED')}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                            satelliteStatusFilter === 'DEACTIVATED'
+                              ? 'bg-critical/25 text-critical border border-critical/50 shadow-sm'
+                              : 'text-text-dim hover:text-critical'
+                          }`}
+                          title="Show only deactivated satellites"
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-critical" />
+                          <span>Deactivated</span>
+                          <span className="num text-[10px] px-1.5 py-0.2 rounded-full bg-black/40 font-mono">
+                            {deactivatedCount}
+                          </span>
+                        </button>
+                      </div>
+                    )}
 
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={handleOpenEditModal}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent-light hover:bg-accent hover:text-white transition-all shrink-0"
-                  >
-                    <Edit2 size={12} />
-                    <span>Configure Satellites</span>
-                  </button>
+                    {/* View Mode Switcher (Card Grid vs Table List) */}
+                    <div className="flex items-center gap-1.5 p-1 rounded-lg border border-border-default bg-[#060c18]">
+                      <button
+                        type="button"
+                        onClick={() => setSatelliteViewMode('card')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                          satelliteViewMode === 'card'
+                            ? 'bg-accent text-white shadow-sm'
+                            : 'text-text-dim hover:text-white'
+                        }`}
+                        title="Card Grid View"
+                      >
+                        <LayoutGrid size={13} />
+                        <span>Cards</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSatelliteViewMode('table')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                          satelliteViewMode === 'table'
+                            ? 'bg-accent text-white shadow-sm'
+                            : 'text-text-dim hover:text-white'
+                        }`}
+                        title="Table List View"
+                      >
+                        <List size={13} />
+                        <span>Table</span>
+                      </button>
+                    </div>
+
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={handleOpenEditModal}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent-light hover:bg-accent hover:text-white transition-all shrink-0 cursor-pointer"
+                      >
+                        <Edit2 size={12} />
+                        <span>Configure Satellites</span>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
-            </div>
 
-            {satelliteViewMode === 'card' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {dept.satellites.map((sat) => {
-                  const hasAccess = canAccessSatellite(user, sat, dept.id)
-
-                  return (
-                    <div
-                      key={sat.id}
-                      onClick={() => {
-                        if (!user) {
-                          openLogin()
-                          return
-                        }
-                        if (!hasAccess) {
-                          addToast({
-                            title: 'Access Restricted',
-                            message: 'You are not authorized to see',
-                            variant: 'warning',
-                          })
-                          return
-                        }
-                        setViewingSatelliteId(sat.id)
-                      }}
-                      className={`flex flex-col justify-between rounded-xl border p-4 transition-all shadow-sm group cursor-pointer hover:shadow-xl ${
-                        hasAccess
-                          ? 'border-border-default bg-card hover:border-accent/60 hover:bg-[#0c1527] hover:shadow-accent/5'
-                          : 'border-border-subtle bg-card/60 hover:border-warning/50 hover:bg-[#120d18]'
-                      }`}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          if (!user) {
-                            openLogin()
-                            return
-                          }
-                          if (!hasAccess) {
-                            addToast({
-                              title: 'Access Restricted',
-                              message: 'You are not authorized to see',
-                              variant: 'warning',
-                            })
-                            return
-                          }
-                          setViewingSatelliteId(sat.id)
-                        }
-                      }}
+              {hasZeroSatellites ? (
+                <div className="rounded-xl border border-dashed border-border-default bg-[#060c18] p-10 text-center space-y-3">
+                  <Radio size={28} className="mx-auto text-text-dim" />
+                  <h3 className="text-base font-bold text-white">No satellites</h3>
+                  <p className="text-xs text-text-secondary max-w-md mx-auto">
+                    No satellites are currently linked to this division.
+                  </p>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={handleOpenAddSatellitesModal}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/15 px-3.5 py-2 text-xs font-bold text-accent-light hover:bg-accent hover:text-white transition-all cursor-pointer mt-1"
                     >
-                    <div className="space-y-3">
-                      {/* Header: SAT_ID badge, code, status */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/25 group-hover:scale-105 transition-transform">
-                            <Radio size={18} />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {(sat.satId || sat.code) && (
-                                <span className="num text-[10px] font-mono font-bold text-accent-light bg-accent/10 border border-accent/30 rounded px-1.5 py-0.2">
-                                  {sat.satId || sat.code}
-                                </span>
-                              )}
-                            </div>
-                            <h3 className="text-sm font-bold text-white truncate group-hover:text-accent-light transition-colors mt-0.5">
-                              {sat.name}
-                            </h3>
-                          </div>
-                        </div>
+                      <Plus size={13} />
+                      <span>Link Spacecraft Mission</span>
+                    </button>
+                  )}
+                </div>
+              ) : displayedSatellites.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border-default bg-[#060c18] p-8 text-center space-y-2.5">
+                  <Radio size={24} className="mx-auto text-text-dim" />
+                  <p className="text-sm font-bold text-white">
+                    {satelliteStatusFilter === 'ACTIVE'
+                      ? 'No active satellites currently assigned to this division.'
+                      : 'No deactivated satellites found for this division.'}
+                  </p>
+                  {satelliteStatusFilter === 'DEACTIVATED' ? (
+                    <button
+                      type="button"
+                      onClick={() => setSatelliteStatusFilter('ACTIVE')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-nominal/40 bg-nominal/15 text-nominal text-xs font-bold hover:bg-nominal hover:text-white transition-all cursor-pointer mt-1"
+                    >
+                      <RotateCcw size={12} />
+                      <span>View Active Satellites</span>
+                    </button>
+                  ) : deactivatedCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setSatelliteStatusFilter('DEACTIVATED')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-critical/40 bg-critical/15 text-critical text-xs font-bold hover:bg-critical hover:text-white transition-all cursor-pointer mt-1"
+                    >
+                      <span>View Deactivated Satellites ({deactivatedCount})</span>
+                    </button>
+                  ) : null}
+                </div>
+              ) : satelliteViewMode === 'card' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {displayedSatellites.map((sat) => {
+                    const hasAccess = canAccessSatellite(user, sat, dept.id)
+                    const isDeactivated = isSatelliteDeactivated(sat)
 
-                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-nominal/15 text-nominal border border-nominal/30 shrink-0">
-                          <CheckCircle2 size={10} />
-                          <span>{sat.status || 'Active'}</span>
-                        </span>
-                      </div>
-
-                      {/* Orbit & Description */}
-                      <div className="space-y-1">
-                        {sat.orbitType && (
-                          <div className="flex items-center gap-1.5 text-[11px] text-accent-light">
-                            <Orbit size={12} className="shrink-0" />
-                            <span className="truncate font-medium">{sat.orbitType}</span>
-                          </div>
-                        )}
-                        <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
-                          {sat.description || 'Primary ISRO ISTRAC mission program.'}
-                        </p>
-                      </div>
-
-                      {/* Quick Metrics */}
-                      <div className="grid grid-cols-3 gap-1.5 p-2 rounded-lg border border-border-subtle bg-[#070d1a] text-[10px]">
-                        <div className="min-w-0">
-                          <span className="text-text-dim block flex items-center gap-1">
-                            <Fuel size={10} className="text-nominal" /> Fuel
-                          </span>
-                          <strong className="text-white font-mono truncate block mt-0.5">
-                            {sat.fuelBalance || 'Nominal'}
-                          </strong>
-                        </div>
-                        <div className="min-w-0">
-                          <span className="text-text-dim block flex items-center gap-1">
-                            <Weight size={10} className="text-accent-light" /> Mass
-                          </span>
-                          <strong className="text-white font-mono truncate block mt-0.5">
-                            {sat.launchMass || 'Standard'}
-                          </strong>
-                        </div>
-                        <div className="min-w-0">
-                          <span className="text-text-dim block flex items-center gap-1">
-                            <Calendar size={10} className="text-warning" /> Launch
-                          </span>
-                          <strong className="text-white font-mono truncate block mt-0.5">
-                            {sat.launchDate
-                              ? new Date(sat.launchDate).toLocaleDateString(undefined, {
-                                  month: 'short',
-                                  year: '2-digit',
-                                })
-                              : 'Active'}
-                          </strong>
-                        </div>
-                      </div>
-
-                      {/* Payloads */}
-                      {sat.payloads && (
-                        <div className="text-[10px] text-text-dim bg-surface/60 rounded-md px-2 py-1 border border-border-subtle/60 flex items-center gap-1.5">
-                          <span className="font-semibold text-text-muted shrink-0">Payloads:</span>
-                          <span className="truncate text-text-secondary font-mono">
-                            {sat.payloads}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-3.5 pt-3 border-t border-border-subtle/80 flex items-center justify-between text-xs">
-                      <span className="text-[11px] text-text-dim group-hover:text-accent-light transition-colors">
-                        {!user
-                          ? 'Sign in to view telemetry'
-                          : hasAccess
-                          ? 'Click to view live telemetry'
-                          : 'Department clearance required'}
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-accent-light group-hover:translate-x-0.5 transition-transform">
-                        <span>
-                          {!user
-                            ? 'Sign In Required'
-                            : hasAccess
-                            ? 'Mission Dossier'
-                            : 'Restricted'}
-                        </span>
-                        {!user ? (
-                          <Lock size={12} />
-                        ) : hasAccess ? (
-                          <ChevronRight size={13} />
-                        ) : (
-                          <Lock size={12} className="text-warning" />
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-border-default bg-card overflow-hidden shadow-sm">
-                <div className="overflow-x-auto touch-pan-x">
-                  <table className="w-full text-left border-collapse min-w-[760px]">
-                    <thead>
-                      <tr className="border-b border-border-default bg-surface text-[11px] font-bold text-text-dim uppercase tracking-wider">
-                        <th className="px-4 py-3.5">Mission / Spacecraft</th>
-                        <th className="px-4 py-3.5">Orbit</th>
-                        <th className="px-4 py-3.5">Status</th>
-                        <th className="px-4 py-3.5">Fuel / Mass</th>
-                        <th className="px-4 py-3.5">Launch Date</th>
-                        <th className="px-4 py-3.5">Payloads</th>
-                        <th className="px-4 py-3.5 text-right">Clearance / Dossier</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-subtle text-xs">
-                      {dept.satellites.map((sat) => {
-                        const hasAccess = canAccessSatellite(user, sat, dept.id)
-                        const handleSatClick = () => {
+                    return (
+                      <div
+                        key={sat.id}
+                        onClick={() => {
                           if (!user) {
                             openLogin()
                             return
@@ -999,230 +1017,403 @@ export function DepartmentDetail() {
                             return
                           }
                           setViewingSatelliteId(sat.id)
-                        }
-
-                        return (
-                          <tr
-                            key={sat.id}
-                            onClick={handleSatClick}
-                            className={`transition-colors cursor-pointer ${
-                              hasAccess
-                                ? 'hover:bg-card-hover'
-                                : 'hover:bg-warning/5 opacity-80 hover:opacity-100'
-                            }`}
-                          >
-                            {/* Mission / Satellite Name & Code */}
-                            <td className="px-4 py-3.5">
-                              <div className="flex items-center gap-2.5">
-                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent-light border border-accent/25">
-                                  <Radio size={15} />
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    {(sat.satId || sat.code) && (
-                                      <span className="num text-[10px] font-mono font-bold text-accent-light bg-accent/10 border border-accent/30 rounded px-1.5 py-0.2">
-                                        {sat.satId || sat.code}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="font-bold text-white hover:text-accent-light truncate max-w-[200px] transition-colors mt-0.5" title={sat.name}>
-                                    {sat.name}
-                                  </p>
-                                </div>
+                        }}
+                        className={`flex flex-col justify-between rounded-xl border p-4 transition-all shadow-sm group cursor-pointer hover:shadow-xl ${
+                          isDeactivated
+                            ? 'border-critical/60 bg-[#160a12] hover:border-critical hover:bg-[#1f0c18] shadow-critical/10 ring-1 ring-critical/30'
+                            : hasAccess
+                            ? 'border-border-default bg-card hover:border-accent/60 hover:bg-[#0c1527] hover:shadow-accent/5'
+                            : 'border-border-subtle bg-card/60 hover:border-warning/50 hover:bg-[#120d18]'
+                        }`}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            if (!user) {
+                              openLogin()
+                              return
+                            }
+                            if (!hasAccess) {
+                              addToast({
+                                title: 'Access Restricted',
+                                message: 'You are not authorized to see',
+                                variant: 'warning',
+                              })
+                              return
+                            }
+                            setViewingSatelliteId(sat.id)
+                          }
+                        }}
+                      >
+                        <div className="space-y-3">
+                          {/* Header: SAT_ID badge, code, status */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border group-hover:scale-105 transition-transform ${
+                                isDeactivated
+                                  ? 'bg-critical/20 text-critical border-critical/30'
+                                  : 'bg-accent/15 text-accent-light border border-accent/25'
+                              }`}>
+                                <Radio size={18} />
                               </div>
-                            </td>
-
-                            {/* Orbit */}
-                            <td className="px-4 py-3.5">
-                              {sat.orbitType ? (
-                                <div className="flex items-center gap-1 text-[11px] text-accent-light">
-                                  <Orbit size={12} className="shrink-0" />
-                                  <span className="truncate max-w-[150px] font-medium">{sat.orbitType}</span>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {(sat.satId || sat.code) && (
+                                    <span className={`num text-[10px] font-mono font-bold rounded px-1.5 py-0.2 border ${
+                                      isDeactivated
+                                        ? 'text-critical bg-critical/15 border-critical/30'
+                                        : 'text-accent-light bg-accent/10 border-accent/30'
+                                    }`}>
+                                      {sat.satId || sat.code}
+                                    </span>
+                                  )}
                                 </div>
-                              ) : (
-                                <span className="text-text-dim text-[11px]">—</span>
-                              )}
-                            </td>
+                                <h3 className={`text-sm font-bold truncate transition-colors mt-0.5 ${
+                                  isDeactivated
+                                    ? 'text-white group-hover:text-critical'
+                                    : 'text-white group-hover:text-accent-light'
+                                }`}>
+                                  {sat.name}
+                                </h3>
+                              </div>
+                            </div>
 
-                            {/* Status */}
-                            <td className="px-4 py-3.5">
+                            {isDeactivated ? (
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-critical/20 text-critical border border-critical/40 shrink-0">
+                                <XCircle size={10} />
+                                <span>{sat.status === 'DECOMMISSIONED' ? 'Decommissioned' : 'Deactivated'}</span>
+                              </span>
+                            ) : (
                               <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-nominal/15 text-nominal border border-nominal/30 shrink-0">
                                 <CheckCircle2 size={10} />
                                 <span>{sat.status || 'Active'}</span>
                               </span>
-                            </td>
+                            )}
+                          </div>
 
-                            {/* Fuel / Mass */}
-                            <td className="px-4 py-3.5">
-                              <div className="text-[11px] space-y-0.5 font-mono">
-                                <div className="flex items-center gap-1 text-white">
-                                  <Fuel size={10} className="text-nominal shrink-0" />
-                                  <span>{sat.fuelBalance || 'Nominal'}</span>
-                                </div>
-                                <div className="flex items-center gap-1 text-text-dim">
-                                  <Weight size={10} className="text-accent-light shrink-0" />
-                                  <span>{sat.launchMass || 'Standard'}</span>
-                                </div>
+                          {/* Deactivated Notice Banner if Deactivated */}
+                          {isDeactivated && (
+                            <div className="rounded-lg border border-critical/40 bg-critical/15 px-2.5 py-1.5 text-[11px] text-critical flex items-center gap-2">
+                              <AlertTriangle size={13} className="shrink-0 text-critical" />
+                              <span className="font-semibold">Spacecraft Program Deactivated / Inactive</span>
+                            </div>
+                          )}
+
+                          {/* Orbit & Description */}
+                          <div className="space-y-1">
+                            {sat.orbitType && (
+                              <div className={`flex items-center gap-1.5 text-[11px] ${
+                                isDeactivated ? 'text-critical/90' : 'text-accent-light'
+                              }`}>
+                                <Orbit size={12} className="shrink-0" />
+                                <span className="truncate font-medium">{sat.orbitType}</span>
                               </div>
-                            </td>
+                            )}
+                            <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
+                              {sat.description || 'Primary ISRO ISTRAC mission program.'}
+                            </p>
+                          </div>
 
-                            {/* Launch Date */}
-                            <td className="px-4 py-3.5 text-text-secondary text-[11px] font-mono">
-                              {sat.launchDate ? (
-                                <div className="flex items-center gap-1">
-                                  <Calendar size={10} className="text-warning shrink-0" />
-                                  <span>
-                                    {new Date(sat.launchDate).toLocaleDateString(undefined, {
+                          {/* Quick Metrics */}
+                          <div className={`grid grid-cols-3 gap-1.5 p-2 rounded-lg border text-[10px] ${
+                            isDeactivated ? 'border-critical/30 bg-[#10060d]' : 'border-border-subtle bg-[#070d1a]'
+                          }`}>
+                            <div className="min-w-0">
+                              <span className="text-text-dim block flex items-center gap-1">
+                                <Fuel size={10} className={isDeactivated ? 'text-critical' : 'text-nominal'} /> Fuel
+                              </span>
+                              <strong className="text-white font-mono truncate block mt-0.5">
+                                {sat.fuelBalance || 'Nominal'}
+                              </strong>
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-text-dim block flex items-center gap-1">
+                                <Weight size={10} className={isDeactivated ? 'text-critical/90' : 'text-accent-light'} /> Mass
+                              </span>
+                              <strong className="text-white font-mono truncate block mt-0.5">
+                                {sat.launchMass || 'Standard'}
+                              </strong>
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-text-dim block flex items-center gap-1">
+                                <Calendar size={10} className="text-warning" /> Launch
+                              </span>
+                              <strong className="text-white font-mono truncate block mt-0.5">
+                                {sat.launchDate
+                                  ? new Date(sat.launchDate).toLocaleDateString(undefined, {
                                       month: 'short',
-                                      day: 'numeric',
-                                      year: 'numeric',
-                                    })}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-text-dim">Active</span>
-                              )}
-                            </td>
+                                      year: '2-digit',
+                                    })
+                                  : 'Active'}
+                              </strong>
+                            </div>
+                          </div>
 
-                            {/* Payloads */}
-                            <td className="px-4 py-3.5">
-                              {sat.payloads ? (
-                                <span className="text-[11px] text-text-secondary font-mono truncate max-w-[180px] block" title={sat.payloads}>
-                                  {sat.payloads}
-                                </span>
-                              ) : (
-                                <span className="text-text-dim text-[11px]">—</span>
-                              )}
-                            </td>
+                          {/* Payloads */}
+                          {sat.payloads && (
+                            <div className="text-[10px] text-text-dim bg-surface/60 rounded-md px-2 py-1 border border-border-subtle/60 flex items-center gap-1.5">
+                              <span className="font-semibold text-text-muted shrink-0">Payloads:</span>
+                              <span className="truncate text-text-secondary font-mono">
+                                {sat.payloads}
+                              </span>
+                            </div>
+                          )}
+                        </div>
 
-                            {/* Clearance / Dossier button */}
-                            <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                type="button"
-                                onClick={handleSatClick}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
-                                  !user
-                                    ? 'border-border-default bg-[#0c1424] text-text-dim hover:text-white'
-                                    : hasAccess
-                                    ? 'border-accent/40 bg-accent/15 text-accent-light hover:bg-accent hover:text-white shadow-sm'
-                                    : 'border-warning/30 bg-warning/10 text-warning hover:bg-warning/20'
-                                }`}
-                              >
-                                {!user ? (
-                                  <>
-                                    <Lock size={12} />
-                                    <span>Sign In</span>
-                                  </>
-                                ) : hasAccess ? (
-                                  <>
-                                    <Eye size={12} />
-                                    <span>Dossier</span>
-                                    <ChevronRight size={12} />
-                                  </>
-                                ) : (
-                                  <>
-                                    <Lock size={12} />
-                                    <span>Restricted</span>
-                                  </>
-                                )}
-                              </button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
+                        <div className={`mt-3.5 pt-3 border-t flex items-center justify-between text-xs ${
+                          isDeactivated ? 'border-critical/30' : 'border-border-subtle/80'
+                        }`}>
+                          <span className={`text-[11px] transition-colors ${
+                            isDeactivated
+                              ? 'text-critical font-medium'
+                              : 'text-text-dim group-hover:text-accent-light'
+                          }`}>
+                            {isDeactivated
+                              ? 'Spacecraft decommissioned / inactive'
+                              : !user
+                              ? 'Sign in to view telemetry'
+                              : hasAccess
+                              ? 'Click to view live telemetry'
+                              : 'Department clearance required'}
+                          </span>
+                          <span className={`inline-flex items-center gap-1 text-xs font-bold group-hover:translate-x-0.5 transition-transform ${
+                            isDeactivated ? 'text-critical' : 'text-accent-light'
+                          }`}>
+                            <span>
+                              {isDeactivated
+                                ? 'Dossier'
+                                : !user
+                                ? 'Sign In Required'
+                                : hasAccess
+                                ? 'Mission Dossier'
+                                : 'Restricted'}
+                            </span>
+                            {isDeactivated ? (
+                              <ChevronRight size={13} />
+                            ) : !user ? (
+                              <Lock size={12} />
+                            ) : hasAccess ? (
+                              <ChevronRight size={13} />
+                            ) : (
+                              <Lock size={12} className="text-warning" />
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
-              </div>
-            )}
-          </section>
-        ) : isAdmin ? (
-          <div className="shell mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-dashed border-border-default/80 bg-surface/30 px-4 py-2.5">
-            <span className="text-xs text-text-dim flex items-center gap-2">
-              <Radio size={14} className="text-accent-light/70" />
-              <span>No satellites or missions currently linked to {dept.name}.</span>
-            </span>
-            <button
-              type="button"
-              onClick={handleOpenAddSatellitesModal}
-              className="inline-flex items-center gap-1.5 rounded-md border border-accent/40 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent-light hover:bg-accent hover:text-white transition-all cursor-pointer"
-            >
-              <Plus size={12} />
-              <span>Add / Link Mission</span>
-            </button>
-          </div>
-        ) : null}
+              ) : (
+                <div className="rounded-xl border border-border-default bg-card overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto touch-pan-x">
+                    <table className="w-full text-left border-collapse min-w-[760px]">
+                      <thead>
+                        <tr className="border-b border-border-default bg-surface text-[11px] font-bold text-text-dim uppercase tracking-wider">
+                          <th className="px-4 py-3.5">Mission / Spacecraft</th>
+                          <th className="px-4 py-3.5">Orbit</th>
+                          <th className="px-4 py-3.5">Status</th>
+                          <th className="px-4 py-3.5">Fuel / Mass</th>
+                          <th className="px-4 py-3.5">Launch Date</th>
+                          <th className="px-4 py-3.5">Payloads</th>
+                          <th className="px-4 py-3.5 text-right">Clearance / Dossier</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border-subtle text-xs">
+                        {displayedSatellites.map((sat) => {
+                          const hasAccess = canAccessSatellite(user, sat, dept.id)
+                          const isDeactivated = isSatelliteDeactivated(sat)
+
+                          const handleSatClick = () => {
+                            if (!user) {
+                              openLogin()
+                              return
+                            }
+                            if (!hasAccess) {
+                              addToast({
+                                title: 'Access Restricted',
+                                message: 'You are not authorized to see',
+                                variant: 'warning',
+                              })
+                              return
+                            }
+                            setViewingSatelliteId(sat.id)
+                          }
+
+                          return (
+                            <tr
+                              key={sat.id}
+                              onClick={handleSatClick}
+                              className={`transition-colors cursor-pointer ${
+                                isDeactivated
+                                  ? 'bg-critical/[0.08] hover:bg-critical/[0.14] border-l-2 border-l-critical'
+                                  : hasAccess
+                                  ? 'hover:bg-card-hover'
+                                  : 'hover:bg-warning/5 opacity-80 hover:opacity-100'
+                              }`}
+                            >
+                              {/* Mission / Satellite Name & Code */}
+                              <td className="px-4 py-3.5">
+                                <div className="flex items-center gap-2.5">
+                                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
+                                    isDeactivated
+                                      ? 'bg-critical/20 text-critical border-critical/30'
+                                      : 'bg-accent/15 text-accent-light border border-accent/25'
+                                  }`}>
+                                    <Radio size={15} />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      {(sat.satId || sat.code) && (
+                                        <span className={`num text-[10px] font-mono font-bold border rounded px-1.5 py-0.2 ${
+                                          isDeactivated
+                                            ? 'text-critical bg-critical/15 border-critical/30'
+                                            : 'text-accent-light bg-accent/10 border-accent/30'
+                                        }`}>
+                                          {sat.satId || sat.code}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className={`font-bold truncate max-w-[200px] transition-colors mt-0.5 ${
+                                      isDeactivated
+                                        ? 'text-white hover:text-critical'
+                                        : 'text-white hover:text-accent-light'
+                                    }`} title={sat.name}>
+                                      {sat.name}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Orbit */}
+                              <td className="px-4 py-3.5">
+                                {sat.orbitType ? (
+                                  <div className={`flex items-center gap-1 text-[11px] ${
+                                    isDeactivated ? 'text-critical/90' : 'text-accent-light'
+                                  }`}>
+                                    <Orbit size={12} className="shrink-0" />
+                                    <span className="truncate max-w-[150px] font-medium">{sat.orbitType}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-text-dim text-[11px]">—</span>
+                                )}
+                              </td>
+
+                              {/* Status */}
+                              <td className="px-4 py-3.5">
+                                {isDeactivated ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-critical/20 text-critical border border-critical/40 shrink-0">
+                                    <XCircle size={10} />
+                                    <span>{sat.status === 'DECOMMISSIONED' ? 'Decommissioned' : 'Deactivated'}</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-nominal/15 text-nominal border border-nominal/30 shrink-0">
+                                    <CheckCircle2 size={10} />
+                                    <span>{sat.status || 'Active'}</span>
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Fuel / Mass */}
+                              <td className="px-4 py-3.5">
+                                <div className="text-[11px] space-y-0.5 font-mono">
+                                  <div className="flex items-center gap-1 text-white">
+                                    <Fuel size={10} className={`${isDeactivated ? 'text-critical' : 'text-nominal'} shrink-0`} />
+                                    <span>{sat.fuelBalance || 'Nominal'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-text-dim">
+                                    <Weight size={10} className={`${isDeactivated ? 'text-critical/90' : 'text-accent-light'} shrink-0`} />
+                                    <span>{sat.launchMass || 'Standard'}</span>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Launch Date */}
+                              <td className="px-4 py-3.5 text-text-secondary text-[11px] font-mono">
+                                {sat.launchDate ? (
+                                  <div className="flex items-center gap-1">
+                                    <Calendar size={10} className="text-warning shrink-0" />
+                                    <span>
+                                      {new Date(sat.launchDate).toLocaleDateString(undefined, {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric',
+                                      })}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-text-dim">Active</span>
+                                )}
+                              </td>
+
+                              {/* Payloads */}
+                              <td className="px-4 py-3.5">
+                                {sat.payloads ? (
+                                  <span className="text-[11px] text-text-secondary font-mono truncate max-w-[180px] block" title={sat.payloads}>
+                                    {sat.payloads}
+                                  </span>
+                                ) : (
+                                  <span className="text-text-dim text-[11px]">—</span>
+                                )}
+                              </td>
+
+                              {/* Clearance / Dossier button */}
+                              <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  onClick={handleSatClick}
+                                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
+                                    isDeactivated
+                                      ? 'border-critical/40 bg-critical/15 text-critical hover:bg-critical/25 shadow-sm'
+                                      : !user
+                                      ? 'border-border-default bg-[#0c1424] text-text-dim hover:text-white'
+                                      : hasAccess
+                                      ? 'border-accent/40 bg-accent/15 text-accent-light hover:bg-accent hover:text-white shadow-sm'
+                                      : 'border-warning/30 bg-warning/10 text-warning hover:bg-warning/20'
+                                  }`}
+                                >
+                                  {isDeactivated ? (
+                                    <>
+                                      <Eye size={12} />
+                                      <span>Deactivated Dossier</span>
+                                      <ChevronRight size={12} />
+                                    </>
+                                  ) : !user ? (
+                                    <>
+                                      <Lock size={12} />
+                                      <span>Sign In</span>
+                                    </>
+                                  ) : hasAccess ? (
+                                    <>
+                                      <Eye size={12} />
+                                      <span>Dossier</span>
+                                      <ChevronRight size={12} />
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Lock size={12} />
+                                      <span>Restricted</span>
+                                    </>
+                                  )}
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </section>
+          )
+        })()}
+
 
         {/* ============================================================ */}
         {/* 3. DEDICATED DEPARTMENT FILES EXPLORER (CARD & TABLE VIEW) */}
         {/* ============================================================ */}
-        {user && !isAdmin && !hasDeptAccess ? null : loadingFiles ? (
-          <section className="shell mt-10 space-y-6">
-            <div className="h-48 rounded-xl border border-border-subtle bg-card p-8 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-2">
-                <RefreshCw size={20} className="animate-spin text-accent-light" />
-                <p className="text-xs text-text-dim">Loading repository catalog…</p>
-              </div>
-            </div>
-          </section>
-        ) : deptFiles.length === 0 ? (
-          user && !isWriteAllowed ? null : !user ? (
-            <section className="shell mt-10 space-y-4">
-              <div className="border-b border-border-default pb-4">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <HardDrive size={18} className="text-accent-light" />
-                  <span>{dept.code || dept.name} Repository Datasets</span>
-                </h2>
-                <p className="text-xs text-text-dim mt-0.5">
-                  Browse and download all telemetry passes, state vectors, and flight reports.
-                </p>
-              </div>
-              <div className="py-8 text-center text-sm text-text-muted">
-                No files are there
-              </div>
-            </section>
-          ) : (
-            <section className="shell mt-10 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border-default pb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    <HardDrive size={18} className="text-accent-light" />
-                    <span>{dept.code || dept.name} Repository Datasets</span>
-                    <span className="rounded-full bg-accent/20 border border-accent/40 text-accent-light px-2 py-0.5 text-xs font-mono num font-bold">
-                      0 files
-                    </span>
-                  </h2>
-                  <p className="text-xs text-text-dim mt-0.5">
-                    Browse and download all telemetry passes, state vectors, and flight reports.
-                  </p>
-                </div>
-
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setIsUploadModalOpen(true)}
-                  className="flex items-center gap-1.5 font-bold shadow-md shadow-accent/20 cursor-pointer"
-                >
-                  <Plus size={14} />
-                  <span>Add File</span>
-                </Button>
-              </div>
-
-              <div className="rounded-xl border border-border-default/60 bg-card/40 p-10 text-center space-y-3">
-                <p className="text-sm text-text-muted">No files are there</p>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setIsUploadModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 font-bold shadow-md shadow-accent/20 cursor-pointer"
-                >
-                  <Plus size={14} />
-                  <span>Add File</span>
-                </Button>
-              </div>
-            </section>
-          )
-        ) : (
+        {user && !isAdmin && !hasDeptAccess ? null : (
           <section className="shell mt-10 space-y-6">
             {/* Header & Controls Toolbar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border-default pb-4">
@@ -1231,7 +1422,7 @@ export function DepartmentDetail() {
                   <HardDrive size={18} className="text-accent-light" />
                   <span>{dept.code || dept.name} Repository Datasets</span>
                   <span className="rounded-full bg-accent/20 border border-accent/40 text-accent-light px-2 py-0.5 text-xs font-mono num font-bold">
-                    {deptFiles.length} files
+                    {displayedFiles.length} {displayedFiles.length === 1 ? 'file' : 'files'}
                   </span>
                 </h2>
                 <p className="text-xs text-text-dim mt-0.5">
@@ -1239,8 +1430,53 @@ export function DepartmentDetail() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
-                {isWriteAllowed && (
+              {!hasZeroFiles ? (
+                <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
+                  {isWriteAllowed && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => setIsUploadModalOpen(true)}
+                      className="flex items-center gap-1.5 font-bold shadow-md shadow-accent/20 cursor-pointer"
+                    >
+                      <Plus size={13} />
+                      <span>Add File</span>
+                    </Button>
+                  )}
+
+                  {/* View Mode Switcher (Card Grid vs Table List) */}
+                  <div className="flex items-center gap-1.5 p-1 rounded-lg border border-border-default bg-[#060c18]">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('card')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                        viewMode === 'card'
+                          ? 'bg-accent text-white shadow-sm'
+                          : 'text-text-dim hover:text-white'
+                      }`}
+                      title="Card Grid View"
+                    >
+                      <LayoutGrid size={13} />
+                      <span>Cards</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('table')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                        viewMode === 'table'
+                          ? 'bg-accent text-white shadow-sm'
+                          : 'text-text-dim hover:text-white'
+                      }`}
+                      title="Table List View"
+                    >
+                      <List size={13} />
+                      <span>Table</span>
+                    </button>
+                  </div>
+                </div>
+              ) : isWriteAllowed ? (
+                <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
                   <Button
                     variant="primary"
                     size="sm"
@@ -1250,152 +1486,244 @@ export function DepartmentDetail() {
                     <Plus size={13} />
                     <span>Add File</span>
                   </Button>
-                )}
-
-                {/* View Mode Switcher (Card Grid vs Table List) */}
-                <div className="flex items-center gap-1.5 p-1 rounded-lg border border-border-default bg-[#060c18]">
-              <button
-                type="button"
-                onClick={() => setViewMode('card')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-                  viewMode === 'card'
-                    ? 'bg-accent text-white shadow-sm'
-                    : 'text-text-dim hover:text-white'
-                }`}
-                title="Card Grid View"
-              >
-                <LayoutGrid size={13} />
-                <span>Cards</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setViewMode('table')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-                  viewMode === 'table'
-                    ? 'bg-accent text-white shadow-sm'
-                    : 'text-text-dim hover:text-white'
-                }`}
-                title="Table List View"
-              >
-                <List size={13} />
-                <span>Table</span>
-              </button>
-            </div>
-          </div>
-          </div>
-
-          {/* Filters Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-4 rounded-xl border border-border-default bg-card shadow-sm">
-            <div className="relative sm:col-span-2">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
-              <input
-                type="text"
-                placeholder={`Search within ${dept.code || 'department'} datasets, reports, checksums…`}
-                value={fileSearch}
-                onChange={(e) => setFileSearch(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-11 py-2 text-base sm:text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
-              />
-              <span className="absolute right-1 top-1/2 -translate-y-1/2">
-                <HelpTip topic="deptFiles" />
-              </span>
-            </div>
-
-            <div>
-              <select
-                value={fileSpacecraft}
-                onChange={(e) => setFileSpacecraft(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent"
-              >
-                <option value="ALL">All Spacecraft & Satellites</option>
-                {satellites.map((s) => (
-                  <option key={s.id} value={s.code || s.name}>
-                    {s.name} ({s.code || 'ISRO'})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <select
-                value={fileExt}
-                onChange={(e) => setFileExt(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent"
-              >
-                <option value="ALL">All File Formats</option>
-                <option value="BIN">BIN (Raw Telemetry)</option>
-                <option value="DAT">DAT (Orbit Ephemeris)</option>
-                <option value="PDF">PDF (Reports)</option>
-                <option value="CSV">CSV (Telemetry Tables)</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Featured Reports Highlight Strip */}
-          {deptFiles.some((f) => f.isFeatured) && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                  <Star size={16} className="fill-amber-400" />
                 </div>
+              ) : null}
+            </div>
+
+            {/* Filters Bar (STICKY ON SCROLL) */}
+            {!hasZeroFiles && (
+              <div className="sticky top-16 z-30 p-4 rounded-xl border border-border-default bg-[#070d18]/95 backdrop-blur-md shadow-lg shadow-black/40 space-y-3 transition-all">
+              {/* Row 1: Search + Quick Stats / Reset Button */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative flex-1">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
+                  <input
+                    type="text"
+                    placeholder={`Search within ${dept.code || 'department'} datasets, reports, checksums…`}
+                    value={fileSearch}
+                    onChange={(e) => setFileSearch(e.target.value)}
+                    className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-11 py-2 text-base sm:text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+                  />
+                  <span className="absolute right-1 top-1/2 -translate-y-1/2">
+                    <HelpTip topic="deptFiles" />
+                  </span>
+                </div>
+
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-accent/40 bg-accent/10 text-xs font-bold text-accent-light hover:text-white hover:bg-accent transition-all cursor-pointer shrink-0"
+                    title="Clear all active search queries and filters"
+                  >
+                    <RotateCcw size={12} />
+                    <span>Reset Filters</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Row 2: Faceted Selectors (Spacecraft, Category, Format, Security Tier, Timeframe, Sort) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-2 border-t border-border-subtle/50">
                 <div>
-                  <h4 className="text-xs font-bold text-white flex items-center gap-2">
-                    <span>Featured Mission Reports</span>
-                    <span className="rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 text-[10px] font-mono font-bold">
-                      {deptFiles.filter((f) => f.isFeatured).length} Showcased
-                    </span>
-                  </h4>
-                  <p className="text-[11px] text-text-secondary mt-0.5">
-                    Reports starred by division engineers can be viewed directly in-browser without login; raw datasets can be downloaded instantly.
+                  <label className="block text-[10px] font-bold uppercase text-text-dim mb-1">Spacecraft</label>
+                  <select
+                    value={fileSpacecraft}
+                    onChange={(e) => setFileSpacecraft(e.target.value)}
+                    className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+                  >
+                    <option value="ALL">All Spacecraft</option>
+                    {(isPublicVisitor ? activeSatellites : satellites).map((s) => (
+                      <option key={s.id} value={s.code || s.name}>
+                        {s.name} ({s.code || 'ISRO'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-text-dim mb-1">Report Category</label>
+                  <select
+                    value={fileCategory}
+                    onChange={(e) => setFileCategory(e.target.value)}
+                    className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+                  >
+                    <CategoryOptions allLabel="All Report Categories" />
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-text-dim mb-1">File Format</label>
+                  <select
+                    value={fileExt}
+                    onChange={(e) => setFileExt(e.target.value)}
+                    className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+                  >
+                    <option value="ALL">All File Formats</option>
+                    <option value="BIN">BIN (Raw Telemetry)</option>
+                    <option value="DAT">DAT (Orbit Ephemeris)</option>
+                    <option value="PDF">PDF (Reports)</option>
+                    <option value="CSV">CSV (Telemetry Tables)</option>
+                    <option value="JSON">JSON (Telemetry Packets)</option>
+                    <option value="LOG">LOG (System Logs)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-text-dim mb-1">Security Tier</label>
+                  <select
+                    value={fileClassification}
+                    onChange={(e) => setFileClassification(e.target.value)}
+                    className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+                  >
+                    <option value="ALL">All Security Tiers</option>
+                    <option value="ISRO_LEVEL">ISRO Level</option>
+                    <option value="INTERNAL_ONLY">Internal Division</option>
+                    <option value="SECRET_MISSION">Secret Mission</option>
+                    <option value="PUBLIC">Public Archive</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-text-dim mb-1">Timeframe</label>
+                  <select
+                    value={fileDate}
+                    onChange={(e) => setFileDate(e.target.value)}
+                    className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+                  >
+                    <option value="ALL">All Ingest Dates</option>
+                    <option value="today">Past 24 Hours</option>
+                    <option value="7days">Past 7 Days</option>
+                    <option value="30days">Past 30 Days</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-text-dim mb-1">Sort By</label>
+                  <select
+                    value={fileSort}
+                    onChange={(e) => setFileSort(e.target.value)}
+                    className="w-full rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1.5 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+                  >
+                    <option value="updatedAt-desc">Modified: Newest ↓</option>
+                    <option value="createdAt-desc">Ingested: Newest ↓</option>
+                    <option value="createdAt-asc">Ingested: Oldest ↑</option>
+                    <option value="sizeBytes-desc">Size: Largest ↓</option>
+                    <option value="sizeBytes-asc">Size: Smallest ↑</option>
+                    <option value="name-asc">Filename: A → Z ↑</option>
+                    <option value="name-desc">Filename: Z → A ↓</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            )}
+
+            {/* Featured Reports Highlight Strip */}
+            {deptFiles.some((f) => f.isFeatured) && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                    <Star size={16} className="fill-amber-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                      <span>Featured Mission Reports</span>
+                      <span className="rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 text-[10px] font-mono font-bold">
+                        {deptFiles.filter((f) => f.isFeatured).length} Showcased
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-text-secondary mt-0.5">
+                      Reports starred by division engineers can be viewed directly in-browser without login; raw datasets can be downloaded instantly.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setFeaturedOnly(!featuredOnly)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 border ${
+                    featuredOnly
+                      ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                      : 'border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+                  }`}
+                >
+                  <Star size={12} className={featuredOnly ? 'fill-white' : 'fill-amber-300'} />
+                  <span>{featuredOnly ? 'Show All Files' : 'Filter Featured Only'}</span>
+                </button>
+              </div>
+            )}
+
+            {/* Files Display: Loading, Empty, Card View, or Table View */}
+            {loadingFiles ? (
+              <div className="h-64 rounded-xl border border-border-subtle bg-card p-8 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-2">
+                  <RefreshCw size={20} className="animate-spin text-accent-light" />
+                  <p className="text-xs text-text-dim">Filtering repository catalog…</p>
+                </div>
+              </div>
+            ) : hasZeroFiles ? (
+              <div className="rounded-xl border border-dashed border-border-default bg-[#060c18] p-12 text-center space-y-4">
+                <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-xl bg-surface text-text-dim border border-border-subtle">
+                  <FolderOpen size={22} />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-white">No files</h3>
+                  <p className="text-xs text-text-secondary max-w-sm mx-auto">
+                    No files are currently available in this division repository.
                   </p>
                 </div>
+                {isWriteAllowed && (
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => setIsUploadModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 font-bold shadow-md shadow-accent/20 cursor-pointer"
+                    >
+                      <Upload size={13} />
+                      <span>Upload Telemetry to {dept.code || 'Dept'}</span>
+                    </Button>
+                  </div>
+                )}
               </div>
-
-              <button
-                type="button"
-                onClick={() => setFeaturedOnly(!featuredOnly)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 border ${
-                  featuredOnly
-                    ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
-                    : 'border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
-                }`}
-              >
-                <Star size={12} className={featuredOnly ? 'fill-white' : 'fill-amber-300'} />
-                <span>{featuredOnly ? 'Show All Files' : 'Filter Featured Only'}</span>
-              </button>
-            </div>
-          )}
-
-          {/* Files Display: Loading, Empty, Card View, or Table View */}
-          {loadingFiles ? (
-            <div className="h-64 rounded-xl border border-border-subtle bg-card p-8 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-2">
-                <RefreshCw size={20} className="animate-spin text-accent-light" />
-                <p className="text-xs text-text-dim">Filtering repository catalog…</p>
+            ) : displayedFiles.length === 0 ? (
+              <div className="rounded-xl border border-border-default bg-card p-12 text-center space-y-4">
+                <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-xl bg-surface text-text-dim border border-border-subtle">
+                  <FolderOpen size={22} />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-white">No Datasets Found</h3>
+                  <p className="text-xs text-text-secondary max-w-sm mx-auto">
+                    {hasActiveFilters
+                      ? 'No telemetry passes or reports match the selected filters. You can choose a different filter above or reset all filters.'
+                      : 'No files are currently available in this division repository.'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                  {hasActiveFilters && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleResetFilters}
+                      className="inline-flex items-center gap-1.5 font-bold cursor-pointer"
+                    >
+                      <RotateCcw size={12} />
+                      <span>Reset Filters</span>
+                    </Button>
+                  )}
+                  {isWriteAllowed && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => setIsUploadModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 font-bold shadow-md shadow-accent/20 cursor-pointer"
+                    >
+                      <Upload size={13} />
+                      <span>Upload Telemetry to {dept.code || 'Dept'}</span>
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
-          ) : displayedFiles.length === 0 ? (
-            <div className="rounded-xl border border-border-default bg-card p-12 text-center space-y-3">
-              <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-xl bg-surface text-text-dim border border-border-subtle">
-                <FolderOpen size={22} />
-              </div>
-              <h3 className="text-sm font-bold text-white">No Datasets Found</h3>
-              <p className="text-xs text-text-secondary max-w-sm mx-auto">
-                No telemetry passes or reports match the selected spacecraft and format filters.
-              </p>
-              {isWriteAllowed && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setIsUploadModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 font-bold shadow-md shadow-accent/20 cursor-pointer pt-2"
-                >
-                  <Upload size={13} />
-                  <span>Upload Telemetry to {dept.code || 'Dept'}</span>
-                </Button>
-              )}
-            </div>
-          ) : viewMode === 'card' ? (
+            ) : viewMode === 'card' ? (
             /* ============================================================ */
             /* CARD GRID VIEW */
             /* ============================================================ */
@@ -1465,12 +1793,27 @@ export function DepartmentDetail() {
                         </div>
                       </div>
 
-                      {/* Spacecraft Target Tag */}
-                      <div className="rounded-lg border border-border-subtle bg-[#060c18] p-2.5 text-xs space-y-1">
-                        <span className="text-[10px] text-text-dim uppercase font-bold block">Spacecraft Target</span>
+                      {/* Spacecraft Target & Report Category Tag */}
+                      <div className="rounded-lg border border-border-subtle bg-[#060c18] p-2.5 text-xs space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-text-dim uppercase font-bold block">Spacecraft Target</span>
+                          <span className="rounded bg-accent/15 border border-accent/30 px-1.5 py-0.5 text-[9px] font-bold text-accent-light uppercase">
+                            {categoryLabel(file.category || file.report?.category) || 'REPORT'}
+                          </span>
+                        </div>
                         <strong className="text-white text-xs truncate block">
-                          {(file.report?.spacecraft && file.report.spacecraft.includes('General')) ? 'General' : (file.report?.spacecraft || 'General')}
+                          {(file.report?.spacecraft && !file.report.spacecraft.toUpperCase().includes('GENERAL'))
+                            ? file.report.spacecraft
+                            : (dept?.satellite?.name && !dept.satellite.name.toUpperCase().includes('GENERAL') && dept.satellite.isActive)
+                              ? dept.satellite.name
+                              : '—'}
                         </strong>
+                        {file.report?.classificationLevel && (
+                          <div className="pt-1 border-t border-border-subtle/50 flex items-center justify-between text-[10px] text-text-dim">
+                            <span>Security:</span>
+                            <span className="font-mono text-text-secondary uppercase">{file.report.classificationLevel.replace(/_/g, ' ')}</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* File Metadata Info */}
@@ -1512,7 +1855,7 @@ export function DepartmentDetail() {
                             <button
                               type="button"
                               onClick={() => setPreviewFile(file as unknown as FileNode)}
-                              className="flex-1 py-1.5 px-3 rounded-lg border border-accent/40 bg-accent/15 text-accent-light hover:bg-accent hover:text-white transition-all text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                              className="flex-1 py-1.5 px-3 rounded-lg border border-accent/50 bg-accent/15 text-accent hover:bg-accent hover:text-white transition-all text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                               title="View in-browser without login"
                             >
                               <Eye size={13} />
@@ -1521,7 +1864,7 @@ export function DepartmentDetail() {
                             <a
                               href={`/api/files/${file.id}/download`}
                               download={file.name}
-                              className="px-3 py-1.5 rounded-lg border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                              className="px-3 py-1.5 rounded-lg border border-border-default bg-surface text-text-muted hover:border-nominal hover:text-nominal hover:bg-nominal/10 transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
                               title="Download without login"
                             >
                               <Download size={13} />
@@ -1532,7 +1875,7 @@ export function DepartmentDetail() {
                           <button
                             type="button"
                             onClick={openLogin}
-                            className="w-full py-2 px-3 rounded-lg border border-accent/40 bg-accent/15 text-accent-light hover:bg-accent hover:text-white transition-all text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                            className="w-full py-2 px-3 rounded-lg border border-accent/50 bg-accent/15 text-accent hover:bg-accent hover:text-white transition-all text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                           >
                             <Lock size={13} />
                             <span>Sign In to Access File</span>
@@ -1543,16 +1886,16 @@ export function DepartmentDetail() {
                           <button
                             type="button"
                             onClick={() => setPreviewFile(file as unknown as FileNode)}
-                            className="px-3 py-1.5 rounded-lg border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-white transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                            className="px-3 py-1.5 rounded-lg border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent hover:bg-accent/10 transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
                           >
-                            <Eye size={13} className="text-accent-light" />
+                            <Eye size={13} />
                             <span>Preview</span>
                           </button>
 
                           <a
                             href={`/api/files/${file.id}/download`}
                             download={file.name}
-                            className="px-3 py-1.5 rounded-lg border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                            className="px-3 py-1.5 rounded-lg border border-border-default bg-surface text-text-muted hover:border-nominal hover:text-nominal hover:bg-nominal/10 transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
                           >
                             <Download size={13} />
                             <span>Download</span>
@@ -1577,6 +1920,7 @@ export function DepartmentDetail() {
                         <Star size={12} className="inline text-amber-400 fill-amber-400/20" />
                       </th>
                       <th className="px-4 py-3.5">Dataset / Filename</th>
+                      <th className="px-4 py-3.5">Report Category</th>
                       <th className="px-4 py-3.5">Spacecraft Target</th>
                       <th className="px-4 py-3.5">Size</th>
                       <th className="px-4 py-3.5">Version Count</th>
@@ -1647,16 +1991,32 @@ export function DepartmentDetail() {
                                   )}
                                 </div>
                                 <p className="text-[10px] text-text-dim truncate max-w-xs">
-                                  {file.report?.category || file.extension || 'TELEMETRY'}
+                                  {extConf.label} · {file.extension || 'TELEMETRY'}
                                 </p>
                               </div>
                             </div>
                           </td>
 
+                          {/* Report Category */}
+                          <td className="px-4 py-3.5">
+                            <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent-light uppercase">
+                              {categoryLabel(file.category || file.report?.category) || 'GENERAL'}
+                            </span>
+                            {file.report?.classificationLevel && (
+                              <span className="block text-[9px] text-text-dim uppercase mt-0.5 font-mono">
+                                {file.report.classificationLevel.replace(/_/g, ' ')}
+                              </span>
+                            )}
+                          </td>
+
                           {/* Spacecraft */}
                           <td className="px-4 py-3.5">
                             <span className="font-semibold text-text-primary text-xs">
-                              {(file.report?.spacecraft && file.report.spacecraft.includes('General')) ? 'General' : (file.report?.spacecraft || 'General')}
+                              {(file.report?.spacecraft && !file.report.spacecraft.toUpperCase().includes('GENERAL'))
+                                ? file.report.spacecraft
+                                : (dept?.satellite?.name && !dept.satellite.name.toUpperCase().includes('GENERAL') && dept.satellite.isActive)
+                                  ? dept.satellite.name
+                                  : '—'}
                             </span>
                           </td>
 
@@ -1713,7 +2073,7 @@ export function DepartmentDetail() {
                                     <button
                                       type="button"
                                       onClick={() => setPreviewFile(file as unknown as FileNode)}
-                                      className="px-2.5 py-1 rounded border border-accent/40 bg-accent/15 text-accent-light hover:bg-accent hover:text-white transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                                      className="px-2.5 py-1 rounded border border-accent/50 bg-accent/15 text-accent hover:bg-accent hover:text-white transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-sm"
                                       title="View in-browser without login"
                                     >
                                       <Eye size={12} />
@@ -1722,7 +2082,7 @@ export function DepartmentDetail() {
                                     <a
                                       href={`/api/files/${file.id}/download`}
                                       download={file.name}
-                                      className="px-2.5 py-1 rounded border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                                      className="px-2.5 py-1 rounded border border-border-default bg-surface text-text-muted hover:border-nominal hover:text-nominal hover:bg-nominal/10 transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-sm"
                                       title="Download without login"
                                     >
                                       <Download size={12} />
@@ -1733,7 +2093,7 @@ export function DepartmentDetail() {
                                   <button
                                     type="button"
                                     onClick={openLogin}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-accent/40 bg-accent/10 text-accent-light hover:bg-accent hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-accent/50 bg-accent/10 text-accent hover:bg-accent hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
                                   >
                                     <Lock size={12} />
                                     <span>Sign In to Access</span>
@@ -1744,16 +2104,16 @@ export function DepartmentDetail() {
                                   <button
                                     type="button"
                                     onClick={() => setPreviewFile(file as unknown as FileNode)}
-                                    className="px-2.5 py-1 rounded border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-white transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                                    className="px-2.5 py-1 rounded border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent hover:bg-accent/10 transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-sm"
                                   >
-                                    <Eye size={12} className="text-accent-light" />
+                                    <Eye size={12} />
                                     <span>Preview</span>
                                   </button>
 
                                   <a
                                     href={`/api/files/${file.id}/download`}
                                     download={file.name}
-                                    className="px-2.5 py-1 rounded border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                                    className="px-2.5 py-1 rounded border border-border-default bg-surface text-text-muted hover:border-nominal hover:text-nominal hover:bg-nominal/10 transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-sm"
                                   >
                                     <Download size={12} />
                                     <span>Download</span>
@@ -2049,20 +2409,20 @@ export function DepartmentDetail() {
             </div>
 
             <p className="text-[11px] text-text-dim leading-relaxed">
-              When enabled, select spacecraft missions that receive ground support from this department. Selected satellites are rendered as mission dossiers on this department's page.
+              Link active satellite mission programs supported by this department. Only active operational spacecraft can be selected. Selected satellites are rendered as mission dossiers on this department's page.
             </p>
 
             {editForm.includeSatellites && (
               <div className="pt-2 border-t border-border-subtle/80 space-y-2">
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-text-secondary font-medium">Available Spacecraft:</span>
+                  <span className="text-text-secondary font-medium">Select Active Spacecraft (Active Only):</span>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() =>
                         setEditForm((prev) => ({
                           ...prev,
-                          satelliteIds: satellites.map((s) => s.id),
+                          satelliteIds: activeSatellites.map((s) => s.id),
                         }))
                       }
                       className="text-accent-light hover:underline font-semibold"
@@ -2085,13 +2445,13 @@ export function DepartmentDetail() {
                   </div>
                 </div>
 
-                {satellites.length === 0 ? (
+                {activeSatellites.length === 0 ? (
                   <div className="py-3 text-center text-xs text-text-dim border border-border-subtle rounded-lg bg-surface">
                     No active satellite programs found.
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto p-1.5 rounded-lg border border-border-subtle bg-surface">
-                    {satellites.map((sat) => {
+                    {activeSatellites.map((sat) => {
                       const isChecked = editForm.satelliteIds.includes(sat.id)
                       return (
                         <label
@@ -2121,7 +2481,12 @@ export function DepartmentDetail() {
                             className="mt-0.5 h-3.5 w-3.5 rounded border-border-default bg-card text-accent focus:ring-accent"
                           />
                           <div className="min-w-0 flex-1 text-xs">
-                            <div className="font-semibold truncate">{sat.name}</div>
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-semibold truncate">{sat.name}</span>
+                              <span className="shrink-0 text-[9px] font-bold text-nominal bg-nominal/15 border border-nominal/30 rounded px-1 py-0.2">
+                                ACTIVE
+                              </span>
+                            </div>
                             <div className="text-[10px] text-accent-light font-mono mt-0.5">
                               {sat.satId || sat.code || 'ISRO'}
                             </div>

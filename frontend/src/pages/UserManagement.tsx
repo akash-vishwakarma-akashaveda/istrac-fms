@@ -13,8 +13,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
+  RotateCcw,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useUsers, useSuspendUser, useForceLogout } from '../hooks/useUsers'
 import { useAdminDepartments } from '../hooks/useDepartments'
 import { useDebounce } from '../hooks/useDebounce'
@@ -45,7 +46,12 @@ export function UserManagement() {
     role,
   })
 
-  const { data: allDepartments } = useAdminDepartments()
+  const { data: allDepartments } = useAdminDepartments({ activeOnly: true })
+
+  const activeDepartments = useMemo(() => {
+    return (allDepartments || []).filter((d) => d.isActive && !d.archived && !(d as any).deletedAt)
+  }, [allDepartments])
+
   const suspendUser = useSuspendUser()
   const forceLogout = useForceLogout()
   const addToast = useToastStore((s) => s.addToast)
@@ -87,6 +93,15 @@ export function UserManagement() {
     (u) => (u.departmentAccess && u.departmentAccess.length > 1) || u.role === 'ADMIN'
   ).length
 
+  const hasActiveFilters = Boolean(search.trim() || status || role)
+
+  const handleResetFilters = () => {
+    setSearch('')
+    setStatus('')
+    setRole('')
+    setPage(1)
+  }
+
   const handleOpenEdit = (user: UserProfile) => {
     setEditingUser(user)
     setEditName(user.name)
@@ -96,11 +111,14 @@ export function UserManagement() {
     setEditRole(user.role === 'ADMIN' ? 'ADMIN' : 'MEMBER')
     setEditStatus(user.status)
 
+    // Only populate permissions for active departments
+    const activeDeptIds = new Set(activeDepartments.map((d) => d.id))
     const mapped: Record<string, 'READ_ONLY' | 'READ_WRITE'> = {}
     if (user.departmentAccess && Array.isArray(user.departmentAccess)) {
       user.departmentAccess.forEach((da: any) => {
-        if (da.department?.id) {
-          mapped[da.department.id] = da.accessLevel || 'READ_ONLY'
+        const deptId = da.department?.id || da.departmentId
+        if (deptId && activeDeptIds.has(deptId)) {
+          mapped[deptId] = da.accessLevel || 'READ_ONLY'
         }
       })
     }
@@ -128,7 +146,7 @@ export function UserManagement() {
 
   const handleSelectAllDepts = () => {
     const next: Record<string, 'READ_ONLY' | 'READ_WRITE'> = {}
-    allDepartments?.forEach((d) => {
+    activeDepartments.forEach((d) => {
       next[d.id] = 'READ_ONLY'
     })
     setSelectedDeptAccess(next)
@@ -277,12 +295,30 @@ export function UserManagement() {
       </div>
 
       {/* ============================================================ */}
-      {/* 2. FILTERS TOOLBAR */}
       {/* ============================================================ */}
-      <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm space-y-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-text-primary">
-          <Filter size={14} className="text-accent-light" />
-          <span>Search & Filter Officers</span>
+      {/* 2. FILTERS TOOLBAR (STICKY ON SCROLL) */}
+      {/* ============================================================ */}
+      <div className="sticky top-0 z-20 p-4 rounded-xl border border-border-default bg-[#070d18]/95 backdrop-blur-md shadow-lg shadow-black/40 space-y-3 transition-all">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs font-bold text-text-primary">
+            <Filter size={14} className="text-accent-light" />
+            <span>Search & Filter Officers</span>
+            <span className="rounded-full bg-accent/15 border border-accent/30 text-accent-light px-2 py-0.5 text-[10px] font-mono font-bold">
+              {totalUsers} {totalUsers === 1 ? 'officer' : 'officers'}
+            </span>
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-accent/40 bg-accent/10 text-xs font-bold text-accent-light hover:text-white hover:bg-accent transition-all cursor-pointer shrink-0"
+              title="Clear all active search queries and filters"
+            >
+              <RotateCcw size={12} />
+              <span>Reset Filters</span>
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -362,9 +398,22 @@ export function UserManagement() {
             Loading user accounts & clearance matrix…
           </div>
         ) : usersList.length === 0 ? (
-          <div className="p-12 text-center space-y-2">
+          <div className="p-12 text-center space-y-3">
             <p className="text-sm font-bold text-white">No Personnel Accounts Found</p>
             <p className="text-xs text-text-dim">No users match the active search or status filters.</p>
+            {hasActiveFilters && (
+              <div className="pt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResetFilters}
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <RotateCcw size={13} />
+                  <span>Clear All Filters</span>
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -695,7 +744,7 @@ export function UserManagement() {
                 <button
                   type="button"
                   onClick={handleClearAllDepts}
-                  className="text-text-dim hover:text-white"
+                  className="text-text-muted hover:text-text-primary transition-colors cursor-pointer"
                 >
                   Clear
                 </button>
@@ -703,53 +752,59 @@ export function UserManagement() {
             </div>
 
             <div className="max-h-56 overflow-y-auto space-y-2 p-2 rounded-xl border border-border-default bg-[#060c18]">
-              {allDepartments?.map((dept) => {
-                const isSelected = !!selectedDeptAccess[dept.id]
-                const level = selectedDeptAccess[dept.id] || 'READ_ONLY'
+              {activeDepartments.length === 0 ? (
+                <div className="p-4 text-center text-xs text-text-dim">
+                  No active departments available to assign permissions.
+                </div>
+              ) : (
+                activeDepartments.map((dept) => {
+                  const isSelected = !!selectedDeptAccess[dept.id]
+                  const level = selectedDeptAccess[dept.id] || 'READ_ONLY'
 
-                return (
-                  <div
-                    key={dept.id}
-                    className={`flex items-center justify-between p-2.5 rounded-lg border transition-all ${
-                      isSelected
-                        ? 'border-accent/50 bg-accent/[0.06]'
-                        : 'border-border-subtle bg-card hover:border-border-bright'
-                    }`}
-                  >
-                    <label className="flex items-center gap-2.5 cursor-pointer select-none min-w-0 flex-1">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleToggleDept(dept.id)}
-                        className="h-4 w-4 rounded border-border-default bg-surface text-accent focus:ring-accent"
-                      />
-                      <div className="min-w-0">
-                        <span className="text-xs font-bold text-white truncate block">
-                          {dept.code || dept.name} — {dept.name}
-                        </span>
-                        <span className="text-[10px] text-text-dim truncate block">
-                          {dept.description || 'Division Repository'}
-                        </span>
-                      </div>
-                    </label>
+                  return (
+                    <div
+                      key={dept.id}
+                      className={`flex items-center justify-between p-2.5 rounded-lg border transition-all ${
+                        isSelected
+                          ? 'border-accent/50 bg-accent/[0.06]'
+                          : 'border-border-subtle bg-card hover:border-border-bright'
+                      }`}
+                    >
+                      <label className="flex items-center gap-2.5 cursor-pointer select-none min-w-0 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleDept(dept.id)}
+                          className="h-4 w-4 rounded border-border-default bg-surface text-accent focus:ring-accent"
+                        />
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-white truncate block">
+                            {dept.code || dept.name} — {dept.name}
+                          </span>
+                          <span className="text-[10px] text-text-dim truncate block">
+                            {dept.description || 'Division Repository'}
+                          </span>
+                        </div>
+                      </label>
 
-                    {isSelected && (
-                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                        <select
-                          value={level}
-                          onChange={(e) =>
-                            handleSetDeptLevel(dept.id, e.target.value as 'READ_ONLY' | 'READ_WRITE')
-                          }
-                          className="rounded-md border border-border-default bg-surface px-2 py-1 text-[11px] font-bold uppercase num text-accent-light outline-none"
-                        >
-                          <option value="READ_ONLY">READ ONLY</option>
-                          <option value="READ_WRITE">READ & WRITE</option>
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+                      {isSelected && (
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          <select
+                            value={level}
+                            onChange={(e) =>
+                              handleSetDeptLevel(dept.id, e.target.value as 'READ_ONLY' | 'READ_WRITE')
+                            }
+                            className="rounded-md border border-border-default bg-surface px-2 py-1 text-[11px] font-bold uppercase num text-accent-light outline-none"
+                          >
+                            <option value="READ_ONLY">READ ONLY</option>
+                            <option value="READ_WRITE">READ & WRITE</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              )}
             </div>
           </div>
 

@@ -119,8 +119,16 @@ export function DepartmentManager() {
       pageAbout: dept.pageAbout || '',
       pageLeadOfficer: dept.pageLeadOfficer || '',
       pageLeadRole: dept.pageLeadRole || '',
-      pageContact: dept.pageContact || '',
-      satelliteIds: dept.satellites?.map((s: any) => s.id) || (dept.satelliteId ? [dept.satelliteId] : []),
+      satelliteIds:
+        dept.satellites
+          ?.filter(
+            (s: any) =>
+              s.isActive !== false &&
+              !s.deletedAt &&
+              s.status !== 'DECOMMISSIONED' &&
+              s.status !== 'INACTIVE'
+          )
+          .map((s: any) => s.id) || (dept.satelliteId ? [dept.satelliteId] : []),
     })
   }
 
@@ -366,7 +374,7 @@ export function DepartmentManager() {
 
                       <Link
                         to={`/admin/files?deptId=${dept.id}`}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/20 hover:text-white transition-all shadow-sm"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/50 bg-amber-500/15 px-3 py-1.5 text-xs font-bold text-amber-500 hover:bg-amber-500/25 hover:text-amber-600 transition-all shadow-sm cursor-pointer"
                       >
                         <FolderOpen size={13} />
                         <span>Browse Files & Folders (Admin)</span>
@@ -382,7 +390,7 @@ export function DepartmentManager() {
                       <div className="flex items-center gap-2">
                         <Link
                           to={`/admin/files?deptId=${dept.id}`}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-secondary hover:text-white transition-colors"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
                         >
                           <FolderOpen size={12} />
                           <span>Files</span>
@@ -390,7 +398,7 @@ export function DepartmentManager() {
                         <span className="text-text-dim">·</span>
                         <Link
                           to={`/departments/${dept.id}`}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent-light hover:text-white transition-colors"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:text-accent-hover transition-colors cursor-pointer"
                         >
                           <span>Portal Page</span>
                           <ExternalLink size={11} />

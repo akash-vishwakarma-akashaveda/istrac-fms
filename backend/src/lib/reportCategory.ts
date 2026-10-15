@@ -5,7 +5,7 @@
 
 type LegacyCategory = 'SPECIAL_OPERATIONS' | 'ANOMALY' | 'STUDY' | 'DAILY_REPORT' | 'OTHER'
 
-const CODE_TO_ENUM: Record<string, LegacyCategory> = {
+export const CODE_TO_ENUM: Record<string, LegacyCategory> = {
   DAILYOPS: 'DAILY_REPORT',
   DAILY_REPORT: 'DAILY_REPORT',
   SPECOPS: 'SPECIAL_OPERATIONS',
@@ -16,7 +16,7 @@ const CODE_TO_ENUM: Record<string, LegacyCategory> = {
   OTHER: 'OTHER',
 }
 
-const ENUM_TO_CODE: Record<LegacyCategory, string> = {
+export const ENUM_TO_CODE: Record<LegacyCategory, string> = {
   DAILY_REPORT: 'DAILYOPS',
   SPECIAL_OPERATIONS: 'SPECOPS',
   ANOMALY: 'ANOMALY',

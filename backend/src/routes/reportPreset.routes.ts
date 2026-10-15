@@ -4,7 +4,7 @@ import { authMiddleware } from '../middleware/auth.middleware.js'
 import { AppError } from '../lib/errors.js'
 import { adminMiddleware } from '../middleware/admin.middleware.js'
 import { auditService } from '../services/audit.service.js'
-import { normalizeCategoryCode } from '../lib/reportCategory.js'
+import { normalizeCategoryCode, categoryCodeOf, categoryEnumFor } from '../lib/reportCategory.js'
 
 const router = Router()
 
@@ -46,6 +46,32 @@ const DEFAULT_NAMING_PRESETS = [
   },
 ]
 
+// Helper: find all active files associated with a category
+function buildCategoryFileWhere(category: { code: string; name?: string }): any {
+  const clean = normalizeCategoryCode(category.code)
+  const legacy = categoryEnumFor(clean)
+  const isGeneral = clean === 'GENERAL' || clean === 'OTHER'
+  const orList: any[] = [
+    { customCategory: clean },
+    { customCategory: category.code },
+  ]
+  if (category.name) {
+    orList.push({ customCategory: category.name })
+  }
+  if (legacy && (!isGeneral || legacy === 'OTHER')) {
+    orList.push({ category: legacy })
+  }
+
+  return {
+    deletedAt: null,
+    nodeType: 'FILE',
+    report: {
+      deletedAt: null,
+      OR: orList,
+    },
+  }
+}
+
 // ============================================================
 // LIST CATEGORIES (SYSTEM + CUSTOM SAVED)
 // ============================================================
@@ -69,16 +95,25 @@ router.get('/report-presets/categories', authMiddleware, async (req, res, next) 
       })
     }
 
-    // Usage counts let the UI explain what deleting a category affects.
-    const usage = await prisma.report.groupBy({
-      by: ['customCategory'],
-      where: { deletedAt: null, customCategory: { not: null } },
-      _count: { _all: true },
+    // Accurate active files count for each category across all files
+    const fileCategoryCounts = new Map<string, number>()
+    const activeReports = await prisma.file.findMany({
+      where: { deletedAt: null, nodeType: 'FILE', report: { isNot: null } },
+      select: {
+        report: { select: { category: true, customCategory: true } },
+      },
     })
-    const usageByCode = new Map(usage.map((u: any) => [u.customCategory, u._count._all]))
+    for (const f of activeReports) {
+      if (!f.report) continue
+      const code = categoryCodeOf(f.report) || 'GENERAL'
+      fileCategoryCounts.set(code, (fileCategoryCounts.get(code) || 0) + 1)
+    }
 
     res.json({
-      data: custom.map((c: any) => ({ ...c, usageCount: usageByCode.get(c.code) ?? 0 })),
+      data: custom.map((c: any) => ({
+        ...c,
+        usageCount: fileCategoryCounts.get(c.code) ?? 0,
+      })),
       requestId: req.requestId,
     })
   } catch (err) {
@@ -131,7 +166,67 @@ router.post('/report-presets/categories', authMiddleware, async (req, res, next)
 })
 
 // ============================================================
-// DELETE CUSTOM CATEGORY PRESET
+// ADMIN: CHECK RELATED FILES BEFORE CATEGORY DELETION
+// ============================================================
+router.get('/report-presets/categories/:id/related-files', authMiddleware, adminMiddleware, async (req, res, next) => {
+  try {
+    const rawId = req.params.id
+    const id = Array.isArray(rawId) ? rawId[0] : rawId
+
+    const category = await prisma.reportCategoryPreset.findUnique({
+      where: { id },
+    })
+
+    if (!category) {
+      throw new AppError('not_found', 'Report category not found', 404)
+    }
+
+    const fileWhere = buildCategoryFileWhere(category)
+
+    const [count, sampleFiles] = await Promise.all([
+      prisma.file.count({ where: fileWhere }),
+      prisma.file.findMany({
+        where: fileWhere,
+        take: 5,
+        select: {
+          id: true,
+          name: true,
+          sizeBytes: true,
+          createdAt: true,
+          department: { select: { id: true, name: true, code: true } },
+          report: { select: { id: true, title: true, spacecraft: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ])
+
+    res.json({
+      data: {
+        categoryId: category.id,
+        categoryName: category.name,
+        categoryCode: category.code,
+        isSystem: category.isSystem,
+        count,
+        canDelete: count === 0,
+        sampleFiles: sampleFiles.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          departmentName: f.department?.name,
+          departmentCode: f.department?.code,
+          reportTitle: f.report?.title,
+          createdAt: f.createdAt,
+        })),
+      },
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ============================================================
+// ADMIN: PERMANENT DELETE CATEGORY PRESET
+// Stops if active files are associated; requires admin to delete files manually first
 // ============================================================
 router.delete('/report-presets/categories/:id', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
@@ -143,37 +238,63 @@ router.delete('/report-presets/categories/:id', authMiddleware, adminMiddleware,
     })
 
     if (!category) {
-      throw new AppError('not_found', 'Category not found', 404)
+      throw new AppError('not_found', 'Report category not found', 404)
     }
 
-    if (category.isSystem) {
-      throw new AppError('cannot_delete_system', 'Default system categories cannot be deleted', 400)
+    const fileWhere = buildCategoryFileWhere(category)
+    const count = await prisma.file.count({ where: fileWhere })
+
+    if (count > 0) {
+      const sample = await prisma.file.findMany({
+        where: fileWhere,
+        take: 3,
+        select: { name: true },
+      })
+      const fileNames = sample.map((f) => `"${f.name}"`).join(', ')
+      const extraMsg = count > 3 ? ` and ${count - 3} other(s)` : ''
+      throw new AppError(
+        'category_has_files',
+        `Cannot delete report category "${category.name}". There are ${count} file(s) associated with this category (${fileNames}${extraMsg}). Please delete all related files manually first.`,
+        400,
+        { fileCount: count }
+      )
     }
 
-    // Files keep working: their reports move to General so they stay visible in filters.
-    const [reassigned] = await prisma.$transaction([
-      prisma.report.updateMany({
-        where: { customCategory: category.code },
-        data: { customCategory: 'GENERAL', category: 'OTHER' },
-      }),
-      prisma.reportCategoryPreset.delete({ where: { id } }),
-    ])
+    // Zero files associated - hard delete the category
+    const clean = normalizeCategoryCode(category.code)
+    await prisma.$transaction(async (tx) => {
+      // Clean up any empty orphaned report rows matching this category if no files exist
+      await tx.report.deleteMany({
+        where: {
+          deletedAt: null,
+          files: { none: {} },
+          OR: [
+            { customCategory: clean },
+            { customCategory: category.code },
+            ...(category.name ? [{ customCategory: category.name }] : []),
+          ],
+        },
+      })
+      await tx.reportCategoryPreset.delete({
+        where: { id: category.id },
+      })
+    })
 
     auditService.log({
       userId: req.user!.id,
-      action: 'REPORT_CATEGORY:DELETE',
+      action: 'DELETE_PERMANENT:/report-presets/categories',
       resourceType: 'report_category',
-      resourceId: id,
-      oldValue: { name: category.name, code: category.code },
-      newValue: { filesMovedToGeneral: reassigned.count },
+      resourceId: category.id,
+      oldValue: {
+        name: category.name,
+        code: category.code,
+        isSystem: category.isSystem,
+      },
     })
 
     res.json({
       data: {
-        message: reassigned.count
-          ? `Category "${category.name}" deleted. ${reassigned.count} file(s) moved to General.`
-          : `Category "${category.name}" deleted.`,
-        filesMovedToGeneral: reassigned.count,
+        message: `Report category "${category.name}" has been permanently deleted.`,
       },
       requestId: req.requestId,
     })

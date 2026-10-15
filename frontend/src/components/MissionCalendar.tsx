@@ -232,7 +232,7 @@ export function MissionCalendar({
     ])
       .then(([data, config]) => {
         const configCats: Array<{ id: string; label: string }> =
-          config?.categories && config.categories.length > 0
+          Array.isArray(config?.categories)
             ? config.categories
             : [
                 { id: "MISSION_PASS", label: "Spacecraft Tracking Pass" },
@@ -728,7 +728,7 @@ export function MissionCalendar({
   }
 
   return (
-    <section id="calendar" className="border-b border-border-subtle/80 bg-[#04070e]/65 py-12 sm:py-16" aria-labelledby="calendar-title">
+    <section id="calendar" className="border-b border-border-subtle/80 bg-page/65 py-12 sm:py-16" aria-labelledby="calendar-title">
       <div className="shell">
         {calendarContent}
       </div>

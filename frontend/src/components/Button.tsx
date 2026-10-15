@@ -12,16 +12,15 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
  */
 const variantStyles = {
   primary:
-    'border-accent bg-accent text-white shadow-button hover:border-accent-hover hover:bg-accent-hover active:bg-accent-dark',
+    'border border-transparent bg-accent text-white font-semibold shadow-sm hover:bg-accent-hover hover:shadow-md hover:scale-[1.01] active:scale-[0.98]',
   secondary:
-    'border-border-default bg-card-hover text-text-primary hover:border-border-bright hover:bg-surface active:bg-card',
+    'border border-border-default bg-surface text-text-primary hover:bg-card-hover hover:border-secondary hover:text-secondary-dark dark:hover:text-secondary-light hover:shadow-sm active:scale-[0.98]',
   outline:
-    'border-border-default bg-transparent text-text-secondary hover:border-border-bright hover:bg-card-hover hover:text-text-primary active:bg-card',
+    'border border-border-default bg-transparent text-text-secondary hover:bg-secondary/10 hover:border-secondary hover:text-secondary-dark dark:hover:text-secondary-light active:scale-[0.98]',
   ghost:
-    'border-transparent bg-transparent text-text-secondary hover:bg-card-hover hover:text-text-primary active:bg-card',
+    'border border-transparent bg-transparent text-text-secondary hover:bg-secondary/10 hover:border-secondary/20 hover:text-secondary-dark dark:hover:text-secondary-light active:scale-[0.98]',
   danger:
-    // #dc2626 keeps white text at 4.8:1 in both themes (the brighter critical red is 3.8:1).
-    'border-[#dc2626] bg-[#dc2626] text-white hover:border-[#b91c1c] hover:bg-[#b91c1c] active:bg-[#991b1b]',
+    'border border-transparent bg-[#dc2626] text-white font-semibold shadow-sm hover:bg-[#b91c1c] hover:shadow-md hover:scale-[1.01] active:scale-[0.98]',
 }
 
 const sizeStyles = {

@@ -15,6 +15,8 @@ import {
   MapPin,
   History,
   Zap,
+  Filter,
+  RotateCcw,
 } from "lucide-react"
 import { eventsApi, type MissionEventItem } from "../api/events.api"
 import { useDepartments } from "../hooks/useDepartments"
@@ -177,8 +179,8 @@ export function EventManager() {
         setSchedulerInterval(schedulerData.interval)
       }
       if (configData) {
-        if (configData.locations?.length) setLocations(configData.locations)
-        if (configData.categories?.length) setCategories(configData.categories)
+        if (configData.locations) setLocations(configData.locations)
+        if (configData.categories) setCategories(configData.categories)
       }
     } catch {
       addToast({ title: "Error", message: "Failed to load mission events", variant: "error" })
@@ -314,6 +316,14 @@ export function EventManager() {
     })
   }, [currentTabList, search, statusFilter, typeFilter])
 
+  const hasActiveFilters = Boolean(search.trim() || statusFilter !== "ALL" || typeFilter !== "ALL")
+
+  const handleResetFilters = () => {
+    setSearch("")
+    setStatusFilter("ALL")
+    setTypeFilter("ALL")
+  }
+
   const openCreateModal = () => {
     setEditingEvent(null)
     setIsAddingLocation(false)
@@ -405,9 +415,19 @@ export function EventManager() {
         if (formData.eventType === dropdownDeleteTarget.id) {
           setFormData((prev) => ({ ...prev, eventType: "" }))
         }
+        if (typeFilter === dropdownDeleteTarget.id) {
+          setTypeFilter("ALL")
+        }
+        const targetId = dropdownDeleteTarget.id.toLowerCase()
+        setEvents((prev) =>
+          prev.filter((ev) => {
+            const evType = (ev.eventType || "").toLowerCase()
+            return evType !== targetId && ev.eventType !== dropdownDeleteTarget.id
+          })
+        )
         addToast({
           title: "Category Deleted",
-          message: `Removed "${dropdownDeleteTarget.label}" from event categories`,
+          message: `Removed "${dropdownDeleteTarget.label}" and purged all associated mission events`,
           variant: "info",
         })
       } else if (dropdownDeleteTarget.type === "location") {
@@ -416,13 +436,24 @@ export function EventManager() {
         if (formData.location === dropdownDeleteTarget.id) {
           setFormData((prev) => ({ ...prev, location: "" }))
         }
+        const targetLoc = dropdownDeleteTarget.id.trim().toLowerCase()
+        setEvents((prev) =>
+          prev.filter((ev) => {
+            const evLoc = (ev.location || "").trim().toLowerCase()
+            return evLoc !== targetLoc && ev.location !== dropdownDeleteTarget.id
+          })
+        )
         addToast({
           title: "Location Deleted",
-          message: `Removed "${dropdownDeleteTarget.label}" from station locations`,
+          message: `Removed "${dropdownDeleteTarget.label}" and purged all associated mission events`,
           variant: "info",
         })
       }
       setDropdownDeleteTarget(null)
+      // Background re-fetch to ensure complete sync with server
+      eventsApi.getEvents({ limit: 200 }).then((refreshed) => {
+        if (refreshed) setEvents(refreshed)
+      }).catch(() => {})
     } catch (err: any) {
       addToast({
         title: "Delete Failed",
@@ -593,55 +624,78 @@ export function EventManager() {
         </div>
       </div>
 
-      {/* Filter & Search Toolbar */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl border border-border-default bg-card shadow-sm">
-        <div className="relative sm:col-span-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
-          <input
-            type="text"
-            placeholder="Search events, spacecraft, locations…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
-          />
+      {/* Filter & Search Toolbar (STICKY ON SCROLL) */}
+      <div className="sticky top-0 z-20 p-4 rounded-xl border border-border-default bg-[#070d18]/95 backdrop-blur-md shadow-lg shadow-black/40 space-y-3 transition-all">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs font-bold text-text-primary">
+            <Filter size={14} className="text-accent-light" />
+            <span>Filter Mission Events</span>
+            <span className="rounded-full bg-accent/15 border border-accent/30 text-accent-light px-2 py-0.5 text-[10px] font-mono font-bold">
+              {filteredEvents.length} events
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-accent/40 bg-accent/10 text-xs font-bold text-accent-light hover:text-white hover:bg-accent transition-all cursor-pointer shrink-0"
+                title="Clear all active search queries and filters"
+              >
+                <RotateCcw size={12} />
+                <span>Reset Filters</span>
+              </button>
+            )}
+            <ViewToggle mode={viewMode} onChange={setViewMode} />
+          </div>
         </div>
 
-        <div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
-          >
-            <option value="ALL">All Event Statuses</option>
-            <option value="UPCOMING">Upcoming Schedule</option>
-            <option value="IN_PROGRESS">In Progress (Active Now)</option>
-            <option value="COMPLETED">Completed Passes</option>
-            <option value="TIMED_OUT">Timed Out</option>
-            <option value="CANCELLED">Cancelled</option>
-          </select>
-        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="relative sm:col-span-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
+            <input
+              type="text"
+              placeholder="Search events, spacecraft, locations…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+            />
+          </div>
 
-        <div>
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
-          >
-            <option value="ALL">All Event Categories</option>
-            {categories.map((c) => {
-              const meta = getCategoryMeta(c.id)
-              return (
-                <option key={c.id} value={c.id}>
-                  {meta.bullet} {c.label}
-                </option>
-              )
-            })}
-          </select>
-        </div>
-      </div>
+          <div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+            >
+              <option value="ALL">All Event Statuses</option>
+              <option value="UPCOMING">Upcoming Schedule</option>
+              <option value="IN_PROGRESS">In Progress (Active Now)</option>
+              <option value="COMPLETED">Completed Passes</option>
+              <option value="TIMED_OUT">Timed Out</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
 
-      <div className="flex justify-end">
-        <ViewToggle mode={viewMode} onChange={setViewMode} />
+          <div>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
+            >
+              <option value="ALL">All Event Categories</option>
+              {categories.map((c) => {
+                const meta = getCategoryMeta(c.id)
+                return (
+                  <option key={c.id} value={c.id}>
+                    {meta.bullet} {c.label}
+                  </option>
+                )
+              })}
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Events Grid */}
@@ -656,6 +710,19 @@ export function EventManager() {
             {tabMode === "LIVE_FUTURE" ? "No Active or Future Events Found" : "No Past Archived Events Found"}
           </p>
           <p className="text-xs text-text-dim">Schedule a new mission event or adjust your active search filters.</p>
+          {hasActiveFilters && (
+            <div className="pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetFilters}
+                className="inline-flex items-center gap-1.5"
+              >
+                <RotateCcw size={13} />
+                <span>Clear All Filters</span>
+              </Button>
+            </div>
+          )}
         </div>
       ) : viewMode === "table" ? (
         <div className="rounded-xl border border-border-default bg-card overflow-hidden">
@@ -1225,10 +1292,10 @@ export function EventManager() {
                 </h4>
                 <p className="text-xs text-text-secondary leading-relaxed">
                   Are you sure you want to remove{" "}
-                  <span className="font-semibold text-white">"{dropdownDeleteTarget.label}"</span> from the dropdown?
+                  <span className="font-semibold text-white">"{dropdownDeleteTarget.label}"</span>?
                 </p>
-                <p className="text-[11px] text-text-dim">
-                  Historical and existing events will remain unaffected.
+                <p className="text-[11px] text-critical font-medium">
+                  All mission events associated with this {dropdownDeleteTarget.type === "location" ? "location" : "category"} will be permanently removed from schedule, timeline, and calendar views.
                 </p>
               </div>
             </div>

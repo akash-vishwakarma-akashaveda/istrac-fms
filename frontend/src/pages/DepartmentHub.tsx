@@ -15,14 +15,29 @@ import {
   HardDrive,
   ArrowLeft,
   Sparkles,
+  AlertTriangle,
+  XCircle,
+  CheckCircle2,
+  RotateCcw,
 } from 'lucide-react'
 import { apiClient } from '../api/client'
+import { useCategoryLabel } from '../components/CategoryOptions'
 import { useAuthStore } from '../store/authStore'
 import { useToastStore } from '../store/toastStore'
 import { useDebounce } from '../hooks/useDebounce'
 import { Button, Modal, Textarea } from '../components'
 import { formatFileSize } from '../lib/formatFileSize'
 import { formatDateTimeIST } from '../lib/formatDate'
+
+interface SatelliteItem {
+  id: string
+  name: string
+  code: string
+  description?: string
+  isActive?: boolean
+  deletedAt?: string | null
+  status?: string
+}
 
 interface DepartmentHubData {
   department: {
@@ -31,7 +46,8 @@ interface DepartmentHubData {
     code: string
     description: string
     hddPath: string
-    satellite?: { id: string; name: string; code: string; description: string } | null
+    satellite?: SatelliteItem | null
+    satellites?: SatelliteItem[]
     fileCount: number
     pageTitle: string
     pageAbout: string
@@ -49,6 +65,8 @@ interface DepartmentHubData {
     sizeBytes: string
     versionCount: number
     uploader: string
+    category?: string | null
+    customCategory?: string | null
     createdAt: string
     updatedAt: string
   }>
@@ -78,12 +96,14 @@ export function DepartmentHub() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const addToast = useToastStore((s) => s.addToast)
+  const categoryLabel = useCategoryLabel()
 
   const isAdmin = user?.role === 'ADMIN'
 
   const [data, setData] = useState<DepartmentHubData | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'files' | 'reports' | 'events' | 'satellites'>('files')
+  const [satelliteStatusFilter, setSatelliteStatusFilter] = useState<'ACTIVE' | 'DEACTIVATED'>('ACTIVE')
   const [fileSearch, setFileSearch] = useState('')
   const debouncedFileSearch = useDebounce(fileSearch, 300)
 
@@ -98,6 +118,9 @@ export function DepartmentHub() {
     isPageEnabled: true,
   })
   const [savingSettings, setSavingSettings] = useState(false)
+
+  const isSatelliteDeactivated = (sat?: SatelliteItem | null) =>
+    Boolean(sat?.isActive === false || sat?.deletedAt || sat?.status === 'DECOMMISSIONED' || sat?.status === 'INACTIVE')
 
   const fetchHubData = async () => {
     if (!deptId) return
@@ -257,9 +280,11 @@ export function DepartmentHub() {
 
               {department.satellite && (
                 <div className="flex items-center gap-1.5">
-                  <Radio size={14} className="text-accent-light" />
+                  <Radio size={14} className={isSatelliteDeactivated(department.satellite) ? 'text-critical' : 'text-accent-light'} />
                   <span>Spacecraft Fleet:</span>
-                  <span className="text-white font-bold">{department.satellite.name}</span>
+                  <span className={`font-bold ${isSatelliteDeactivated(department.satellite) ? 'text-critical' : 'text-white'}`}>
+                    {department.satellite.name} {isSatelliteDeactivated(department.satellite) ? '(Deactivated)' : ''}
+                  </span>
                 </div>
               )}
             </div>
@@ -331,26 +356,25 @@ export function DepartmentHub() {
           <span>Division Passes & Events ({events.length})</span>
         </button>
 
-        {department.satellite && (
-          <button
-            type="button"
-            onClick={() => setActiveTab('satellites')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all ${
-              activeTab === 'satellites'
-                ? 'border-b-accent text-accent-light bg-accent/[0.05] rounded-t-lg'
-                : 'border-b-transparent text-text-dim hover:text-text-primary'
-            }`}
-          >
-            <Radio size={14} />
-            <span>Assigned Spacecraft</span>
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setActiveTab('satellites')}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all ${
+            activeTab === 'satellites'
+              ? 'border-b-accent text-accent-light bg-accent/[0.05] rounded-t-lg'
+              : 'border-b-transparent text-text-dim hover:text-text-primary'
+          }`}
+        >
+          <Radio size={14} />
+          <span>Assigned Spacecraft ({department.satellites?.length || (department.satellite ? 1 : 0)})</span>
+        </button>
       </div>
 
       {/* TAB 1: FILES & DATASETS */}
       {activeTab === 'files' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          {/* Search Toolbar (STICKY ON SCROLL) */}
+          <div className="sticky top-0 z-20 p-3 rounded-xl border border-border-default bg-[#070d18]/95 backdrop-blur-md shadow-lg shadow-black/40 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-all">
             <div className="relative flex-1 max-w-md">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
               <input
@@ -365,12 +389,44 @@ export function DepartmentHub() {
               </span>
             </div>
 
-            <span className="num text-xs text-text-dim">{files.length} records found</span>
+            <div className="flex items-center gap-3">
+              <span className="num text-xs text-text-dim whitespace-nowrap">
+                <strong className="text-white num">{files.length}</strong> records found
+              </span>
+              {fileSearch && (
+                <button
+                  type="button"
+                  onClick={() => setFileSearch('')}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-accent/40 bg-accent/10 text-xs font-bold text-accent-light hover:text-white hover:bg-accent transition-all cursor-pointer shrink-0"
+                  title="Clear search query"
+                >
+                  <RotateCcw size={12} />
+                  <span>Reset</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {files.length === 0 ? (
-            <div className="rounded-xl border border-border-subtle bg-card p-10 text-center text-xs text-text-dim">
-              No files currently stored in this department folder.
+            <div className="rounded-xl border border-border-subtle bg-card p-10 text-center space-y-2">
+              <p className="text-xs text-text-dim">
+                {fileSearch
+                  ? `No files match "${fileSearch}".`
+                  : 'No files currently stored in this department folder.'}
+              </p>
+              {fileSearch && (
+                <div className="pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFileSearch('')}
+                    className="inline-flex items-center gap-1.5"
+                  >
+                    <RotateCcw size={13} />
+                    <span>Clear Search</span>
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="rounded-xl border border-border-default bg-card overflow-hidden shadow-sm">
@@ -380,6 +436,7 @@ export function DepartmentHub() {
                     <tr className="border-b border-border-default bg-surface text-[11px] font-bold text-text-dim uppercase tracking-wider">
                       <th className="px-4 py-3">File / Dataset Name</th>
                       <th className="px-4 py-3">Format</th>
+                      <th className="px-4 py-3">Report Category</th>
                       <th className="px-4 py-3">Size</th>
                       <th className="px-4 py-3">Uploader</th>
                       <th className="px-4 py-3">Uploaded Date</th>
@@ -400,6 +457,11 @@ export function DepartmentHub() {
                             {file.extension || 'DAT'}
                           </span>
                         </td>
+                        <td className="px-4 py-3">
+                          <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent-light uppercase">
+                            {categoryLabel(file.category || file.customCategory) || 'GENERAL'}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 num text-text-secondary">
                           {formatFileSize(Number(file.sizeBytes) || 0)}
                         </td>
@@ -410,7 +472,7 @@ export function DepartmentHub() {
                         <td className="px-4 py-3 text-right">
                           <a
                             href={`/api/files/${file.id}/download`}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border-default bg-[#0c1424] text-xs font-semibold text-text-primary hover:border-accent hover:text-white transition-all"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border-default bg-surface text-xs font-semibold text-text-primary hover:border-nominal hover:text-nominal hover:bg-nominal/10 transition-all shadow-sm cursor-pointer"
                           >
                             <Download size={12} />
                             <span>Download</span>
@@ -448,7 +510,7 @@ export function DepartmentHub() {
                   <h4 className="text-sm font-bold text-white">{r.title}</h4>
                   {r.description && <p className="text-xs text-text-secondary">{r.description}</p>}
                   <div className="flex items-center justify-between pt-2 border-t border-border-subtle text-[11px] text-text-dim">
-                    <span>Spacecraft: <strong className="text-white">{r.spacecraft || 'General'}</strong></span>
+                    <span>Spacecraft: <strong className="text-white">{r.spacecraft && !r.spacecraft.toUpperCase().includes('GENERAL') ? r.spacecraft : '—'}</strong></span>
                     <span>Author: <strong className="text-text-primary">{r.createdBy}</strong></span>
                   </div>
                 </div>
@@ -490,24 +552,173 @@ export function DepartmentHub() {
       )}
 
       {/* TAB 4: SPACECRAFT */}
-      {activeTab === 'satellites' && department.satellite && (
-        <div className="rounded-xl border border-border-default bg-card p-6 space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/25">
-              <Radio size={20} />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white">{department.satellite.name}</h3>
-              <span className="num text-xs text-accent-light font-bold">
-                Code: {department.satellite.code || 'ISRO-SAT'}
-              </span>
-            </div>
+      {activeTab === 'satellites' && (
+        <div className="space-y-4">
+          {(() => {
+            const rawList = (department.satellites && department.satellites.length > 0)
+              ? department.satellites
+              : department.satellite ? [department.satellite] : []
+            // Filter out any hard-deleted/empty satellite records so they are never seen
+            const sats = rawList.filter((s): s is SatelliteItem => Boolean(s && s.id && s.name))
+
+            const activeCount = sats.filter((s) => !isSatelliteDeactivated(s)).length
+            const deactivatedCount = sats.filter((s) => isSatelliteDeactivated(s)).length
+
+            const displayedSats = sats.filter((sat) => {
+              const isDeactivated = isSatelliteDeactivated(sat)
+              if (satelliteStatusFilter === 'ACTIVE') return !isDeactivated
+              return isDeactivated
+            })
+
+            if (sats.length === 0) {
+              return (
+                <div className="rounded-xl border border-dashed border-border-default/80 bg-surface/30 p-8 text-center text-xs text-text-dim">
+                  No spacecraft programs assigned to this division.
+                </div>
+              )
+            }
+
+            return (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-xl border border-border-default bg-card shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <Radio size={14} className="text-accent-light" />
+                    <span className="text-xs font-bold text-white">Spacecraft Fleet Status:</span>
+                    {deactivatedCount > 0 && (
+                      <span className="rounded-full bg-critical/20 border border-critical/40 text-critical px-2 py-0.5 text-[10px] font-mono num font-bold">
+                        {deactivatedCount} Deactivated
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1 p-1 rounded-lg border border-border-default bg-[#060c18]">
+                    <button
+                      type="button"
+                      onClick={() => setSatelliteStatusFilter('ACTIVE')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                        satelliteStatusFilter === 'ACTIVE'
+                          ? 'bg-nominal/20 text-nominal border border-nominal/40 shadow-sm'
+                          : 'text-text-dim hover:text-nominal'
+                      }`}
+                      title="Show only operational active satellites"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-nominal" />
+                      <span>Active</span>
+                      <span className="num text-[10px] px-1.5 py-0.2 rounded-full bg-black/40 font-mono">
+                        {activeCount}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSatelliteStatusFilter('DEACTIVATED')}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                        satelliteStatusFilter === 'DEACTIVATED'
+                          ? 'bg-critical/25 text-critical border border-critical/50 shadow-sm'
+                          : 'text-text-dim hover:text-critical'
+                      }`}
+                      title="Show only deactivated satellites"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-critical" />
+                      <span>Deactivated</span>
+                      <span className="num text-[10px] px-1.5 py-0.2 rounded-full bg-black/40 font-mono">
+                        {deactivatedCount}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {displayedSats.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-border-default bg-[#060c18] p-8 text-center space-y-2.5">
+                    <Radio size={24} className="mx-auto text-text-dim" />
+                    <p className="text-sm font-bold text-white">
+                      {satelliteStatusFilter === 'ACTIVE'
+                        ? 'No active satellites currently assigned to this division.'
+                        : 'No deactivated satellites found for this division.'}
+                    </p>
+                    {satelliteStatusFilter === 'DEACTIVATED' ? (
+                      <button
+                        type="button"
+                        onClick={() => setSatelliteStatusFilter('ACTIVE')}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-nominal/40 bg-nominal/15 text-nominal text-xs font-bold hover:bg-nominal hover:text-white transition-all cursor-pointer mt-1"
+                      >
+                        <span>View Active Satellites</span>
+                      </button>
+                    ) : deactivatedCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setSatelliteStatusFilter('DEACTIVATED')}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-critical/40 bg-critical/15 text-critical text-xs font-bold hover:bg-critical hover:text-white transition-all cursor-pointer mt-1"
+                      >
+                        <span>View Deactivated Satellites ({deactivatedCount})</span>
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {displayedSats.map((sat) => {
+                  const isDeactivated = isSatelliteDeactivated(sat)
+                  return (
+                    <div
+                      key={sat.id}
+                      className={`rounded-xl border p-5 space-y-3 transition-all ${
+                        isDeactivated
+                          ? 'border-critical/60 bg-[#160a12] shadow-critical/10 ring-1 ring-critical/30'
+                          : 'border-border-default bg-card hover:border-accent/50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
+                            isDeactivated
+                              ? 'bg-critical/20 text-critical border-critical/30'
+                              : 'bg-accent/15 text-accent-light border-accent/25'
+                          }`}>
+                            <Radio size={20} />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-white">
+                              {sat.name}
+                            </h3>
+                            <span className={`num text-xs font-mono font-bold ${isDeactivated ? 'text-critical' : 'text-accent-light'}`}>
+                              Code: {sat.code || 'ISRO-SAT'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {isDeactivated ? (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-critical/20 text-critical border border-critical/40 shrink-0">
+                            <XCircle size={10} />
+                            <span>{sat.status === 'DECOMMISSIONED' ? 'Decommissioned' : 'Deactivated'}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-nominal/15 text-nominal border border-nominal/30 shrink-0">
+                            <CheckCircle2 size={10} />
+                            <span>{sat.status || 'Active'}</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {isDeactivated && (
+                        <div className="rounded-lg border border-critical/40 bg-critical/15 px-2.5 py-1.5 text-[11px] text-critical flex items-center gap-2">
+                          <AlertTriangle size={13} className="shrink-0 text-critical" />
+                          <span className="font-semibold">Spacecraft Program Deactivated / Inactive</span>
+                        </div>
+                      )}
+
+                      {sat.description && (
+                        <p className="text-xs text-text-secondary leading-relaxed pt-1">
+                          {sat.description}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
-          {department.satellite.description && (
-            <p className="text-xs text-text-secondary leading-relaxed pt-2">
-              {department.satellite.description}
-            </p>
-          )}
+        )
+      })()}
         </div>
       )}
 

@@ -7,8 +7,8 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const variantStyles = {
-  default: 'border border-border-subtle bg-card/80 shadow-card',
-  interactive: 'cursor-pointer border border-border-subtle bg-card/80 shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-border-bright hover:bg-card-hover hover:shadow-card-hover',
+  default: 'border border-border-default bg-card shadow-card',
+  interactive: 'cursor-pointer border border-border-default bg-card shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-secondary/50 hover:bg-card-hover hover:shadow-card-hover',
 }
 
 export function Card({ variant = 'default', children, className = '', ...props }: CardProps) {

@@ -10,19 +10,22 @@ import { auditService } from '../services/audit.service.js'
 import { notificationService } from '../services/notification.service.js'
 import { AppError } from '../lib/errors.js'
 import { deptAccessMiddleware } from '../middleware/deptAccess.middleware.js'
-import { categoryCodeOf } from '../lib/reportCategory.js'
+import { categoryCodeOf, reportCategoryWhere } from '../lib/reportCategory.js'
 
 const router = Router()
 
 // ============================================================
 // PUBLIC: LIST ACTIVE DEPARTMENTS FOR PORTAL & DIRECTORY
 // ============================================================
-router.get('/departments/public', async (_req, res, next) => {
+router.get('/departments/public', optionalAuthMiddleware, async (req, res, next) => {
   try {
+    const isPublic = !req.user
+    const isSatActive = (s: any) => Boolean(s && s.isActive && !s.deletedAt && s.status !== 'DECOMMISSIONED' && s.status !== 'INACTIVE')
+
     const departments = await prisma.department.findMany({
       where: { isActive: true, deletedAt: null },
       include: {
-        satellite: { select: { id: true, name: true, code: true } },
+        satellite: { select: { id: true, name: true, code: true, isActive: true, deletedAt: true, status: true } },
         departmentSatellites: {
           include: {
             satellite: {
@@ -38,6 +41,8 @@ router.get('/departments/public', async (_req, res, next) => {
                 launchMass: true,
                 orbitType: true,
                 status: true,
+                isActive: true,
+                deletedAt: true,
                 departmentSatellites: { select: { departmentId: true } },
               },
             },
@@ -54,14 +59,20 @@ router.get('/departments/public', async (_req, res, next) => {
         name: d.name,
         code: d.code,
         description: d.description,
-        satellite: d.satellite,
-        satellites: d.departmentSatellites.map((ds: any) => ({
-          ...ds.satellite,
-          departmentIds: ds.satellite?.departmentSatellites
-            ? ds.satellite.departmentSatellites.map((x: any) => x.departmentId)
-            : [d.id],
-        })),
+        satellite: d.satellite && (!isPublic || isSatActive(d.satellite))
+          ? { ...d.satellite, isActive: Boolean(d.satellite.isActive && !d.satellite.deletedAt) }
+          : null,
+        satellites: d.departmentSatellites
+          .filter((ds: any) => ds.satellite != null && (!isPublic || isSatActive(ds.satellite)))
+          .map((ds: any) => ({
+            ...ds.satellite,
+            isActive: Boolean(ds.satellite.isActive && !ds.satellite.deletedAt),
+            departmentIds: ds.satellite?.departmentSatellites
+              ? ds.satellite.departmentSatellites.map((x: any) => x.departmentId)
+              : [d.id],
+          })),
         fileCount: d._count.files,
+
         pageTitle: d.pageTitle,
         pageAbout: d.pageAbout,
         pageLeadOfficer: d.pageLeadOfficer,
@@ -83,10 +94,23 @@ router.get('/departments/public', async (_req, res, next) => {
 router.get('/public/stats', async (_req, res, next) => {
   try {
     const [satellitesCount, deptsCount, filesCount, passesCount] = await Promise.all([
-      prisma.satellite.count({ where: { deletedAt: null } }),
+      prisma.satellite.count({
+        where: {
+          deletedAt: null,
+          isActive: true,
+          status: { notIn: ['DECOMMISSIONED', 'ARCHIVED', 'INACTIVE'] },
+        },
+      }),
       prisma.department.count({ where: { deletedAt: null, isActive: true } }),
-      prisma.file.count({ where: { deletedAt: null, nodeType: 'FILE' } }),
-      prisma.missionEvent.count({ where: { deletedAt: null } }),
+      prisma.file.count({
+        where: {
+          deletedAt: null,
+          nodeType: 'FILE',
+          status: { in: ['ACTIVE', 'ORPHANED'] },
+          department: { isActive: true, deletedAt: null },
+        },
+      }),
+      prisma.missionEvent.count({ where: { deletedAt: null, status: { notIn: ['CANCELLED', 'ARCHIVED'] } } }),
     ])
 
     res.json({
@@ -106,8 +130,11 @@ router.get('/public/stats', async (_req, res, next) => {
 // ============================================================
 // PUBLIC: GET SINGLE DEPARTMENT PUBLIC PROFILE
 // ============================================================
-router.get('/departments/public/:deptId', async (req, res, next) => {
+router.get('/departments/public/:deptId', optionalAuthMiddleware, async (req, res, next) => {
   try {
+    const isPublic = !req.user
+    const isSatActive = (s: any) => Boolean(s && s.isActive && !s.deletedAt && s.status !== 'DECOMMISSIONED' && s.status !== 'INACTIVE')
+
     const rawDeptId = req.params.deptId
     const deptId = Array.isArray(rawDeptId) ? rawDeptId[0] : rawDeptId
 
@@ -117,7 +144,7 @@ router.get('/departments/public/:deptId', async (req, res, next) => {
         deletedAt: null,
       },
       include: {
-        satellite: { select: { id: true, name: true, code: true } },
+        satellite: { select: { id: true, name: true, code: true, isActive: true, deletedAt: true, status: true } },
         departmentSatellites: {
           include: {
             satellite: {
@@ -133,6 +160,8 @@ router.get('/departments/public/:deptId', async (req, res, next) => {
                 launchMass: true,
                 orbitType: true,
                 status: true,
+                isActive: true,
+                deletedAt: true,
                 departmentSatellites: { select: { departmentId: true } },
               },
             },
@@ -152,14 +181,20 @@ router.get('/departments/public/:deptId', async (req, res, next) => {
         name: department.name,
         code: department.code,
         description: department.description,
-        satellite: department.satellite,
-        satellites: department.departmentSatellites.map((ds: any) => ({
-          ...ds.satellite,
-          departmentIds: ds.satellite?.departmentSatellites
-            ? ds.satellite.departmentSatellites.map((x: any) => x.departmentId)
-            : [department.id],
-        })),
+        satellite: department.satellite && (!isPublic || isSatActive(department.satellite))
+          ? { ...department.satellite, isActive: Boolean(department.satellite.isActive && !department.satellite.deletedAt) }
+          : null,
+        satellites: department.departmentSatellites
+          .filter((ds: any) => ds.satellite != null && (!isPublic || isSatActive(ds.satellite)))
+          .map((ds: any) => ({
+            ...ds.satellite,
+            isActive: Boolean(ds.satellite.isActive && !ds.satellite.deletedAt),
+            departmentIds: ds.satellite?.departmentSatellites
+              ? ds.satellite.departmentSatellites.map((x: any) => x.departmentId)
+              : [department.id],
+          })),
         fileCount: department._count.files,
+
         pageTitle: department.pageTitle,
         pageAbout: department.pageAbout,
         pageLeadOfficer: department.pageLeadOfficer,
@@ -185,6 +220,11 @@ router.get('/departments/:deptId/files', optionalAuthMiddleware, async (req, res
     const search = req.query.search ? String(req.query.search).trim() : ''
     const extension = req.query.extension ? String(req.query.extension).trim().toUpperCase() : ''
     const spacecraft = req.query.spacecraft ? String(req.query.spacecraft).trim() : ''
+    const category = req.query.category ? String(req.query.category).trim() : ''
+    const classification = req.query.classification ? String(req.query.classification).trim() : ''
+    const dateFilter = req.query.dateFilter ? String(req.query.dateFilter).trim() : ''
+    const sortBy = req.query.sortBy ? String(req.query.sortBy).trim() : 'updatedAt'
+    const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : 'desc'
     const parentId = req.query.parentId !== undefined ? ((req.query.parentId as string) || null) : undefined
 
     const department = await prisma.department.findFirst({
@@ -219,9 +259,11 @@ router.get('/departments/:deptId/files', optionalAuthMiddleware, async (req, res
       }
     }
 
+    // Ensure trashed or hard-deleted files are NEVER returned
     const where: any = {
       departmentId: department.id,
       deletedAt: null,
+      status: { in: ['ACTIVE', 'ORPHANED'] },
       nodeType: 'FILE',
       ...(parentId !== undefined ? { parentId } : {}),
       ...(extension && extension !== 'ALL' && { extension }),
@@ -236,40 +278,85 @@ router.get('/departments/:deptId/files', optionalAuthMiddleware, async (req, res
       } : {}),
     }
 
-    if (search) {
-      where.AND = [
-        ...(where.AND || []),
-        {
-          OR: [
-            { name: { contains: search } },
-            { description: { contains: search } },
-            { extension: { contains: search } },
-            { report: { title: { contains: search } } },
-            { report: { spacecraft: { contains: search } } },
-          ],
+    const andConditions: any[] = []
+
+    // Ensure linked report is not trashed or hard deleted, and apply category/classification filter
+    if (category && category !== 'ALL') {
+      andConditions.push({
+        report: {
+          deletedAt: null,
+          ...reportCategoryWhere(category),
+          ...(classification && classification !== 'ALL' ? { classificationLevel: classification } : {}),
         },
-      ]
+      })
+    } else if (classification && classification !== 'ALL') {
+      andConditions.push({
+        report: {
+          deletedAt: null,
+          classificationLevel: classification,
+        },
+      })
+    } else {
+      andConditions.push({
+        OR: [
+          { reportId: null },
+          { report: { deletedAt: null } },
+        ],
+      })
+    }
+
+    if (search) {
+      andConditions.push({
+        OR: [
+          { name: { contains: search } },
+          { description: { contains: search } },
+          { extension: { contains: search } },
+          { report: { title: { contains: search } } },
+          { report: { spacecraft: { contains: search } } },
+          { report: { customCategory: { contains: search } } },
+        ],
+      })
     }
 
     if (spacecraft && spacecraft !== 'ALL') {
-      where.AND = [
-        ...(where.AND || []),
-        {
-          OR: [
-            { report: { spacecraft: { contains: spacecraft } } },
-            { name: { contains: spacecraft } },
-            { hddPath: { contains: spacecraft } },
-          ],
-        },
-      ]
+      andConditions.push({
+        OR: [
+          { report: { spacecraft: { contains: spacecraft } } },
+          { name: { contains: spacecraft } },
+          { hddPath: { contains: spacecraft } },
+        ],
+      })
     }
+
+    if (dateFilter && dateFilter !== 'ALL') {
+      const now = new Date()
+      let gteDate: Date | null = null
+      if (dateFilter === 'today') {
+        gteDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+      } else if (dateFilter === '7days') {
+        gteDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      } else if (dateFilter === '30days') {
+        gteDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+      }
+      if (gteDate) {
+        where.createdAt = { gte: gteDate }
+      }
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions
+    }
+
+    const validSortFields = ['updatedAt', 'createdAt', 'sizeBytes', 'name']
+    const finalSortBy = validSortFields.includes(sortBy) ? sortBy : 'updatedAt'
+    const orderBy: any = { [finalSortBy]: sortOrder }
 
     const files = await prisma.file.findMany({
       where,
-      orderBy: { updatedAt: 'desc' },
-      take: 100,
+      orderBy,
+      take: 200,
       include: {
-        report: { select: { id: true, title: true, category: true, customCategory: true, spacecraft: true, classificationLevel: true } },
+        report: { select: { id: true, title: true, category: true, customCategory: true, spacecraft: true, classificationLevel: true, deletedAt: true } },
         tags: { where: { deletedAt: null, tag: { deletedAt: null } }, select: { tag: { select: { name: true } } } },
         versions: {
           where: {
@@ -314,9 +401,11 @@ router.get('/departments/:deptId/files', optionalAuthMiddleware, async (req, res
           // Server disk paths are internal; this route is also served to anonymous visitors.
           hddPath: isAdmin ? f.hddPath : undefined,
           report: f.report,
-          title: f.report?.title || displayName.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
-          spacecraft: f.report?.spacecraft || 'General',
-          category: categoryCodeOf(f.report) || 'GENERAL',
+          spacecraft: (f.report?.spacecraft && !f.report.spacecraft.toUpperCase().includes('GENERAL'))
+            ? f.report.spacecraft
+            : null,
+          customCategory: f.report?.customCategory || null,
+          classificationLevel: f.report?.classificationLevel || null,
           isFeatured: Boolean(f.isFeatured),
           tags: req.user ? (f.tags ?? []).map((t: any) => t.tag.name) : [],
           latestVersion: activeVer ? {
@@ -353,7 +442,7 @@ router.get('/departments/:deptId/hub', authMiddleware, deptAccessMiddleware, asy
         deletedAt: null,
       },
       include: {
-        satellite: { select: { id: true, name: true, code: true, description: true } },
+        satellite: { select: { id: true, name: true, code: true, description: true, isActive: true, deletedAt: true, status: true } },
         departmentSatellites: {
           include: {
             satellite: {
@@ -369,10 +458,13 @@ router.get('/departments/:deptId/hub', authMiddleware, deptAccessMiddleware, asy
                 launchMass: true,
                 orbitType: true,
                 status: true,
+                isActive: true,
+                deletedAt: true,
               },
             },
           },
         },
+
         _count: { select: { files: { where: { deletedAt: null } } } },
       },
     })
@@ -400,6 +492,7 @@ router.get('/departments/:deptId/hub', authMiddleware, deptAccessMiddleware, asy
       orderBy: [{ nodeType: 'asc' }, { updatedAt: 'desc' }],
       include: {
         uploader: { select: { id: true, name: true } },
+        report: { select: { id: true, title: true, category: true, customCategory: true, classificationLevel: true } },
       },
     })
 
@@ -434,9 +527,15 @@ router.get('/departments/:deptId/hub', authMiddleware, deptAccessMiddleware, asy
           code: department.code,
           description: department.description,
           hddPath: department.hddPath,
-          satellite: department.satellite,
-          satellites: department.departmentSatellites.map((ds: any) => ds.satellite),
+          satellite: department.satellite ? { ...department.satellite, isActive: Boolean(department.satellite.isActive && !department.satellite.deletedAt) } : null,
+          satellites: department.departmentSatellites
+            .filter((ds: any) => ds.satellite != null)
+            .map((ds: any) => ({
+              ...ds.satellite,
+              isActive: Boolean(ds.satellite.isActive && !ds.satellite.deletedAt),
+            })),
           fileCount: department._count.files,
+
           pageTitle: department.pageTitle || `${department.name} Operational Division`,
           pageAbout: department.pageAbout || department.description || 'ISRO Telemetry, Tracking & Command Operational Hub.',
           pageLeadOfficer: department.pageLeadOfficer || 'Division Mission Controller',
@@ -453,6 +552,8 @@ router.get('/departments/:deptId/hub', authMiddleware, deptAccessMiddleware, asy
           sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : null,
           versionCount: f.versionCount,
           uploader: f.uploader?.name || 'Mission Control',
+          category: categoryCodeOf(f.report) || f.report?.category || f.category || 'GENERAL',
+          customCategory: f.report?.customCategory || null,
           createdAt: f.createdAt,
           updatedAt: f.updatedAt,
         })),
@@ -574,14 +675,16 @@ router.get('/departments', authMiddleware, async (req, res, next) => {
 router.get('/admin/departments', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
     const satelliteId = req.query.satelliteId as string | undefined
+    const activeOnly = req.query.activeOnly === 'true' || req.query.status === 'active'
 
     const departments = await prisma.department.findMany({
       where: {
         deletedAt: null,
         ...(satelliteId && { satelliteId }),
+        ...(activeOnly && { isActive: true }),
       },
       include: {
-        satellite: { select: { id: true, name: true, code: true } },
+        satellite: { select: { id: true, name: true, code: true, isActive: true, deletedAt: true, status: true } },
         departmentSatellites: {
           include: {
             satellite: {
@@ -596,6 +699,8 @@ router.get('/admin/departments', authMiddleware, adminMiddleware, async (req, re
                 fuelBalance: true,
                 launchMass: true,
                 orbitType: true,
+                isActive: true,
+                deletedAt: true,
               },
             },
           },
@@ -632,14 +737,20 @@ router.get('/admin/departments', authMiddleware, adminMiddleware, async (req, re
           archived: !d.isActive,
           allowUserFolderCreation: d.allowUserFolderCreation,
           maxFolderDepth: d.maxFolderDepth,
-          satellite: d.satellite,
-          satellites: d.departmentSatellites.map((ds: any) => ds.satellite),
+          satellite: d.satellite ? { ...d.satellite, isActive: Boolean(d.satellite.isActive && !d.satellite.deletedAt) } : null,
+          satellites: d.departmentSatellites
+            .filter((ds: any) => ds.satellite != null)
+            .map((ds: any) => ({
+              ...ds.satellite,
+              isActive: Boolean(ds.satellite.isActive && !ds.satellite.deletedAt),
+            })),
           fileCount: d._count.files,
           userCount: d._count.userAccess,
           createdAt: d.createdAt,
           updatedAt: d.updatedAt,
         }
       }),
+
       requestId: req.requestId,
     })
   } catch (err) {
@@ -674,26 +785,40 @@ const createDeptHandler = async (req: any, res: any, next: any) => {
       throw new AppError('missing_fields', 'Department name is required', 400)
     }
 
-    if (satelliteIds && Array.isArray(satelliteIds) && satelliteIds.length > 0 && !satelliteId) {
-      satelliteId = satelliteIds[0]
+    const activeSatCondition = {
+      isActive: true,
+      deletedAt: null,
+      status: { notIn: ['DECOMMISSIONED', 'INACTIVE'] },
     }
 
-    if (!satelliteId) {
-      const defaultSatellite = await prisma.satellite.findFirst({
-        where: { isActive: true, deletedAt: null },
+    let validActiveSatellites: { id: string }[] = []
+    if (satelliteIds && Array.isArray(satelliteIds) && satelliteIds.length > 0) {
+      validActiveSatellites = await prisma.satellite.findMany({
+        where: { id: { in: satelliteIds }, ...activeSatCondition },
+        select: { id: true },
       })
-      if (defaultSatellite) {
-        satelliteId = defaultSatellite.id
-      }
-    }
 
-    if (satelliteId) {
-      const satellite = await prisma.satellite.findUnique({
-        where: { id: satelliteId, deletedAt: null },
+      if (validActiveSatellites.length < satelliteIds.length) {
+        throw new AppError(
+          'inactive_satellite_selection',
+          'Only active satellite programs can be selected and linked to departments.',
+          400
+        )
+      }
+      satelliteId = validActiveSatellites[0]?.id || null
+    } else if (satelliteId) {
+      const satellite = await prisma.satellite.findFirst({
+        where: { id: satelliteId, ...activeSatCondition },
       })
       if (!satellite) {
-        throw new AppError('satellite_not_found', 'Specified satellite does not exist', 404)
+        throw new AppError(
+          'inactive_satellite_selection',
+          'Specified satellite is not active or does not exist. Only active satellites can be linked to departments.',
+          400
+        )
       }
+    } else {
+      satelliteId = null
     }
 
     const storageConfig = await prisma.systemConfig.findFirst({
@@ -732,22 +857,15 @@ const createDeptHandler = async (req: any, res: any, next: any) => {
       },
     })
 
-    // Assign satellites via junction table
-    if (satelliteIds && Array.isArray(satelliteIds) && satelliteIds.length > 0) {
-      const validSats = await prisma.satellite.findMany({
-        where: { id: { in: satelliteIds }, deletedAt: null },
-        select: { id: true },
+    // Assign satellites via junction table (only verified active satellites)
+    if (validActiveSatellites.length > 0) {
+      await prisma.departmentSatellite.createMany({
+        data: validActiveSatellites.map((s) => ({
+          departmentId: department.id,
+          satelliteId: s.id,
+        })),
+        skipDuplicates: true,
       })
-
-      if (validSats.length > 0) {
-        await prisma.departmentSatellite.createMany({
-          data: validSats.map((s) => ({
-            departmentId: department.id,
-            satelliteId: s.id,
-          })),
-          skipDuplicates: true,
-        })
-      }
     }
 
     auditService.log({
@@ -775,6 +893,8 @@ const createDeptHandler = async (req: any, res: any, next: any) => {
                 fuelBalance: true,
                 launchMass: true,
                 orbitType: true,
+                isActive: true,
+                deletedAt: true,
               },
             },
           },
@@ -785,10 +905,17 @@ const createDeptHandler = async (req: any, res: any, next: any) => {
     res.status(201).json({
       data: {
         ...fullDept,
-        satellites: fullDept?.departmentSatellites.map((ds) => ds.satellite) || [],
+        satellite: fullDept?.satellite ? { ...fullDept.satellite, isActive: Boolean(fullDept.satellite.isActive && !fullDept.satellite.deletedAt) } : null,
+        satellites: fullDept?.departmentSatellites
+          .filter((ds: any) => ds.satellite != null)
+          .map((ds: any) => ({
+            ...ds.satellite,
+            isActive: Boolean(ds.satellite.isActive && !ds.satellite.deletedAt),
+          })) || [],
       },
       requestId: req.requestId,
     })
+
   } catch (err) {
     next(err)
   }
@@ -824,6 +951,8 @@ router.get('/admin/departments/:deptId', authMiddleware, adminMiddleware, async 
                 launchMass: true,
                 orbitType: true,
                 status: true,
+                isActive: true,
+                deletedAt: true,
               },
             },
           },
@@ -844,10 +973,17 @@ router.get('/admin/departments/:deptId', authMiddleware, adminMiddleware, async 
     res.json({
       data: {
         ...department,
-        satellites: department.departmentSatellites.map((ds) => ds.satellite),
+        satellite: department.satellite ? { ...department.satellite, isActive: Boolean(department.satellite.isActive && !department.satellite.deletedAt) } : null,
+        satellites: department.departmentSatellites
+          .filter((ds: any) => ds.satellite != null)
+          .map((ds: any) => ({
+            ...ds.satellite,
+            isActive: Boolean(ds.satellite.isActive && !ds.satellite.deletedAt),
+          })),
       },
       requestId: req.requestId,
     })
+
   } catch (err) {
     next(err)
   }
@@ -897,9 +1033,32 @@ const updateDeptHandler = async (req: any, res: any, next: any) => {
       })
     }
 
+    const activeSatCondition = {
+      isActive: true,
+      deletedAt: null,
+      status: { notIn: ['DECOMMISSIONED', 'INACTIVE'] },
+    }
+
     let primarySatId: string | undefined | null = undefined
+    let validActiveSats: { id: string }[] = []
     if (satelliteIds !== undefined && Array.isArray(satelliteIds)) {
-      primarySatId = satelliteIds.length > 0 ? satelliteIds[0] : null
+      if (satelliteIds.length > 0) {
+        validActiveSats = await prisma.satellite.findMany({
+          where: { id: { in: satelliteIds }, ...activeSatCondition },
+          select: { id: true },
+        })
+
+        if (validActiveSats.length < satelliteIds.length) {
+          throw new AppError(
+            'inactive_satellite_selection',
+            'Only active satellite programs can be selected and linked to departments.',
+            400
+          )
+        }
+        primarySatId = validActiveSats[0]?.id || null
+      } else {
+        primarySatId = null
+      }
     }
 
     const updated = await prisma.department.update({
@@ -926,27 +1085,20 @@ const updateDeptHandler = async (req: any, res: any, next: any) => {
       },
     })
 
-    // Sync department satellites junction if provided
+    // Sync department satellites junction if provided (only verified active satellites)
     if (satelliteIds !== undefined && Array.isArray(satelliteIds)) {
       await prisma.departmentSatellite.deleteMany({
         where: { departmentId: deptId },
       })
 
-      if (satelliteIds.length > 0) {
-        const validSats = await prisma.satellite.findMany({
-          where: { id: { in: satelliteIds }, deletedAt: null },
-          select: { id: true },
+      if (validActiveSats.length > 0) {
+        await prisma.departmentSatellite.createMany({
+          data: validActiveSats.map((s) => ({
+            departmentId: deptId,
+            satelliteId: s.id,
+          })),
+          skipDuplicates: true,
         })
-
-        if (validSats.length > 0) {
-          await prisma.departmentSatellite.createMany({
-            data: validSats.map((s) => ({
-              departmentId: deptId,
-              satelliteId: s.id,
-            })),
-            skipDuplicates: true,
-          })
-        }
       }
     }
 
@@ -975,6 +1127,8 @@ const updateDeptHandler = async (req: any, res: any, next: any) => {
                 fuelBalance: true,
                 launchMass: true,
                 orbitType: true,
+                isActive: true,
+                deletedAt: true,
               },
             },
           },
@@ -985,10 +1139,17 @@ const updateDeptHandler = async (req: any, res: any, next: any) => {
     res.json({
       data: {
         ...fullDept,
-        satellites: fullDept?.departmentSatellites.map((ds) => ds.satellite) || [],
+        satellite: fullDept?.satellite ? { ...fullDept.satellite, isActive: Boolean(fullDept.satellite.isActive && !fullDept.satellite.deletedAt) } : null,
+        satellites: fullDept?.departmentSatellites
+          .filter((ds: any) => ds.satellite != null)
+          .map((ds: any) => ({
+            ...ds.satellite,
+            isActive: Boolean(ds.satellite.isActive && !ds.satellite.deletedAt),
+          })) || [],
       },
       requestId: req.requestId,
     })
+
   } catch (err) {
     next(err)
   }
@@ -1059,6 +1220,9 @@ router.post('/admin/departments/:deptId/users', authMiddleware, adminMiddleware,
     })
     if (!dept) {
       throw new AppError('department_not_found', 'Department not found', 404)
+    }
+    if (!dept.isActive) {
+      throw new AppError('department_inactive', 'Cannot grant permissions to an inactive or archived department', 400)
     }
 
     const validLevel = accessLevel === 'READ_WRITE' ? 'READ_WRITE' : 'READ_ONLY'

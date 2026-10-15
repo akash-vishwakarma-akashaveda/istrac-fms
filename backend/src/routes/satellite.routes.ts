@@ -13,7 +13,11 @@ const router = Router()
 router.get('/satellites', optionalAuthMiddleware, async (req, res, next) => {
   try {
     const satellites = await prisma.satellite.findMany({
-      where: { isActive: true, deletedAt: null },
+      where: {
+        isActive: true,
+        deletedAt: null,
+        status: { notIn: ['DECOMMISSIONED', 'INACTIVE'] },
+      },
       include: {
         departmentSatellites: {
           include: {
@@ -532,5 +536,218 @@ router.post('/admin/satellites/:satelliteId/restore', authMiddleware, adminMiddl
   }
 })
 
+// ============================================================
+// HELPER: BUILD CONDITIONS FOR FILES ASSOCIATED WITH A SATELLITE
+// ============================================================
+export function buildSatelliteFileConditions(satellite: {
+  id: string
+  name: string
+  code?: string | null
+  satId?: string | null
+}) {
+  const conditions: any[] = [
+    { department: { satelliteId: satellite.id } },
+  ]
+
+  const terms = new Set<string>()
+
+  const addTerm = (val?: string | null) => {
+    if (!val) return
+    const clean = val.trim()
+    if (clean.length < 2) return
+    terms.add(clean)
+
+    // Variant with underscores instead of hyphens
+    if (clean.includes('-')) {
+      terms.add(clean.replace(/-/g, '_'))
+      terms.add(clean.replace(/-/g, ''))
+    }
+    // Variant with hyphens instead of underscores
+    if (clean.includes('_')) {
+      terms.add(clean.replace(/_/g, '-'))
+      terms.add(clean.replace(/_/g, ''))
+    }
+  }
+
+  addTerm(satellite.name)
+  addTerm(satellite.code)
+  addTerm(satellite.satId)
+
+  // Also check mission keyword from code if applicable, avoiding generic prefixes
+  if (satellite.code) {
+    const parts = satellite.code.split(/[-_\s]+/)
+    const prefix = parts[0]?.trim()
+    if (
+      prefix &&
+      prefix.length >= 4 &&
+      !['ISRO', 'INSP', 'TEST', 'SATS', 'DEMO', 'USER', 'FILE', 'MISSION'].includes(prefix.toUpperCase())
+    ) {
+      terms.add(prefix)
+    }
+  }
+
+  for (const term of terms) {
+    if (term.length >= 2) {
+      conditions.push(
+        { report: { spacecraft: { contains: term } } },
+        { report: { mission: { contains: term } } },
+        { name: { contains: term } },
+        { hddPath: { contains: term } }
+      )
+    }
+  }
+
+  return conditions
+}
+
+// ============================================================
+// ADMIN: CHECK RELATED FILES BEFORE HARD DELETION
+// ============================================================
+router.get('/admin/satellites/:satelliteId/related-files', authMiddleware, adminMiddleware, async (req, res, next) => {
+  try {
+    const rawId = req.params.satelliteId
+    const satelliteId = Array.isArray(rawId) ? rawId[0] : rawId
+
+    const satellite = await prisma.satellite.findUnique({
+      where: { id: satelliteId },
+      select: { id: true, name: true, code: true, satId: true },
+    })
+
+    if (!satellite) {
+      throw new AppError('satellite_not_found', 'Satellite not found', 404)
+    }
+
+    const conditions = buildSatelliteFileConditions(satellite)
+    const fileWhere = {
+      deletedAt: null,
+      OR: conditions,
+    }
+
+    const [count, sampleFiles] = await Promise.all([
+      prisma.file.count({ where: fileWhere }),
+      prisma.file.findMany({
+        where: fileWhere,
+        take: 5,
+        select: {
+          id: true,
+          name: true,
+          hddPath: true,
+          sizeBytes: true,
+          createdAt: true,
+          department: { select: { id: true, name: true, code: true } },
+          report: { select: { id: true, title: true, spacecraft: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ])
+
+    res.json({
+      data: {
+        satelliteId: satellite.id,
+        satelliteName: satellite.name,
+        count,
+        canDelete: count === 0,
+        sampleFiles: sampleFiles.map((f) => ({
+          id: f.id,
+          name: f.name,
+          departmentName: f.department?.name,
+          departmentCode: f.department?.code,
+          reportTitle: f.report?.title,
+          createdAt: f.createdAt,
+        })),
+      },
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// ============================================================
+// ADMIN: PERMANENT (HARD) DELETE SATELLITE
+// Stops if active files are associated; requires admin to delete files manually first
+// ============================================================
+router.delete('/admin/satellites/:satelliteId/hard-delete', authMiddleware, adminMiddleware, async (req, res, next) => {
+  try {
+    const rawId = req.params.satelliteId
+    const satelliteId = Array.isArray(rawId) ? rawId[0] : rawId
+
+    const satellite = await prisma.satellite.findUnique({
+      where: { id: satelliteId },
+    })
+
+    if (!satellite) {
+      throw new AppError('satellite_not_found', 'Satellite not found', 404)
+    }
+
+    const conditions = buildSatelliteFileConditions(satellite)
+    const fileWhere = {
+      deletedAt: null,
+      OR: conditions,
+    }
+
+    const count = await prisma.file.count({ where: fileWhere })
+
+    if (count > 0) {
+      const sample = await prisma.file.findMany({
+        where: fileWhere,
+        take: 3,
+        select: { name: true },
+      })
+      const fileNames = sample.map((f) => `"${f.name}"`).join(', ')
+      const extraMsg = count > 3 ? ` and ${count - 3} other(s)` : ''
+      throw new AppError(
+        'satellite_has_files',
+        `Cannot permanently delete satellite "${satellite.name}". There are ${count} file(s) associated with this satellite (${fileNames}${extraMsg}). Please delete all related files manually first.`,
+        400,
+        { fileCount: count }
+      )
+    }
+
+    // Zero files associated - execute hard deletion in transaction
+    await prisma.$transaction(async (tx) => {
+      // Disconnect any foreign key references
+      await tx.department.updateMany({
+        where: { satelliteId: satellite.id },
+        data: { satelliteId: null },
+      })
+      await tx.missionEvent.updateMany({
+        where: { satelliteId: satellite.id },
+        data: { satelliteId: null },
+      })
+      // Remove many-to-many junction rows
+      await tx.departmentSatellite.deleteMany({
+        where: { satelliteId: satellite.id },
+      })
+      // Hard delete the satellite record permanently
+      await tx.satellite.delete({
+        where: { id: satellite.id },
+      })
+    })
+
+    auditService.log({
+      userId: req.user!.id,
+      action: 'DELETE_PERMANENT:/admin/satellites',
+      resourceType: 'satellite',
+      resourceId: satellite.id,
+      oldValue: {
+        name: satellite.name,
+        code: satellite.code,
+        satId: satellite.satId,
+      },
+    })
+
+    res.json({
+      data: {
+        message: `Satellite "${satellite.name}" has been permanently deleted from the database.`,
+      },
+      requestId: req.requestId,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
+
 export { router as satelliteRouter }
+
 
