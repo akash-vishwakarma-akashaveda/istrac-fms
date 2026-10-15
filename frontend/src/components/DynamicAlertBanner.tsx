@@ -196,7 +196,7 @@ export function DynamicAlertBanner() {
         <button
           type="button"
           onClick={handleDismiss}
-          className="p-1 rounded text-text-dim hover:text-white hover:bg-surface transition-colors"
+          className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-card-hover transition-colors cursor-pointer"
           aria-label="Dismiss banner alert"
           title="Dismiss from top banner"
         >

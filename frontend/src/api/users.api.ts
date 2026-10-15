@@ -150,6 +150,7 @@ export interface MissionOverviewData {
       mimeType: string | null
       extension: string
       sizeBytes: string
+      category?: string
       createdAt: string
     }>
   }>

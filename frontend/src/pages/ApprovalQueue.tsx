@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   UserCheck,
   Check,
@@ -12,6 +12,8 @@ import {
   Building,
   KeyRound,
   Edit2,
+  Filter,
+  RotateCcw,
 } from 'lucide-react'
 import { apiClient } from '../api/client'
 import {
@@ -85,7 +87,12 @@ interface DocumentRequestRecord {
 
 export function ApprovalQueue() {
   const { data: pendingUsers, isLoading: loadingPending, refetch: refetchPending } = usePendingUsers()
-  const { data: allDepartments } = useAdminDepartments()
+  const { data: allDepartments } = useAdminDepartments({ activeOnly: true })
+
+  const activeDepartments = useMemo(() => {
+    return (allDepartments || []).filter((d) => d.isActive && !d.archived && !(d as any).deletedAt)
+  }, [allDepartments])
+
   const approveUser = useApproveUser()
   const rejectUser = useRejectUser()
   const addToast = useToastStore((s) => s.addToast)
@@ -173,8 +180,8 @@ export function ApprovalQueue() {
     
     // Check if user requested a specific department
     const initialDepts: Record<string, 'READ_ONLY' | 'READ_WRITE'> = {}
-    if (user.departmentPreference && allDepartments) {
-      const matched = allDepartments.find(
+    if (user.departmentPreference && activeDepartments.length > 0) {
+      const matched = activeDepartments.find(
         (d) =>
           d.name.toLowerCase() === user.departmentPreference?.toLowerCase() ||
           (d.code && user.departmentPreference?.toLowerCase().includes(d.code.toLowerCase()))
@@ -184,8 +191,8 @@ export function ApprovalQueue() {
       }
     }
 
-    if (Object.keys(initialDepts).length === 0 && allDepartments && allDepartments.length > 0) {
-      initialDepts[allDepartments[0].id] = 'READ_ONLY'
+    if (Object.keys(initialDepts).length === 0 && activeDepartments.length > 0) {
+      initialDepts[activeDepartments[0].id] = 'READ_ONLY'
     }
     setSelectedDeptAccess(initialDepts)
   }
@@ -195,9 +202,12 @@ export function ApprovalQueue() {
     setEditingUserAccess(user)
     setGrantRole(user.role === 'ADMIN' ? 'ADMIN' : 'MEMBER')
     setGrantBadgeId(user.employeeId || '')
+    const activeDeptIds = new Set(activeDepartments.map((d) => d.id))
     const mapped: Record<string, 'READ_ONLY' | 'READ_WRITE'> = {}
     user.departments.forEach((d) => {
-      mapped[d.id] = d.accessLevel || 'READ_ONLY'
+      if (activeDeptIds.has(d.id)) {
+        mapped[d.id] = d.accessLevel || 'READ_ONLY'
+      }
     })
     setSelectedDeptAccess(mapped)
   }
@@ -224,7 +234,7 @@ export function ApprovalQueue() {
 
   const handleSelectAllDepts = () => {
     const next: Record<string, 'READ_ONLY' | 'READ_WRITE'> = {}
-    allDepartments?.forEach((d) => {
+    activeDepartments.forEach((d) => {
       next[d.id] = 'READ_ONLY'
     })
     setSelectedDeptAccess(next)
@@ -550,30 +560,57 @@ export function ApprovalQueue() {
       {/* ============================================================ */}
       {activeTab === 'history' && (
         <div className="space-y-4">
-          {/* History Search & Filter Strip */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-xl border border-border-default bg-card shadow-sm">
-            <div className="sm:col-span-2 relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
-              <input
-                type="text"
-                placeholder="Search decision history by name, email, or badge ID…"
-                value={historySearch}
-                onChange={(e) => setHistorySearch(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
-              />
+          {/* History Search & Filter Strip (STICKY ON SCROLL) */}
+          <div className="sticky top-0 z-20 p-3.5 rounded-xl border border-border-default bg-[#070d18]/95 backdrop-blur-md shadow-lg shadow-black/40 space-y-3 transition-all">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-text-primary">
+                <Filter size={14} className="text-accent-light" />
+                <span>Filter Decision History</span>
+                <span className="rounded-full bg-accent/15 border border-accent/30 text-accent-light px-2 py-0.5 text-[10px] font-mono font-bold">
+                  {history.length} {history.length === 1 ? 'record' : 'records'}
+                </span>
+              </div>
+
+              {(historySearch.trim() || historyStatusFilter !== 'ALL') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHistorySearch('')
+                    setHistoryStatusFilter('ALL')
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-accent/40 bg-accent/10 text-xs font-bold text-accent-light hover:text-white hover:bg-accent transition-all cursor-pointer shrink-0"
+                  title="Clear decision filters"
+                >
+                  <RotateCcw size={12} />
+                  <span>Reset Filters</span>
+                </button>
+              )}
             </div>
 
-            <div>
-              <select
-                value={historyStatusFilter}
-                onChange={(e) => setHistoryStatusFilter(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
-              >
-                <option value="ALL">All Decision Outcomes</option>
-                <option value="ACTIVE">APPROVED / ACTIVE USERS</option>
-                <option value="REJECTED">REJECTED APPLICATIONS</option>
-                <option value="SUSPENDED">SUSPENDED USERS</option>
-              </select>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2 relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
+                <input
+                  type="text"
+                  placeholder="Search decision history by name, email, or badge ID…"
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+                />
+              </div>
+
+              <div>
+                <select
+                  value={historyStatusFilter}
+                  onChange={(e) => setHistoryStatusFilter(e.target.value)}
+                  className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
+                >
+                  <option value="ALL">All Decision Outcomes</option>
+                  <option value="ACTIVE">APPROVED / ACTIVE USERS</option>
+                  <option value="REJECTED">REJECTED APPLICATIONS</option>
+                  <option value="SUSPENDED">SUSPENDED USERS</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -583,10 +620,26 @@ export function ApprovalQueue() {
               Loading access decision logs…
             </div>
           ) : history.length === 0 ? (
-            <div className="rounded-xl border border-border-subtle bg-card p-12 text-center space-y-2">
+            <div className="rounded-xl border border-border-subtle bg-card p-12 text-center space-y-3">
               <History size={28} className="mx-auto text-text-dim" />
               <p className="text-sm font-bold text-white">No Decision History Found</p>
               <p className="text-xs text-text-secondary">No user accounts matched your search criteria.</p>
+              {(historySearch.trim() || historyStatusFilter !== 'ALL') && (
+                <div className="pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setHistorySearch('')
+                      setHistoryStatusFilter('ALL')
+                    }}
+                    className="inline-flex items-center gap-1.5"
+                  >
+                    <RotateCcw size={13} />
+                    <span>Clear Decision Filters</span>
+                  </Button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="rounded-xl border border-border-default bg-card overflow-hidden shadow-sm">
@@ -936,7 +989,7 @@ export function ApprovalQueue() {
                 <button
                   type="button"
                   onClick={handleClearAllDepts}
-                  className="text-text-dim hover:text-white"
+                  className="text-text-muted hover:text-text-primary transition-colors cursor-pointer"
                 >
                   Clear
                 </button>
@@ -944,53 +997,59 @@ export function ApprovalQueue() {
             </div>
 
             <div className="max-h-56 overflow-y-auto space-y-2 p-2 rounded-xl border border-border-default bg-[#060c18]">
-              {allDepartments?.map((dept) => {
-                const isSelected = !!selectedDeptAccess[dept.id]
-                const level = selectedDeptAccess[dept.id] || 'READ_ONLY'
+              {activeDepartments.length === 0 ? (
+                <div className="p-4 text-center text-xs text-text-dim">
+                  No active departments available to assign permissions.
+                </div>
+              ) : (
+                activeDepartments.map((dept) => {
+                  const isSelected = !!selectedDeptAccess[dept.id]
+                  const level = selectedDeptAccess[dept.id] || 'READ_ONLY'
 
-                return (
-                  <div
-                    key={dept.id}
-                    className={`flex items-center justify-between p-2.5 rounded-lg border transition-all ${
-                      isSelected
-                        ? 'border-accent/50 bg-accent/[0.06]'
-                        : 'border-border-subtle bg-card hover:border-border-bright'
-                    }`}
-                  >
-                    <label className="flex items-center gap-2.5 cursor-pointer select-none min-w-0 flex-1">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleToggleDept(dept.id)}
-                        className="h-4 w-4 rounded border-border-default bg-surface text-accent focus:ring-accent"
-                      />
-                      <div className="min-w-0">
-                        <span className="text-xs font-bold text-white truncate block">
-                          {dept.code || dept.name} — {dept.name}
-                        </span>
-                        <span className="text-[10px] text-text-dim truncate block">
-                          {dept.description || 'Division Repository'}
-                        </span>
-                      </div>
-                    </label>
+                  return (
+                    <div
+                      key={dept.id}
+                      className={`flex items-center justify-between p-2.5 rounded-lg border transition-all ${
+                        isSelected
+                          ? 'border-accent/50 bg-accent/[0.06]'
+                          : 'border-border-subtle bg-card hover:border-border-bright'
+                      }`}
+                    >
+                      <label className="flex items-center gap-2.5 cursor-pointer select-none min-w-0 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleDept(dept.id)}
+                          className="h-4 w-4 rounded border-border-default bg-surface text-accent focus:ring-accent"
+                        />
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-white truncate block">
+                            {dept.code || dept.name} — {dept.name}
+                          </span>
+                          <span className="text-[10px] text-text-dim truncate block">
+                            {dept.description || 'Division Repository'}
+                          </span>
+                        </div>
+                      </label>
 
-                    {isSelected && (
-                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                        <select
-                          value={level}
-                          onChange={(e) =>
-                            handleSetDeptLevel(dept.id, e.target.value as 'READ_ONLY' | 'READ_WRITE')
-                          }
-                          className="rounded-md border border-border-default bg-surface px-2 py-1 text-[11px] font-bold uppercase num text-accent-light outline-none"
-                        >
-                          <option value="READ_ONLY">READ ONLY</option>
-                          <option value="READ_WRITE">READ & WRITE</option>
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+                      {isSelected && (
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          <select
+                            value={level}
+                            onChange={(e) =>
+                              handleSetDeptLevel(dept.id, e.target.value as 'READ_ONLY' | 'READ_WRITE')
+                            }
+                            className="rounded-md border border-border-default bg-surface px-2 py-1 text-[11px] font-bold uppercase num text-accent-light outline-none"
+                          >
+                            <option value="READ_ONLY">READ ONLY</option>
+                            <option value="READ_WRITE">READ & WRITE</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              )}
             </div>
           </div>
 
@@ -1075,7 +1134,7 @@ export function ApprovalQueue() {
                 <button
                   type="button"
                   onClick={handleClearAllDepts}
-                  className="text-text-dim hover:text-white"
+                  className="text-text-muted hover:text-text-primary transition-colors cursor-pointer"
                 >
                   Clear
                 </button>
@@ -1083,53 +1142,59 @@ export function ApprovalQueue() {
             </div>
 
             <div className="max-h-56 overflow-y-auto space-y-2 p-2 rounded-xl border border-border-default bg-[#060c18]">
-              {allDepartments?.map((dept) => {
-                const isSelected = !!selectedDeptAccess[dept.id]
-                const level = selectedDeptAccess[dept.id] || 'READ_ONLY'
+              {activeDepartments.length === 0 ? (
+                <div className="p-4 text-center text-xs text-text-dim">
+                  No active departments available to assign permissions.
+                </div>
+              ) : (
+                activeDepartments.map((dept) => {
+                  const isSelected = !!selectedDeptAccess[dept.id]
+                  const level = selectedDeptAccess[dept.id] || 'READ_ONLY'
 
-                return (
-                  <div
-                    key={dept.id}
-                    className={`flex items-center justify-between p-2.5 rounded-lg border transition-all ${
-                      isSelected
-                        ? 'border-accent/50 bg-accent/[0.06]'
-                        : 'border-border-subtle bg-card hover:border-border-bright'
-                    }`}
-                  >
-                    <label className="flex items-center gap-2.5 cursor-pointer select-none min-w-0 flex-1">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleToggleDept(dept.id)}
-                        className="h-4 w-4 rounded border-border-default bg-surface text-accent focus:ring-accent"
-                      />
-                      <div className="min-w-0">
-                        <span className="text-xs font-bold text-white truncate block">
-                          {dept.code || dept.name} — {dept.name}
-                        </span>
-                        <span className="text-[10px] text-text-dim truncate block">
-                          {dept.description || 'Division Repository'}
-                        </span>
-                      </div>
-                    </label>
+                  return (
+                    <div
+                      key={dept.id}
+                      className={`flex items-center justify-between p-2.5 rounded-lg border transition-all ${
+                        isSelected
+                          ? 'border-accent/50 bg-accent/[0.06]'
+                          : 'border-border-subtle bg-card hover:border-border-bright'
+                      }`}
+                    >
+                      <label className="flex items-center gap-2.5 cursor-pointer select-none min-w-0 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleDept(dept.id)}
+                          className="h-4 w-4 rounded border-border-default bg-surface text-accent focus:ring-accent"
+                        />
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-white truncate block">
+                            {dept.code || dept.name} — {dept.name}
+                          </span>
+                          <span className="text-[10px] text-text-dim truncate block">
+                            {dept.description || 'Division Repository'}
+                          </span>
+                        </div>
+                      </label>
 
-                    {isSelected && (
-                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                        <select
-                          value={level}
-                          onChange={(e) =>
-                            handleSetDeptLevel(dept.id, e.target.value as 'READ_ONLY' | 'READ_WRITE')
-                          }
-                          className="rounded-md border border-border-default bg-surface px-2 py-1 text-[11px] font-bold uppercase num text-accent-light outline-none"
-                        >
-                          <option value="READ_ONLY">READ ONLY</option>
-                          <option value="READ_WRITE">READ & WRITE</option>
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+                      {isSelected && (
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          <select
+                            value={level}
+                            onChange={(e) =>
+                              handleSetDeptLevel(dept.id, e.target.value as 'READ_ONLY' | 'READ_WRITE')
+                            }
+                            className="rounded-md border border-border-default bg-surface px-2 py-1 text-[11px] font-bold uppercase num text-accent-light outline-none"
+                          >
+                            <option value="READ_ONLY">READ ONLY</option>
+                            <option value="READ_WRITE">READ & WRITE</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              )}
             </div>
           </div>
 

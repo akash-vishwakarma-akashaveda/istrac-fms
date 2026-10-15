@@ -6,10 +6,21 @@ import { useReportCategories } from '../hooks/useReportPresets'
  * added custom categories appear immediately. Values are category codes, which is what the
  * API filters on. `extraCodes` adds codes seen in data that have no preset (e.g. legacy).
  */
-export function CategoryOptions({ allLabel = 'All Categories', extraCodes = [] }: { allLabel?: string; extraCodes?: string[] }) {
+export function CategoryOptions({
+  allLabel = 'All Categories',
+  extraCodes = [],
+  onlyActiveWithFiles = false,
+}: {
+  allLabel?: string
+  extraCodes?: string[]
+  onlyActiveWithFiles?: boolean
+}) {
   const { data: categories = [] } = useReportCategories()
-  const known = new Set(categories.map((c) => c.code))
-  const sorted = [...categories].sort((a, b) =>
+  const filtered = onlyActiveWithFiles
+    ? categories.filter((c) => (c.usageCount ?? 0) > 0)
+    : categories
+  const known = new Set(filtered.map((c) => c.code))
+  const sorted = [...filtered].sort((a, b) =>
     a.code === 'GENERAL' ? -1 : b.code === 'GENERAL' ? 1 : a.name.localeCompare(b.name)
   )
   return (
@@ -20,13 +31,14 @@ export function CategoryOptions({ allLabel = 'All Categories', extraCodes = [] }
           {c.name}
         </option>
       ))}
-      {extraCodes
-        .filter((code) => code && !known.has(code))
-        .map((code) => (
-          <option key={code} value={code}>
-            {code.replace(/_/g, ' ')}
-          </option>
-        ))}
+      {!onlyActiveWithFiles &&
+        extraCodes
+          .filter((code) => code && !known.has(code))
+          .map((code) => (
+            <option key={code} value={code}>
+              {code.replace(/_/g, ' ')}
+            </option>
+          ))}
     </>
   )
 }

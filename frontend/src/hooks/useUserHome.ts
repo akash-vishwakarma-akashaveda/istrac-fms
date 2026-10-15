@@ -29,6 +29,8 @@ export function useUserDepartments() {
         lastUpdated: d.updatedAt || d.createdAt,
       }))
     },
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 }
 
@@ -50,6 +52,8 @@ export function useRecentFiles() {
         return []
       }
     },
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 }
 
@@ -59,6 +63,7 @@ export function useMissionOverview() {
     queryFn: async () => {
       return await usersApi.getMissionOverview()
     },
-    staleTime: 30000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 }

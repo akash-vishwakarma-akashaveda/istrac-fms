@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react'
 import { HelpTip } from '../components/HelpTip'
 import { DateRangeFilter } from '../components/DateRangeFilter'
 import { EMPTY_DATE_RANGE, isDateRangeActive, resolveDateRange, type DateRangeValue } from '../lib/dateRange'
-import { getErrorMessage } from '../api/client'
-import { CategoryOptions } from '../components/CategoryOptions'
+import { CategoryOptions, useCategoryLabel } from '../components/CategoryOptions'
 import { copyText } from '../lib/browserCompat'
 import {
   HardDrive,
@@ -31,15 +30,16 @@ import {
   ArrowUpDown,
   Clock,
   RotateCcw,
+  Settings,
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { apiClient } from '../api/client'
-import { useQuery } from '@tanstack/react-query'
+import { apiClient, getErrorMessage } from '../api/client'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAdminDepartments } from '../hooks/useDepartments'
 import { useAdminSatellites } from '../hooks/useSatellites'
 import { useDebounce } from '../hooks/useDebounce'
 import { useToastStore } from '../store/toastStore'
-import { PageHeader, Button, Modal, Textarea } from '../components'
+import { PageHeader, Button, Modal, Textarea, CategoryManagerModal, HardDeleteModal } from '../components'
 import { VersionHistoryPanel } from '../components/VersionHistoryPanel'
 import { UploadVersionModal } from '../components/UploadVersionModal'
 import { FilePreviewModal } from '../components/FilePreviewModal'
@@ -100,9 +100,12 @@ const EXT_CONFIG: Record<string, { label: string; badge: string; icon: typeof Fi
 }
 
 export function AdminFileManager() {
+  const queryClient = useQueryClient()
   const addToast = useToastStore((s) => s.addToast)
+  const categoryLabel = useCategoryLabel()
   const [searchParams, setSearchParams] = useSearchParams()
   const deptIdParam = searchParams.get('deptId')
+  const satIdParam = searchParams.get('satelliteId') || searchParams.get('satId')
 
   const { data: departments } = useAdminDepartments()
   const { data: adminSats } = useAdminSatellites()
@@ -118,7 +121,7 @@ export function AdminFileManager() {
     queryKey: ['admin-files', 'extensions'],
     queryFn: async () => (await apiClient.get('/admin/files/extensions')).data.data as string[],
   })
-  const [selectedSat, setSelectedSat] = useState('ALL')
+  const [selectedSat, setSelectedSat] = useState(satIdParam || 'ALL')
   const [selectedCategory, setSelectedCategory] = useState('ALL')
   const [dateRange, setDateRange] = useState<DateRangeValue>(EMPTY_DATE_RANGE)
   const [viewTrash, setViewTrash] = useState(false)
@@ -134,6 +137,14 @@ export function AdminFileManager() {
     }
   }, [deptIdParam])
 
+  useEffect(() => {
+    if (satIdParam && satIdParam !== selectedSat) {
+      setSelectedSat(satIdParam)
+    }
+  }, [satIdParam])
+
+
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
   const [versionPanelFile, setVersionPanelFile] = useState<AdminFileRecord | null>(null)
   const [uploadVersionFile, setUploadVersionFile] = useState<AdminFileRecord | null>(null)
   const [previewFile, setPreviewFile] = useState<FileNode | null>(null)
@@ -141,6 +152,7 @@ export function AdminFileManager() {
   const [deletingFile, setDeletingFile] = useState<AdminFileRecord | null>(null)
   const [broadcastingFile, setBroadcastingFile] = useState<AdminFileRecord | null>(null)
   const [featureConfirmFile, setFeatureConfirmFile] = useState<{ id: string; name: string; isFeatured?: boolean } | null>(null)
+  const [hardDeletingFile, setHardDeletingFile] = useState<AdminFileRecord | null>(null)
 
   // Edit Metadata Form State
   const [editForm, setEditForm] = useState({
@@ -325,6 +337,13 @@ export function AdminFileManager() {
     setDeleting(true)
     try {
       await apiClient.delete(`/files/${target.id}`)
+      queryClient.invalidateQueries({ queryKey: ['dept-files'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-files'] })
+      queryClient.invalidateQueries({ queryKey: ['mission-overview'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['recent-files'] })
+      queryClient.invalidateQueries({ queryKey: ['user-departments'] })
+      queryClient.invalidateQueries({ queryKey: ['featured-reports'] })
       // Drop the row right away so the result is visible even before the refetch lands.
       setFiles((prev) => prev.filter((f) => f.id !== target.id))
       addToast({
@@ -349,6 +368,13 @@ export function AdminFileManager() {
     setRestoringId(file.id)
     try {
       await apiClient.put(`/files/${file.id}/restore`)
+      queryClient.invalidateQueries({ queryKey: ['dept-files'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-files'] })
+      queryClient.invalidateQueries({ queryKey: ['mission-overview'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['recent-files'] })
+      queryClient.invalidateQueries({ queryKey: ['user-departments'] })
+      queryClient.invalidateQueries({ queryKey: ['featured-reports'] })
       setFiles((prev) => prev.filter((f) => f.id !== file.id))
       addToast({ title: 'File restored', message: `"${file.name}" is back in the repository.`, variant: 'success' })
       fetchFiles()
@@ -449,8 +475,8 @@ export function AdminFileManager() {
         </div>
       </div>
 
-      {/* FILTER & SEARCH TOOLBAR */}
-      <div className="p-4 rounded-xl border border-border-default bg-card shadow-sm space-y-3">
+      {/* FILTER & SEARCH TOOLBAR (STICKY ON SCROLL) */}
+      <div className="sticky top-16 z-30 p-4 rounded-xl border border-border-default bg-[#070d18]/95 backdrop-blur-md shadow-lg shadow-black/40 space-y-3 transition-all">
         {/* Row 1: Search & Core Organizational Filters */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           <div className="relative">
@@ -515,11 +541,12 @@ export function AdminFileManager() {
             >
               <option value="ALL">All Spacecraft & Satellites</option>
               {satellites
+                .filter((s) => s.code !== 'GENERAL' && s.name.toUpperCase() !== 'GENERAL')
                 .slice()
-                .sort((a, b) => (a.code === 'GENERAL' ? -1 : b.code === 'GENERAL' ? 1 : a.name.localeCompare(b.name)))
+                .sort((a, b) => a.name.localeCompare(b.name))
                 .map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.code === 'GENERAL' ? 'General' : `${s.name} (${s.code || 'ISRO'})`}
+                    {s.name} ({s.code || 'ISRO'})
                   </option>
                 ))}
             </select>
@@ -541,7 +568,7 @@ export function AdminFileManager() {
 
         {/* Row 2: Category, Upload Date (IST), Sorting & Reset Actions */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-border-subtle/60">
-          <div>
+          <div className="flex items-center gap-1.5">
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
@@ -549,6 +576,14 @@ export function AdminFileManager() {
             >
               <CategoryOptions allLabel="All Mission Categories" />
             </select>
+            <button
+              type="button"
+              onClick={() => setIsCategoryModalOpen(true)}
+              className="p-2 rounded-lg border border-border-default bg-[#060c18] text-text-dim hover:text-accent-light hover:border-accent transition-all shrink-0 cursor-pointer"
+              title="Manage & Delete Report Categories"
+            >
+              <Settings size={14} />
+            </button>
           </div>
 
           <div>
@@ -690,6 +725,7 @@ export function AdminFileManager() {
                   </th>
                   <th className="px-4 py-3.5">Department</th>
                   <th className="px-4 py-3.5">Spacecraft</th>
+                  <th className="px-4 py-3.5">Report Category</th>
                   <th
                     className="px-4 py-3.5 cursor-pointer select-none hover:text-white transition-colors"
                     onClick={() => handleToggleSort('sizeBytes')}
@@ -793,6 +829,15 @@ export function AdminFileManager() {
                                   <span>Featured</span>
                                 </span>
                               )}
+                              {viewTrash && (
+                                <span className={`shrink-0 rounded px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider border ${
+                                  file.description?.includes('PURGED FROM STORAGE')
+                                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                    : 'bg-red-500/20 text-red-300 border-red-500/40'
+                                }`}>
+                                  {file.description?.includes('PURGED FROM STORAGE') ? 'Payload Purged' : 'Soft Deleted'}
+                                </span>
+                              )}
                             </div>
                             {file.description && (
                               <p className="text-[10px] text-text-dim truncate max-w-xs">
@@ -820,8 +865,24 @@ export function AdminFileManager() {
                       {/* Spacecraft */}
                       <td className="px-4 py-3.5">
                         <span className="font-medium text-text-secondary truncate max-w-[140px] block">
-                          {(file.report?.spacecraft?.includes('General') ? 'General' : file.report?.spacecraft) || (file.department?.satellite?.name?.includes('General') ? 'General' : file.department?.satellite?.name) || 'General'}
+                          {(file.report?.spacecraft && !file.report.spacecraft.toUpperCase().includes('GENERAL'))
+                            ? file.report.spacecraft
+                            : (file.department?.satellite?.name && !file.department.satellite.name.toUpperCase().includes('GENERAL'))
+                              ? file.department.satellite.name
+                              : '—'}
                         </span>
+                      </td>
+
+                      {/* Report Category */}
+                      <td className="px-4 py-3.5">
+                        <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent-light uppercase">
+                          {categoryLabel(file.report?.categoryCode || file.report?.category) || 'GENERAL'}
+                        </span>
+                        {file.report?.classificationLevel && (
+                          <span className="block text-[9px] text-text-dim uppercase mt-0.5 font-mono">
+                            {file.report.classificationLevel.replace(/_/g, ' ')}
+                          </span>
+                        )}
                       </td>
 
                       {/* Size */}
@@ -875,16 +936,35 @@ export function AdminFileManager() {
                       {/* Actions */}
                       <td className="px-4 py-3.5 text-right">
                         {viewTrash ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={restoringId === file.id}
-                            onClick={() => handleRestore(file)}
-                          >
-                            <RotateCcw size={13} />
-                            <span>{restoringId === file.id ? 'Restoring…' : 'Restore'}</span>
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            {file.description?.includes('PURGED FROM STORAGE') ? (
+                              <span className="text-[10px] text-amber-400 font-mono italic px-2 py-1 bg-amber-500/10 border border-amber-500/20 rounded">
+                                Bytes Purged
+                              </span>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={restoringId === file.id}
+                                onClick={() => handleRestore(file)}
+                                title="Restore file to active operational catalog"
+                              >
+                                <RotateCcw size={13} />
+                                <span>{restoringId === file.id ? 'Restoring…' : 'Restore'}</span>
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              variant="danger"
+                              size="sm"
+                              onClick={() => setHardDeletingFile(file)}
+                              title="Permanently Delete (Hard Delete)"
+                            >
+                              <Trash2 size={13} />
+                              <span>Hard Delete</span>
+                            </Button>
+                          </div>
                         ) : (
                         <div className="flex items-center justify-end gap-1.5">
                           {/* Feature Toggle */}
@@ -905,7 +985,7 @@ export function AdminFileManager() {
                           <button
                             type="button"
                             onClick={() => setPreviewFile(file as unknown as FileNode)}
-                            className="p-1.5 rounded-md border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-white transition-all"
+                            className="p-1.5 rounded-md border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
                             title="Preview File"
                           >
                             <Eye size={13} />
@@ -914,7 +994,7 @@ export function AdminFileManager() {
                           {/* Download */}
                           <a
                             href={`/api/files/${file.id}/download`}
-                            className="p-1.5 rounded-md border border-border-default bg-[#0c1424] text-text-muted hover:border-nominal hover:text-nominal transition-all"
+                            className="p-1.5 rounded-md border border-border-default bg-surface text-text-muted hover:border-nominal hover:text-nominal hover:bg-nominal/10 transition-all cursor-pointer shadow-sm"
                             title="Download Physical Stream"
                           >
                             <Download size={13} />
@@ -924,7 +1004,7 @@ export function AdminFileManager() {
                           <button
                             type="button"
                             onClick={() => setUploadVersionFile(file)}
-                            className="p-1.5 rounded-md border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-accent-light transition-all cursor-pointer"
+                            className="p-1.5 rounded-md border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
                             title="Upload New Version for this file"
                           >
                             <Upload size={13} />
@@ -934,7 +1014,7 @@ export function AdminFileManager() {
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(file)}
-                            className="p-1.5 rounded-md border border-border-default bg-[#0c1424] text-text-muted hover:border-accent hover:text-white transition-all"
+                            className="p-1.5 rounded-md border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
                             title="Edit Metadata & Broadcast"
                           >
                             <Edit2 size={13} />
@@ -950,7 +1030,7 @@ export function AdminFileManager() {
                                 `[NOTICE] Spacecraft telemetry archive ${file.name} updated in ${file.department?.code || file.department?.name || 'the archive'}.`
                               )
                             }}
-                            className="p-1.5 rounded-md border border-border-default bg-[#0c1424] text-text-muted hover:border-[#FF6B00] hover:text-[#FF8533] transition-all"
+                            className="p-1.5 rounded-md border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
                             title="Broadcast Alert to Mission Control"
                           >
                             <Megaphone size={13} />
@@ -960,7 +1040,7 @@ export function AdminFileManager() {
                           <button
                             type="button"
                             onClick={() => setDeletingFile(file)}
-                            className="p-1.5 rounded-md border border-border-default bg-[#0c1424] text-text-muted hover:border-critical hover:text-critical transition-all"
+                            className="p-1.5 rounded-md border border-border-default bg-surface text-text-muted hover:border-critical hover:text-critical hover:bg-critical/10 transition-all cursor-pointer shadow-sm"
                             title="Move File to Trash (Soft Delete)"
                           >
                             <Trash2 size={13} />
@@ -1007,14 +1087,15 @@ export function AdminFileManager() {
                 list="spacecraft-options"
                 value={editForm.spacecraft}
                 onChange={(e) => setEditForm({ ...editForm, spacecraft: e.target.value })}
-                placeholder="e.g. Aditya-L1 or General"
+                placeholder="e.g. Aditya-L1"
                 className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent"
               />
               <datalist id="spacecraft-options">
-                <option value="General" />
-                {satellites.map((s) => (
-                  <option key={s.id} value={s.name} />
-                ))}
+                {satellites
+                  .filter((s) => s.code !== 'GENERAL' && s.name.toUpperCase() !== 'GENERAL')
+                  .map((s) => (
+                    <option key={s.id} value={s.name} />
+                  ))}
               </datalist>
             </div>
 
@@ -1190,9 +1271,11 @@ export function AdminFileManager() {
             description: versionPanelFile.description || '',
             departmentId: versionPanelFile.department?.id,
             departmentName: versionPanelFile.department?.name,
-            departmentCode: versionPanelFile.department?.code,
-            spacecraft: versionPanelFile.report?.spacecraft || versionPanelFile.department?.satellite?.name || 'General',
-            category: versionPanelFile.report?.categoryCode || 'GENERAL',
+            spacecraft: (versionPanelFile.report?.spacecraft && !versionPanelFile.report.spacecraft.toUpperCase().includes('GENERAL'))
+              ? versionPanelFile.report.spacecraft
+              : (versionPanelFile.department?.satellite?.name && !versionPanelFile.department.satellite.name.toUpperCase().includes('GENERAL'))
+                ? versionPanelFile.department.satellite.name
+                : undefined,
             classificationLevel: versionPanelFile.report?.classificationLevel || 'RESTRICTED',
             sizeBytes: versionPanelFile.sizeBytes,
             sha256: versionPanelFile.sha256,
@@ -1250,6 +1333,26 @@ export function AdminFileManager() {
           setFiles((prev) =>
             prev.map((f) => (f.id === updated.id ? { ...f, isFeatured: updated.isFeatured } : f))
           )
+        }}
+      />
+
+      {/* MODAL: MANAGE REPORT CATEGORIES (PREDEFINED & CUSTOM WITH SAFETY CHECK) */}
+      <CategoryManagerModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        onSelectCategory={(code) => setSelectedCategory(code)}
+      />
+
+      {/* MODAL: PERMANENT HARD DELETE */}
+      <HardDeleteModal
+        isOpen={hardDeletingFile !== null}
+        file={hardDeletingFile}
+        onClose={() => setHardDeletingFile(null)}
+        onSuccess={() => {
+          if (hardDeletingFile) {
+            setFiles((prev) => prev.filter((f) => f.id !== hardDeletingFile.id))
+          }
+          fetchFiles()
         }}
       />
     </div>

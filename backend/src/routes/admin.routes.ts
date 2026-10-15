@@ -24,6 +24,53 @@ const ALLOWED_CONFIG_KEYS = new Set([
 // ============================================================
 router.get('/admin/stats', authMiddleware, adminMiddleware, async (req, res, next) => {
   try {
+    // 1. Identify all deactivated, decommissioned, or deleted satellites
+    const archivedSatellites = await prisma.satellite.findMany({
+      where: {
+        OR: [
+          { isActive: false },
+          { deletedAt: { not: null } },
+          { status: { in: ['DECOMMISSIONED', 'ARCHIVED', 'INACTIVE'] } },
+        ],
+      },
+      select: { id: true, name: true, code: true, satId: true },
+    })
+    const archivedSatIds = archivedSatellites.map((s) => s.id)
+    const archivedSatTerms = Array.from(
+      new Set(
+        archivedSatellites
+          .flatMap((s) => [s.name, s.code, s.satId])
+          .filter((t): t is string => Boolean(t && t.length >= 3 && !['GENERAL', 'ISRO', 'ISTRAC'].includes(t.toUpperCase())))
+      )
+    )
+
+    // Common file condition strictly excluding archived departments, satellites, trash, and reports
+    const adminFileWhere: any = {
+      nodeType: 'FILE',
+      deletedAt: null,
+      status: { in: ['ACTIVE', 'ORPHANED'] },
+      department: {
+        isActive: true,
+        deletedAt: null,
+      },
+      OR: [
+        { reportId: null },
+        {
+          report: {
+            deletedAt: null,
+            status: 'ACTIVE',
+            NOT: {
+              OR: [
+                ...(archivedSatTerms.length > 0 ? archivedSatTerms.map((term) => ({ spacecraft: { contains: term } })) : []),
+                { spacecraft: { contains: 'General' } },
+                { spacecraft: { contains: 'GENERAL' } },
+              ],
+            },
+          },
+        },
+      ],
+    }
+
     const [
       usersCount,
       filesCount,
@@ -35,21 +82,27 @@ router.get('/admin/stats', authMiddleware, adminMiddleware, async (req, res, nex
       recentLogs,
     ] = await Promise.all([
       prisma.user.count({ where: { deletedAt: null } }),
-      prisma.file.count({ where: { nodeType: 'FILE', deletedAt: null } }),
+      prisma.file.count({ where: adminFileWhere }),
       prisma.department.count({ where: { isActive: true, deletedAt: null } }),
-      prisma.satellite.count({ where: { isActive: true, deletedAt: null } }),
+      prisma.satellite.count({
+        where: {
+          isActive: true,
+          deletedAt: null,
+          status: { notIn: ['DECOMMISSIONED', 'ARCHIVED', 'INACTIVE'] },
+        },
+      }),
       prisma.user.count({ where: { status: 'PENDING', deletedAt: null } }),
       prisma.file.aggregate({
         _sum: { sizeBytes: true },
-        where: { nodeType: 'FILE', deletedAt: null },
+        where: adminFileWhere,
       }),
       prisma.file.findMany({
-        where: { nodeType: 'FILE', deletedAt: null },
+        where: adminFileWhere,
         take: 5,
         orderBy: { updatedAt: 'desc' },
         include: {
           department: { select: { id: true, name: true, code: true } },
-          report: { select: { id: true, title: true, spacecraft: true, category: true } },
+          report: { select: { id: true, title: true, spacecraft: true, category: true, customCategory: true } },
         },
       }),
       prisma.auditLog.findMany({
@@ -71,16 +124,21 @@ router.get('/admin/stats', authMiddleware, adminMiddleware, async (req, res, nex
         satellites: satellitesCount,
         pendingUsers: pendingUsersCount,
         storageUsedBytes,
-        recentFiles: recentFiles.map((f: any) => ({
-          id: f.id,
-          name: f.name,
-          extension: (f.extension || '').toUpperCase(),
-          sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
-          sha256: f.sha256,
-          department: f.department,
-          report: f.report,
-          updatedAt: f.updatedAt,
-        })),
+        recentFiles: recentFiles
+          .map((f: any) => ({
+            id: f.id,
+            name: f.name,
+            extension: (f.extension || '').toUpperCase(),
+            sizeBytes: f.sizeBytes ? f.sizeBytes.toString() : '0',
+            sha256: f.sha256,
+            department: f.department,
+            report: f.report,
+            updatedAt: f.updatedAt,
+          }))
+          .filter((f: any) => {
+            const sc = (f.report?.spacecraft || f.department?.satellite?.name || '').trim().toUpperCase()
+            return Boolean(sc && sc !== 'GENERAL' && !sc.includes('GENERAL'))
+          }),
         recentLogs: await presentAuditLogs(recentLogs),
       },
       requestId: req.requestId,

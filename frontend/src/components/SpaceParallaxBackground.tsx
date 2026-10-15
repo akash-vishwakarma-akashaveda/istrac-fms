@@ -225,7 +225,7 @@ export function SpaceParallaxBackground({ config }: SpaceParallaxBackgroundProps
     <div
       aria-hidden="true"
       data-theme="dark"
-      className="pointer-events-none fixed inset-0 z-0 overflow-hidden select-none bg-[#030712]"
+      className="pointer-events-none fixed inset-0 z-0 overflow-hidden select-none bg-[#0d0d0d]"
     >
       {/* 1. Optional Custom Background Image with Parallax or Fixed Cinema Mode */}
       {resolvedWallpaper && (mode === 'custom_image' || mode === 'deep_space_hybrid') && (
@@ -316,11 +316,11 @@ export function SpaceParallaxBackground({ config }: SpaceParallaxBackgroundProps
 
       {/* 6. Dynamic Vignette & Dimming Shroud for WCAG High Contrast Readability */}
       <div
-        className="absolute inset-0 bg-[#04070e] transition-opacity duration-300"
+        className="absolute inset-0 bg-[#0d0d0d] transition-opacity duration-300"
         style={{
           opacity: overlayOpacity / 100,
           backgroundImage:
-            'radial-gradient(circle at 50% 30%, transparent 10%, rgba(4, 7, 14, 0.75) 75%, rgba(4, 7, 14, 0.95) 100%)',
+            'radial-gradient(circle at 50% 30%, transparent 10%, rgba(13, 13, 13, 0.75) 75%, rgba(13, 13, 13, 0.95) 100%)',
         }}
       />
     </div>

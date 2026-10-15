@@ -462,6 +462,13 @@ if (ext === 'svg') {
       data: { deletedAt: new Date(), isFeatured: false },
     })
 
+    if (file.reportId) {
+      await prisma.report.update({
+        where: { id: file.reportId },
+        data: { deletedAt: new Date() },
+      }).catch(() => {})
+    }
+
     auditService.log({
       userId,
       action: 'FILE:DELETE',
@@ -483,6 +490,13 @@ if (ext === 'svg') {
       where: { id: fileId },
       data: { deletedAt: null },
     })
+
+    if (file.reportId) {
+      await prisma.report.update({
+        where: { id: file.reportId },
+        data: { deletedAt: null },
+      }).catch(() => {})
+    }
 
     auditService.log({
       userId,
@@ -509,5 +523,154 @@ if (ext === 'svg') {
     return file
   },
 
+  async hardDeleteFile(
+    fileId: string,
+    mode: 'BOTH' | 'STORAGE_ONLY' | 'DATABASE_ONLY',
+    userId: string,
+    ipAddress?: string
+  ): Promise<{ message: string; deletedPaths: string[] }> {
+    // 1. Fetch complete file details including relations
+    const file = await prisma.file.findUnique({
+      where: { id: fileId },
+      include: {
+        versions: true,
+        report: true,
+        department: true,
+      },
+    })
 
+    if (!file) {
+      throw new AppError('file_not_found', 'File not found', 404)
+    }
+
+    // Defensive check: prevent hard deleting non-empty directories
+    if (file.nodeType === 'FOLDER') {
+      const childCount = await prisma.file.count({
+        where: { parentId: file.id },
+      })
+      if (childCount > 0) {
+        throw new AppError(
+          'folder_not_empty',
+          `Cannot permanently delete directory "${file.name}" because it contains ${childCount} item(s). Please remove all contents first.`,
+          400
+        )
+      }
+    }
+
+    // 2. Collect all unique physical paths on disk
+    const pathsToDelete = new Set<string>()
+    if (file.hddPath) pathsToDelete.add(file.hddPath)
+    for (const v of file.versions) {
+      if (v.hddPath) pathsToDelete.add(v.hddPath)
+    }
+    const pathList = Array.from(pathsToDelete).filter(Boolean)
+
+    // 3. Security Audit Logging (BEFORE permanent removal)
+    auditService.log({
+      userId,
+      action: `FILE:HARD_DELETE_${mode}`,
+      resourceType: 'file',
+      resourceId: file.id,
+      ipAddress,
+      oldValue: {
+        id: file.id,
+        name: file.name,
+        nodeType: file.nodeType,
+        extension: file.extension,
+        sizeBytes: file.sizeBytes?.toString(),
+        sha256: file.sha256,
+        departmentId: file.departmentId,
+        departmentName: file.department?.name,
+        spacecraft: file.report?.spacecraft,
+        hddPath: file.hddPath,
+        versionCount: file.versions.length,
+        versionPaths: file.versions.map((v) => v.hddPath),
+        mode,
+      },
+      newValue: {
+        status: mode === 'STORAGE_ONLY' ? 'PURGED_FROM_DISK' : 'PERMANENTLY_DELETED',
+        purgedAt: new Date().toISOString(),
+      },
+    })
+
+    const deletedPaths: string[] = []
+
+    // 4. Physical Storage Deletion (for BOTH or STORAGE_ONLY)
+    if (mode === 'BOTH' || mode === 'STORAGE_ONLY') {
+      for (const p of pathList) {
+        try {
+          await hddService.deleteFile(p)
+          deletedPaths.push(p)
+        } catch (err: any) {
+          console.warn(`[FileService] Failed to delete physical file ${p}:`, err.message)
+        }
+      }
+    }
+
+    // 5. Database Operations
+    if (mode === 'STORAGE_ONLY') {
+      // Keep DB metadata, but mark status as DELETED, purge bytes info
+      await prisma.$transaction(async (tx) => {
+        await tx.file.update({
+          where: { id: fileId },
+          data: {
+            status: 'DELETED',
+            deletedAt: file.deletedAt || new Date(),
+            description: file.description
+              ? `${file.description} [PURGED FROM STORAGE: Physical file bytes erased]`
+              : '[PURGED FROM STORAGE: Physical file bytes erased]',
+          },
+        })
+
+        await tx.fileVersion.updateMany({
+          where: { fileId },
+          data: {
+            deletedAt: new Date(),
+            changeLog: '[PURGED FROM STORAGE]',
+          },
+        })
+      })
+
+      return {
+        message: `Physical storage permanently deleted (${deletedPaths.length} file binary target(s)). Metadata preserved in database.`,
+        deletedPaths,
+      }
+    }
+
+    // For BOTH or DATABASE_ONLY: Remove database records completely
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete child tables with Restrict constraint
+      await tx.fileTag.deleteMany({ where: { fileId } })
+      await tx.fileFavorite.deleteMany({ where: { fileId } })
+      await tx.filePermission.deleteMany({ where: { fileId } })
+      await tx.fileShareLink.deleteMany({ where: { fileId } })
+      await tx.fileVersion.deleteMany({ where: { fileId } })
+
+      // 2. Check if linked report has other files, if not delete the report too
+      if (file.reportId) {
+        const siblingFiles = await tx.file.count({
+          where: { reportId: file.reportId, id: { not: fileId } },
+        })
+        if (siblingFiles === 0) {
+          await tx.reportAccessRequest.deleteMany({ where: { reportId: file.reportId } })
+          await tx.report.delete({ where: { id: file.reportId } }).catch(() => {})
+        }
+      }
+
+      // 3. Delete the file record
+      await tx.file.delete({ where: { id: fileId } })
+    })
+
+    if (mode === 'BOTH') {
+      return {
+        message: `File permanently deleted from both database and physical storage (${deletedPaths.length} file binary target(s)).`,
+        deletedPaths,
+      }
+    } else {
+      return {
+        message: `File metadata permanently removed from database. Raw storage file left intact on disk.`,
+        deletedPaths: [],
+      }
+    }
+  },
 }

@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { getErrorMessage } from '../api/client'
 import {
   Upload,
   Radio,
@@ -9,10 +8,9 @@ import {
   RefreshCw,
   FolderUp,
   FileCode,
-  Plus,
-  Trash2,
   Check,
   Star,
+  Settings,
 } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -21,15 +19,13 @@ import { useDepartments } from '../hooks/useDepartments'
 import {
   useReportCategories,
   useNamingPresets,
-  useCreateCategory,
-  useDeleteCategory,
   useCreateNamingPreset,
 } from '../hooks/useReportPresets'
 import { useAuthStore } from '../store/authStore'
 import { useToastStore } from '../store/toastStore'
 import { apiClient } from '../api/client'
 import { useSystemConfig } from '../hooks/useSystemConfig'
-import { PageHeader, Button, Input, Textarea, Select, Modal, ConfirmDialog } from '../components'
+import { PageHeader, Button, Input, Textarea, Select, Modal, CategoryManagerModal } from '../components'
 import { formatFileSize } from '../lib/formatFileSize'
 
 
@@ -58,8 +54,6 @@ export function UploadReport() {
   const { data: categories = [], isLoading: loadingCats } = useReportCategories()
   const { data: namingPresets = [], isLoading: loadingPresets } = useNamingPresets()
 
-  const createCategoryMutation = useCreateCategory()
-  const deleteCategoryMutation = useDeleteCategory()
   const createNamingPresetMutation = useCreateNamingPreset()
 
   const loadingInitial = loadingSats || loadingDepts || loadingCats || loadingPresets
@@ -80,11 +74,6 @@ export function UploadReport() {
 
   // Custom Category Modal State
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
-  const [customCatName, setCustomCatName] = useState('')
-  const [customCatCode, setCustomCatCode] = useState('')
-  const [customCatDesc, setCustomCatDesc] = useState('')
-  const [savingCategory, setSavingCategory] = useState(false)
-  const [deletingCategoryTarget, setDeletingCategoryTarget] = useState<{ id: string; name: string; code: string; usageCount: number } | null>(null)
 
   // Naming Convention Template State
   const [selectedPresetId, setSelectedPresetId] = useState<string>('default')
@@ -179,57 +168,6 @@ export function UploadReport() {
     setActiveTemplate((prev) => (prev ? `${prev}_${token}` : token))
     setIsCustomTemplate(true)
     setSelectedPresetId('custom')
-  }
-
-  // Handle Creating Custom Category
-  const handleCreateCategory = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!customCatName.trim() || !customCatCode.trim()) {
-      addToast({ title: 'Validation', message: 'Name and Code are required', variant: 'warning' })
-      return
-    }
-
-    setSavingCategory(true)
-    try {
-      const created = await createCategoryMutation.mutateAsync({
-        name: customCatName.trim(),
-        code: customCatCode.trim(),
-        description: customCatDesc.trim() || undefined,
-      })
-      addToast({ title: 'Category Saved', message: `${created.name} added to presets`, variant: 'success' })
-      setSelectedCategoryCode(created.code)
-      setIsCategoryModalOpen(false)
-      setCustomCatName('')
-      setCustomCatCode('')
-      setCustomCatDesc('')
-    } catch (err: any) {
-      addToast({
-        title: 'Error',
-        message: err.response?.data?.error?.message || 'Could not save category preset',
-        variant: 'error',
-      })
-    } finally {
-      setSavingCategory(false)
-    }
-  }
-
-  // Handle Deleting Custom Category
-  const handleConfirmDeleteCategory = async () => {
-    if (!deletingCategoryTarget) return
-    const { id, code } = deletingCategoryTarget
-    try {
-      const res = await deleteCategoryMutation.mutateAsync(id)
-      if (selectedCategoryCode === code) setSelectedCategoryCode('')
-      addToast({ title: 'Category deleted', message: res.message, variant: 'success' })
-    } catch (err) {
-      addToast({
-        title: 'Could not delete category',
-        message: getErrorMessage(err, 'The category could not be deleted. Please try again.'),
-        variant: 'error',
-      })
-    } finally {
-      setDeletingCategoryTarget(null)
-    }
   }
 
   // Handle Saving Custom Naming Preset
@@ -349,6 +287,10 @@ export function UploadReport() {
       setUploadProgress(100)
       queryClient.invalidateQueries({ queryKey: ['dept-files'] })
       queryClient.invalidateQueries({ queryKey: ['admin-files'] })
+      queryClient.invalidateQueries({ queryKey: ['mission-overview'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['recent-files'] })
+      queryClient.invalidateQueries({ queryKey: ['user-departments'] })
       if (isFeatured) {
         queryClient.invalidateQueries({ queryKey: ['featured-reports'] })
       }
@@ -412,11 +354,12 @@ export function UploadReport() {
                     >
                       <option value="">-- Select Spacecraft / Satellite * --</option>
                       {satellites
+                        .filter((s) => s.code !== 'GENERAL' && s.name.toUpperCase() !== 'GENERAL')
                         .slice()
-                        .sort((a, b) => (a.code === 'GENERAL' ? -1 : b.code === 'GENERAL' ? 1 : a.name.localeCompare(b.name)))
+                        .sort((a, b) => a.name.localeCompare(b.name))
                         .map((s) => (
                           <option key={s.id} value={s.id}>
-                            {s.code === 'GENERAL' ? 'General' : `${s.name} (${s.code || 'ISRO'})`}
+                            {s.name} ({s.code || 'ISRO'})
                           </option>
                         ))}
                     </Select>
@@ -451,10 +394,10 @@ export function UploadReport() {
                     <button
                       type="button"
                       onClick={() => setIsCategoryModalOpen(true)}
-                      className="text-[11px] font-bold text-accent-light hover:underline flex items-center gap-1"
+                      className="text-[11px] font-bold text-accent-light hover:underline flex items-center gap-1 cursor-pointer"
                     >
-                      <Plus size={12} />
-                      <span>Add Custom Category</span>
+                      <Settings size={12} />
+                      <span>Manage Categories</span>
                     </button>
                   </div>
 
@@ -462,7 +405,7 @@ export function UploadReport() {
                     id="upload-type"
                     value={selectedCategoryCode}
                     onChange={(e) => {
-                      if (e.target.value === '__add_custom__') {
+                      if (e.target.value === '__manage_categories__') {
                         setIsCategoryModalOpen(true)
                       } else {
                         setSelectedCategoryCode(e.target.value)
@@ -479,7 +422,7 @@ export function UploadReport() {
                           {c.code === 'GENERAL' ? 'General' : `${c.name} (${c.code})`}
                         </option>
                       ))}
-                    <option value="__add_custom__">+ Create New Custom Category…</option>
+                    <option value="__manage_categories__">+ Manage / Add Report Categories…</option>
                   </Select>
                 </div>
               </div>
@@ -774,101 +717,12 @@ export function UploadReport() {
         </form>
       )}
 
-      {/* Modal 1: Create Custom Report Category */}
-      <Modal
+      {/* Category Manager Modal (Predefined & Custom Categories with Safety File Check) */}
+      <CategoryManagerModal
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
-        title="Create & Save Custom Report Category"
-      >
-        <form onSubmit={handleCreateCategory} className="space-y-4">
-          <Input
-            id="custom-cat-name"
-            label="Category Name *"
-            placeholder="e.g. Thermal Subsystem Telemetry"
-            value={customCatName}
-            onChange={(e) => {
-              setCustomCatName(e.target.value)
-              if (!customCatCode) {
-                setCustomCatCode(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase())
-              }
-            }}
-            required
-          />
-
-          <Input
-            id="custom-cat-code"
-            label="Short Category Code (Used in Filenames) *"
-            placeholder="e.g. THERMAL"
-            value={customCatCode}
-            onChange={(e) => setCustomCatCode(e.target.value.toUpperCase())}
-            hint="Uppercase alphanumeric short code inserted into {TYPE} token."
-            required
-          />
-
-          <Textarea
-            id="custom-cat-desc"
-            label="Description (Optional)"
-            rows={2}
-            placeholder="Describe when this report category is utilized…"
-            value={customCatDesc}
-            onChange={(e) => setCustomCatDesc(e.target.value)}
-          />
-
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-border-subtle">
-            <Button
-              type="button"
-              variant="outline"
-              size="md"
-              onClick={() => setIsCategoryModalOpen(false)}
-            >
-              Cancel
-            </Button>
-
-            <Button
-              type="submit"
-              variant="primary"
-              size="md"
-              disabled={savingCategory}
-              className="shadow-lg shadow-accent/25"
-            >
-              {savingCategory ? 'Saving Category…' : 'Save Category Preset'}
-            </Button>
-          </div>
-        </form>
-
-        {/* Existing Custom Categories List */}
-        {categories.filter((c) => !c.isSystem).length > 0 && (
-          <div className="mt-5 pt-4 border-t border-border-subtle space-y-2">
-            <h4 className="text-[11px] font-semibold text-text-dim">
-              Saved Custom Categories
-            </h4>
-            <div className="space-y-1.5 max-h-36 overflow-y-auto">
-              {categories
-                .filter((c) => !c.isSystem)
-                .map((cat) => (
-                  <div
-                    key={cat.id}
-                    className="flex items-center justify-between rounded-lg border border-border-subtle bg-[#060c18] px-3 py-2 text-xs"
-                  >
-                    <div>
-                      <span className="font-bold text-white">{cat.name}</span>{' '}
-                      <code className="num text-accent-light text-[11px]">({cat.code})</code>{' '}
-                      <span className="text-text-dim text-[11px]">· {cat.usageCount ?? 0} file(s)</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setDeletingCategoryTarget({ id: cat.id, name: cat.name, code: cat.code, usageCount: cat.usageCount ?? 0 })}
-                      className="p-1 rounded text-text-dim hover:text-critical hover:bg-critical/10 transition-colors"
-                      title="Delete category preset"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-      </Modal>
+        onSelectCategory={(code) => setSelectedCategoryCode(code)}
+      />
 
       {/* Modal 2: Save Custom Naming Preset */}
       <Modal
@@ -928,22 +782,6 @@ export function UploadReport() {
           </div>
         </form>
       </Modal>
-
-      {/* Delete Category Confirmation Dialog */}
-      <ConfirmDialog
-        isOpen={deletingCategoryTarget !== null}
-        onClose={() => setDeletingCategoryTarget(null)}
-        onConfirm={handleConfirmDeleteCategory}
-        title="Delete custom category?"
-        message={
-          deletingCategoryTarget?.usageCount
-            ? `"${deletingCategoryTarget.name}" is used by ${deletingCategoryTarget.usageCount} file(s). Deleting it moves those files to the General category; the files themselves are not deleted and stay accessible. This cannot be undone.`
-            : `"${deletingCategoryTarget?.name}" is not used by any files. It will be removed from the category list. This cannot be undone.`
-        }
-        confirmLabel="Delete category"
-        variant="danger"
-        isSubmitting={deleteCategoryMutation.isPending}
-      />
     </div>
   )
 }

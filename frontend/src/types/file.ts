@@ -15,6 +15,9 @@ export interface FileNode {
   isFeatured?: boolean
   spacecraft?: string | null
   category?: string | null
+  customCategory?: string | null
+  classificationLevel?: string | null
+  report?: any
   tags?: string[]
 }
 

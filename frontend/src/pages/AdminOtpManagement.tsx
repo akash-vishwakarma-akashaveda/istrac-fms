@@ -238,8 +238,8 @@ export function AdminOtpManagement() {
         </div>
       </div>
 
-      {/* FILTER & SEARCH TOOLBAR */}
-      <div className="rounded-xl border border-border-default bg-card p-4 space-y-3 shadow-sm">
+      {/* FILTER & SEARCH TOOLBAR (STICKY ON SCROLL) */}
+      <div className="sticky top-0 z-20 rounded-xl border border-border-default bg-[#070d18]/95 backdrop-blur-md p-4 space-y-3 shadow-lg shadow-black/40 transition-all">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Status Tabs */}
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -289,23 +289,40 @@ export function AdminOtpManagement() {
             </button>
           </div>
 
-          {/* Search Box */}
-          <div className="relative w-full sm:w-80">
-            <Search size={14} className="absolute left-3 top-2.5 text-text-dim" />
-            <input
-              type="text"
-              placeholder="Search by operator, email, ID, dept..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#070c18] pl-9 pr-3 py-1.5 text-xs text-white placeholder:text-text-dim focus:border-accent focus:outline-none"
-            />
-            {search && (
+          {/* Search Box & Reset */}
+          <div className="flex items-center gap-2">
+            <div className="relative w-full sm:w-72">
+              <Search size={14} className="absolute left-3 top-2.5 text-text-dim" />
+              <input
+                type="text"
+                placeholder="Search by operator, email, ID, dept..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-lg border border-border-default bg-[#070c18] pl-9 pr-8 py-1.5 text-xs text-white placeholder:text-text-dim focus:border-accent focus:outline-none"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2.5 top-2 text-text-dim hover:text-white cursor-pointer"
+                  title="Clear search"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+
+            {(search.trim() || statusFilter !== 'ALL') && (
               <button
                 type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-2.5 top-2 text-text-dim hover:text-white"
+                onClick={() => {
+                  setSearch('')
+                  setStatusFilter('ALL')
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-accent/40 bg-accent/10 text-xs font-bold text-accent-light hover:text-white hover:bg-accent transition-all cursor-pointer shrink-0"
+                title="Reset filters"
               >
-                <X size={13} />
+                <span>Reset</span>
               </button>
             )}
           </div>
@@ -342,6 +359,22 @@ export function AdminOtpManagement() {
                 ? 'No password reset requests matched your active filters or search keyword.'
                 : 'No password reset OTP requests have been recorded yet. When an operator requests a reset from the portal login modal, their details and OTP will appear here.'}
             </p>
+            {(search || statusFilter !== 'ALL') && (
+              <div className="pt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearch('')
+                    setStatusFilter('ALL')
+                  }}
+                  className="inline-flex items-center gap-1.5"
+                >
+                  <RefreshCw size={12} />
+                  <span>Clear Search Filters</span>
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">

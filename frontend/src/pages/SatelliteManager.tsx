@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Radio,
   Plus,
@@ -7,6 +8,7 @@ import {
   Trash2,
   CheckCircle2,
   XCircle,
+  X,
   Building2,
   Calendar,
   Fuel,
@@ -17,9 +19,14 @@ import {
   RotateCcw,
   Archive,
   AlertTriangle,
+  Ban,
+  ExternalLink,
+  FileText,
+  Loader2,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
-import { satellitesApi, type Satellite } from '../api/satellites.api'
+import { satellitesApi, type Satellite, type SatelliteRelatedFilesCheck } from '../api/satellites.api'
+
 import { useAdminSatellites, ADMIN_SATELLITES_QUERY_KEY, SATELLITES_QUERY_KEY } from '../hooks/useSatellites'
 import { useAdminDepartments } from '../hooks/useDepartments'
 import { useDebounce } from '../hooks/useDebounce'
@@ -234,7 +241,64 @@ export function SatelliteManager() {
     }
   }
 
+  // Hard Delete Modal State & Handlers
+  const [hardDeletingSat, setHardDeletingSat] = useState<Satellite | null>(null)
+  const [checkingFiles, setCheckingFiles] = useState(false)
+  const [filesCheckResult, setFilesCheckResult] = useState<SatelliteRelatedFilesCheck | null>(null)
+  const [hardDeleting, setHardDeleting] = useState(false)
+
+  const openHardDeleteModal = async (sat: Satellite) => {
+    setHardDeletingSat(sat)
+    setCheckingFiles(true)
+    setFilesCheckResult(null)
+    try {
+      const result = await satellitesApi.checkRelatedFiles(sat.id)
+      setFilesCheckResult(result)
+    } catch (err: any) {
+      addToast({
+        title: 'Error Checking Satellite Files',
+        message: err.response?.data?.error?.message || 'Could not verify satellite dependencies',
+        variant: 'error',
+      })
+    } finally {
+      setCheckingFiles(false)
+    }
+  }
+
+  const handleHardDelete = async () => {
+    if (!hardDeletingSat) return
+    if (filesCheckResult && filesCheckResult.count > 0) {
+      addToast({
+        title: 'Deletion Blocked',
+        message: `Cannot delete ${hardDeletingSat.name}. Please delete all ${filesCheckResult.count} related file(s) manually first.`,
+        variant: 'warning',
+      })
+      return
+    }
+
+    setHardDeleting(true)
+    try {
+      await satellitesApi.hardDeleteSatellite(hardDeletingSat.id)
+      addToast({
+        title: 'Satellite Permanently Deleted',
+        message: `${hardDeletingSat.name} has been permanently deleted from the database.`,
+        variant: 'success',
+      })
+      setHardDeletingSat(null)
+      invalidateSatellites()
+    } catch (err: any) {
+      addToast({
+        title: 'Permanent Deletion Failed',
+        message: err.response?.data?.error?.message || 'Could not permanently delete satellite',
+        variant: 'error',
+      })
+    } finally {
+      setHardDeleting(false)
+    }
+  }
+
   const isSatActive = (s: Satellite) =>
+
     Boolean(s.isActive && !s.deletedAt && s.status !== 'DECOMMISSIONED')
 
   const activeCount = satellites.filter(isSatActive).length
@@ -365,8 +429,8 @@ export function SatelliteManager() {
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Search & View Controls Bar (STICKY ON SCROLL) */}
+      <div className="sticky top-0 z-20 p-3.5 rounded-xl border border-border-default bg-[#070d18]/95 backdrop-blur-md shadow-lg shadow-black/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all">
         <div className="relative flex-1 max-w-md">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-dim" />
           <input
@@ -374,14 +438,35 @@ export function SatelliteManager() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by SAT_ID, name, payload, orbit type..."
-            className="w-full rounded-lg border border-border-default bg-[#09101f] pl-10 pr-4 py-2 text-base sm:text-xs text-text-primary outline-none hover:border-border-bright focus:border-accent"
+            className="w-full rounded-lg border border-border-default bg-[#09101f] pl-10 pr-9 py-2 text-base sm:text-xs text-text-primary outline-none hover:border-border-bright focus:border-accent"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim hover:text-white transition-colors cursor-pointer"
+              title="Clear search query"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-xs text-text-dim">
-            Showing {filteredSatellites.length} of {tabSatellites.length} {tab === 'active' ? 'Active' : 'Inactive'} Satellites
+          <span className="text-xs text-text-dim whitespace-nowrap">
+            Showing <strong className="text-white num">{filteredSatellites.length}</strong> of {tabSatellites.length} {tab === 'active' ? 'Active' : 'Inactive'}
           </span>
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-accent/40 bg-accent/10 text-xs font-bold text-accent-light hover:text-white hover:bg-accent transition-all cursor-pointer shrink-0"
+              title="Reset search"
+            >
+              <RotateCcw size={12} />
+              <span>Reset</span>
+            </button>
+          )}
           <ViewToggle mode={viewMode} onChange={setViewMode} />
         </div>
       </div>
@@ -410,12 +495,19 @@ export function SatelliteManager() {
               ? 'No active satellites currently registered in the database.'
               : 'There are currently no decommissioned or inactive spacecraft in the archive.'}
           </p>
-          {!search && tab === 'active' && (
+          {search ? (
+            <div className="mt-4">
+              <Button variant="outline" size="sm" onClick={() => setSearch('')} className="inline-flex items-center gap-1.5">
+                <RotateCcw size={13} />
+                <span>Clear Search Filter</span>
+              </Button>
+            </div>
+          ) : tab === 'active' ? (
             <Button variant="primary" size="sm" onClick={() => openCreateModal()} className="mt-4">
               <Plus size={14} />
               <span>Add Your First Satellite</span>
             </Button>
-          )}
+          ) : null}
         </div>
       ) : viewMode === 'table' ? (
         <div className="rounded-xl border border-border-default bg-card overflow-hidden">
@@ -445,17 +537,44 @@ export function SatelliteManager() {
                       <span>Edit</span>
                     </Button>
                     {tab === 'inactive' ? (
-                      <Button type="button" variant="outline" size="sm" disabled={restoringId === sat.id} onClick={() => handleRestore(sat)}>
-                        <RotateCcw size={12} />
-                        <span>Reactivate</span>
-                      </Button>
+                      <>
+                        <Button type="button" variant="outline" size="sm" disabled={restoringId === sat.id} onClick={() => handleRestore(sat)}>
+                          <RotateCcw size={12} />
+                          <span>Reactivate</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="sm"
+                          onClick={() => openHardDeleteModal(sat)}
+                          className="bg-critical/15 text-critical border-critical/30 hover:bg-critical/25"
+                          title="Permanently hard-delete satellite from database"
+                        >
+                          <Trash2 size={12} />
+                          <span>Hard Delete</span>
+                        </Button>
+                      </>
                     ) : (
-                      <Button type="button" variant="outline" size="sm" onClick={() => setDeletingSat(sat)} aria-label={`Deactivate ${sat.name}`}>
-                        <Trash2 size={12} />
-                        <span>Deactivate</span>
-                      </Button>
+                      <>
+                        <Button type="button" variant="outline" size="sm" onClick={() => setDeletingSat(sat)} aria-label={`Deactivate ${sat.name}`} title="Deactivate satellite (Soft Delete)">
+                          <Archive size={12} />
+                          <span>Deactivate</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="sm"
+                          onClick={() => openHardDeleteModal(sat)}
+                          className="bg-critical/15 text-critical border-critical/30 hover:bg-critical/25"
+                          title="Permanently hard-delete satellite from database"
+                        >
+                          <Trash2 size={12} />
+                          <span>Hard Delete</span>
+                        </Button>
+                      </>
                     )}
                   </div>
+
                 ),
               },
             ]}
@@ -593,7 +712,7 @@ export function SatelliteManager() {
                     <span>View Dossier</span>
                   </button>
 
-                  <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5">
                     {tab === 'inactive' ? (
                       <>
                         <button
@@ -615,6 +734,16 @@ export function SatelliteManager() {
                         >
                           <RotateCcw size={12} className={restoringId === sat.id ? 'animate-spin' : ''} />
                           <span>Reactivate</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => openHardDeleteModal(sat)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-critical/30 bg-critical/10 px-2.5 py-1.5 text-xs font-semibold text-critical hover:bg-critical/20 hover:border-critical transition-all shadow-sm cursor-pointer"
+                          title="Permanently hard-delete satellite from database"
+                        >
+                          <Trash2 size={12} />
+                          <span>Hard Delete</span>
                         </button>
                       </>
                     ) : (
@@ -648,14 +777,25 @@ export function SatelliteManager() {
                         <button
                           type="button"
                           onClick={() => setDeletingSat(sat)}
-                          className="inline-flex items-center p-1.5 rounded-lg border border-critical/20 bg-critical/5 text-critical hover:bg-critical/20 transition-all cursor-pointer"
-                          title="Deactivate satellite"
+                          className="inline-flex items-center gap-1 rounded-lg border border-warning/30 bg-warning/10 px-2 py-1.5 text-xs font-semibold text-warning hover:bg-warning/20 transition-all cursor-pointer"
+                          title="Deactivate satellite (Soft Delete)"
+                        >
+                          <Archive size={12} />
+                          <span>Deactivate</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => openHardDeleteModal(sat)}
+                          className="inline-flex items-center p-1.5 rounded-lg border border-critical/30 bg-critical/10 text-critical hover:bg-critical/20 hover:border-critical transition-all cursor-pointer"
+                          title="Permanently hard-delete satellite from database"
                         >
                           <Trash2 size={12} />
                         </button>
                       </>
                     )}
                   </div>
+
                 </div>
               </div>
             </div>
@@ -827,7 +967,7 @@ export function SatelliteManager() {
                 <button
                   type="button"
                   onClick={handleClearAllDepartments}
-                  className="text-text-dim hover:text-white"
+                  className="text-text-muted hover:text-text-primary transition-colors cursor-pointer"
                 >
                   Clear All
                 </button>
@@ -916,9 +1056,24 @@ export function SatelliteManager() {
             <strong className="text-white">{deletingSat?.name}</strong>?
           </p>
           <p className="text-xs text-text-dim">
-            Deactivating this satellite will hide it from new department creation dropdowns.
+            Deactivating this satellite will hide it from new department creation dropdowns and move it to the Inactive archive.
             Existing telemetry files and datasets will remain safely archived.
           </p>
+
+          <div className="rounded-lg border border-border-default bg-[#0c1527] p-3 text-xs text-text-muted flex items-center justify-between gap-2">
+            <span>Looking to permanently remove this satellite from the database instead?</span>
+            <button
+              type="button"
+              onClick={() => {
+                const sat = deletingSat
+                setDeletingSat(null)
+                if (sat) openHardDeleteModal(sat)
+              }}
+              className="text-critical hover:underline font-semibold shrink-0 cursor-pointer text-xs"
+            >
+              Hard Delete →
+            </button>
+          </div>
 
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-border-subtle">
             <Button
@@ -942,6 +1097,177 @@ export function SatelliteManager() {
           </div>
         </div>
       </Modal>
+
+      {/* Permanent (Hard) Delete Modal */}
+      <Modal
+        isOpen={Boolean(hardDeletingSat)}
+        onClose={() => setHardDeletingSat(null)}
+        title={hardDeletingSat ? `Permanent Deletion: ${hardDeletingSat.name}` : 'Permanent Deletion'}
+        size="md"
+      >
+        <div className="space-y-4">
+          {checkingFiles ? (
+            <div className="flex flex-col items-center justify-center py-8 space-y-3">
+              <Loader2 size={32} className="animate-spin text-accent-light" />
+              <p className="text-xs text-text-secondary">
+                Checking for associated telemetry files and departmental records…
+              </p>
+            </div>
+          ) : filesCheckResult && filesCheckResult.count > 0 ? (
+            /* ==========================================
+               STOP ADMIN: Associated Files Exist
+               ========================================== */
+            <div className="space-y-4">
+              <div className="rounded-xl border border-critical/40 bg-critical/10 p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-critical/20 text-critical border border-critical/30">
+                    <Ban size={20} />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-critical">
+                      Action Blocked: Associated Files Exist ({filesCheckResult.count})
+                    </h4>
+                    <p className="text-xs text-text-secondary leading-relaxed">
+                      Cannot permanently delete satellite <strong className="text-white">{hardDeletingSat?.name}</strong>.
+                      There are currently <strong className="text-critical">{filesCheckResult.count}</strong> active file(s) associated with this satellite.
+                    </p>
+                    <div className="rounded-md border border-warning/30 bg-warning/10 p-2.5 mt-2">
+                      <p className="text-xs font-semibold text-warning flex items-center gap-1.5">
+                        <AlertTriangle size={14} className="shrink-0" />
+                        <span>Please delete all related files manually first before attempting to delete this satellite.</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sample detected files */}
+              {filesCheckResult.sampleFiles.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-text-muted">
+                    <span className="font-semibold text-text-secondary">Associated Files Detected:</span>
+                    <span>Showing {filesCheckResult.sampleFiles.length} of {filesCheckResult.count}</span>
+                  </div>
+                  <div className="rounded-lg border border-border-default bg-[#080d19] divide-y divide-border-subtle max-h-48 overflow-y-auto">
+                    {filesCheckResult.sampleFiles.map((file) => (
+                      <div key={file.id} className="p-2.5 flex items-center justify-between gap-3 text-xs">
+                        <div className="min-w-0 flex items-center gap-2">
+                          <FileText size={14} className="shrink-0 text-text-dim" />
+                          <div className="min-w-0">
+                            <span className="font-mono text-white truncate block">{file.name}</span>
+                            {file.reportTitle && (
+                              <span className="text-[10px] text-text-dim truncate block">{file.reportTitle}</span>
+                            )}
+                          </div>
+                        </div>
+                        {file.departmentCode && (
+                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-mono font-bold bg-accent/15 text-accent-light border border-accent/25">
+                            {file.departmentCode}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Action shortcut to File Repository */}
+              <div className="flex items-center justify-between p-3 rounded-lg border border-border-default bg-[#0c1527] gap-3">
+                <span className="text-xs text-text-secondary">
+                  Open file repository filtered to this satellite to delete files manually:
+                </span>
+                <Link
+                  to={`/admin/files?satelliteId=${hardDeletingSat?.id}`}
+                  onClick={() => setHardDeletingSat(null)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/15 px-3 py-1.5 text-xs font-semibold text-accent-light hover:bg-accent hover:text-white transition-all shrink-0"
+                >
+                  <span>View Files in Repository</span>
+                  <ExternalLink size={12} />
+                </Link>
+              </div>
+
+              {/* Modal Footer with disabled / blocked delete button */}
+              <div className="flex items-center justify-between pt-3 border-t border-border-subtle">
+                <span className="text-[11px] text-text-dim">
+                  Deletion is halted until all files are removed manually.
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="md"
+                    onClick={() => setHardDeletingSat(null)}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="md"
+                    disabled
+                    className="opacity-50 cursor-not-allowed"
+                    title="All associated files must be deleted manually first"
+                  >
+                    <Ban size={14} />
+                    <span>Deletion Blocked</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* ==========================================
+               ALLOW HARD DELETION: 0 files associated
+               ========================================== */
+            <div className="space-y-4">
+              <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 space-y-2">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={20} className="text-warning shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-white">Permanent Hard Deletion</h4>
+                    <p className="text-xs text-text-secondary leading-relaxed">
+                      Zero associated files were found for <strong className="text-white">{hardDeletingSat?.name}</strong>.
+                      You can safely permanently delete this satellite program from the database.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-critical/30 bg-critical/5 p-3 text-xs text-text-secondary space-y-1">
+                <p className="font-semibold text-critical">⚠️ This action cannot be undone:</p>
+                <ul className="list-disc list-inside text-[11px] text-text-dim space-y-0.5">
+                  <li>The satellite entry will be permanently erased from the SQL database.</li>
+                  <li>Telemetry specifications, payload details, and operational status will be removed.</li>
+                  <li>Department links and mission event references will be cleared.</li>
+                </ul>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border-subtle">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  onClick={() => setHardDeletingSat(null)}
+                >
+                  Cancel
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="danger"
+                  size="md"
+                  disabled={hardDeleting}
+                  onClick={handleHardDelete}
+                  className="shadow-lg shadow-critical/20"
+                >
+                  <Trash2 size={14} />
+                  <span>{hardDeleting ? 'Deleting Permanently…' : 'Confirm Hard Delete'}</span>
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
+
     </div>
   )
 }

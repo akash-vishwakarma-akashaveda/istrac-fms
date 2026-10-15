@@ -18,6 +18,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const [results, setResults] = useState<SearchResultItem[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const backdropMouseDownRef = useRef<EventTarget | null>(null)
 
   useEffect(() => {
     if (isOpen) {
@@ -82,7 +83,15 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-[#02050e]/85 backdrop-blur-md transition-opacity"
-        onClick={onClose}
+        onMouseDown={(e) => {
+          backdropMouseDownRef.current = e.target
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget && backdropMouseDownRef.current === e.currentTarget) {
+            const hasSelection = Boolean(window.getSelection()?.toString().trim().length)
+            if (!hasSelection) onClose()
+          }
+        }}
         aria-hidden="true"
       />
 

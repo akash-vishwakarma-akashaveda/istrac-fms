@@ -27,10 +27,12 @@ export function usePublicDepartments() {
   })
 }
 
-export function useAdminDepartments(satelliteId?: string) {
+export function useAdminDepartments(options?: { satelliteId?: string; activeOnly?: boolean } | string) {
+  const satelliteId = typeof options === 'string' ? options : options?.satelliteId
+  const activeOnly = typeof options === 'object' ? options?.activeOnly : undefined
   return useQuery({
-    queryKey: ['admin-departments', satelliteId],
-    queryFn: () => departmentsApi.getAllAdminDepartments(satelliteId),
+    queryKey: ['admin-departments', satelliteId, activeOnly],
+    queryFn: () => departmentsApi.getAllAdminDepartments(typeof options === 'object' ? options : { satelliteId }),
   })
 }
 

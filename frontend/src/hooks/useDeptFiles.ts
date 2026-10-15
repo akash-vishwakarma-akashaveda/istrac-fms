@@ -28,8 +28,11 @@ export function useDeptFiles({ deptId, parentId, sortField, sortDirection }: Use
             createdAt: f.createdAt,
             versionCount: f.versionCount || 1,
             isFeatured: Boolean(f.isFeatured),
-            spacecraft: f.spacecraft ? (String(f.spacecraft).includes('General') ? 'General' : f.spacecraft) : null,
-            category: f.category || null,
+            spacecraft: (f.spacecraft && !String(f.spacecraft).toUpperCase().includes('GENERAL')) ? f.spacecraft : null,
+            category: f.category || f.report?.category || null,
+            customCategory: f.customCategory || f.report?.customCategory || null,
+            classificationLevel: f.classificationLevel || f.report?.classificationLevel || null,
+            report: f.report,
             tags: Array.isArray(f.tags) ? f.tags : [],
           }))
         : []
@@ -55,7 +58,17 @@ export function useBulkDeleteFiles() {
       const failed = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[]
       return { moved: fileIds.length - failed.length, failed: failed.length, firstError: failed[0]?.reason }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dept-files'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dept-files'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-files'] })
+      queryClient.invalidateQueries({ queryKey: ['mission-overview'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['recent-files'] })
+      queryClient.invalidateQueries({ queryKey: ['user-departments'] })
+      queryClient.invalidateQueries({ queryKey: ['featured-reports'] })
+      queryClient.invalidateQueries({ queryKey: ['file-versions'] })
+      queryClient.invalidateQueries({ queryKey: ['file-detail'] })
+    },
   })
 }
 

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { CategoryOptions } from '../components/CategoryOptions'
+import { CategoryOptions, useCategoryLabel } from '../components/CategoryOptions'
 import { Link } from 'react-router-dom'
 import {
   Shield,
@@ -69,6 +69,7 @@ export function UserHome() {
   // Fetch complete mission overview payload from real DB
   const { data: overview, isLoading } = useMissionOverview()
   console.log('Mission Overview:', overview)
+  const categoryLabel = useCategoryLabel()
   // Selected Spacecraft Filter
   const [selectedSpacecraft, setSelectedSpacecraft] = useState<string>('ALL')
 
@@ -127,6 +128,10 @@ export function UserHome() {
   const filteredRecentReports = useMemo(() => {
     if (!overview?.recentFiles) return []
     return overview.recentFiles.filter((item) => {
+      // Exclude files with no spacecraft or associated to "General"
+      if (!item.spacecraft || item.spacecraft.toUpperCase() === 'GENERAL' || item.spacecraft.toUpperCase().includes('GENERAL')) {
+        return false
+      }
       // Spacecraft filter
       if (selectedSpacecraft !== 'ALL') {
         const itemSat = (item.spacecraft || '').toUpperCase()
@@ -208,13 +213,13 @@ export function UserHome() {
     return Math.max(1, ...overview.spacecraftBreakdown.map((s) => s.count))
   }, [overview?.spacecraftBreakdown])
 
-  // Real Spacecraft list from breakdown
+  // Real Spacecraft list from breakdown (only active spacecraft with non-archived telemetry)
   const availableSpacecraftList = useMemo(() => {
     const list = new Set<string>()
     overview?.spacecraftBreakdown?.forEach((s) => {
-      if (s.spacecraft && s.spacecraft !== 'General') list.add(s.spacecraft)
+      if (s.spacecraft && s.spacecraft.toUpperCase() !== 'GENERAL' && !s.spacecraft.toUpperCase().includes('GENERAL') && s.count > 0) list.add(s.spacecraft)
     })
-    return Array.from(list)
+    return Array.from(list).sort()
   }, [overview?.spacecraftBreakdown])
 
   return (
@@ -291,15 +296,15 @@ export function UserHome() {
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Link
               to="/dashboard/events"
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-default bg-[#080f1d] px-3.5 py-2 text-xs font-bold text-white hover:border-accent transition-all shadow-sm"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-default bg-surface px-3.5 py-2 text-xs font-bold text-text-primary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all shadow-sm cursor-pointer"
             >
-              <Calendar size={14} className="text-accent-light" />
+              <Calendar size={14} className="text-accent" />
               <span>Passes & Events</span>
             </Link>
 
             <Link
               to="/dashboard/files"
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-default bg-[#080f1d] px-3.5 py-2 text-xs font-bold text-white hover:border-accent transition-all shadow-sm"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-default bg-surface px-3.5 py-2 text-xs font-bold text-text-primary hover:border-nominal hover:text-nominal hover:bg-nominal/10 transition-all shadow-sm cursor-pointer"
             >
               <HardDrive size={14} className="text-nominal" />
               <span>Division Files</span>
@@ -310,76 +315,84 @@ export function UserHome() {
 
       {/* 3. TOP 4 EXECUTIVE METRIC CARDS (REAL DATABASE DATA) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm hover:border-accent/40 transition-all flex items-center justify-between">
-          <div className="space-y-1">
+        <div className="group relative overflow-hidden rounded-xl border border-border-default bg-card p-4 shadow-card hover:shadow-card-hover hover:border-accent/50 transition-all flex items-center justify-between">
+          <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-accent/10 blur-xl transition-all group-hover:bg-accent/20 group-hover:scale-125" />
+          <div className="space-y-1 relative z-10">
             <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim block">
               Total Telemetry Files
             </span>
-            <p className="num text-2xl font-black text-white">
+            <p className="num text-2xl font-black text-text-primary tracking-tight">
               {isLoading ? '—' : overview?.metrics.totalReports.toLocaleString() ?? '0'}
             </p>
             <span className="text-[11px] text-text-secondary block">Active in Repositories</span>
           </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/15 border border-accent/30 text-accent-light">
+          <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent/15 border border-accent/35 text-accent-light shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:shadow-glow">
             <FileText size={22} strokeWidth={2.2} />
           </div>
+          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-accent/0 via-accent/60 to-accent/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
 
-        <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm hover:border-nominal/40 transition-all flex items-center justify-between">
-          <div className="space-y-1">
+        <div className="group relative overflow-hidden rounded-xl border border-border-default bg-card p-4 shadow-card hover:shadow-card-hover hover:border-nominal/50 transition-all flex items-center justify-between">
+          <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-nominal/10 blur-xl transition-all group-hover:bg-nominal/20 group-hover:scale-125" />
+          <div className="space-y-1 relative z-10">
             <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim block">
               Today's Uploads
             </span>
-            <p className="num text-2xl font-black text-nominal">
+            <p className="num text-2xl font-black text-nominal tracking-tight">
               {isLoading ? '—' : overview?.metrics.todaysUploads.toLocaleString() ?? '0'}
             </p>
             <span className="text-[11px] text-text-secondary block">
               {new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
             </span>
           </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-nominal/15 border border-nominal/30 text-nominal">
+          <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-nominal/15 border border-nominal/35 text-nominal shadow-sm transition-transform duration-300 group-hover:scale-110">
             <CloudUpload size={22} strokeWidth={2.2} />
           </div>
+          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-nominal/0 via-nominal/60 to-nominal/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
 
-        <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm hover:border-purple-500/40 transition-all flex items-center justify-between">
-          <div className="space-y-1">
+        <div className="group relative overflow-hidden rounded-xl border border-border-default bg-card p-4 shadow-card hover:shadow-card-hover hover:border-purple-500/50 transition-all flex items-center justify-between">
+          <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-purple-500/10 blur-xl transition-all group-hover:bg-purple-500/20 group-hover:scale-125" />
+          <div className="space-y-1 relative z-10">
             <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim block">
               Storage Volume
             </span>
-            <p className="num text-2xl font-black text-purple-400">
+            <p className="num text-2xl font-black text-purple-400 tracking-tight">
               {isLoading ? '—' : formatFileSize(overview?.metrics.totalStorageBytes || 0)}
             </p>
             <span className="text-[11px] text-text-secondary block">Physical Disk Storage</span>
           </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400">
+          <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-purple-500/15 border border-purple-500/35 text-purple-400 shadow-sm transition-transform duration-300 group-hover:scale-110">
             <Database size={22} strokeWidth={2.2} />
           </div>
+          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-purple-500/0 via-purple-500/60 to-purple-500/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
 
-        <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm hover:border-accent-light/40 transition-all flex items-center justify-between">
-          <div className="space-y-1">
+        <div className="group relative overflow-hidden rounded-xl border border-border-default bg-card p-4 shadow-card hover:shadow-card-hover hover:border-secondary/50 transition-all flex items-center justify-between">
+          <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-secondary/10 blur-xl transition-all group-hover:bg-secondary/20 group-hover:scale-125" />
+          <div className="space-y-1 relative z-10">
             <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim block">
               Authorized Divisions
             </span>
-            <p className="num text-2xl font-black text-white">
+            <p className="num text-2xl font-black text-text-primary tracking-tight">
               {isLoading ? '—' : `${accessibleDepartments.length} Cleared`}
             </p>
             <span className="text-[11px] text-text-secondary block">Access Clearance Active</span>
           </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#0066FF]/15 border border-[#0066FF]/30 text-[#0066FF]">
+          <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary/15 border border-secondary/35 text-secondary shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:shadow-glow-secondary">
             <Building2 size={22} strokeWidth={2.2} />
           </div>
+          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-secondary/0 via-secondary/60 to-secondary/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
       </div>
 
       {/* 4. VISUAL METRICS CHARTS ROW (REAL DATABASE DISTRIBUTIONS) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Spacecraft Distribution */}
-        <div className="rounded-xl border border-border-default bg-card p-4 sm:p-5 shadow-sm space-y-4">
+        <div className="rounded-xl border border-border-default bg-card p-4 sm:p-5 shadow-card space-y-4">
           <div className="flex items-center justify-between border-b border-border-subtle pb-3 gap-2">
             <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2 truncate">
+              <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2 truncate">
                 <Radio size={15} className="text-accent-light shrink-0" />
                 <span>Reports by Spacecraft</span>
               </h3>
@@ -393,17 +406,17 @@ export function UserHome() {
             </div>
           </div>
 
-          {overview?.spacecraftBreakdown && overview.spacecraftBreakdown.length > 0 ? (
+          {overview?.spacecraftBreakdown && overview.spacecraftBreakdown.filter((item) => item.count > 0).length > 0 ? (
             <div className="overflow-x-auto pb-2 -mx-2 px-2 scrollbar-none touch-pan-x">
               <div className="h-56 min-w-[480px] sm:min-w-0 flex items-end justify-between gap-3 pt-6 pb-2 px-2 border-b border-border-subtle relative">
                 <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-15">
-                  <div className="border-b border-dashed border-white w-full" />
-                  <div className="border-b border-dashed border-white w-full" />
-                  <div className="border-b border-dashed border-white w-full" />
-                  <div className="border-b border-dashed border-white w-full" />
+                  <div className="border-b border-dashed border-border-bright w-full" />
+                  <div className="border-b border-dashed border-border-bright w-full" />
+                  <div className="border-b border-dashed border-border-bright w-full" />
+                  <div className="border-b border-dashed border-border-bright w-full" />
                 </div>
 
-                {overview.spacecraftBreakdown.map((item) => {
+                {overview.spacecraftBreakdown.filter((item) => item.count > 0).map((item) => {
                   const heightPercent = Math.max(14, Math.min(100, (item.count / maxSpacecraftCount) * 100))
                   const isSelected =
                     selectedSpacecraft === 'ALL' ||
@@ -417,7 +430,7 @@ export function UserHome() {
                         isSelected ? 'opacity-100' : 'opacity-35 hover:opacity-80'
                       }`}
                     >
-                      <span className="num text-[11px] font-bold text-white mb-1.5 transition-transform group-hover:-translate-y-1">
+                      <span className="num text-[11px] font-bold text-text-primary mb-1.5 transition-transform group-hover:-translate-y-1">
                         {item.count}
                       </span>
                       <div
@@ -425,7 +438,7 @@ export function UserHome() {
                           height: `${heightPercent}%`,
                           backgroundColor: item.color,
                         }}
-                        className="w-full max-w-[44px] rounded-t-md shadow-lg transition-all duration-300 group-hover:brightness-125"
+                        className="w-full max-w-[44px] rounded-t-md shadow-md transition-all duration-300 group-hover:brightness-125"
                       />
                       <span className="text-[10px] font-semibold text-text-secondary mt-2 truncate max-w-[62px] text-center" title={item.spacecraft}>
                         {item.spacecraft}
@@ -437,16 +450,16 @@ export function UserHome() {
             </div>
           ) : (
             <div className="h-56 flex items-center justify-center text-xs text-text-dim">
-              No spacecraft telemetry records found.
+              No active spacecraft telemetry records found.
             </div>
           )}
         </div>
 
         {/* Category Breakdown */}
-        <div className="rounded-xl border border-border-default bg-card p-4 sm:p-5 shadow-sm space-y-4">
+        <div className="rounded-xl border border-border-default bg-card p-4 sm:p-5 shadow-card space-y-4">
           <div className="flex items-center justify-between border-b border-border-subtle pb-3">
             <div>
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
                 <Layers size={15} className="text-nominal" />
                 <span>Reports by Category</span>
               </h3>
@@ -455,65 +468,72 @@ export function UserHome() {
             <span className="num text-xs text-nominal font-bold">100% Ingested</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 items-center pt-2">
-            <div className="relative flex items-center justify-center">
-              <svg className="w-36 h-36 sm:w-44 sm:h-44 transform -rotate-90" viewBox="0 0 100 100">
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="38"
-                  fill="transparent"
-                  stroke="#1e293b"
-                  strokeWidth="18"
-                />
-                {overview?.categoryBreakdown?.filter((c) => c.percentage > 0).map((cat, idx, activeCats) => {
-                  const circumference = 2 * Math.PI * 38 // 238.76
-                  const strokeDash = (cat.percentage / 100) * circumference
-                  const prevPercentages = activeCats
-                    .slice(0, idx)
-                    .reduce((acc, curr) => acc + curr.percentage, 0)
-                  const offset = -(prevPercentages / 100) * circumference
+          {overview?.categoryBreakdown && overview.categoryBreakdown.filter((c) => c.count > 0).length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 items-center pt-2">
+              <div className="relative flex items-center justify-center">
+                <svg className="w-36 h-36 sm:w-44 sm:h-44 transform -rotate-90" viewBox="0 0 100 100">
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="38"
+                    fill="transparent"
+                    stroke="currentColor"
+                    className="text-border-subtle"
+                    strokeWidth="18"
+                  />
+                  {overview.categoryBreakdown.filter((c) => c.percentage > 0 && c.count > 0).map((cat, idx, activeCats) => {
+                    const circumference = 2 * Math.PI * 38 // 238.76
+                    const strokeDash = (cat.percentage / 100) * circumference
+                    const prevPercentages = activeCats
+                      .slice(0, idx)
+                      .reduce((acc, curr) => acc + curr.percentage, 0)
+                    const offset = -(prevPercentages / 100) * circumference
 
-                  return (
-                    <circle
-                      key={cat.category}
-                      cx="50"
-                      cy="50"
-                      r="38"
-                      fill="transparent"
-                      stroke={cat.color}
-                      strokeWidth="18"
-                      strokeDasharray={`${strokeDash} ${circumference}`}
-                      strokeDashoffset={offset}
-                    />
-                  )
-                })}
-              </svg>
-              <div className="absolute flex flex-col items-center justify-center text-center">
-                <span className="num text-lg font-black text-white">
-                  {overview?.metrics.totalReports ?? 0}
-                </span>
-                <span className="text-[10px] text-text-dim uppercase font-bold">Total Files</span>
+                    return (
+                      <circle
+                        key={cat.category}
+                        cx="50"
+                        cy="50"
+                        r="38"
+                        fill="transparent"
+                        stroke={cat.color}
+                        strokeWidth="18"
+                        strokeDasharray={`${strokeDash} ${circumference}`}
+                        strokeDashoffset={offset}
+                      />
+                    )
+                  })}
+                </svg>
+                <div className="absolute flex flex-col items-center justify-center text-center">
+                  <span className="num text-lg font-black text-text-primary">
+                    {overview?.metrics.totalReports ?? 0}
+                  </span>
+                  <span className="text-[10px] text-text-dim uppercase font-bold">Total Files</span>
+                </div>
+              </div>
+
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {overview.categoryBreakdown.filter((c) => c.count > 0).map((cat) => (
+                  <div key={cat.category} className="flex items-center justify-between text-xs py-0.5 gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="h-3 w-3 rounded-sm shrink-0" style={{ backgroundColor: cat.color }} />
+                      <span className="text-text-secondary font-medium truncate">{cat.label}</span>
+                    </div>
+                    <span className="num font-bold text-text-primary shrink-0 pl-1">{cat.count} ({cat.percentage}%)</span>
+                  </div>
+                ))}
               </div>
             </div>
-
-            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-              {(overview?.categoryBreakdown || []).map((cat) => (
-                <div key={cat.category} className="flex items-center justify-between text-xs py-0.5 gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="h-3 w-3 rounded-sm shrink-0" style={{ backgroundColor: cat.color }} />
-                    <span className="text-text-secondary font-medium truncate">{cat.label}</span>
-                  </div>
-                  <span className="num font-bold text-white shrink-0 pl-1">{cat.count} ({cat.percentage}%)</span>
-                </div>
-              ))}
+          ) : (
+            <div className="h-56 flex items-center justify-center text-xs text-text-dim">
+              No active report categories found.
             </div>
-          </div>
+          )}
         </div>
       </div>
 
       {/* 5. NOTICE BOARD & MISSION BULLETINS (REAL DATABASE NOTIFICATIONS) */}
-      <div className="rounded-xl border border-border-default bg-card shadow-sm overflow-hidden">
+      <div className="rounded-xl border border-border-default bg-card shadow-card overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-border-default bg-surface/50 gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <BellRing size={16} className="text-accent-light animate-bounce shrink-0" />
@@ -537,7 +557,7 @@ export function UserHome() {
             <button
               type="button"
               onClick={() => setShowAllNoticesModal(true)}
-              className="text-xs font-bold text-text-secondary hover:text-white flex items-center gap-1 cursor-pointer"
+              className="text-xs font-bold text-text-secondary hover:text-text-primary flex items-center gap-1 cursor-pointer"
             >
               <span>View All ({overview?.notices?.length || 0})</span>
               <ArrowRight size={13} />
@@ -582,7 +602,7 @@ export function UserHome() {
       </div>
 
       {/* 6. INTERACTIVE DEPARTMENT ACCORDION (FILTERED STRICTLY BY USER ACCESS) */}
-      <div className="rounded-xl border border-border-default bg-card shadow-sm overflow-hidden space-y-0">
+      <div className="rounded-xl border border-border-default bg-card shadow-card overflow-hidden space-y-0">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-border-default bg-surface/50 gap-2">
           <div>
             <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
@@ -606,7 +626,7 @@ export function UserHome() {
         {accessibleDepartments.length === 0 ? (
           <div className="p-8 text-center space-y-2 bg-surface/20">
             <Building2 size={28} className="mx-auto text-text-dim opacity-50" />
-            <p className="text-sm font-bold text-white">No Assigned Operational Divisions</p>
+            <p className="text-sm font-bold text-text-primary">No Assigned Operational Divisions</p>
             <p className="text-xs text-text-dim max-w-md mx-auto">
               Your user account has not been assigned to any operational division yet. Please contact your Mission Operations Lead.
             </p>
@@ -631,7 +651,7 @@ export function UserHome() {
 
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                          <span className="text-xs sm:text-sm font-bold text-white truncate max-w-[170px] sm:max-w-none">
+                          <span className="text-xs sm:text-sm font-bold text-text-primary truncate max-w-[170px] sm:max-w-none">
                             {dept.name}
                           </span>
                           <span className="rounded bg-nominal/15 border border-nominal/30 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold text-nominal uppercase flex items-center gap-1 shrink-0">
@@ -650,7 +670,7 @@ export function UserHome() {
 
                     <div className="flex items-center gap-2.5 sm:gap-4 shrink-0 pl-2">
                       <div className="hidden sm:flex flex-col items-end">
-                        <span className="text-xs font-bold text-white">{dept.leadOfficer}</span>
+                        <span className="text-xs font-bold text-text-primary">{dept.leadOfficer}</span>
                         <span className="text-[10px] text-text-dim">{dept.leadRole}</span>
                       </div>
 
@@ -665,10 +685,10 @@ export function UserHome() {
                   </button>
 
                   {isExpanded && (
-                    <div className="p-4 sm:p-5 bg-[#060c18] space-y-4 border-b border-border-subtle animate-in fade-in-50 duration-200">
+                    <div className="p-4 sm:p-5 bg-page-soft/60 space-y-4 border-b border-border-subtle animate-in fade-in-50 duration-200">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 rounded-xl border border-border-subtle bg-surface/50">
                         <div className="space-y-0.5">
-                          <p className="text-xs font-bold text-white">
+                          <p className="text-xs font-bold text-text-primary">
                             Division Workspace: <span className="text-accent-light">{dept.name}</span>
                           </p>
                           <p className="text-xs text-text-secondary">
@@ -678,7 +698,7 @@ export function UserHome() {
 
                         <Link
                           to={`/dashboard/files/${dept.id}`}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-accent-light transition-all shrink-0"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-accent-hover transition-all shrink-0"
                         >
                           <FolderOpen size={13} />
                           <span>Open Full Division Repository</span>
@@ -692,6 +712,7 @@ export function UserHome() {
                               <tr className="border-b border-border-subtle bg-surface text-[10px] font-bold text-text-dim uppercase tracking-wider">
                                 <th className="px-4 py-2.5">File Name</th>
                                 <th className="px-4 py-2.5">Format</th>
+                                <th className="px-4 py-2.5">Report Category</th>
                                 <th className="px-4 py-2.5">Size</th>
                                 <th className="px-4 py-2.5">Date Added</th>
                                 <th className="px-4 py-2.5 text-right">Quick Actions</th>
@@ -703,12 +724,17 @@ export function UserHome() {
                                   <td className="px-4 py-2.5">
                                     <div className="flex items-center gap-2.5">
                                       <FileIcon nodeType="FILE" mimeType={f.mimeType} size={16} />
-                                      <span className="font-bold text-white truncate max-w-xs">{f.name}</span>
+                                      <span className="font-bold text-text-primary truncate max-w-xs">{f.name}</span>
                                     </div>
                                   </td>
                                   <td className="px-4 py-2.5">
                                     <span className="rounded bg-surface border border-border-subtle px-1.5 py-0.5 text-[10px] font-mono text-text-dim uppercase">
                                       {f.extension || 'DAT'}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-2.5">
+                                    <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent-light uppercase">
+                                      {categoryLabel(f.category) || 'GENERAL'}
                                     </span>
                                   </td>
                                   <td className="px-4 py-2.5 num text-text-dim">
@@ -765,7 +791,7 @@ export function UserHome() {
       </div>
 
       {/* 7. QUICK SEARCH & FILTER CONTROL PANEL */}
-      <div className="rounded-xl border border-border-default bg-card p-5 shadow-sm space-y-4">
+      <div className="rounded-xl border border-border-default bg-card p-5 shadow-card space-y-4">
         <div className="flex items-center justify-between border-b border-border-subtle pb-3">
           <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
             <Search size={14} className="text-accent-light" />
@@ -775,7 +801,7 @@ export function UserHome() {
           <button
             type="button"
             onClick={handleResetFilters}
-            className="text-xs text-text-dim hover:text-white flex items-center gap-1 cursor-pointer"
+            className="text-xs text-text-dim hover:text-text-primary flex items-center gap-1 cursor-pointer"
           >
             <RotateCcw size={12} />
             <span>Reset Filters</span>
@@ -788,7 +814,7 @@ export function UserHome() {
             <select
               value={selectedSpacecraft}
               onChange={(e) => setSelectedSpacecraft(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All Spacecraft</option>
               {availableSpacecraftList.map((sat) => (
@@ -805,7 +831,7 @@ export function UserHome() {
               type="date"
               value={filterDateFrom}
               onChange={(e) => setFilterDateFrom(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent [color-scheme:dark]"
+              className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent"
             />
           </div>
 
@@ -815,7 +841,7 @@ export function UserHome() {
               type="date"
               value={filterDateTo}
               onChange={(e) => setFilterDateTo(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent [color-scheme:dark]"
+              className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent"
             />
           </div>
 
@@ -824,9 +850,9 @@ export function UserHome() {
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-base sm:text-xs text-white outline-none focus:border-accent cursor-pointer"
+              className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-base sm:text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
-              <CategoryOptions />
+              <CategoryOptions onlyActiveWithFiles={true} />
             </select>
           </div>
         </div>
@@ -839,14 +865,14 @@ export function UserHome() {
               placeholder="Search by report title, author, spacecraft, or file name…"
               value={searchKeywords}
               onChange={(e) => setSearchKeywords(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-base sm:text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-surface pl-9 pr-3 py-2 text-base sm:text-xs text-text-primary placeholder:text-text-dim outline-none focus:border-accent"
             />
           </div>
         </div>
       </div>
 
       {/* 8. RECENT TELEMETRY REPORTS TABLE (FULL WIDTH HIGH-DENSITY) */}
-      <div className="rounded-xl border border-border-default bg-card shadow-sm overflow-hidden">
+      <div className="rounded-xl border border-border-default bg-card shadow-card overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-border-default bg-surface/50 gap-2">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             <FileText size={15} className="text-accent-light shrink-0" />
@@ -876,7 +902,7 @@ export function UserHome() {
           </div>
         ) : filteredRecentReports.length === 0 ? (
           <div className="p-12 text-center space-y-2">
-            <p className="text-sm font-bold text-white">No Reports Matching Filter</p>
+            <p className="text-sm font-bold text-text-primary">No Reports Matching Filter</p>
             <p className="text-xs text-text-dim">Try adjusting your active spacecraft or search criteria above.</p>
           </div>
         ) : (
@@ -911,7 +937,7 @@ export function UserHome() {
                     <td className="px-3 sm:px-4 py-2.5 sm:py-3">
                       <div className="flex items-center gap-2">
                         <FileIcon nodeType="FILE" mimeType={file.mimeType} size={15} />
-                        <span className="font-bold text-white truncate max-w-[200px] sm:max-w-[240px]" title={file.title}>
+                        <span className="font-bold text-text-primary truncate max-w-[200px] sm:max-w-[240px]" title={file.title}>
                           {file.title}
                         </span>
                       </div>
@@ -922,8 +948,8 @@ export function UserHome() {
                       </span>
                     </td>
                     <td className="px-3 sm:px-4 py-2.5 sm:py-3">
-                      <span className="rounded bg-surface border border-border-subtle px-2 py-0.5 text-[10px] text-text-secondary">
-                        {file.category.replace(/_/g, ' ')}
+                      <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent-light uppercase">
+                        {categoryLabel(file.category) || 'GENERAL'}
                       </span>
                     </td>
                     <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-text-dim">

@@ -9,6 +9,7 @@ import {
   Activity,
   Lock,
   RefreshCw,
+  RotateCcw,
 } from 'lucide-react'
 import { useAuditLog } from '../hooks/useAuditLog'
 import { api } from '../lib/axios'
@@ -52,6 +53,20 @@ export function AuditLogViewer() {
     action: actionCategory || undefined,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
+  }
+
+  const hasActiveFilters = Boolean(
+    search.trim() ||
+    actionCategory ||
+    dateFrom ||
+    dateTo
+  )
+
+  const handleResetFilters = () => {
+    setSearch('')
+    setActionCategory('')
+    setDateFrom('')
+    setDateTo('')
   }
 
   const {
@@ -148,74 +163,99 @@ export function AuditLogViewer() {
       {/* 1. EXECUTIVE SUMMARY METRICS */}
       {/* ============================================================ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm flex items-center justify-between">
-          <div>
+        <div className="group relative overflow-hidden rounded-xl border border-border-default bg-card p-4 shadow-card hover:shadow-card-hover hover:border-accent/50 transition-all flex items-center justify-between">
+          <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-accent/10 blur-xl transition-all group-hover:bg-accent/20 group-hover:scale-125" />
+          <div className="relative z-10">
             <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim block">
               Total Logged Events
             </span>
-            <strong className="text-2xl font-bold text-white num block mt-0.5">
+            <strong className="text-2xl font-black text-text-primary num block mt-0.5 tracking-tight">
               {totalCount}
             </strong>
             <span className="text-[10px] text-text-dim block">Tamper-evident trail</span>
           </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-subtle text-accent-light">
+          <div className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/15 border border-accent/35 text-accent-light shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:shadow-glow">
             <Activity size={18} />
           </div>
+          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-accent/0 via-accent/60 to-accent/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
 
-        <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm flex items-center justify-between">
-          <div>
+        <div className="group relative overflow-hidden rounded-xl border border-border-default bg-card p-4 shadow-card hover:shadow-card-hover hover:border-warning/50 transition-all flex items-center justify-between">
+          <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-warning/10 blur-xl transition-all group-hover:bg-warning/20 group-hover:scale-125" />
+          <div className="relative z-10">
             <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim block">
               Auth & Logins
             </span>
-            <strong className="text-2xl font-bold text-yellow-300 num block mt-0.5">
+            <strong className="text-2xl font-black text-warning num block mt-0.5 tracking-tight">
               {authCount}
             </strong>
             <span className="text-[10px] text-text-dim block">Session verifications</span>
           </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-subtle text-yellow-400">
+          <div className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-warning/15 border border-warning/35 text-warning shadow-sm transition-transform duration-300 group-hover:scale-110">
             <Lock size={18} />
           </div>
+          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-warning/0 via-warning/60 to-warning/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
 
-        <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm flex items-center justify-between">
-          <div>
+        <div className="group relative overflow-hidden rounded-xl border border-border-default bg-card p-4 shadow-card hover:shadow-card-hover hover:border-nominal/50 transition-all flex items-center justify-between">
+          <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-nominal/10 blur-xl transition-all group-hover:bg-nominal/20 group-hover:scale-125" />
+          <div className="relative z-10">
             <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim block">
               Telemetry & Datasets
             </span>
-            <strong className="text-2xl font-bold text-nominal num block mt-0.5">
+            <strong className="text-2xl font-black text-nominal num block mt-0.5 tracking-tight">
               {fileCount}
             </strong>
             <span className="text-[10px] text-text-dim block">Ingest & file transfers</span>
           </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-subtle text-nominal">
+          <div className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-nominal/15 border border-nominal/35 text-nominal shadow-sm transition-transform duration-300 group-hover:scale-110">
             <FileText size={18} />
           </div>
+          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-nominal/0 via-nominal/60 to-nominal/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
 
-        <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm flex items-center justify-between">
-          <div>
+        <div className="group relative overflow-hidden rounded-xl border border-border-default bg-card p-4 shadow-card hover:shadow-card-hover hover:border-purple-400/50 transition-all flex items-center justify-between">
+          <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-purple-500/10 blur-xl transition-all group-hover:bg-purple-500/20 group-hover:scale-125" />
+          <div className="relative z-10">
             <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim block">
               Clearance Changes
             </span>
-            <strong className="text-2xl font-bold text-purple-300 num block mt-0.5">
+            <strong className="text-2xl font-black text-purple-400 num block mt-0.5 tracking-tight">
               {clearanceCount}
             </strong>
             <span className="text-[10px] text-text-dim block">RBAC & multi-dept scopes</span>
           </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-border-subtle text-purple-400">
+          <div className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-500/15 border border-purple-500/35 text-purple-400 shadow-sm transition-transform duration-300 group-hover:scale-110">
             <Shield size={18} />
           </div>
+          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-purple-500/0 via-purple-500/60 to-purple-500/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
       </div>
 
       {/* ============================================================ */}
-      {/* 2. UNIFIED FILTER & SEARCH TOOLBAR */}
+      {/* 2. UNIFIED FILTER & SEARCH TOOLBAR (STICKY ON SCROLL) */}
       {/* ============================================================ */}
-      <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm space-y-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-text-primary">
-          <Filter size={14} className="text-accent-light" />
-          <span>Filter Audit Trail</span>
+      <div className="sticky top-0 z-30 p-4 rounded-xl border border-border-default bg-card/95 backdrop-blur-md shadow-card-lg space-y-3 transition-all">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs font-bold text-text-primary">
+            <Filter size={14} className="text-accent-light" />
+            <span>Filter Audit Trail</span>
+            <span className="rounded-full bg-accent/15 border border-accent/30 text-accent-light px-2 py-0.5 text-[10px] font-mono font-bold">
+              {filteredEntries.length} matching events
+            </span>
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-accent/40 bg-accent/10 text-xs font-bold text-accent-light hover:text-white hover:bg-accent transition-all cursor-pointer shrink-0"
+              title="Clear all active audit search queries and filters"
+            >
+              <RotateCcw size={12} />
+              <span>Reset Filters</span>
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
@@ -227,7 +267,7 @@ export function AuditLogViewer() {
               placeholder="Search officer name, IP address, action, or resource ID…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-3 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-surface pl-9 pr-3 py-2 text-xs text-text-primary placeholder:text-text-dim outline-none focus:border-accent"
             />
           </div>
 
@@ -236,7 +276,7 @@ export function AuditLogViewer() {
             <select
               value={actionCategory}
               onChange={(e) => setActionCategory(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <option value="">All Action Categories</option>
               <option value="FILE">FILE (Upload / Download)</option>
@@ -253,7 +293,7 @@ export function AuditLogViewer() {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
               title="Filter from date"
             />
           </div>
@@ -264,7 +304,7 @@ export function AuditLogViewer() {
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-text-primary outline-none focus:border-accent"
+              className="w-full rounded-lg border border-border-default bg-surface px-3 py-2 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
               title="Filter to date"
             />
           </div>
@@ -296,9 +336,22 @@ export function AuditLogViewer() {
             Loading secure audit stream from database…
           </div>
         ) : filteredEntries.length === 0 ? (
-          <div className="p-12 text-center space-y-2">
+          <div className="p-12 text-center space-y-3">
             <p className="text-sm font-bold text-white">No Audit Events Found</p>
             <p className="text-xs text-text-dim">No records match your active search and filter criteria.</p>
+            {hasActiveFilters && (
+              <div className="pt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResetFilters}
+                  className="inline-flex items-center gap-1.5 font-bold cursor-pointer text-xs"
+                >
+                  <RotateCcw size={12} />
+                  <span>Reset Filters</span>
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">

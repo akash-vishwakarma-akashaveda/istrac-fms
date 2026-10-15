@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import {
   X,
   Download,
@@ -74,6 +74,7 @@ export function VersionHistoryPanel({
 
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const mouseDownTargetRef = useRef<EventTarget | null>(null)
   const [previewTarget, setPreviewTarget] = useState<{
     id: string
     name: string
@@ -92,7 +93,11 @@ export function VersionHistoryPanel({
       fileDetails?.title ||
       fetchedFile?.title ||
       fileName.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
-    spacecraft: fileDetails?.spacecraft || fetchedFile?.spacecraft || 'General',
+    spacecraft: (fileDetails?.spacecraft && fileDetails.spacecraft.toUpperCase() !== 'GENERAL')
+      ? fileDetails.spacecraft
+      : (fetchedFile?.spacecraft && fetchedFile.spacecraft.toUpperCase() !== 'GENERAL')
+        ? fetchedFile.spacecraft
+        : undefined,
     category: fileDetails?.category || fetchedFile?.category || 'DAILY_REPORT',
     uploader:
       fileDetails?.uploader ||
@@ -199,7 +204,15 @@ export function VersionHistoryPanel({
         className={`fixed inset-0 z-[450] bg-page/85 backdrop-blur-[2px] transition-opacity duration-300 ${
           isOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
         }`}
-        onClick={onClose}
+        onMouseDown={(e) => {
+          mouseDownTargetRef.current = e.target
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget && mouseDownTargetRef.current === e.currentTarget) {
+            const hasSelection = Boolean(window.getSelection()?.toString().trim().length)
+            if (!hasSelection) onClose()
+          }
+        }}
       />
 
       {/* Slide-over Panel */}
@@ -227,7 +240,7 @@ export function VersionHistoryPanel({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-text-muted transition-colors hover:bg-card-hover hover:text-white cursor-pointer"
+            className="rounded-lg p-1 text-text-muted transition-colors hover:bg-card-hover hover:text-text-primary cursor-pointer"
             aria-label="Close version history"
           >
             <X size={16} strokeWidth={1.8} />

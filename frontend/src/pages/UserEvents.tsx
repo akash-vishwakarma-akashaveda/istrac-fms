@@ -15,6 +15,8 @@ import {
   CalendarDays,
   History,
   Zap,
+  Filter,
+  RotateCcw,
 } from "lucide-react"
 import { Link, useSearchParams } from "react-router-dom"
 import { eventsApi, type MissionEventItem } from "../api/events.api"
@@ -100,7 +102,7 @@ export function UserEvents() {
         ])
         if (cancelled) return
         setEvents(evData || [])
-        if (cfgData?.categories?.length) {
+        if (cfgData?.categories) {
           setCustomCategories(cfgData.categories)
         }
       } catch (err) {
@@ -121,6 +123,12 @@ export function UserEvents() {
       window.removeEventListener("focus", onFocus)
     }
   }, [])
+
+  useEffect(() => {
+    if (typeFilter !== "ALL" && customCategories.length > 0 && !customCategories.some((c) => c.id === typeFilter)) {
+      setTypeFilter("ALL")
+    }
+  }, [customCategories, typeFilter])
 
   const { activeUpcomingEvents, pastEvents } = useMemo(() => {
     const now = new Date()
@@ -226,6 +234,14 @@ export function UserEvents() {
       return true
     })
   }, [currentTabEvents, typeFilter, satelliteFilter, search])
+
+  const hasActiveFilters = Boolean(search.trim() || typeFilter !== "ALL" || satelliteFilter !== "ALL")
+
+  const handleResetFilters = () => {
+    setSearch("")
+    setTypeFilter("ALL")
+    setSatelliteFilter("ALL")
+  }
 
   const nextEvent = activeUpcomingEvents[0]
 
@@ -435,8 +451,30 @@ export function UserEvents() {
             </span>
           </div>
 
-          {/* Filter Controls */}
-          <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm space-y-3">
+          {/* Filter Controls (STICKY ON SCROLL) */}
+          <div className="sticky top-0 z-20 p-4 rounded-xl border border-border-default bg-[#070d18]/95 backdrop-blur-md shadow-lg shadow-black/40 space-y-3 transition-all">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-text-primary">
+                <Filter size={14} className="text-accent-light" />
+                <span>Filter Schedule</span>
+                <span className="rounded-full bg-accent/15 border border-accent/30 text-accent-light px-2 py-0.5 text-[10px] font-mono font-bold">
+                  {filteredEvents.length} events
+                </span>
+              </div>
+
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-accent/40 bg-accent/10 text-xs font-bold text-accent-light hover:text-white hover:bg-accent transition-all cursor-pointer shrink-0"
+                  title="Clear all active search queries and filters"
+                >
+                  <RotateCcw size={12} />
+                  <span>Reset Filters</span>
+                </button>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div>
                 <label className="block text-[11px] font-bold text-text-dim uppercase mb-1">Event Type</label>
@@ -446,21 +484,21 @@ export function UserEvents() {
                   className="w-full rounded-lg border border-border-default bg-[#060c18] px-3 py-2 text-xs text-white outline-none focus:border-accent cursor-pointer"
                 >
                   <option value="ALL">All Event Types</option>
-                  {Object.entries(EVENT_TYPE_MAP).map(([key, val]) => (
-                    <option key={key} value={key}>
-                      {val.bullet} {val.label}
-                    </option>
-                  ))}
-                  {customCategories
-                    .filter((c) => !EVENT_TYPE_MAP[c.id])
-                    .map((c, i) => {
-                      const bullet = ["🔷", "🌸", "🟡", "🟣", "🟩"][i % 5]
-                      return (
-                        <option key={c.id} value={c.id}>
-                          {bullet} {c.label}
+                  {customCategories.length > 0
+                    ? customCategories.map((c, i) => {
+                        const mapped = EVENT_TYPE_MAP[c.id]
+                        const bullet = mapped?.bullet || ["🔷", "🌸", "🟡", "🟣", "🟩"][i % 5]
+                        return (
+                          <option key={c.id} value={c.id}>
+                            {bullet} {c.label || mapped?.label || c.id}
+                          </option>
+                        )
+                      })
+                    : Object.entries(EVENT_TYPE_MAP).map(([key, val]) => (
+                        <option key={key} value={key}>
+                          {val.bullet} {val.label}
                         </option>
-                      )
-                    })}
+                      ))}
                 </select>
               </div>
 
@@ -502,12 +540,24 @@ export function UserEvents() {
               Loading mission events schedule…
             </div>
           ) : filteredEvents.length === 0 ? (
-            <div className="rounded-xl border border-border-subtle bg-card p-12 text-center space-y-2">
+            <div className="rounded-xl border border-border-subtle bg-card p-12 text-center space-y-3">
               <CalendarIcon size={32} className="mx-auto text-text-dim opacity-50" />
               <p className="text-sm font-bold text-white">
                 {timelineTab === "ACTIVE_UPCOMING" ? "No Active or Future Events Found" : "No Past Archived Events Found"}
               </p>
               <p className="text-xs text-text-dim">Try adjusting your filters or keyword search above.</p>
+              {hasActiveFilters && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-accent/40 bg-accent/10 text-xs font-bold text-accent-light hover:text-white hover:bg-accent transition-all cursor-pointer"
+                  >
+                    <RotateCcw size={13} />
+                    <span>Clear All Filters</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -211,17 +211,38 @@ const approveUserHandler = async (req: any, res: any, next: any) => {
       })
 
       if (Array.isArray(departments) && departments.length > 0) {
+        const rawDeptIds = departments
+          .map((d: any) => (typeof d === 'string' ? d : d.departmentId))
+          .filter(Boolean)
+
+        const activeDepts = await tx.department.findMany({
+          where: {
+            id: { in: rawDeptIds },
+            isActive: true,
+            deletedAt: null,
+          },
+          select: { id: true },
+        })
+        const activeIdSet = new Set(activeDepts.map((ad: any) => ad.id))
+
         await tx.userDepartmentAccess.deleteMany({
           where: { userId },
         })
 
-        await tx.userDepartmentAccess.createMany({
-          data: departments.map((d: any) => ({
-            userId,
-            departmentId: typeof d === 'string' ? d : d.departmentId,
-            accessLevel: typeof d === 'object' && d.accessLevel === 'READ_WRITE' ? 'READ_WRITE' : 'READ_ONLY',
-          })),
+        const validDepartments = departments.filter((d: any) => {
+          const id = typeof d === 'string' ? d : d.departmentId
+          return activeIdSet.has(id)
         })
+
+        if (validDepartments.length > 0) {
+          await tx.userDepartmentAccess.createMany({
+            data: validDepartments.map((d: any) => ({
+              userId,
+              departmentId: typeof d === 'string' ? d : d.departmentId,
+              accessLevel: typeof d === 'object' && d.accessLevel === 'READ_WRITE' ? 'READ_WRITE' : 'READ_ONLY',
+            })),
+          })
+        }
       }
 
       return u
@@ -516,13 +537,34 @@ router.put('/admin/users/:userId', authMiddleware, adminMiddleware, async (req, 
         })
 
         if (departments.length > 0) {
-          await tx.userDepartmentAccess.createMany({
-            data: departments.map((d: any) => ({
-              userId,
-              departmentId: typeof d === 'string' ? d : d.departmentId,
-              accessLevel: typeof d === 'object' && d.accessLevel === 'READ_WRITE' ? 'READ_WRITE' : 'READ_ONLY',
-            })),
+          const rawDeptIds = departments
+            .map((d: any) => (typeof d === 'string' ? d : d.departmentId))
+            .filter(Boolean)
+
+          const activeDepts = await tx.department.findMany({
+            where: {
+              id: { in: rawDeptIds },
+              isActive: true,
+              deletedAt: null,
+            },
+            select: { id: true },
           })
+          const activeIdSet = new Set(activeDepts.map((ad: any) => ad.id))
+
+          const validDepartments = departments.filter((d: any) => {
+            const id = typeof d === 'string' ? d : d.departmentId
+            return activeIdSet.has(id)
+          })
+
+          if (validDepartments.length > 0) {
+            await tx.userDepartmentAccess.createMany({
+              data: validDepartments.map((d: any) => ({
+                userId,
+                departmentId: typeof d === 'string' ? d : d.departmentId,
+                accessLevel: typeof d === 'object' && d.accessLevel === 'READ_WRITE' ? 'READ_WRITE' : 'READ_ONLY',
+              })),
+            })
+          }
         }
       }
 
@@ -754,7 +796,7 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
     const userId = req.user!.id
     const isAdmin = req.user!.role === 'ADMIN'
 
-    // 1. Get user's accessible departments
+    // 1. Get user's accessible departments (only active, non-archived departments)
     const userAccess = await prisma.userDepartmentAccess.findMany({
       where: {
         userId,
@@ -770,10 +812,35 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
       ? []
       : userAccess.map((ua) => ua.departmentId)
 
+    // 2. Identify all deactivated, decommissioned, or deleted satellites
+    const archivedSatellites = await prisma.satellite.findMany({
+      where: {
+        OR: [
+          { isActive: false },
+          { deletedAt: { not: null } },
+          { status: { in: ['DECOMMISSIONED', 'ARCHIVED', 'INACTIVE'] } },
+        ],
+      },
+      select: { id: true, name: true, code: true, satId: true },
+    })
+    const archivedSatIds = archivedSatellites.map((s) => s.id)
+    const archivedSatTerms = Array.from(
+      new Set(
+        archivedSatellites
+          .flatMap((s) => [s.name, s.code, s.satId])
+          .filter((t): t is string => Boolean(t && t.length >= 3 && !['GENERAL', 'ISRO', 'ISTRAC'].includes(t.toUpperCase())))
+      )
+    )
+
+    // Common file condition strictly excluding archived departments, satellites, trash, and reports
     const fileWhere: any = {
       nodeType: 'FILE',
       deletedAt: null,
       status: { in: ['ACTIVE', 'ORPHANED'] },
+      department: {
+        isActive: true,
+        deletedAt: null,
+      },
       ...(!isAdmin ? { departmentId: { in: deptIds } } : {}),
       ...(!isAdmin
         ? {
@@ -785,6 +852,22 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
             },
           }
         : {}),
+      OR: [
+        { reportId: null },
+        {
+          report: {
+            deletedAt: null,
+            status: 'ACTIVE',
+            NOT: {
+              OR: [
+                ...(archivedSatTerms.length > 0 ? archivedSatTerms.map((term) => ({ spacecraft: { contains: term } })) : []),
+                { spacecraft: { contains: 'General' } },
+                { spacecraft: { contains: 'GENERAL' } },
+              ],
+            },
+          },
+        },
+      ],
     }
 
     const todayStart = new Date()
@@ -862,6 +945,22 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
               nodeType: 'FILE',
               deletedAt: null,
               status: { in: ['ACTIVE', 'ORPHANED'] },
+              OR: [
+                { reportId: null },
+                {
+                  report: {
+                    deletedAt: null,
+                    status: 'ACTIVE',
+                    ...(archivedSatTerms.length > 0
+                      ? {
+                          NOT: {
+                            OR: archivedSatTerms.map((term) => ({ spacecraft: { contains: term } })),
+                          },
+                        }
+                      : {}),
+                  },
+                },
+              ],
               ...(!isAdmin
                 ? {
                     versions: {
@@ -882,6 +981,7 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
               extension: true,
               sizeBytes: true,
               createdAt: true,
+              report: { select: { id: true, title: true, category: true, customCategory: true } },
               versions: {
                 where: {
                   deletedAt: null,
@@ -900,6 +1000,22 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
                   nodeType: 'FILE',
                   deletedAt: null,
                   status: { in: ['ACTIVE', 'ORPHANED'] },
+                  OR: [
+                    { reportId: null },
+                    {
+                      report: {
+                        deletedAt: null,
+                        status: 'ACTIVE',
+                        ...(archivedSatTerms.length > 0
+                          ? {
+                              NOT: {
+                                OR: archivedSatTerms.map((term) => ({ spacecraft: { contains: term } })),
+                              },
+                            }
+                          : {}),
+                      },
+                    },
+                  ],
                   ...(!isAdmin
                     ? {
                         versions: {
@@ -930,7 +1046,11 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
         orderBy: { createdAt: 'asc' },
       }),
       prisma.satellite.findMany({
-        where: { deletedAt: null, isActive: true },
+        where: {
+          deletedAt: null,
+          isActive: true,
+          status: { notIn: ['DECOMMISSIONED', 'ARCHIVED', 'INACTIVE'] },
+        },
         select: { id: true, name: true, code: true },
         orderBy: { createdAt: 'asc' },
       }),
@@ -955,9 +1075,6 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
       'NISAR': '#F59E0B',
       'XPoSat': '#EC4899',
       'PSLV-C59': '#3B82F6',
-      'NETRA SSA': '#EF4444',
-      'NETRA': '#EF4444',
-      'IS4OM': '#EF4444',
       'EOS-08': '#00D8B6',
       'General': '#64748B',
     }
@@ -971,19 +1088,29 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
       return satPalette[index % satPalette.length]
     }
 
-    // Resolve spacecraft for each file against report metadata, filename, and DB satellites
-    const resolveFileSpacecraft = (f: any): string => {
-      if (f.report?.spacecraft && f.report.spacecraft !== 'General') {
-        return f.report.spacecraft
+    // Resolve spacecraft for each file against report metadata, filename, and DB active satellites ONLY
+    const resolveFileSpacecraft = (f: any): string | null => {
+      if (f.report?.spacecraft && f.report.spacecraft.toUpperCase() !== 'GENERAL' && !f.report.spacecraft.toUpperCase().includes('GENERAL')) {
+        const repSat = f.report.spacecraft.trim()
+        const matchedActive = satellites.find((s: any) => {
+          const sClean = s.name.replace(/ (Solar Observatory|Lunar Relay|Optical Constellation|Orbital Module|Earth Observatory|Ground Complex)$/i, '').trim().toUpperCase()
+          const code = (s.code || '').toUpperCase()
+          const target = repSat.toUpperCase()
+          return target === sClean || target === code || target.includes(sClean) || sClean.includes(target)
+        })
+        if (matchedActive) {
+          return matchedActive.name.replace(/ (Solar Observatory|Lunar Relay|Optical Constellation|Orbital Module|Earth Observatory|Ground Complex)$/i, '').trim() || matchedActive.name
+        }
       }
+
       const text = `${f.name || ''} ${f.report?.title || ''}`.toUpperCase()
       const textClean = text.replace(/[^A-Z0-9]/g, '')
 
       for (const s of satellites) {
-        if (s.code === 'ISTRAC-BLR' || s.code === 'GENERAL' || s.name.includes('Ground Complex')) continue
+        if (s.code === 'ISTRAC-BLR' || s.code === 'GENERAL' || s.name.toUpperCase() === 'GENERAL' || s.name.includes('Ground Complex')) continue
         if (s.code) {
           const codeClean = s.code.replace(/[^A-Z0-9]/g, '')
-          if (codeClean && textClean.includes(codeClean)) {
+          if (codeClean && codeClean.length >= 3 && textClean.includes(codeClean)) {
             return s.name.replace(/ (Solar Observatory|Lunar Relay|Optical Constellation|Orbital Module|Earth Observatory)$/i, '').trim() || s.name
           }
         }
@@ -992,11 +1119,8 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
           return s.name.replace(/ (Solar Observatory|Lunar Relay|Optical Constellation|Orbital Module|Earth Observatory)$/i, '').trim() || s.name
         }
       }
-      if (/PSLV[-_]?C59/i.test(text)) return 'PSLV-C59'
-      if (/NETRA|IS4OM/i.test(text)) return 'NETRA SSA'
-      if (/XPOSAT/i.test(text)) return 'XPoSat'
-      if (/EOS[-_]?08/i.test(text)) return 'EOS-08'
-      return 'General'
+
+      return null
     }
 
     const spacecraftMap: Record<string, number> = {}
@@ -1009,10 +1133,16 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
 
     allFiles.forEach((f: any) => {
       const sat = resolveFileSpacecraft(f)
-      spacecraftMap[sat] = (spacecraftMap[sat] || 0) + 1
+      if (sat && sat !== 'General' && spacecraftMap[sat] !== undefined) {
+        const isArchived = archivedSatTerms.some((t) => sat.toUpperCase().includes(t.toUpperCase()))
+        if (!isArchived) {
+          spacecraftMap[sat] = (spacecraftMap[sat] || 0) + 1
+        }
+      }
     })
 
     const spacecraftData = Object.entries(spacecraftMap)
+      .filter(([_, count]) => count > 0)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .map(([spacecraft, count], i) => ({
         spacecraft,
@@ -1078,6 +1208,7 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
 
     const totalCategoryCount = Math.max(1, allFiles.length)
     const categoryData = Object.entries(categoryMap)
+      .filter(([_, count]) => count > 0)
       .sort((a, b) => b[1] - a[1])
       .map(([cat, count], i) => {
         const label = presetNames.get(cat) || cat
@@ -1102,33 +1233,35 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
         },
         spacecraftBreakdown: spacecraftData,
         categoryBreakdown: categoryData,
-        recentFiles: allFiles.map((f: any) => {
-          const activeVer = f.versions?.[0]
-          const displayName = (!isAdmin && activeVer?.name) ? activeVer.name : f.name
-          const displaySize = (!isAdmin && activeVer?.sizeBytes) ? activeVer.sizeBytes.toString() : (f.sizeBytes ? f.sizeBytes.toString() : '0')
-          const displayVer = (!isAdmin && activeVer?.versionLabel) ? activeVer.versionLabel : (f.report?.versionLabel || `V${f.versionCount || 1}.0`)
+        recentFiles: allFiles
+          .map((f: any) => {
+            const activeVer = f.versions?.[0]
+            const displayName = (!isAdmin && activeVer?.name) ? activeVer.name : f.name
+            const displaySize = (!isAdmin && activeVer?.sizeBytes) ? activeVer.sizeBytes.toString() : (f.sizeBytes ? f.sizeBytes.toString() : '0')
+            const displayVer = (!isAdmin && activeVer?.versionLabel) ? activeVer.versionLabel : (f.report?.versionLabel || `V${f.versionCount || 1}.0`)
 
-          const fileSat = resolveFileSpacecraft(f)
-          const fileCat = resolveFileCategory(f)
+            const fileSat = resolveFileSpacecraft(f)
+            const fileCat = resolveFileCategory(f)
 
-          return {
-            id: f.id,
-            name: displayName,
-            title: f.report?.title || displayName.replace(/_/g, ' ').replace(/\.[^.]+$/, ''),
-            category: fileCat,
-            version: displayVer,
-            status: f.report?.status || 'Published',
-            reportDate: f.createdAt,
-            author: f.uploader?.name || 'System',
-            classification: f.report?.classificationLevel || '',
-            spacecraft: fileSat,
-            departmentName: f.department?.name || '',
-            departmentCode: f.department?.code || '',
-            sizeBytes: displaySize,
-            mimeType: f.mimeType,
-            extension: (f.extension || '').toUpperCase(),
-          }
-        }),
+            return {
+              id: f.id,
+              name: displayName,
+              title: f.report?.title || displayName.replace(/_/g, ' ').replace(/\.[^.]+$/, ''),
+              category: fileCat,
+              version: displayVer,
+              status: f.report?.status || 'Published',
+              reportDate: f.createdAt,
+              author: f.uploader?.name || 'System',
+              classification: f.report?.classificationLevel || '',
+              spacecraft: fileSat,
+              departmentName: f.department?.name || '',
+              departmentCode: f.department?.code || '',
+              sizeBytes: displaySize,
+              mimeType: f.mimeType,
+              extension: (f.extension || '').toUpperCase(),
+            }
+          })
+          .filter((f: any) => Boolean(f.spacecraft && f.spacecraft.toUpperCase() !== 'GENERAL')),
         departments: departments.map((d: any) => {
           const access = userAccess.find((ua) => ua.departmentId === d.id)
           return {
@@ -1151,6 +1284,7 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
                 mimeType: f.mimeType,
                 extension: (f.extension || '').toUpperCase(),
                 sizeBytes: size,
+                category: resolveFileCategory(f),
                 createdAt: f.createdAt,
               }
             }),

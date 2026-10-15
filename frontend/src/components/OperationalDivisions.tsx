@@ -75,7 +75,7 @@ export function OperationalDivisions() {
   }, [departments, cmsConfig?.order])
 
   return (
-    <section id="departments-showcase" className="border-b border-border-subtle/80 bg-[#080d17]/60 py-16 sm:py-20" aria-labelledby="divisions-title">
+    <section id="departments-showcase" className="border-b border-border-subtle/80 bg-page-soft/60 py-16 sm:py-20" aria-labelledby="divisions-title">
       <div className="shell space-y-10">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 border-b border-border-subtle/70 pb-6">
@@ -106,7 +106,7 @@ export function OperationalDivisions() {
 
             <Link
               to="/departments"
-              className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-card px-4 py-2.5 text-xs font-bold text-accent-light hover:border-accent hover:text-white transition-all shadow-sm shrink-0 group"
+              className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-card px-4 py-2.5 text-xs font-bold text-accent hover:border-accent hover:bg-accent/10 transition-all shadow-sm shrink-0 group cursor-pointer"
             >
               <Layers size={14} className="group-hover:scale-110 transition-transform" />
               <span>Explore All Divisions ({departments.length})</span>
@@ -121,16 +121,16 @@ export function OperationalDivisions() {
             Loading operational divisions from database…
           </div>
         ) : departments.length === 0 ? (
-          <div className="rounded-2xl border border-border-subtle bg-[#0b1220] p-12 text-center text-xs text-text-dim">
+          <div className="rounded-2xl border border-border-default bg-card p-12 text-center text-xs text-text-dim shadow-card">
             No divisions found in database.
           </div>
         ) : layoutMode === 'table' ? (
           /* Table Format (Configured by Admin in CMS) */
-          <div className="rounded-2xl border border-border-default/80 bg-[#0b1220]/95 shadow-2xl backdrop-blur-sm overflow-hidden">
+          <div className="rounded-2xl border border-border-default bg-card shadow-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] border-collapse text-left">
                 <thead>
-                  <tr className="border-b border-border-default bg-[#070d18]/95 text-[11px] font-bold uppercase tracking-wider text-text-dim">
+                  <tr className="border-b border-border-default bg-surface text-[11px] font-bold uppercase tracking-wider text-text-dim">
                     <th scope="col" className="px-5 py-4 w-28">Code</th>
                     <th scope="col" className="px-5 py-4">Division & Mandate</th>
                     {showLeadOfficer && (
@@ -273,7 +273,7 @@ export function OperationalDivisions() {
                         <td className="px-5 py-4.5 align-middle text-right">
                           <Link
                             to={`/departments/${dept.id}`}
-                            className="inline-flex items-center gap-1 text-xs font-bold text-accent-light hover:text-white transition-colors group-hover:underline"
+                            className="inline-flex items-center gap-1 text-xs font-bold text-accent-light hover:text-accent transition-colors group-hover:underline"
                           >
                             <span>View Details</span>
                             <ArrowRight size={13} />
@@ -299,7 +299,7 @@ export function OperationalDivisions() {
               return (
                 <div
                   key={dept.id}
-                  className="rounded-2xl border border-border-default bg-[#0b1220]/90 p-6 shadow-xl backdrop-blur-sm hover:border-accent/50 transition-all flex flex-col justify-between space-y-4 group hover:shadow-2xl hover:shadow-accent/10"
+                  className="rounded-2xl border border-border-default bg-card p-6 shadow-card hover:border-accent/50 transition-all flex flex-col justify-between space-y-4 group hover:shadow-card-hover"
                 >
                   <div className="space-y-3.5">
                     {/* Header Badge Row */}
@@ -322,7 +322,7 @@ export function OperationalDivisions() {
 
                     {/* Division Title */}
                     <div>
-                      <h3 className="text-base font-bold text-white group-hover:text-accent-light transition-colors line-clamp-1">
+                      <h3 className="text-base font-bold text-text-primary group-hover:text-accent-light transition-colors line-clamp-1">
                         {title}
                       </h3>
                       <p className="text-xs text-text-secondary mt-1 line-clamp-3 leading-relaxed">
@@ -411,7 +411,7 @@ export function OperationalDivisions() {
 
                     <Link
                       to={`/departments/${dept.id}`}
-                      className="inline-flex items-center gap-1 text-xs font-bold text-accent-light hover:text-white group-hover:underline shrink-0"
+                      className="inline-flex items-center gap-1 text-xs font-bold text-accent-light hover:text-accent group-hover:underline shrink-0"
                     >
                       <span>View Details</span>
                       <ArrowRight size={13} />

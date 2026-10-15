@@ -90,9 +90,10 @@ export const departmentsApi = {
     }))
   },
 
-  async getAllAdminDepartments(satelliteId?: string): Promise<Department[]> {
+  async getAllAdminDepartments(params?: { satelliteId?: string; activeOnly?: boolean } | string): Promise<Department[]> {
+    const queryParams = typeof params === 'string' ? { satelliteId: params } : params
     const res = await apiClient.get('/admin/departments', {
-      params: { satelliteId },
+      params: queryParams,
     })
     const list = extractData<Department[]>(res)
     return (list || []).map((d) => ({
@@ -134,7 +135,16 @@ export const departmentsApi = {
 
   async getDepartmentFiles(
     deptId: string,
-    params?: { search?: string; extension?: string; spacecraft?: string }
+    params?: {
+      search?: string
+      extension?: string
+      spacecraft?: string
+      category?: string
+      classification?: string
+      dateFilter?: string
+      sortBy?: string
+      sortOrder?: 'asc' | 'desc'
+    }
   ): Promise<any[]> {
     const res = await apiClient.get(`/departments/${deptId}/files`, { params })
     return extractData<any[]>(res) || []

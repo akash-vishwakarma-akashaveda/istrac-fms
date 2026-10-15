@@ -180,7 +180,7 @@ export function FeaturedReports({ department, hideDepartmentFilter }: FeaturedRe
     <>
       <section
         id="featured-files"
-        className="border-b border-border-subtle/80 bg-[#080d19]/65 py-14 sm:py-16"
+        className="border-b border-border-subtle/80 bg-page-soft/60 backdrop-blur-sm py-14 sm:py-16"
         aria-labelledby="featured-files-title"
       >
         <div className="shell">
@@ -234,7 +234,7 @@ export function FeaturedReports({ department, hideDepartmentFilter }: FeaturedRe
                     type="button"
                     onClick={scrollLeft}
                     aria-label="Previous reports"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-surface text-text-muted hover:border-accent hover:text-text-primary transition-colors shadow-sm"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent hover:bg-accent/10 transition-colors shadow-sm cursor-pointer"
                   >
                     <ChevronLeft size={15} />
                   </button>
@@ -242,7 +242,7 @@ export function FeaturedReports({ department, hideDepartmentFilter }: FeaturedRe
                     type="button"
                     onClick={scrollRight}
                     aria-label="Next reports"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-surface text-text-muted hover:border-accent hover:text-text-primary transition-colors shadow-sm"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent hover:bg-accent/10 transition-colors shadow-sm cursor-pointer"
                   >
                     <ChevronRight size={15} />
                   </button>
@@ -268,7 +268,7 @@ export function FeaturedReports({ department, hideDepartmentFilter }: FeaturedRe
                     <div
                       key={item.id}
                       onClick={() => handleOpenPreview(item)}
-                      className="group relative flex w-[82vw] max-w-[350px] sm:w-[350px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-2xl border border-border-default bg-[#0d1629] p-5 shadow-card transition-all duration-300 hover:border-accent/50 hover:bg-[#101c36] hover:shadow-2xl cursor-pointer"
+                      className="group relative flex w-[82vw] max-w-[350px] sm:w-[350px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-2xl border border-border-default bg-card p-5 shadow-card transition-all duration-300 hover:border-accent/50 hover:bg-card-hover hover:shadow-card-hover cursor-pointer"
                     >
                       <div>
                         {/* Top Row: Extension badge, Satellite tag, and Star action */}
@@ -281,9 +281,11 @@ export function FeaturedReports({ department, hideDepartmentFilter }: FeaturedRe
                               {meta.label}
                             </span>
 
-                            <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary border border-border-subtle">
-                              {item.satellite?.includes('General') ? 'General' : item.satellite}
-                            </span>
+                            {item.satellite && !item.satellite.toUpperCase().includes('GENERAL') && (
+                              <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary border border-border-subtle">
+                                {item.satellite}
+                              </span>
+                            )}
 
                             {item.versionLabel && (
                               <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] font-mono font-bold text-accent-light border border-border-subtle">
@@ -313,7 +315,7 @@ export function FeaturedReports({ department, hideDepartmentFilter }: FeaturedRe
 
                         {/* Title & Filename */}
                         <div className="mt-4">
-                          <h3 className="text-sm font-bold leading-snug text-white group-hover:text-accent-light transition-colors line-clamp-1">
+                          <h3 className="text-sm font-bold leading-snug text-text-primary group-hover:text-accent-light transition-colors line-clamp-1">
                             {item.title}
                           </h3>
 
@@ -333,7 +335,7 @@ export function FeaturedReports({ department, hideDepartmentFilter }: FeaturedRe
                       {/* Footer: Size, Dept, Action Buttons */}
                       <div className="mt-5 flex items-center justify-between border-t border-border-subtle/70 pt-3">
                         <div className="flex items-center gap-2">
-                          <span className="num text-xs font-bold text-white">
+                          <span className="num text-xs font-bold text-text-primary">
                             {item.fileSize}
                           </span>
                           <span className="text-[10px] text-text-dim">·</span>
@@ -348,7 +350,7 @@ export function FeaturedReports({ department, hideDepartmentFilter }: FeaturedRe
                               <button
                                 type="button"
                                 onClick={() => handleOpenPreview(item)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-accent/40 bg-accent/15 px-2.5 py-1.5 text-xs font-semibold text-accent-light hover:bg-accent hover:text-white transition-all shadow-sm"
+                                className="inline-flex items-center gap-1 rounded-lg border border-accent/50 bg-accent/15 px-2.5 py-1.5 text-xs font-semibold text-accent hover:bg-accent hover:text-white transition-all shadow-sm cursor-pointer"
                                 title="View in-browser without login"
                               >
                                 <Eye size={12} />
@@ -358,7 +360,7 @@ export function FeaturedReports({ department, hideDepartmentFilter }: FeaturedRe
                                 type="button"
                                 onClick={(e) => handleDownload(e, item)}
                                 disabled={downloadingId === item.id}
-                                className="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border-default bg-surface text-text-muted hover:border-nominal hover:text-nominal transition-colors"
+                                className="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border-default bg-surface text-text-muted hover:border-nominal hover:text-nominal hover:bg-nominal/10 transition-colors cursor-pointer shadow-sm"
                                 title="Download Report"
                               >
                                 <Download size={12} />
@@ -369,7 +371,7 @@ export function FeaturedReports({ department, hideDepartmentFilter }: FeaturedRe
                               type="button"
                               onClick={(e) => handleDownload(e, item)}
                               disabled={downloadingId === item.id}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:border-nominal hover:text-nominal transition-all shadow-sm"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:border-nominal hover:text-nominal hover:bg-nominal/10 transition-all shadow-sm cursor-pointer"
                               title="Download Raw Dataset (No login required)"
                             >
                               <Download size={12} className="text-nominal" />

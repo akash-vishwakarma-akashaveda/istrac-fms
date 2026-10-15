@@ -365,9 +365,9 @@ export function SearchPage() {
       </div>
 
       {/* ============================================================ */}
-      {/* 2. MULTI-FACET FILTER PANEL */}
+      {/* 2. MULTI-FACET FILTER PANEL (STICKY ON SCROLL) */}
       {/* ============================================================ */}
-      <div className="rounded-xl border border-border-default bg-card p-4 shadow-sm space-y-3">
+      <div className="sticky top-16 z-30 rounded-xl border border-border-default bg-[#070d18]/95 backdrop-blur-md p-4 shadow-lg shadow-black/40 space-y-3 transition-all">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Filter size={14} className="text-accent-light" />
@@ -610,9 +610,9 @@ export function SearchPage() {
                   {/* Top Tags */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {file.satelliteName ? (
+                      {file.satelliteName && !file.satelliteName.toUpperCase().includes('GENERAL') ? (
                         <span className="rounded bg-accent/15 border border-accent/30 text-accent-light px-1.5 py-0.5 text-[10px] font-bold uppercase num">
-                          {file.satelliteName.includes('General') ? 'General' : file.satelliteName}
+                          {file.satelliteName}
                         </span>
                       ) : null}
                       {(file.departmentCode || file.departmentName) ? (

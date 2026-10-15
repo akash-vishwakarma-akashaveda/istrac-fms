@@ -60,7 +60,7 @@ export function FeatureStrip() {
             return (
               <article
                 key={`${item.title}-${index}`}
-                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border-subtle bg-card p-8 shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:border-accent/40 hover:shadow-2xl hover:shadow-accent/10"
+                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border-default bg-card p-8 shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:border-accent/40 hover:shadow-2xl hover:shadow-accent/10"
               >
                 {/* Subtle Radial Flare on Hover */}
                 <div className="pointer-events-none absolute -top-24 -right-24 h-48 w-48 rounded-full bg-accent/10 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
