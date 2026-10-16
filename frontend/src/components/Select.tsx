@@ -27,10 +27,10 @@ export function Select({ label, error, hint, className = '', id, children, ...pr
           id={id}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
-          className={`w-full appearance-none rounded-md border bg-surface px-3 py-2.5 pr-9 text-base sm:text-sm text-text-primary outline-none transition-colors duration-150 hover:border-border-bright focus:bg-card-hover disabled:cursor-not-allowed disabled:bg-card disabled:text-text-muted ${
+          className={`w-full appearance-none rounded-md border bg-surface px-3 py-2.5 pr-9 text-base sm:text-sm text-text-primary outline-none focus:outline-none focus:ring-0 transition-colors duration-150 hover:border-border-bright disabled:cursor-not-allowed disabled:bg-card disabled:text-text-muted ${
             error
               ? 'border-critical focus:border-critical'
-              : 'border-border-default focus:border-accent'
+              : 'border-border-default focus:border-secondary'
           } ${className}`}
           {...props}
         >

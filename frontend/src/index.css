@@ -3,14 +3,59 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
 
 /* ============================================================================
+   AIR-GAPPED OFFLINE TYPOGRAPHY (ISRO ISTRAC INTRANET)
+   Self-contained local WOFF2 font definitions. Strictly offline — zero external CDNs.
+   ========================================================================== */
+
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 100;
+  font-display: swap;
+  src: url('/fonts/Lato-Thin.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('/fonts/Lato-Light.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Lato-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Lato-Bold.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'DejaVu Sans Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/DejaVuSansMono.woff2') format('woff2');
+}
+
+/* ============================================================================
    ISTRAC-SIMS DESIGN SYSTEM & THEME TOKENS
    Target: Aerospace Mission Control & Intranet File Management Portal
    ========================================================================== */
 
 @theme {
-  /* -- Typography ---------------------------------------------------------- */
-  --font-sans: "Inter", "Plus Jakarta Sans", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", "SF Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+  /* -- Typography (Offline Local Fonts: Lato + DejaVu Sans Mono) ------------ */
+  --font-sans: 'Lato', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: 'DejaVu Sans Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   --font-weight-light: 300;
   --font-weight-normal: 400;
@@ -202,6 +247,15 @@ body {
   line-height: 1.15;
 }
 
+:root[data-theme="light"] :is(.display, h1.display, h2.display, h3.display, h1:is([class*="display"]), h2:is([class*="display"])):not([data-theme="dark"], [data-theme="dark"] *) {
+  color: #061a30 !important;
+  -webkit-text-fill-color: #061a30 !important;
+  background: none !important;
+  background-image: none !important;
+  letter-spacing: -0.025em;
+  text-shadow: none !important;
+}
+
 .eyebrow {
   font-family: var(--font-sans);
   font-size: 11px;
@@ -331,62 +385,63 @@ body {
 :root[data-theme="light"] {
   color-scheme: light;
   /* -- 80% Canvas & Neutral Surfaces (Clean Architectural Slate Canvas) -------- */
-  --color-page: #e8edf5;
-  --color-page-soft: #dfe6f1;
+  --color-page: #e6edf5;
+  --color-page-soft: #dbe4ef;
   --color-surface: #ffffff;
   --color-card: #ffffff;
-  --color-card-hover: #f1f5f9;
+  --color-card-hover: #f8fafc;
 
-  /* -- Clean Architectural Hairlines & Visible Boundaries ------------------ */
-  --color-border-subtle: #d3dde8;
-  --color-border-default: #b4c4d5;
-  --color-border-bright: #7b90a6;
-  --color-border: #b4c4d5;
+  /* -- Clean Architectural Hairlines & Visible Boundaries (WCAG 1.4.11 >=3:1) -- */
+  --color-border-subtle: #cbd5e1;
+  --color-border-default: #94a3b8;
+  --color-border-bright: #64748b;
+  --color-border: #94a3b8;
 
-  /* -- Slate Ink Typography ------------------------------------------------ */
-  --color-text-primary: #0f172a;
-  --color-text-secondary: #334155;
-  --color-text-muted: #64748b;
-  --color-text-dim: #94a3b8;
+  /* -- Slate Ink Typography (WCAG 1.4.3 AAA/AA Compliance) ----------------- */
+  --color-text-primary: #0a0f1d;
+  --color-text-secondary: #1e293b;
+  --color-text-muted: #334155;
+  --color-text-dim: #475569;
 
-  /* -- 10% Primary Accent: ISRO Vibrant Saffron (Light ASE: #F26716) -------- */
-  --color-accent: #f26716;
-  --color-accent-hover: #d95408;
-  --color-accent-light: #f28322;
-  --color-accent-dark: #b84305;
+  /* -- 10% Primary Accent: High-Contrast Aerospace Saffron (Light Mode WCAG AA) */
+  --color-accent: #c2410c;
+  --color-accent-hover: #9a3412;
+  --color-accent-light: #c2410c;
+  --color-accent-dark: #7c2d12;
 
-  /* -- 20% Secondary / Structure: Sky Blue & Cyan (Light ASE: #118CD9 & #11A0D9) */
-  --color-secondary: #118cd9;
-  --color-secondary-hover: #0e74b3;
-  --color-secondary-light: #11a0d9;
-  --color-secondary-dark: #0b5a8a;
+  /* -- 20% Secondary / Structure: Deep Mission Blue ----------------------- */
+  --color-secondary: #0284c7;
+  --color-secondary-hover: #0369a1;
+  --color-secondary-light: #0369a1;
+  --color-secondary-dark: #075985;
 
   /* -- Additional Swatches from Light ASE Palette -------------------------- */
-  --color-terracotta: #d9814e; /* Light ASE: #D9814E Muted Terracotta Sand */
+  --color-terracotta: #b45309;
 
-  --color-nominal: #059669;
+  --color-nominal: #047857;
   --color-nominal-bg: #ecfdf5;
-  --color-warning: #d97706;
+  --color-warning: #b45309;
   --color-warning-bg: #fffbeb;
-  --color-critical: #dc2626;
+  --color-critical: #b91c1c;
   --color-critical-bg: #fef2f2;
-  --color-special: #7c3aed;
+  --color-special: #6b21a8;
   --color-special-bg: #faf5ff;
 
   --shadow-card:
     0 1px 3px 0 rgba(15, 23, 42, 0.08),
-    0 1px 2px -1px rgba(15, 23, 42, 0.06),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.95);
+    0 4px 14px -2px rgba(15, 23, 42, 0.06),
+    0 0 0 1px rgba(15, 23, 42, 0.08);
   --shadow-card-hover:
-    0 8px 20px -3px rgba(15, 23, 42, 0.12),
-    0 3px 8px -2px rgba(15, 23, 42, 0.08),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.95);
+    0 12px 28px -4px rgba(15, 23, 42, 0.12),
+    0 4px 10px -2px rgba(15, 23, 42, 0.06),
+    0 0 0 1px rgba(2, 132, 199, 0.35);
   --shadow-card-lg:
-    0 16px 36px -4px rgba(15, 23, 42, 0.14),
-    0 6px 14px -2px rgba(15, 23, 42, 0.08);
-  --shadow-button: 0 1px 2px 0 rgba(15, 23, 42, 0.08);
-  --shadow-glow: 0 2px 8px 0 rgba(242, 103, 22, 0.20);
-  --shadow-glow-nominal: 0 2px 8px 0 rgba(5, 150, 105, 0.20);
+    0 20px 40px -6px rgba(15, 23, 42, 0.14),
+    0 8px 16px -3px rgba(15, 23, 42, 0.08),
+    0 0 0 1px rgba(15, 23, 42, 0.10);
+  --shadow-button: 0 1px 2px 0 rgba(15, 23, 42, 0.10), 0 0 0 1px rgba(15, 23, 42, 0.06);
+  --shadow-glow: 0 2px 10px 0 rgba(194, 65, 12, 0.25);
+  --shadow-glow-nominal: 0 2px 10px 0 rgba(4, 120, 87, 0.25);
 
   /* Light accent shades used as text on dark backgrounds become their high-contrast equivalents */
   --color-amber-300: #b45309; --color-amber-400: #b45309;
@@ -480,19 +535,19 @@ body {
   border-radius: 3px;
 }
 :root[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
-  background: #118cd9;
+  background: #0284c7;
 }
 
 /* Graticule technical grid overlay for light mode */
 :root[data-theme="light"] .graticule {
   background-image:
-    linear-gradient(to right, rgba(17, 140, 217, 0.12) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(17, 140, 217, 0.12) 1px, transparent 1px);
+    linear-gradient(to right, rgba(2, 132, 199, 0.16) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(2, 132, 199, 0.16) 1px, transparent 1px);
 }
 :root[data-theme="light"] .graticule-fine {
   background-image:
-    linear-gradient(to right, rgba(17, 140, 217, 0.08) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(17, 140, 217, 0.08) 1px, transparent 1px);
+    linear-gradient(to right, rgba(2, 132, 199, 0.10) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(2, 132, 199, 0.10) 1px, transparent 1px);
 }
 
 /* Dark island inside light mode (preserves space hero and explicit dark subtrees) */
@@ -541,11 +596,11 @@ body {
 
 /* Table headers & rows in light mode: clear tabular hierarchy */
 :root[data-theme="light"] thead tr {
-  background-color: #e5edf6 !important;
+  background-color: #e9f0f8 !important;
   border-bottom: 2px solid var(--color-border-default) !important;
 }
 :root[data-theme="light"] th {
-  color: #0f172a !important;
+  color: #0a0f1d !important;
   font-weight: 700;
 }
 :root[data-theme="light"] tbody tr {
@@ -553,15 +608,15 @@ body {
   border-bottom: 1px solid var(--color-border-subtle);
 }
 :root[data-theme="light"] tbody tr:hover {
-  background-color: #f1f5f9 !important;
+  background-color: #f1f6fc !important;
 }
 
 /* Sidebar active navigation link in light mode */
 :root[data-theme="light"] aside a.active,
 :root[data-theme="light"] aside [class*="border-l-accent"]:is([class*="bg-accent/"]) {
-  background-color: #fff7ed !important;
+  background-color: #ffedd5 !important;
   color: var(--color-accent) !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
 }
 :root[data-theme="light"] aside a.active svg,
 :root[data-theme="light"] aside [class*="border-l-accent"]:is([class*="bg-accent/"]) svg {
@@ -573,15 +628,26 @@ body {
   background-color: #ffffff;
   border-color: var(--color-border-default);
   color: var(--color-text-primary);
-  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
 }
-:root[data-theme="light"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):focus:not([data-theme="dark"] *) {
-  border-color: var(--color-accent) !important;
-  box-shadow: 0 0 0 3px rgba(242, 103, 22, 0.16) !important;
+:root[data-theme="light"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):focus:not([data-theme="dark"] *),
+:root[data-theme="light"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):focus-visible:not([data-theme="dark"] *),
+:root[data-theme="light"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):active:not([data-theme="dark"] *) {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: none !important;
+  --tw-ring-offset-shadow: none !important;
+  --tw-ring-color: transparent !important;
+  border-color: var(--color-border-default) !important;
+}
+:root[data-theme="light"] :is(input, select, textarea)::placeholder {
+  color: #64748b !important;
+  opacity: 1 !important;
 }
 :root[data-theme="light"] option {
   background-color: #ffffff;
-  color: #0f172a;
+  color: #0a0f1d;
 }
 :root[data-theme="light"] optgroup {
   background-color: #f1f5f9;
@@ -657,10 +723,10 @@ body {
 
 /* Inner panels, wells, and nested containers inside cards */
 :root[data-theme="light"] :is([class*="bg-[#0"], [class*="bg-[#1"]):not([role="dialog"], [class*="fixed"], [data-theme="dark"], [data-theme="dark"] *) {
-  background-color: #f0f4f9 !important;
+  background-color: #edf2f7 !important;
   background-image: none !important;
   border-color: var(--color-border-subtle) !important;
-  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.05);
 }
 :root[data-theme="light"] :is([class*="border-[#0"], [class*="border-[#1"], [class*="border-[#2"], [class*="border-white/"]):not([data-theme="dark"] *) {
   border-color: var(--color-border-subtle);
@@ -757,23 +823,30 @@ body {
 
 /* Translucent hover buttons (outline, ghost, tags, tabs) illuminate in their brand color — NEVER white! */
 :root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-accent/"]):not([class~="bg-accent"], [class~="bg-critical"]):hover,
-:root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-accent/"]):not([class~="bg-accent"], [class~="bg-critical"]):hover :is(span, svg) {
+:root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-accent/"]):not([class~="bg-accent"], [class~="bg-critical"]):hover :is(span:not([class*="rounded-full"]):not([class*="bg-critical"]):not([class*="bg-accent"]):not(.num), svg) {
   color: var(--color-accent) !important;
 }
 :root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-secondary/"]):not([class~="bg-secondary"]):hover,
-:root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-secondary/"]):not([class~="bg-secondary"]):hover :is(span, svg) {
+:root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-secondary/"]):not([class~="bg-secondary"]):hover :is(span:not([class*="rounded-full"]):not([class*="bg-critical"]):not([class*="bg-accent"]):not(.num), svg) {
   color: var(--color-secondary) !important;
 }
 :root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-nominal/"]):not([class~="bg-nominal"]):hover,
-:root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-nominal/"]):not([class~="bg-nominal"]):hover :is(span, svg) {
+:root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-nominal/"]):not([class~="bg-nominal"]):hover :is(span:not([class*="rounded-full"]):not([class*="bg-critical"]):not([class*="bg-accent"]):not(.num), svg) {
   color: #15803d !important;
 }
 :root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-critical/"]):not([class~="bg-critical"]):hover,
-:root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-critical/"]):not([class~="bg-critical"]):hover :is(span, svg) {
+:root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-critical/"]):not([class~="bg-critical"]):hover :is(span:not([class*="rounded-full"]):not([class*="bg-critical"]):not([class*="bg-accent"]):not(.num), svg) {
   color: #b91c1c !important;
 }
 :root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-card-hover"], [class*="hover:bg-surface"], [class*="hover:bg-slate-"]):not([class~="bg-accent"], [class~="bg-critical"]):hover {
   color: var(--color-text-primary) !important;
+}
+
+/* Badge counters, pill tags, and unread numbers inside buttons must ALWAYS remain crisp white with zero blur or text distortion */
+:root[data-theme="light"] :is(button, a, [role="button"]):hover :is(.rounded-full, [class*="bg-critical"], [class*="bg-accent"]):is(span, div) {
+  color: #ffffff !important;
+  text-shadow: none !important;
+  filter: none !important;
 }
 
 /* Prevent hover:text-white from turning text invisible on light surfaces */
@@ -823,31 +896,59 @@ body {
   --tw-shadow-color: rgb(15 23 42 / 0.12);
 }
 
-/* Orange brand accent text contrast */
+/* Orange brand accent & blue structure text contrast */
 :root[data-theme="light"] :is([class*="text-[#FF8533]"], [class*="text-[#FF6B00]"], [class*="text-[#F27127]"], [class*="text-[#F26716]"]):not([data-theme="dark"] *) {
   color: #c2410c;
 }
 :root[data-theme="light"] [class*="text-[#38BDF8]"]:not([data-theme="dark"] *) {
-  color: #0b8cbf;
+  color: #0369a1;
+}
+:root[data-theme="light"] [class*="text-accent-light"]:not([class*="bg-accent"], [class*="bg-critical"], [data-theme="dark"] *) {
+  color: #c2410c !important;
+}
+:root[data-theme="light"] [class*="text-secondary-light"]:not([data-theme="dark"] *) {
+  color: #0369a1 !important;
 }
 
 /* ============================================================================
-   FORM CONTROL EDGES & FOCUS (both themes)
-   WCAG 1.4.11: control boundaries need 3:1 against their background; the default
-   hairline border is decorative only, so form controls use the brighter edge.
+   FORM CONTROL EDGES & CLICK / FOCUS BEHAVIOR (both themes)
+   "do not border when a user clicks in the input field"
+   Zero outline, zero box-shadow ring halo, and maintain resting border.
    ========================================================================== */
 :is(input, select, textarea)[class*="border-border-default"],
 :is(input, select, textarea)[class*="border-border-subtle"] {
-  border-color: var(--color-border-bright);
+  border-color: var(--color-border-default);
 }
-:is(input, select, textarea)[class*="border-border-default"]:focus,
-:is(input, select, textarea)[class*="border-border-subtle"]:focus {
-  border-color: var(--color-accent);
+:is(input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]), select, textarea),
+:is(input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]), select, textarea):focus,
+:is(input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]), select, textarea):focus-visible,
+:is(input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]), select, textarea):active {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: none !important;
+  --tw-ring-offset-shadow: none !important;
+  --tw-ring-color: transparent !important;
+  border-color: var(--color-border-default) !important;
 }
-:is(button, a, input, select, textarea, [tabindex]):focus-visible {
+:is(input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]), select, textarea):is([aria-invalid="true"], [class*="border-critical"]):focus {
+  border-color: var(--color-critical) !important;
+}
+:is(button, a, [role="button"]):focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 :is(button, input, select, textarea):disabled {
   cursor: not-allowed;
+}
+
+/* Ensure notification badges and pill counters stay razor sharp and never blur on hover */
+:is(button, a, [role="button"]):hover :is(span, div):is([class*="bg-critical"], [class*="bg-accent"], [class*="bg-nominal"], [class*="rounded-full"][class*="text-white"], .num) {
+  color: #ffffff !important;
+  text-shadow: none !important;
+  filter: none !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }

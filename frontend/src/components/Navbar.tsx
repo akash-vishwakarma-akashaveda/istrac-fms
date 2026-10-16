@@ -28,7 +28,7 @@ import { usePublicDepartments } from "../hooks/useDepartments"
 import { useActiveBanner } from "../hooks/useActiveBanner"
 import { Button } from "."
 import { SearchModal } from "./SearchModal"
-import { NotificationsModal, type NotificationModalItem } from "./NotificationsModal"
+import { NotificationsModal, normalizeCategory, type NotificationModalItem } from "./NotificationsModal"
 import { notificationsApi } from "../api/notifications.api"
 import { useCms } from "../context/cmsContext"
 
@@ -104,8 +104,9 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
   useEffect(() => {
     async function loadNotifs() {
       try {
+        const isLandingPage = location.pathname === '/'
         const [publicNotifs, authNotifs] = await Promise.allSettled([
-          notificationsApi.getPublicNotifications(),
+          notificationsApi.getPublicNotifications({ source: isLandingPage ? 'landing' : 'other' }),
           user ? notificationsApi.getNotifications({ limit: 50 }) : Promise.resolve({ data: [] }),
         ])
 
@@ -168,14 +169,23 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
           }
         }
 
-        setNotificationsList(items)
+        let displayItems = items
+        // If not logged in and not on the landing page, files related notifications cannot be read
+        if (!user && !isLandingPage) {
+          displayItems = items.filter((x) => {
+            const cat = normalizeCategory(x.category, x.type, x.kind)
+            return cat !== 'FILES' && x.kind !== 'file' && x.type !== 'FILE_UPLOAD'
+          })
+        }
+
+        setNotificationsList(displayItems)
       } catch (err) {
         console.error("Failed to load notifications for navbar bell:", err)
       }
     }
 
     loadNotifs()
-  }, [user, bannerData])
+  }, [user, bannerData, location.pathname])
 
   // Lock background scroll when mobile drawer is open
   useEffect(() => {
@@ -308,7 +318,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
     <>
       <header
         id={id}
-        className={`sticky top-0 z-[100] w-full border-b border-[#121929] bg-[#020408]/98 backdrop-blur-2xl transition-all shadow-xl shadow-black/60 ${className}`.trim()}
+        className={`sticky top-0 z-[100] w-full border-b border-border-subtle bg-surface/95 dark:bg-[#020408]/98 backdrop-blur-2xl transition-all shadow-md dark:shadow-xl dark:shadow-black/60 ${className}`.trim()}
       >
         <nav
           className="shell flex h-16 items-center justify-between gap-3 px-4 sm:px-6"
@@ -361,6 +371,8 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             >
               <button
                 type="button"
+                aria-haspopup="true"
+                aria-expanded={deptOpen}
                 onClick={() => setDeptOpen((prev) => !prev)}
                 onMouseEnter={() => setDeptOpen(true)}
                 className={`group relative flex h-full items-center gap-1 px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none cursor-pointer ${
@@ -496,7 +508,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             <button
               type="button"
               onClick={() => setNotifsModalOpen(true)}
-              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-border-default bg-surface/80 text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all shadow-sm cursor-pointer"
+              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-border-default bg-surface/80 text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-colors duration-150 shadow-sm cursor-pointer group"
               title="Operational Broadcasts & Mission Notices"
               aria-label="Operational Broadcasts & Mission Notices"
             >
@@ -510,15 +522,18 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                     : ""
                 }
               />
-              {unreadCount > 0 ? (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-page">
-                  {unreadCount > 9 ? "9+" : unreadCount}
+              {(unreadCount > 0 || notificationsList.length > 0) && (
+                <span
+                  style={{ color: '#ffffff' }}
+                  className={`absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black text-white shadow-sm ring-2 ring-white dark:ring-[#020408] pointer-events-none select-none z-10 leading-none ${
+                    unreadCount > 0 ? 'bg-critical' : 'bg-accent'
+                  }`}
+                >
+                  {unreadCount > 0
+                    ? (unreadCount > 9 ? "9+" : unreadCount)
+                    : (notificationsList.length > 9 ? "9+" : notificationsList.length)}
                 </span>
-              ) : notificationsList.length > 0 ? (
-                <span className="absolute -top-1 -right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white shadow-sm ring-1 ring-page">
-                  {notificationsList.length > 9 ? "9+" : notificationsList.length}
-                </span>
-              ) : null}
+              )}
             </button>
 
             {showAuthButton && (
@@ -603,15 +618,18 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                     : ""
                 }
               />
-              {unreadCount > 0 ? (
-                <span className="absolute top-1.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[10px] font-bold text-white shadow-sm ring-1 ring-page">
-                  {unreadCount > 9 ? "9+" : unreadCount}
+              {(unreadCount > 0 || notificationsList.length > 0) && (
+                <span
+                  style={{ color: '#ffffff' }}
+                  className={`absolute top-1.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black text-white shadow-sm ring-1 ring-white dark:ring-[#020408] pointer-events-none select-none z-10 leading-none ${
+                    unreadCount > 0 ? 'bg-critical' : 'bg-accent'
+                  }`}
+                >
+                  {unreadCount > 0
+                    ? (unreadCount > 9 ? "9+" : unreadCount)
+                    : (notificationsList.length > 9 ? "9+" : notificationsList.length)}
                 </span>
-              ) : notificationsList.length > 0 ? (
-                <span className="absolute top-1.5 right-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-0.5 text-[10px] font-bold text-white shadow-sm ring-1 ring-page">
-                  {notificationsList.length > 9 ? "9+" : notificationsList.length}
-                </span>
-              ) : null}
+              )}
             </button>
 
             {user && (
