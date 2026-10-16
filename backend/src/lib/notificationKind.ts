@@ -18,8 +18,9 @@ export const BROADCAST_WHERE = { category: { in: LEGACY_BROADCAST_CATEGORIES } }
 
 export function notificationKind(n: { category?: string | null; type?: string | null }): NotificationKind {
   const cat = (n.category || '').toLowerCase()
-  if (cat === 'event' || cat === 'events') return 'event'
-  if (cat === 'file') return 'file'
+  const typ = (n.type || '').toUpperCase()
+  if (cat === 'event' || cat === 'events' || typ === 'EVENT' || typ === 'PASS') return 'event'
+  if (cat === 'file' || typ === 'FILE_UPLOAD' || typ === 'FILE') return 'file'
   if (cat === 'access' || cat === 'account' || cat === 'security') return 'account'
   if (LEGACY_BROADCAST_CATEGORIES.includes(cat)) return 'broadcast'
   return 'system'

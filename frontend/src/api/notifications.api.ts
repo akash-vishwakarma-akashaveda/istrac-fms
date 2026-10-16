@@ -19,8 +19,8 @@ export interface BroadcastCategory {
 }
 
 export const notificationsApi = {
-  async getPublicNotifications(): Promise<NotificationItem[]> {
-    const res = await apiClient.get('/notifications/public')
+  async getPublicNotifications(params?: { source?: string }): Promise<NotificationItem[]> {
+    const res = await apiClient.get('/notifications/public', { params })
     return extractData<NotificationItem[]>(res) || []
   },
 

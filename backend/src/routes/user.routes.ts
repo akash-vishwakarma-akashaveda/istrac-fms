@@ -266,6 +266,13 @@ const approveUserHandler = async (req: any, res: any, next: any) => {
       message: 'Your registration request has been approved.',
     })
 
+    if (departments && Array.isArray(departments) && departments.length > 0) {
+      const deptIdsToSync = departments
+        .map((d: any) => (typeof d === 'string' ? d : d.departmentId))
+        .filter((id): id is string => Boolean(id))
+      notificationService.syncDepartmentNotificationsForUser(user.id, deptIdsToSync).catch(() => {})
+    }
+
     res.json({
       data: {
         message: 'User approved successfully with multi-department clearance',
@@ -572,6 +579,13 @@ router.put('/admin/users/:userId', authMiddleware, adminMiddleware, async (req, 
     })
     await clearDeptAccessCache(userId)
 
+    if (departments && Array.isArray(departments) && departments.length > 0) {
+      const deptIdsToSync = departments
+        .map((d: any) => (typeof d === 'string' ? d : d.departmentId))
+        .filter((id): id is string => Boolean(id))
+      notificationService.syncDepartmentNotificationsForUser(userId, deptIdsToSync).catch(() => {})
+    }
+
     auditService.log({
       userId: req.user!.id,
       action: 'PUT:/users/:id',
@@ -777,6 +791,8 @@ router.put('/admin/approvals/document-requests/:requestId', authMiddleware, admi
           deletedAt: null,
         },
       })
+
+      notificationService.syncDepartmentNotificationsForUser(request.requestedById, [request.departmentId]).catch(() => {})
     }
 
     res.json({
@@ -1038,8 +1054,19 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
           deletedAt: null,
         },
         distinct: ['message'],
-        take: 10,
+        take: 30,
         orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          type: true,
+          category: true,
+          message: true,
+          metadata: true,
+          resourceType: true,
+          resourceId: true,
+          actorId: true,
+          createdAt: true,
+        },
       }),
       prisma.reportCategoryPreset.findMany({
         select: { code: true, name: true },
@@ -1290,13 +1317,45 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
             }),
           }
         }),
-        notices: notices.map((n: any) => ({
-          id: n.id.toString(),
-          type: n.type,
-          category: n.category || 'BROADCAST',
-          message: n.message,
-          createdAt: n.createdAt,
-        })),
+        notices: notices
+          .filter((n: any) => {
+            if (isAdmin) return true
+            let meta: any = n.metadata
+            if (typeof meta === 'string') {
+              try {
+                meta = JSON.parse(meta)
+              } catch {
+                meta = {}
+              }
+            } else if (!meta) {
+              meta = {}
+            }
+
+            if (n.type === 'FILE_UPLOAD' || n.category === 'file' || n.resourceType === 'file') {
+              const targetDept = meta.departmentId || (Array.isArray(meta.departmentIds) ? meta.departmentIds[0] : null)
+              if (targetDept) {
+                return deptIds.includes(targetDept)
+              }
+              if (n.actorId === userId) return true
+              return false
+            }
+
+            if (meta.target === 'departments' && Array.isArray(meta.departmentIds)) {
+              return meta.departmentIds.some((id: string) => deptIds.includes(id))
+            }
+            if (meta.target === 'all_departments') {
+              return deptIds.length > 0
+            }
+            return true
+          })
+          .slice(0, 10)
+          .map((n: any) => ({
+            id: n.id.toString(),
+            type: n.type,
+            category: n.category || 'BROADCAST',
+            message: n.message,
+            createdAt: n.createdAt,
+          })),
       },
       requestId: req.requestId,
     })

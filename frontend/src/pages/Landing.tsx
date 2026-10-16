@@ -82,7 +82,7 @@ export function Landing() {
   }, [refetch, queryClient])
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-[#030712] text-text-primary antialiased relative">
+    <div className="min-h-screen overflow-x-clip bg-page text-text-primary antialiased relative transition-colors duration-200">
       {/* Universal Fixed Parallax Space Canvas */}
       <SpaceParallaxBackground config={bgConfig} />
 

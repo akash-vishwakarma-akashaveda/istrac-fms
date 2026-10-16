@@ -49,19 +49,101 @@ export function DepartmentsList() {
 
       <main className="pb-24">
         {/* Header */}
-        <section className="relative border-b border-border-subtle bg-page-soft py-14 lg:py-18 overflow-hidden">
+        <section className="relative isolate border-b border-border-subtle bg-gradient-to-br from-page via-page-soft/85 to-page dark:from-[#060a12] dark:via-[#0a1120] dark:to-[#070c17] py-14 lg:py-18 overflow-hidden transition-colors duration-200">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-            <div className="graticule absolute inset-0 opacity-25 [mask-image:radial-gradient(ellipse_at_50%_30%,black,transparent_80%)]" />
-            <div className="absolute top-1/4 left-1/3 h-[420px] w-[580px] rounded-full bg-[#0284c7]/10 dark:bg-[#0284c7]/12 blur-3xl" />
-            <div className="absolute -top-10 right-1/4 h-80 w-80 rounded-full bg-[#2563eb]/8 dark:bg-[#38bdf8]/6 blur-3xl" />
-            {/* High-tech orbital range rings */}
-            <svg className="absolute -right-20 -top-20 h-[500px] w-[500px] text-secondary/15 dark:text-sky-500/10 pointer-events-none" viewBox="0 0 500 500" fill="none" stroke="currentColor">
-              <circle cx="250" cy="250" r="120" strokeWidth="1" strokeDasharray="4 4" />
-              <circle cx="250" cy="250" r="190" strokeWidth="1" />
-              <circle cx="250" cy="250" r="240" strokeWidth="1" strokeDasharray="8 6" />
-              <line x1="250" y1="10" x2="250" y2="490" strokeWidth="0.75" strokeDasharray="3 3" />
-              <line x1="10" y1="250" x2="490" y2="250" strokeWidth="0.75" strokeDasharray="3 3" />
+            {/* Precision Graticule Grid */}
+            <div className="graticule absolute inset-0 opacity-20 dark:opacity-35 [mask-image:radial-gradient(ellipse_at_65%_45%,black_40%,transparent_90%)]" />
+
+            {/* Atmospheric Diffuse Lighting */}
+            <div className="absolute -top-10 right-1/4 h-[440px] w-[560px] rounded-full bg-secondary/10 dark:bg-secondary/15 blur-3xl" />
+            <div className="absolute top-1/4 -right-10 h-[380px] w-[460px] rounded-full bg-accent/5 dark:bg-accent/8 blur-3xl" />
+            <div className="absolute bottom-0 left-1/4 h-64 w-96 rounded-full bg-secondary/5 dark:bg-secondary/10 blur-2xl" />
+
+            {/* High-Precision Orbital Tracking Radar & Coordinate HUD */}
+            <svg
+              className="absolute -right-20 -top-16 sm:-right-10 sm:-top-10 lg:right-4 lg:top-1/2 lg:-translate-y-1/2 h-[480px] w-[480px] sm:h-[540px] sm:w-[540px] lg:h-[620px] lg:w-[620px] text-secondary/30 dark:text-secondary/45 pointer-events-none select-none transition-all"
+              viewBox="0 0 600 600"
+              fill="none"
+              stroke="currentColor"
+            >
+              {/* Telemetry Radial Sector / Downlink Beam */}
+              <path
+                d="M 300 300 L 512 178 A 245 245 0 0 0 422 108 Z"
+                fill="currentColor"
+                fillOpacity="0.05"
+                stroke="none"
+              />
+              <path
+                d="M 300 300 L 422 108"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                strokeDasharray="4 4"
+                className="opacity-70"
+              />
+              <path
+                d="M 300 300 L 512 178"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                className="opacity-80"
+              />
+
+              {/* Concentric Calibration & Range Rings */}
+              <circle cx="300" cy="300" r="60" strokeWidth="1" strokeDasharray="2 4" className="opacity-40" />
+              <circle cx="300" cy="300" r="120" strokeWidth="1" strokeDasharray="4 4" className="opacity-60" />
+              <circle cx="300" cy="300" r="180" strokeWidth="1" className="opacity-70" />
+              <circle cx="300" cy="300" r="245" strokeWidth="1.25" strokeDasharray="8 6" className="opacity-80" />
+              <circle cx="300" cy="300" r="280" strokeWidth="1.5" className="opacity-90" />
+              <circle cx="300" cy="300" r="290" strokeWidth="0.75" strokeDasharray="2 6" className="opacity-50" />
+
+              {/* Azimuth Crosshairs with Center Reticle Isolation */}
+              <line x1="20" y1="300" x2="270" y2="300" strokeWidth="1" strokeDasharray="6 4" className="opacity-60" />
+              <line x1="330" y1="300" x2="580" y2="300" strokeWidth="1" strokeDasharray="6 4" className="opacity-60" />
+              <line x1="300" y1="20" x2="300" y2="270" strokeWidth="1" strokeDasharray="6 4" className="opacity-60" />
+              <line x1="300" y1="330" x2="300" y2="580" strokeWidth="1" strokeDasharray="6 4" className="opacity-60" />
+
+              {/* 45-Degree Diagonal Trajectory Guides */}
+              <line x1="130" y1="130" x2="265" y2="265" strokeWidth="0.75" strokeDasharray="3 5" className="opacity-35" />
+              <line x1="335" y1="335" x2="470" y2="470" strokeWidth="0.75" strokeDasharray="3 5" className="opacity-35" />
+              <line x1="470" y1="130" x2="335" y2="265" strokeWidth="0.75" strokeDasharray="3 5" className="opacity-35" />
+              <line x1="265" y1="335" x2="130" y2="470" strokeWidth="0.75" strokeDasharray="3 5" className="opacity-35" />
+
+              {/* Center Tracking Core Node */}
+              <circle cx="300" cy="300" r="14" strokeWidth="1" className="opacity-80" />
+              <circle cx="300" cy="300" r="4" fill="var(--color-nominal, #10b981)" stroke="none" className="animate-pulse" />
+
+              {/* High-Precision Telemetry HUD Text Annotations (DejaVu Sans Mono) */}
+              <text x="306" y="26" fill="currentColor" fontSize="10" fontFamily="'DejaVu Sans Mono', monospace" fontWeight="700" letterSpacing="0.08em" stroke="none" className="opacity-80">
+                000° N
+              </text>
+              <text x="548" y="294" fill="currentColor" fontSize="10" fontFamily="'DejaVu Sans Mono', monospace" fontWeight="700" letterSpacing="0.08em" stroke="none" className="opacity-80">
+                090° E
+              </text>
+              <text x="306" y="580" fill="currentColor" fontSize="10" fontFamily="'DejaVu Sans Mono', monospace" fontWeight="700" letterSpacing="0.08em" stroke="none" className="opacity-80">
+                180° S
+              </text>
+              <text x="26" y="294" fill="currentColor" fontSize="10" fontFamily="'DejaVu Sans Mono', monospace" fontWeight="700" letterSpacing="0.08em" stroke="none" className="opacity-80">
+                270° W
+              </text>
+              <text x="312" y="124" fill="currentColor" fontSize="8" fontFamily="'DejaVu Sans Mono', monospace" fontWeight="600" letterSpacing="0.04em" stroke="none" className="opacity-60">
+                R-500KM
+              </text>
+              <text x="312" y="60" fill="currentColor" fontSize="8" fontFamily="'DejaVu Sans Mono', monospace" fontWeight="600" letterSpacing="0.04em" stroke="none" className="opacity-60">
+                R-1000KM
+              </text>
+              <text x="340" y="318" fill="currentColor" fontSize="8" fontFamily="'DejaVu Sans Mono', monospace" fontWeight="600" letterSpacing="0.08em" stroke="none" className="opacity-50">
+                ISTRAC MOX AZ/EL
+              </text>
             </svg>
+
+            {/* Bottom Hairline Baseline with Telemetry Beam Glow */}
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-border-default to-transparent opacity-80"
+            />
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-1/4 bottom-0 h-[2px] bg-gradient-to-r from-transparent via-secondary/60 to-transparent blur-[1px]"
+            />
           </div>
           <div className="shell relative z-10">
             <p className="eyebrow flex items-center gap-2.5 text-secondary dark:text-sky-400">

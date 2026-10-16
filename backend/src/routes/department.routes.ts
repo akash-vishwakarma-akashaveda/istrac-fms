@@ -1263,6 +1263,9 @@ router.post('/admin/departments/:deptId/users', authMiddleware, adminMiddleware,
       message: `You were granted ${validLevel} access to ${dept.name}`,
     })
 
+    // Automatically sync active department notifications to the newly cleared user
+    notificationService.syncDepartmentNotificationsForUser(userId, [deptId]).catch(() => {})
+
     res.status(201).json({
       data: access,
       requestId: req.requestId,
