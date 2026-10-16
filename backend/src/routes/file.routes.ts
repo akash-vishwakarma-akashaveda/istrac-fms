@@ -1501,7 +1501,14 @@
             type: 'BROADCAST',
             category: 'broadcast',
             message: msg,
-            metadata: JSON.stringify({ fileId, filename: updated.name, department: file.department?.name }),
+            metadata: JSON.stringify({
+              fileId,
+              filename: updated.name,
+              department: file.department?.name,
+              departmentId: file.departmentId,
+              target: 'departments',
+              departmentIds: file.departmentId ? [file.departmentId] : [],
+            }),
           },
         })
       }
@@ -1547,6 +1554,9 @@
             fileId: file.id,
             fileName: file.name,
             department: file.department.name,
+            departmentId: file.departmentId,
+            target: 'departments',
+            departmentIds: file.departmentId ? [file.departmentId] : [],
             urgency: urgency || 'NORMAL',
           }),
         },

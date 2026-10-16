@@ -8,35 +8,55 @@ import { broadcastRateLimiter } from '../middleware/rateLimiter.middleware.js'
 import { AppError } from '../lib/errors.js'
 import { auditService } from '../services/audit.service.js'
 import { BROADCAST_CATEGORY, BROADCAST_WHERE, broadcastLabel, notificationKind } from '../lib/notificationKind.js'
+import { logger } from '../lib/logger.js'
+
+function parseMetadata(raw: unknown): Record<string, any> {
+  if (!raw) return {}
+  if (typeof raw === 'object') return raw as Record<string, any>
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw)
+    } catch {
+      return {}
+    }
+  }
+  return {}
+}
 
 const router = Router()
 
 // ============================================================
 // PUBLIC: LIST RECENT SYSTEM BROADCAST NOTIFICATIONS
 // ============================================================
-router.get('/notifications/public', async (_req, res, next) => {
+router.get('/notifications/public', async (req, res, next) => {
   try {
+    const isLanding = req.query.source === 'landing' || !req.query.source
+
     const broadcasts = await prisma.notification.findMany({
       where: {
         type: { in: ['BROADCAST', 'SYSTEM', 'MAINTENANCE', 'PASS', 'EVENT', 'CRITICAL', 'NOTICE', 'FILE_UPLOAD', 'TELEMETRY'] },
         deletedAt: null,
       },
-      take: 40,
+      take: 60,
       orderBy: { createdAt: 'desc' },
       distinct: ['message'],
     })
 
-    // Filter out targeted department broadcasts from public guest view
+    // Public notifications:
+    // Files related notifications can be read when no user is logged in only on the landing page
     const publicItems = broadcasts.filter((n: any) => {
+      const isFile = n.type === 'FILE_UPLOAD' || n.category === 'file' || n.resourceType === 'file'
+      if (isFile) {
+        return Boolean(isLanding)
+      }
+
       if (!n.metadata) return true
-      try {
-        const meta = typeof n.metadata === 'string' ? JSON.parse(n.metadata) : n.metadata
-        if (meta.target === 'departments' || meta.target === 'all_departments') {
-          return false
-        }
-      } catch {}
+      const meta = parseMetadata(n.metadata)
+      if (meta.target === 'departments' || meta.target === 'all_departments' || meta.departmentId) {
+        return false
+      }
       return true
-    }).slice(0, 20)
+    }).slice(0, 30)
 
     res.json({
       data: publicItems.map((n: any) => ({
@@ -63,6 +83,7 @@ router.get('/notifications', authMiddleware, async (req, res, next) => {
     const page = Math.max(1, Number(req.query.page) || 1)
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20))
     const skip = (page - 1) * limit
+    const isAdmin = req.user!.role === 'ADMIN'
 
     const where: any = {
       userId: req.user!.id,
@@ -70,18 +91,105 @@ router.get('/notifications', authMiddleware, async (req, res, next) => {
       ...(unreadOnly && { readAt: null }),
     }
 
-    const [total, notifications] = await Promise.all([
-      prisma.notification.count({ where }),
-      prisma.notification.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
+    if (isAdmin) {
+      const [total, notifications] = await Promise.all([
+        prisma.notification.count({ where }),
+        prisma.notification.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+        }),
+      ])
+
+      return res.json({
+        data: notifications.map((n: any) => ({
+          id: n.id.toString(),
+          type: n.type,
+          category: n.category,
+          kind: notificationKind(n),
+          label: broadcastLabel(n),
+          message: n.message,
+          readAt: n.readAt,
+          createdAt: n.createdAt,
+          metadata: parseMetadata(n.metadata),
+        })),
+        total,
+        page,
+        limit,
+        requestId: req.requestId,
+      })
+    }
+
+    // For non-admin users: Enforce strict department & mission clearance
+    const userDepts = await prisma.userDepartmentAccess.findMany({
+      where: { userId: req.user!.id, deletedAt: null },
+      select: { departmentId: true },
+    })
+    const accessibleDeptIds = new Set(userDepts.map((d: any) => d.departmentId))
+
+    const [deptSats, directDepts] = await Promise.all([
+      prisma.departmentSatellite.findMany({
+        where: { departmentId: { in: Array.from(accessibleDeptIds) } },
+        select: { satelliteId: true },
+      }),
+      prisma.department.findMany({
+        where: { id: { in: Array.from(accessibleDeptIds) }, satelliteId: { not: null } },
+        select: { satelliteId: true },
       }),
     ])
+    const accessibleSatIds = new Set([
+      ...deptSats.map((ds: any) => ds.satelliteId),
+      ...directDepts.map((d: any) => d.satelliteId as string),
+    ])
+
+    const rawNotifications = await prisma.notification.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    })
+
+    const allowedNotifications = rawNotifications.filter((n: any) => {
+      const meta = parseMetadata(n.metadata)
+
+      // 1. File upload notifications: User must have cleared access to the department or satellite
+      if (n.type === 'FILE_UPLOAD' || n.category === 'file' || n.resourceType === 'file') {
+        const targetDept = meta.departmentId || (Array.isArray(meta.departmentIds) ? meta.departmentIds[0] : null)
+        if (targetDept) {
+          return accessibleDeptIds.has(targetDept)
+        }
+        if (meta.satelliteId) {
+          return accessibleSatIds.has(meta.satelliteId)
+        }
+        // If file notification has no department metadata, only uploader can see it
+        if (n.actorId === req.user!.id) {
+          return true
+        }
+        return false
+      }
+
+      // 2. Satellite / mission-scoped notifications
+      if (meta.satelliteId && !accessibleSatIds.has(meta.satelliteId)) {
+        return false
+      }
+
+      // 3. Department-scoped broadcasts
+      if (meta.target === 'departments' && Array.isArray(meta.departmentIds)) {
+        return meta.departmentIds.some((dId: string) => accessibleDeptIds.has(dId))
+      }
+
+      if (meta.target === 'all_departments') {
+        return accessibleDeptIds.size > 0
+      }
+
+      return true
+    })
+
+    const total = allowedNotifications.length
+    const paginated = allowedNotifications.slice(skip, skip + limit)
 
     res.json({
-      data: notifications.map((n: any) => ({
+      data: paginated.map((n: any) => ({
         id: n.id.toString(),
         type: n.type,
         category: n.category,
@@ -90,6 +198,7 @@ router.get('/notifications', authMiddleware, async (req, res, next) => {
         message: n.message,
         readAt: n.readAt,
         createdAt: n.createdAt,
+        metadata: parseMetadata(n.metadata),
       })),
       total,
       page,
@@ -106,13 +215,84 @@ router.get('/notifications', authMiddleware, async (req, res, next) => {
 // ============================================================
 router.get('/notifications/count', authMiddleware, async (req, res, next) => {
   try {
-    const unread = await prisma.notification.count({
+    const isAdmin = req.user!.role === 'ADMIN'
+
+    if (isAdmin) {
+      const unread = await prisma.notification.count({
+        where: {
+          userId: req.user!.id,
+          readAt: null,
+          deletedAt: null,
+        },
+      })
+
+      return res.json({
+        data: { unread },
+        requestId: req.requestId,
+      })
+    }
+
+    const userDepts = await prisma.userDepartmentAccess.findMany({
+      where: { userId: req.user!.id, deletedAt: null },
+      select: { departmentId: true },
+    })
+    const accessibleDeptIds = new Set(userDepts.map((d: any) => d.departmentId))
+
+    const [deptSats, directDepts] = await Promise.all([
+      prisma.departmentSatellite.findMany({
+        where: { departmentId: { in: Array.from(accessibleDeptIds) } },
+        select: { satelliteId: true },
+      }),
+      prisma.department.findMany({
+        where: { id: { in: Array.from(accessibleDeptIds) }, satelliteId: { not: null } },
+        select: { satelliteId: true },
+      }),
+    ])
+    const accessibleSatIds = new Set([
+      ...deptSats.map((ds: any) => ds.satelliteId),
+      ...directDepts.map((d: any) => d.satelliteId as string),
+    ])
+
+    const unreadNotifs = await prisma.notification.findMany({
       where: {
         userId: req.user!.id,
         readAt: null,
         deletedAt: null,
       },
+      select: {
+        id: true,
+        type: true,
+        category: true,
+        resourceType: true,
+        actorId: true,
+        metadata: true,
+      },
     })
+
+    let unread = 0
+
+    for (const n of unreadNotifs) {
+      const meta = parseMetadata(n.metadata)
+
+      if (n.type === 'FILE_UPLOAD' || n.category === 'file' || n.resourceType === 'file') {
+        const targetDept = meta.departmentId || (Array.isArray(meta.departmentIds) ? meta.departmentIds[0] : null)
+        if (targetDept) {
+          if (!accessibleDeptIds.has(targetDept)) continue
+        } else if (meta.satelliteId) {
+          if (!accessibleSatIds.has(meta.satelliteId)) continue
+        } else if (n.actorId !== req.user!.id) {
+          continue
+        }
+      } else if (meta.satelliteId && !accessibleSatIds.has(meta.satelliteId)) {
+        continue
+      } else if (meta.target === 'departments' && Array.isArray(meta.departmentIds)) {
+        if (!meta.departmentIds.some((dId: string) => accessibleDeptIds.has(dId))) continue
+      } else if (meta.target === 'all_departments' && accessibleDeptIds.size === 0) {
+        continue
+      }
+
+      unread++
+    }
 
     res.json({
       data: { unread },

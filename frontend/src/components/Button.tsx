@@ -12,21 +12,21 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
  */
 const variantStyles = {
   primary:
-    'border border-transparent bg-accent text-white font-semibold shadow-sm hover:bg-accent-hover hover:shadow-md hover:scale-[1.01] active:scale-[0.98]',
+    'border border-transparent bg-accent text-white font-semibold shadow-sm hover:bg-accent-hover hover:shadow-md active:bg-accent-dark transition-colors',
   secondary:
-    'border border-border-default bg-surface text-text-primary hover:bg-card-hover hover:border-secondary hover:text-secondary-dark dark:hover:text-secondary-light hover:shadow-sm active:scale-[0.98]',
+    'border border-border-default bg-surface text-text-primary hover:bg-card-hover hover:border-secondary hover:text-secondary-dark dark:hover:text-secondary-light hover:shadow-sm active:bg-card transition-colors',
   outline:
-    'border border-border-default bg-transparent text-text-secondary hover:bg-secondary/10 hover:border-secondary hover:text-secondary-dark dark:hover:text-secondary-light active:scale-[0.98]',
+    'border border-border-default bg-transparent text-text-secondary hover:bg-secondary/10 hover:border-secondary hover:text-secondary-dark dark:hover:text-secondary-light active:bg-secondary/15 transition-colors',
   ghost:
-    'border border-transparent bg-transparent text-text-secondary hover:bg-secondary/10 hover:border-secondary/20 hover:text-secondary-dark dark:hover:text-secondary-light active:scale-[0.98]',
+    'border border-transparent bg-transparent text-text-secondary hover:bg-secondary/10 hover:border-secondary/20 hover:text-secondary-dark dark:hover:text-secondary-light active:bg-secondary/15 transition-colors',
   danger:
-    'border border-transparent bg-[#dc2626] text-white font-semibold shadow-sm hover:bg-[#b91c1c] hover:shadow-md hover:scale-[1.01] active:scale-[0.98]',
+    'border border-transparent bg-[#dc2626] text-white font-semibold shadow-sm hover:bg-[#b91c1c] hover:shadow-md active:bg-[#991b1b] transition-colors',
 }
 
 const sizeStyles = {
-  sm: 'min-h-8 gap-1.5 rounded-md px-3 text-xs',
-  md: 'min-h-9 gap-2 rounded-md px-3.5 text-[13px]',
-  lg: 'min-h-11 gap-2 rounded-md px-5 text-sm',
+  sm: 'min-h-8 min-w-8 gap-1.5 rounded-lg px-3 text-xs',
+  md: 'min-h-9 gap-2 rounded-lg px-4 text-xs font-semibold sm:text-[13px]',
+  lg: 'min-h-11 gap-2.5 rounded-xl px-5 text-sm font-semibold',
 }
 
 export function Button({
@@ -40,7 +40,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={`inline-flex shrink-0 items-center justify-center border font-semibold whitespace-nowrap transition-colors duration-150 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40 ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center border font-semibold whitespace-nowrap transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-accent focus-visible:ring-offset-page disabled:pointer-events-none disabled:opacity-40 cursor-pointer ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
       {...props}
     >
       {children}

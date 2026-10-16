@@ -224,6 +224,14 @@ export function createWsServer(server: Server): WebSocketServer {
               }
             })
           })
+        } else if (payload.type === 'FILE_UPLOAD' || payload.category === 'file') {
+          // File upload notification: deliver strictly to Admins and cleared department members
+          const targetDeptId = payload.departmentId || (payload.metadata && (payload.metadata as any).departmentId)
+          if (targetDeptId) {
+            sendToDeptUsers(targetDeptId, 'NOTIFICATION', payload)
+          } else {
+            sendToAdmins('NOTIFICATION', payload)
+          }
         } else {
           // General system-wide broadcast
           sendToAll('NOTIFICATION', payload)

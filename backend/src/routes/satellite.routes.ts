@@ -33,7 +33,41 @@ router.get('/satellites', optionalAuthMiddleware, async (req, res, next) => {
       orderBy: { name: 'asc' },
     })
 
-    const data = satellites.map((s) => {
+    const user = req.user
+    const isAdmin = user?.role === 'ADMIN'
+
+    let userDeptIds: Set<string> | null = null
+    if (user && !isAdmin) {
+      const userAccess = await prisma.userDepartmentAccess.findMany({
+        where: {
+          userId: user.id,
+          deletedAt: null,
+          accessLevel: { in: ['READ_ONLY', 'READ_WRITE'] },
+        },
+        select: { departmentId: true },
+      })
+      userDeptIds = new Set(userAccess.map((a: any) => a.departmentId))
+    }
+
+    const filteredSatellites = satellites.filter((s) => {
+      if (isAdmin) return true
+      const linkedDeptIds = [
+        ...s.departmentSatellites.map((ds) => ds.department.id),
+        ...s.departments.map((d) => d.id),
+      ]
+      if (user && !isAdmin) {
+        if (linkedDeptIds.length > 0) {
+          return linkedDeptIds.some((id) => userDeptIds!.has(id))
+        }
+        return true
+      }
+      if (!user) {
+        return linkedDeptIds.length === 0
+      }
+      return true
+    })
+
+    const data = filteredSatellites.map((s) => {
       const linkedDeptIds = Array.from(
         new Set([
           ...s.departmentSatellites.map((ds) => ds.department.id),

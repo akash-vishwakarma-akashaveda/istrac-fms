@@ -16,6 +16,41 @@ const router = Router()
 router.get('/events', optionalAuthMiddleware, async (req, res, next) => {
   try {
     const { status, type, departmentId, satelliteId, limit } = req.query
+    const user = req.user
+    const isAdmin = user?.role === 'ADMIN'
+
+    let userDeptIds: Set<string> | null = null
+    let userSatIds: Set<string> | null = null
+
+    if (user && !isAdmin) {
+      const userAccess = await prisma.userDepartmentAccess.findMany({
+        where: { userId: user.id, deletedAt: null },
+        select: { departmentId: true },
+      })
+      userDeptIds = new Set(userAccess.map((a: any) => a.departmentId))
+
+      const [deptSats, directDepts] = await Promise.all([
+        prisma.departmentSatellite.findMany({
+          where: { departmentId: { in: Array.from(userDeptIds) } },
+          select: { satelliteId: true },
+        }),
+        prisma.department.findMany({
+          where: { id: { in: Array.from(userDeptIds) }, satelliteId: { not: null } },
+          select: { satelliteId: true },
+        }),
+      ])
+      userSatIds = new Set([
+        ...deptSats.map((ds: any) => ds.satelliteId),
+        ...directDepts.map((d: any) => d.satelliteId as string),
+      ])
+
+      if (departmentId && !userDeptIds.has(String(departmentId))) {
+        return res.json({ data: [], requestId: req.requestId })
+      }
+      if (satelliteId && !userSatIds.has(String(satelliteId))) {
+        return res.json({ data: [], requestId: req.requestId })
+      }
+    }
 
     const where: any = {
       deletedAt: null,
@@ -44,6 +79,26 @@ router.get('/events', optionalAuthMiddleware, async (req, res, next) => {
       .filter((e: any) => {
         if (e.eventType && deletedCatSet.has(e.eventType.toUpperCase())) return false
         if (e.location && deletedLocSet.has(e.location.trim().toUpperCase())) return false
+
+        // Mission & Department access isolation
+        if (user && !isAdmin) {
+          if (e.departmentId && !userDeptIds!.has(e.departmentId)) {
+            if (!e.satelliteId || !userSatIds!.has(e.satelliteId)) {
+              return false
+            }
+          }
+          if (e.satelliteId && !userSatIds!.has(e.satelliteId)) {
+            if (!e.departmentId || !userDeptIds!.has(e.departmentId)) {
+              return false
+            }
+          }
+        } else if (!user) {
+          // Public unauthenticated guests: only general station-wide events
+          if (e.departmentId || e.satelliteId) {
+            return false
+          }
+        }
+
         return true
       })
       .map((e: any) => withLiveStatus(e, now))
@@ -67,10 +122,38 @@ router.get('/events/active-banner', optionalAuthMiddleware, async (req, res, nex
     const now = new Date()
     const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000)
     const prev24h = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const user = req.user
+    const isAdmin = user?.role === 'ADMIN'
 
     const config = await getStoredEventConfig()
     const deletedCatSet = new Set((config.deletedCategories || []).map((c: string) => c.toUpperCase()))
     const deletedLocSet = new Set((config.deletedLocations || []).map((l: string) => l.trim().toUpperCase()))
+
+    let userDeptIds: Set<string> | null = null
+    let userSatIds: Set<string> | null = null
+
+    if (user && !isAdmin) {
+      const userDepts = await prisma.userDepartmentAccess.findMany({
+        where: { userId: user.id, deletedAt: null },
+        select: { departmentId: true },
+      })
+      userDeptIds = new Set(userDepts.map((d: any) => d.departmentId))
+
+      const [deptSats, directDepts] = await Promise.all([
+        prisma.departmentSatellite.findMany({
+          where: { departmentId: { in: Array.from(userDeptIds) } },
+          select: { satelliteId: true },
+        }),
+        prisma.department.findMany({
+          where: { id: { in: Array.from(userDeptIds) }, satelliteId: { not: null } },
+          select: { satelliteId: true },
+        }),
+      ])
+      userSatIds = new Set([
+        ...deptSats.map((ds: any) => ds.satelliteId),
+        ...directDepts.map((d: any) => d.satelliteId as string),
+      ])
+    }
 
     // 1. Fetch upcoming / in-progress events
     const rawEvents = await prisma.missionEvent.findMany({
@@ -79,11 +162,11 @@ router.get('/events/active-banner', optionalAuthMiddleware, async (req, res, nex
         showOnBanner: true,
         eventDate: { gte: prev24h, lte: next24h },
       },
-      take: 15,
+      take: 20,
       orderBy: { eventDate: 'asc' },
       include: {
-        satellite: { select: { name: true, code: true } },
-        department: { select: { name: true, code: true } },
+        satellite: { select: { id: true, name: true, code: true } },
+        department: { select: { id: true, name: true, code: true } },
       },
     })
 
@@ -91,6 +174,18 @@ router.get('/events/active-banner', optionalAuthMiddleware, async (req, res, nex
       .filter((e: any) => {
         if (e.eventType && deletedCatSet.has(e.eventType.toUpperCase())) return false
         if (e.location && deletedLocSet.has(e.location.trim().toUpperCase())) return false
+
+        if (user && !isAdmin) {
+          if (e.departmentId && !userDeptIds!.has(e.departmentId)) {
+            if (!e.satelliteId || !userSatIds!.has(e.satelliteId)) return false
+          }
+          if (e.satelliteId && !userSatIds!.has(e.satelliteId)) {
+            if (!e.departmentId || !userDeptIds!.has(e.departmentId)) return false
+          }
+        } else if (!user) {
+          if (e.departmentId || e.satelliteId) return false
+        }
+
         return true
       })
       .slice(0, 5)
@@ -101,7 +196,7 @@ router.get('/events/active-banner', optionalAuthMiddleware, async (req, res, nex
         type: { in: ['BROADCAST', 'CRITICAL', 'SYSTEM', 'MAINTENANCE', 'NOTICE', 'PASS', 'EVENT', 'FILE_UPLOAD', 'TELEMETRY'] },
         deletedAt: null,
       },
-      take: 20,
+      take: 25,
       orderBy: { createdAt: 'desc' },
       distinct: ['message'],
       select: {
@@ -114,50 +209,44 @@ router.get('/events/active-banner', optionalAuthMiddleware, async (req, res, nex
       },
     })
 
-    // Filter broadcasts so that:
-    // - Events are visible to all users
-    // - Targeted broadcasts are only visible to Admins and the target department audience
     let allowedBroadcasts = recentBroadcasts
-    const user = req.user
 
-    if (!user || user.role !== 'ADMIN') {
-      let userDeptIds: string[] = []
-      if (user) {
-        const userDepts = await prisma.userDepartmentAccess.findMany({
-          where: { userId: user.id, deletedAt: null },
-          select: { departmentId: true },
-        })
-        userDeptIds = userDepts.map((d: any) => d.departmentId)
-      }
-
+    if (!isAdmin) {
       allowedBroadcasts = recentBroadcasts.filter((b) => {
-        // Events are visible to all users
-        if (
-          b.category === 'event' ||
-          b.type === 'EVENT' ||
-          b.type === 'PASS' ||
-          (typeof b.message === 'string' && b.message.toLowerCase().includes('mission event'))
-        ) {
-          return true
-        }
-
-        if (!b.metadata) return true
-
         let meta: any = b.metadata
         if (typeof meta === 'string') {
           try {
             meta = JSON.parse(meta)
           } catch {
-            return true
+            meta = {}
           }
+        } else if (!meta) {
+          meta = {}
+        }
+
+        // File upload notifications: can be read when no user is logged in (public landing page banner)
+        // For authenticated non-admin users, enforce strict department clearance
+        if (b.type === 'FILE_UPLOAD' || b.category === 'file') {
+          if (!user) return true
+          const targetDept = meta.departmentId || (Array.isArray(meta.departmentIds) ? meta.departmentIds[0] : null)
+          if (targetDept) {
+            return userDeptIds ? userDeptIds.has(targetDept) : false
+          }
+          return false
+        }
+
+        // Mission/satellite scoped
+        if (meta.satelliteId) {
+          if (!user) return false
+          if (userSatIds && !userSatIds.has(meta.satelliteId)) return false
         }
 
         if (meta.target === 'departments' && Array.isArray(meta.departmentIds)) {
-          return userDeptIds.some((dId) => meta.departmentIds.includes(dId))
+          return userDeptIds ? meta.departmentIds.some((dId: string) => userDeptIds!.has(dId)) : false
         }
 
         if (meta.target === 'all_departments') {
-          return userDeptIds.length > 0
+          return userDeptIds ? userDeptIds.size > 0 : false
         }
 
         return true
@@ -576,6 +665,42 @@ router.get('/events/:id', optionalAuthMiddleware, async (req, res, next) => {
       (event.location && deletedLocSet.has(event.location.trim().toUpperCase()))
     ) {
       throw new AppError('event_not_found', 'Mission event not found', 404)
+    }
+
+    // Access clearance check for mission event
+    const user = req.user
+    if (!user && (event.departmentId || event.satelliteId)) {
+      throw new AppError('unauthorized', 'Authentication required to view this operational mission event', 401)
+    }
+
+    if (user && user.role !== 'ADMIN') {
+      const userDepts = await prisma.userDepartmentAccess.findMany({
+        where: { userId: user.id, deletedAt: null },
+        select: { departmentId: true },
+      })
+      const userDeptIds = new Set(userDepts.map((d: any) => d.departmentId))
+
+      const [deptSats, directDepts] = await Promise.all([
+        prisma.departmentSatellite.findMany({
+          where: { departmentId: { in: Array.from(userDeptIds) } },
+          select: { satelliteId: true },
+        }),
+        prisma.department.findMany({
+          where: { id: { in: Array.from(userDeptIds) }, satelliteId: { not: null } },
+          select: { satelliteId: true },
+        }),
+      ])
+      const userSatIds = new Set([
+        ...deptSats.map((ds: any) => ds.satelliteId),
+        ...directDepts.map((d: any) => d.satelliteId as string),
+      ])
+
+      const hasDeptAccess = event.departmentId ? userDeptIds.has(event.departmentId) : false
+      const hasSatAccess = event.satelliteId ? userSatIds.has(event.satelliteId) : false
+
+      if ((event.departmentId || event.satelliteId) && !hasDeptAccess && !hasSatAccess) {
+        throw new AppError('forbidden', 'You are not authorized to view mission events for this department or mission', 403)
+      }
     }
 
     res.json({

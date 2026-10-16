@@ -174,7 +174,7 @@ export function NotificationsModal({ isOpen, onClose, notifications }: Notificat
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search notifications by keyword, station, mission..."
-              className="w-full rounded-xl border border-border-default bg-[#070c17] pl-9 pr-8 py-2 text-xs text-text-primary placeholder:text-text-dim focus:border-accent focus:outline-none"
+              className="w-full rounded-xl border border-border-default bg-[#070c17] pl-9 pr-8 py-2 text-xs text-text-primary placeholder:text-text-dim focus:border-border-default focus:outline-none focus:ring-0"
             />
             {search && (
               <button

@@ -10,6 +10,8 @@ import { categoryEnumFor, normalizeCategoryCode } from '../lib/reportCategory.js
 import { createReadStream, createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
 import { isUnsafeSvgContent, sanitizeSafeFilename } from '../lib/security.js'
+import { logger } from '../lib/logger.js'
+import { pubsub } from '../lib/pubsub.js'
 
 export function incrementVersionLabel(currentLabel?: string | null, versionNum = 1): string {
   if (!currentLabel) return `V${versionNum}.0`
@@ -423,14 +425,55 @@ if (ext === 'svg') {
         },
       })
 
-      notificationService.sendBroadcast({
-        type: 'FILE_UPLOAD',
-        category: 'file',
-        actorId: params.uploaderId,
-        message: `${params.uploaderName} uploaded ${sanitizedFilename} to ${dept.name}`,
-        resourceType: 'file',
-        resourceId: fileId,
-      })
+      // Strict department access isolation: File upload notifications are delivered
+      // ONLY to active users with explicit clearance for this department, active Admins, and the uploader.
+      try {
+        const deptUsers = await prisma.userDepartmentAccess.findMany({
+          where: { departmentId: dept.id, deletedAt: null },
+          select: { userId: true },
+        })
+        const activeAdmins = await prisma.user.findMany({
+          where: { role: 'ADMIN', status: 'ACTIVE', deletedAt: null },
+          select: { id: true },
+        })
+        const recipientIds = Array.from(
+          new Set([
+            ...deptUsers.map((u: any) => u.userId),
+            ...activeAdmins.map((a: any) => a.id),
+            params.uploaderId,
+          ])
+        ).filter(Boolean) as string[]
+
+        await notificationService.send({
+          type: 'FILE_UPLOAD',
+          category: 'file',
+          actorId: params.uploaderId,
+          message: `${params.uploaderName} uploaded ${sanitizedFilename} to ${dept.name}`,
+          resourceType: 'file',
+          resourceId: fileId,
+          recipientIds,
+          metadata: {
+            departmentId: dept.id,
+            departmentName: dept.name,
+            departmentCode: dept.code,
+            target: 'departments',
+            departmentIds: [dept.id],
+            fileId,
+            filename: sanitizedFilename,
+          },
+        })
+
+        // Publish to scoped department Redis channel for WebSocket live update
+        pubsub.publish(`file.upload.${dept.id}`, {
+          fileId,
+          fileName: sanitizedFilename,
+          departmentId: dept.id,
+          departmentName: dept.name,
+          timestamp: new Date().toISOString(),
+        }).catch(() => {})
+      } catch (notifErr) {
+        logger.error('[FileService] Failed to dispatch department file notification:', notifErr)
+      }
 
       return {
         id: fileId,

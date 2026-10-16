@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import {
   Bell,
   CheckCheck,
@@ -19,6 +19,7 @@ import { useNavigate, useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { useNotifications, useMarkAllRead, useMarkRead } from "../hooks/useNotifications"
 import { useActiveBanner } from "../hooks/useActiveBanner"
+import { useSatellites } from "../hooks/useSatellites"
 import { eventsApi, type MissionEventItem } from "../api/events.api"
 import { Button, PageHeader } from "../components"
 import { useAuthStore } from "../store/authStore"
@@ -48,8 +49,75 @@ export function NotificationsPage() {
   const markAllRead = useMarkAllRead()
   const markRead = useMarkRead()
 
+  const { data: userSatellites = [] } = useSatellites()
+  const userSatIds = useMemo(() => new Set(userSatellites.map((s) => s.id)), [userSatellites])
+
+  const userDeptIds = new Set(
+    (user?.departmentAccess || [])
+      .map((d) => d.departmentId || d.department?.id)
+      .filter((id): id is string => Boolean(id))
+  )
+  const userDeptNames = new Set(
+    (user?.departmentAccess || [])
+      .map((d) => d.department?.name?.toLowerCase().trim())
+      .filter((n): n is string => Boolean(n))
+  )
+  const userDeptCodes = new Set(
+    (user?.departmentAccess || [])
+      .map((d) => d.department?.code?.toLowerCase().trim())
+      .filter((c): c is string => Boolean(c))
+  )
+
   const rawNotifications: any[] = data?.pages.flatMap((p: any) => p.data || []) ?? []
-  const allNotifications = rawNotifications
+  const allNotifications = rawNotifications.filter((n) => {
+    if (isAdmin) return true
+    const kind = kindOf(n)
+
+    let meta: any = n.metadata
+    if (typeof meta === "string") {
+      try {
+        meta = JSON.parse(meta)
+      } catch {
+        meta = {}
+      }
+    } else if (!meta) {
+      meta = {}
+    }
+
+    // Mission/satellite access check
+    if (meta.satelliteId && !userSatIds.has(meta.satelliteId)) {
+      return false
+    }
+
+    if (kind === "file" || n.type === "FILE_UPLOAD" || n.category === "file") {
+      const targetDeptId = meta.departmentId || (Array.isArray(meta.departmentIds) ? meta.departmentIds[0] : null)
+      if (targetDeptId) {
+        return userDeptIds.has(targetDeptId)
+      }
+      if (meta.satelliteId) {
+        return userSatIds.has(meta.satelliteId)
+      }
+      if (meta.departmentName) {
+        return userDeptNames.has(meta.departmentName.toLowerCase().trim())
+      }
+      if (meta.departmentCode) {
+        return userDeptCodes.has(meta.departmentCode.toLowerCase().trim())
+      }
+      if (n.actorId && user?.id && n.actorId === user.id) {
+        return true
+      }
+      return false
+    }
+
+    if (meta.target === "departments" && Array.isArray(meta.departmentIds)) {
+      return meta.departmentIds.some((dId: string) => userDeptIds.has(dId))
+    }
+    if (meta.target === "all_departments") {
+      return userDeptIds.size > 0
+    }
+
+    return true
+  })
 
   // Filter based on active tab and search
   const filteredNotifications = allNotifications.filter((n) => {
@@ -388,6 +456,15 @@ export function NotificationsPage() {
             const isFile = kind === "file"
             const isImportant = n.type === "WARNING" || n.message?.includes("[IMPORTANT")
 
+            // Notifications older than 24 hours must not be tagged or named as NEW
+            const createdTime = n.createdAt
+              ? new Date(n.createdAt).getTime()
+              : n.timestamp
+              ? new Date(n.timestamp).getTime()
+              : 0
+            const isWithin24Hours = !isNaN(createdTime) && createdTime > 0 && Date.now() - createdTime < 24 * 60 * 60 * 1000 && Date.now() - createdTime >= 0
+            const isNew = isUnread && isWithin24Hours
+
             return (
               <div
                 key={n.id}
@@ -468,7 +545,7 @@ export function NotificationsPage() {
                         </span>
                       )}
 
-                      {isUnread && (
+                      {isNew && (
                         <span className="rounded bg-accent text-white px-1.5 py-0.2 text-[10px] font-extrabold uppercase tracking-wider font-mono animate-pulse shadow-sm">
                           NEW
                         </span>
@@ -476,7 +553,9 @@ export function NotificationsPage() {
 
                       <span className="text-[11px] text-text-dim font-mono flex items-center gap-1">
                         <Clock size={11} className="text-text-dim" />
-                        {new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} IST
+                        {isWithin24Hours
+                          ? `${new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} IST`
+                          : `${new Date(n.createdAt).toLocaleDateString([], { month: "short", day: "numeric" })} · ${new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} IST`}
                       </span>
                     </div>
 

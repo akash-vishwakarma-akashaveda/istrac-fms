@@ -214,7 +214,7 @@ export function Footer() {
   }
 
   return (
-    <footer id="footer" className="border-t border-border-subtle/80 bg-[#050811]/80">
+    <footer id="footer" className="border-t border-border-subtle bg-page-soft/90 backdrop-blur-md transition-colors duration-200">
       <div className="shell py-10 sm:py-12">
         <div className="flex flex-col justify-between gap-8 pb-8 border-b border-border-subtle sm:flex-row sm:items-center">
           {/* Brand & Mandate */}

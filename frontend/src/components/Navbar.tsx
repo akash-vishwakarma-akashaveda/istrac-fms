@@ -28,7 +28,7 @@ import { usePublicDepartments } from "../hooks/useDepartments"
 import { useActiveBanner } from "../hooks/useActiveBanner"
 import { Button } from "."
 import { SearchModal } from "./SearchModal"
-import { NotificationsModal, type NotificationModalItem } from "./NotificationsModal"
+import { NotificationsModal, normalizeCategory, type NotificationModalItem } from "./NotificationsModal"
 import { notificationsApi } from "../api/notifications.api"
 import { useCms } from "../context/cmsContext"
 
@@ -104,8 +104,9 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
   useEffect(() => {
     async function loadNotifs() {
       try {
+        const isLandingPage = location.pathname === '/'
         const [publicNotifs, authNotifs] = await Promise.allSettled([
-          notificationsApi.getPublicNotifications(),
+          notificationsApi.getPublicNotifications({ source: isLandingPage ? 'landing' : 'other' }),
           user ? notificationsApi.getNotifications({ limit: 50 }) : Promise.resolve({ data: [] }),
         ])
 
@@ -168,14 +169,23 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
           }
         }
 
-        setNotificationsList(items)
+        let displayItems = items
+        // If not logged in and not on the landing page, files related notifications cannot be read
+        if (!user && !isLandingPage) {
+          displayItems = items.filter((x) => {
+            const cat = normalizeCategory(x.category, x.type, x.kind)
+            return cat !== 'FILES' && x.kind !== 'file' && x.type !== 'FILE_UPLOAD'
+          })
+        }
+
+        setNotificationsList(displayItems)
       } catch (err) {
         console.error("Failed to load notifications for navbar bell:", err)
       }
     }
 
     loadNotifs()
-  }, [user, bannerData])
+  }, [user, bannerData, location.pathname])
 
   // Lock background scroll when mobile drawer is open
   useEffect(() => {
@@ -308,7 +318,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
     <>
       <header
         id={id}
-        className={`sticky top-0 z-[100] w-full border-b border-[#121929] bg-[#020408]/98 backdrop-blur-2xl transition-all shadow-xl shadow-black/60 ${className}`.trim()}
+        className={`sticky top-0 z-[100] w-full border-b border-border-subtle bg-surface/95 dark:bg-[#020408]/98 backdrop-blur-2xl transition-all shadow-md dark:shadow-xl dark:shadow-black/60 ${className}`.trim()}
       >
         <nav
           className="shell flex h-16 items-center justify-between gap-3 px-4 sm:px-6"
@@ -361,6 +371,8 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             >
               <button
                 type="button"
+                aria-haspopup="true"
+                aria-expanded={deptOpen}
                 onClick={() => setDeptOpen((prev) => !prev)}
                 onMouseEnter={() => setDeptOpen(true)}
                 className={`group relative flex h-full items-center gap-1 px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none cursor-pointer ${
