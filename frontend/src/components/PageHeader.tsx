@@ -48,7 +48,7 @@ export function PageHeader({
         )}
 
         {meta && (
-          <p className="num mt-2.5 text-[11px] text-text-dim">{meta}</p>
+          <div className="num mt-2.5 text-[11px] text-text-dim">{meta}</div>
         )}
       </div>
 

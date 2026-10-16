@@ -5,13 +5,24 @@ const handlers = new Map<string, Handler[]>()
 
 export const pubsub = {
   async publish(channel: string, message: object) {
-    await redisPub.publish(channel, JSON.stringify(message))
+    const payload = JSON.stringify(message)
+    try {
+      await redisPub.publish(channel, payload)
+    } catch {
+      // In-memory local broadcast if Redis is offline
+      const channelHandlers = handlers.get(channel) || []
+      channelHandlers.forEach((h) => h(payload))
+    }
   },
 
   subscribe(channel: string, handler: Handler) {
     if (!handlers.has(channel)) {
       handlers.set(channel, [])
-      redisSub.subscribe(channel)
+      try {
+        redisSub.subscribe(channel)
+      } catch {
+        // Fallback to in-memory subscription
+      }
     }
     handlers.get(channel)!.push(handler)
   },

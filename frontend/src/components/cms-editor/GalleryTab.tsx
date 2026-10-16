@@ -6,6 +6,7 @@ import { useUpdateCmsBlock } from '../../hooks/useUpdateCmsBlock'
 import { useToastStore } from '../../store/toastStore'
 import { Button, Input, Panel } from '..'
 import { SaveBar } from './SaveBar'
+import { CmsImageInput } from './CmsImageInput'
 
 interface GalleryItem {
   url: string
@@ -88,15 +89,13 @@ export function GalleryTab() {
 
             {/* Fields */}
             <div className="min-w-0 flex-1 space-y-3">
-              <Input
+              <CmsImageInput
                 id={`gallery-url-${index}`}
                 label="Image URL"
                 value={item.url}
-                onChange={(e) =>
-                  updateItem(index, { url: e.target.value })
-                }
-                placeholder="https://example.com/image.jpg"
-                className="num"
+                onChange={(url) => updateItem(index, { url })}
+                placeholder="https://... or /media/cms-assets/..."
+                hint="Paste a URL or click Browse to upload from your computer."
               />
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

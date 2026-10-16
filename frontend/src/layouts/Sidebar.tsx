@@ -1,36 +1,40 @@
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
 
 import { useAuthStore } from '../store/authStore'
 import { useUIStore } from '../store/uiStore'
 import { navItems, type NavItem } from '../config/navigation'
+import { useCms } from '../context/cmsContext'
 
-/** The crosshair mark, drawn from hairlines rather than shipped as an asset. */
-function StationMark() {
+/** The official ISRO logo brand mark */
+function StationMark({ className = '' }: { className?: string }) {
   return (
-    <span
-      aria-hidden="true"
-      className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-accent/30 bg-accent/10 text-accent-light"
-    >
-      <span className="relative block h-3.5 w-3.5">
-        <span className="absolute top-[6px] left-0 h-px w-3.5 rotate-45 bg-current" />
-        <span className="absolute top-[6px] left-0 h-px w-3.5 -rotate-45 bg-current" />
-        <span className="absolute top-[3px] left-[3px] h-2 w-2 rounded-full border border-current" />
-      </span>
-    </span>
+    <img
+      src="/logo/isro_logo.svg"
+      alt="ISRO Logo"
+      className={`h-8 w-auto object-contain shrink-0 ${className}`}
+    />
   )
 }
 
 export function Sidebar() {
   const user = useAuthStore((state) => state.user)
   const { sidebarCollapsed, toggleSidebar } = useUIStore()
+  const { cmsBlocks } = useCms()
 
-  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'DEPT_ADMIN'
+  const navData =
+    (cmsBlocks['nav_header'] as any) ||
+    (cmsBlocks['nav_footer'] as any)
+
+  const brandTitle = navData?.brandTitle || 'ISTRAC'
+  const brandHighlight = navData?.brandHighlight !== undefined ? navData.brandHighlight : '-SIMS'
+  const brandSubtitle = navData?.brandSubtitle || 'ISRO Ground Network'
+
+  const isAdmin = user?.role === 'ADMIN'
 
   const visibleItems = navItems.filter((item) => !item.adminOnly || isAdmin)
 
-  /* The privilege boundary is real information, so the rail shows it as a
-     break in the list rather than mixing both kinds of destination together. */
+  /* Group navigation by privilege boundaries */
   const workspaceItems = visibleItems.filter((item) => !item.adminOnly)
   const adminItems = visibleItems.filter((item) => item.adminOnly)
 
@@ -46,14 +50,34 @@ export function Sidebar() {
           sidebarCollapsed ? 'justify-center px-2' : 'justify-between pr-2 pl-3'
         }`}
       >
-        {!sidebarCollapsed && (
-          <div className="flex min-w-0 items-center gap-2.5">
-            <StationMark />
+        {sidebarCollapsed ? (
+          <Link
+            to="/"
+            title={`Return to ${brandTitle}${brandHighlight} Public Portal`}
+            className="flex items-center justify-center"
+          >
+            <StationMark className="h-7" />
+          </Link>
+        ) : (
+          <Link
+            to="/"
+            title={`Return to ${brandTitle}${brandHighlight} Public Portal`}
+            className="flex min-w-0 items-center gap-2.5 hover:opacity-90 transition-opacity"
+          >
+            <StationMark className="h-8" />
 
-            <span className="truncate text-[13px] tracking-[0.06em] text-text-primary">
-              ISTRAC<span className="text-accent-light">-FMS</span>
-            </span>
-          </div>
+            <div className="flex flex-col min-w-0">
+              <span className="truncate text-[13px] font-extrabold tracking-[0.06em] text-white leading-tight">
+                {brandTitle}
+                <span className="text-accent-light font-black">{brandHighlight}</span>
+              </span>
+              {brandSubtitle && (
+                <span className="truncate text-[8.5px] text-text-dim uppercase tracking-wider font-mono">
+                  {brandSubtitle}
+                </span>
+              )}
+            </div>
+          </Link>
         )}
 
         <button
@@ -78,22 +102,22 @@ export function Sidebar() {
           collapsed={sidebarCollapsed}
         />
 
-        {adminItems.length > 0 && (
+        {isAdmin && adminItems.length > 0 && (
           <RailGroup
             label="Administration"
             items={adminItems}
             collapsed={sidebarCollapsed}
-            className="mt-5 border-t border-border-subtle pt-4"
+            className="mt-4 border-t border-border-subtle/80 pt-3"
           />
         )}
       </nav>
 
-      {/* Station footer. Bengaluru ground station, where ISTRAC operates from. */}
+      {/* Station footer */}
       {!sidebarCollapsed && (
-        <div className="shrink-0 border-t border-border-subtle px-3 py-3">
-          <p className="eyebrow text-text-dim">Ground station</p>
-          <p className="num mt-1.5 text-[10px] leading-4 text-text-dim">
-            BLR · 13.03°N 77.51°E
+        <div className="shrink-0 border-t border-border-subtle px-3 py-2.5">
+          <p className="eyebrow text-text-dim text-[9px]">Station / Facility</p>
+          <p className="num mt-0.5 text-[10px] text-text-dim font-medium truncate" title={brandSubtitle || "BLR · MOX Complex"}>
+            {brandSubtitle || "BLR · MOX Complex"}
           </p>
         </div>
       )}
@@ -111,21 +135,26 @@ interface RailGroupProps {
 function RailGroup({ label, items, collapsed, className = '' }: RailGroupProps) {
   return (
     <div className={className}>
-      {!collapsed && <p className="eyebrow px-3 pb-2 text-text-dim">{label}</p>}
+      {!collapsed && (
+        <p className="eyebrow px-3 pb-1.5 text-[10px] font-bold tracking-wider text-text-dim uppercase">
+          {label}
+        </p>
+      )}
 
-      <ul className="space-y-px">
+      <ul className="space-y-0.5">
         {items.map((item) => (
           <li key={item.path}>
             <NavLink
               to={item.path}
+              end={item.path === '/dashboard' || item.path === '/admin'}
               title={collapsed ? item.label : undefined}
               className={({ isActive }) =>
-                `relative flex items-center gap-2.5 border-l-2 py-2 text-[13px] transition-colors duration-150 ${
+                `relative flex items-center gap-2.5 border-l-2 py-2 text-[13px] font-medium transition-colors duration-150 ${
                   collapsed ? 'justify-center px-0' : 'px-3'
                 } ${
                   isActive
-                    ? 'border-l-accent bg-accent/[0.07] text-text-primary'
-                    : 'border-l-transparent text-text-muted hover:bg-card-hover hover:text-text-secondary'
+                    ? 'border-l-accent bg-accent/10 text-white font-semibold'
+                    : 'border-l-transparent text-text-muted hover:bg-card-hover hover:text-text-primary'
                 }`
               }
             >
@@ -133,8 +162,8 @@ function RailGroup({ label, items, collapsed, className = '' }: RailGroupProps) 
                 <>
                   <item.icon
                     size={16}
-                    strokeWidth={1.8}
-                    className={`shrink-0 ${isActive ? 'text-accent-light' : ''}`}
+                    strokeWidth={isActive ? 2.2 : 1.8}
+                    className={`shrink-0 ${isActive ? 'text-accent-light' : 'text-text-muted'}`}
                   />
 
                   {!collapsed && <span className="truncate">{item.label}</span>}

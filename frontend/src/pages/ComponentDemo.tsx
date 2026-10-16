@@ -85,7 +85,7 @@ export function ComponentDemo() {
             <p className="col-label">Machine values</p>
 
             <p className="num mt-2 text-[13px] text-text-secondary">
-              2026-08-21 14:02:57Z · 524,288,000 B · v14 · 13.0331°N 77.5107°E
+              2026-08-21 14:02:57Z · 524,288,000 B · v14 · ISTRAC-BLR-MOX
             </p>
           </div>
         </div>

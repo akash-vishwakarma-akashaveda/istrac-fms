@@ -1,30 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api } from '../lib/axios'
+import { adminApi, type SystemConfig } from '../api'
 
-interface SystemConfig {
-  maxUploadSizeBytes: number
-  allowedExtensions: string[]
-  virusScanEnabled: boolean
-  guestAccessExpiryDays: number
-  hddSyncIntervalMinutes: number
-  downloadRateLimitPerHour: number
-}
+export type { SystemConfig }
+
+export const SYSTEM_CONFIG_QUERY_KEY = ['system-config'] as const
 
 export function useSystemConfig() {
   return useQuery({
-    queryKey: ['system-config'],
-    queryFn: async () => {
-      const { data } = await api.get<SystemConfig>('/admin/settings')
-      return data
-    },
+    queryKey: SYSTEM_CONFIG_QUERY_KEY,
+    queryFn: () => adminApi.getSystemConfig(),
   })
 }
 
 export function useUpdateSetting() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ key, value }: { key: string; value: string }) =>
-      api.put(`/admin/settings/${key}`, { value }),
+    mutationFn: ({ key, value }: { key: string; value: unknown }) =>
+      adminApi.updateSetting(key, value),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['system-config'] }),
   })
 }

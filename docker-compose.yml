@@ -37,7 +37,19 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-
+  worker:
+    build: ./backend
+    env_file: .env
+    command: npm run dev:worker
+    volumes:
+    - ./backend:/app
+    - /app/node_modules
+    - /mnt/istrac-data:/mnt/istrac-data
+    depends_on:
+     mysql:
+      condition: service_healthy
+     redis:
+      condition: service_started
   frontend:
     build: ./frontend
     env_file: ./frontend/.env

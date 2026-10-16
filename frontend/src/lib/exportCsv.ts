@@ -1,3 +1,4 @@
+ const FORMULA_PREFIXES = ['=', '+', '-', '@', '\t', '\r']
 export function exportToCsv(filename: string, rows: Record<string, unknown>[]) {
   if (rows.length === 0) return
 
@@ -7,9 +8,17 @@ export function exportToCsv(filename: string, rows: Record<string, unknown>[]) {
     ...rows.map((row) =>
       headers
         .map((h) => {
-          const val = String(row[h] ?? '')
-          // Escape values containing commas/quotes per CSV spec
-          return val.includes(',') || val.includes('"') ? `"${val.replace(/"/g, '""')}"` : val
+         const val = String(row[h] ?? '')
+
+const safeVal = FORMULA_PREFIXES.some((prefix) =>
+  val.startsWith(prefix)
+)
+  ? `'${val}`
+  : val
+
+return safeVal.includes(',') || safeVal.includes('"')
+  ? `"${safeVal.replace(/"/g, '""')}"`
+  : safeVal
         })
         .join(',')
     ),

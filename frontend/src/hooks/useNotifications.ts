@@ -1,27 +1,26 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api } from '../lib/axios'
+import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query'
+import { notificationsApi, type NotificationItem } from '../api'
 import { useNotificationStore } from '../store/notificationStore'
 
-interface NotificationItem {
-  id: number
-  type: string
-  message: string
-  category: 'Files' | 'Approvals' | 'System'
-  readAt: string | null
-  createdAt: string
+export type { NotificationItem }
+
+export interface NotificationsPageData {
+  data: NotificationItem[]
+  nextCursor: string | null
 }
 
 export function useNotifications(category?: string) {
-  return useInfiniteQuery({
+  return useInfiniteQuery<NotificationsPageData, Error, InfiniteData<NotificationsPageData>, (string | undefined)[], number>({
     queryKey: ['notifications', category],
-    queryFn: async ({ pageParam }) => {
-      const { data } = await api.get<{ data: NotificationItem[]; nextCursor: string | null }>('/notifications', {
-        params: { category: category || undefined, cursor: pageParam },
-      })
-      return data
+    queryFn: async ({ pageParam = 1 }) => {
+      const res = await notificationsApi.getNotifications({ page: pageParam, limit: 20 })
+      return {
+        data: res.data || [],
+        nextCursor: res.page * res.limit < res.total ? String(res.page + 1) : null,
+      }
     },
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.nextCursor ? Number(last.nextCursor) : undefined),
   })
 }
 
@@ -29,7 +28,7 @@ export function useMarkAllRead() {
   const queryClient = useQueryClient()
   const resetUnread = useNotificationStore((s) => s.resetUnread)
   return useMutation({
-    mutationFn: () => api.post('/notifications/mark-all-read'),
+    mutationFn: () => notificationsApi.markAllAsRead(),
     onSuccess: () => {
       resetUnread()
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
@@ -40,7 +39,7 @@ export function useMarkAllRead() {
 export function useMarkRead() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => api.patch(`/notifications/${id}/read`),
+    mutationFn: (id: string | number) => notificationsApi.markAsRead(String(id)),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   })
 }
