@@ -554,24 +554,37 @@ export function buildSatelliteFileConditions(satellite: {
   const addTerm = (val?: string | null) => {
     if (!val) return
     const clean = val.trim()
-    if (clean.length < 2) return
+    // Avoid short (<3 chars) or purely numeric terms from matching random file names/paths in production
+    if (clean.length < 3 || /^\d+$/.test(clean)) return
     terms.add(clean)
 
     // Variant with underscores instead of hyphens
     if (clean.includes('-')) {
-      terms.add(clean.replace(/-/g, '_'))
-      terms.add(clean.replace(/-/g, ''))
+      const u = clean.replace(/-/g, '_')
+      if (u.length >= 3) terms.add(u)
+      const n = clean.replace(/-/g, '')
+      if (n.length >= 3 && !/^\d+$/.test(n)) terms.add(n)
     }
     // Variant with hyphens instead of underscores
     if (clean.includes('_')) {
-      terms.add(clean.replace(/_/g, '-'))
-      terms.add(clean.replace(/_/g, ''))
+      const h = clean.replace(/_/g, '-')
+      if (h.length >= 3) terms.add(h)
+      const n = clean.replace(/_/g, '')
+      if (n.length >= 3 && !/^\d+$/.test(n)) terms.add(n)
     }
   }
 
   addTerm(satellite.name)
   addTerm(satellite.code)
-  addTerm(satellite.satId)
+
+  // Satellite satId can still match report spacecraft / mission if provided
+  if (satellite.satId && satellite.satId.trim().length >= 2) {
+    const sId = satellite.satId.trim()
+    conditions.push(
+      { report: { spacecraft: { equals: sId } } },
+      { report: { mission: { equals: sId } } }
+    )
+  }
 
   // Also check mission keyword from code if applicable, avoiding generic prefixes
   if (satellite.code) {
@@ -587,7 +600,7 @@ export function buildSatelliteFileConditions(satellite: {
   }
 
   for (const term of terms) {
-    if (term.length >= 2) {
+    if (term.length >= 3) {
       conditions.push(
         { report: { spacecraft: { contains: term } } },
         { report: { mission: { contains: term } } },
@@ -705,25 +718,49 @@ router.delete('/admin/satellites/:satelliteId/hard-delete', authMiddleware, admi
     }
 
     // Zero files associated - execute hard deletion in transaction
-    await prisma.$transaction(async (tx) => {
-      // Disconnect any foreign key references
-      await tx.department.updateMany({
-        where: { satelliteId: satellite.id },
-        data: { satelliteId: null },
-      })
-      await tx.missionEvent.updateMany({
-        where: { satelliteId: satellite.id },
-        data: { satelliteId: null },
-      })
-      // Remove many-to-many junction rows
-      await tx.departmentSatellite.deleteMany({
-        where: { satelliteId: satellite.id },
-      })
-      // Hard delete the satellite record permanently
-      await tx.satellite.delete({
-        where: { id: satellite.id },
-      })
-    })
+    try {
+      await prisma.$transaction(
+        async (tx) => {
+          // Disconnect any foreign key references
+          await tx.department.updateMany({
+            where: { satelliteId: satellite.id },
+            data: { satelliteId: null },
+          })
+          await tx.missionEvent.updateMany({
+            where: { satelliteId: satellite.id },
+            data: { satelliteId: null },
+          })
+          // Remove many-to-many junction rows
+          await tx.departmentSatellite.deleteMany({
+            where: { satelliteId: satellite.id },
+          })
+          // Hard delete the satellite record permanently
+          await tx.satellite.delete({
+            where: { id: satellite.id },
+          })
+        },
+        {
+          maxWait: 10000,
+          timeout: 25000,
+        }
+      )
+    } catch (dbErr: any) {
+      if (dbErr?.code === 'P2003') {
+        throw new AppError(
+          'satellite_foreign_key_violation',
+          `Cannot permanently delete satellite "${satellite.name}" because database foreign key constraints are still referencing it (e.g. unmigrated database columns or related records). Please run "npx prisma migrate deploy" on production to ensure schema constraints are up to date.`,
+          409
+        )
+      }
+      if (dbErr?.code === 'P2028') {
+        throw new AppError(
+          'transaction_timeout',
+          `The deletion transaction timed out due to high database load. Please retry.`,
+          504
+        )
+      }
+      throw dbErr
+    }
 
     auditService.log({
       userId: req.user!.id,

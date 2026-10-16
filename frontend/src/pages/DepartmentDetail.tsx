@@ -555,18 +555,28 @@ export function DepartmentDetail() {
         {/* 1. INTERACTIVE HERO SECTION (SIMILAR TO LANDING PAGE) */}
         {/* ============================================================ */}
         <section className="relative isolate overflow-hidden border-b border-border-subtle bg-page py-12 sm:py-16">
-          {/* Graticule Background & Ambient Glow */}
+          {/* Orbital Radar Telemetry Background & Deep Celestial Glow */}
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-            <div className="graticule absolute inset-0 opacity-30 [mask-image:radial-gradient(ellipse_at_50%_30%,black,transparent_80%)]" />
-            <div className="absolute top-1/3 left-1/4 h-[400px] w-[550px] rounded-full bg-accent/10 blur-3xl" />
-            <div className="absolute top-1/4 right-1/4 h-72 w-72 rounded-full bg-nominal/8 blur-3xl" />
+            <div className="graticule absolute inset-0 opacity-25 [mask-image:radial-gradient(ellipse_at_50%_30%,black,transparent_80%)]" />
+            {/* Deep celestial sapphire & cyan ambient aura - zero muddy orange */}
+            <div className="absolute top-1/4 left-1/4 h-[450px] w-[600px] rounded-full bg-[#0284c7]/10 dark:bg-[#0284c7]/15 blur-3xl" />
+            <div className="absolute top-1/6 right-1/5 h-80 w-80 rounded-full bg-[#2563eb]/8 dark:bg-[#38bdf8]/8 blur-3xl" />
+            {/* Mission Operations Radar Range Rings SVG */}
+            <svg className="absolute -right-24 -top-20 h-[520px] w-[520px] text-secondary/15 dark:text-sky-500/10 pointer-events-none" viewBox="0 0 520 520" fill="none" stroke="currentColor">
+              <circle cx="260" cy="260" r="100" strokeWidth="1" strokeDasharray="4 4" />
+              <circle cx="260" cy="260" r="170" strokeWidth="1" />
+              <circle cx="260" cy="260" r="230" strokeWidth="1" strokeDasharray="8 6" />
+              <circle cx="260" cy="260" r="255" strokeWidth="0.75" />
+              <line x1="260" y1="5" x2="260" y2="515" strokeWidth="0.75" strokeDasharray="3 3" />
+              <line x1="5" y1="260" x2="515" y2="260" strokeWidth="0.75" strokeDasharray="3 3" />
+            </svg>
           </div>
 
           <div className="shell grid items-center gap-10 lg:grid-cols-12 lg:gap-12">
             {/* Left Column: Department Hero Headline & Controls (7 cols, expands to 12 cols when carousel is hidden) */}
             <div className={`${isCarouselVisible ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-4`}>
               {/* Status Pill */}
-              <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3.5 py-1 text-xs font-semibold text-accent-light shadow-sm shadow-accent/20">
+              <div className="inline-flex items-center gap-2 rounded-full border border-secondary/40 bg-secondary/10 px-3.5 py-1 text-xs font-semibold text-secondary dark:text-sky-400 shadow-sm shadow-secondary/15">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-nominal" />
                 <span className="font-mono">{dept.code || 'DIVISION'}</span>
                 <span className="hidden sm:inline">Operational Ground Division · Active 24/7 MOX Ops</span>
@@ -589,14 +599,14 @@ export function DepartmentDetail() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-2 text-xs">
                 <div className="p-2.5 rounded-xl border border-border-default/60 bg-card/60">
                   <span className="text-[10px] uppercase font-bold text-text-dim block">Division Lead</span>
-                  <strong className="text-white text-xs truncate block mt-0.5">
+                  <strong className="text-text-primary text-xs truncate block mt-0.5">
                     {dept.pageLeadOfficer || 'Division In-Charge'}
                   </strong>
                 </div>
 
                 <div className="p-2.5 rounded-xl border border-border-default/60 bg-card/60">
                   <span className="text-[10px] uppercase font-bold text-text-dim block">Operations Lab</span>
-                  <strong className="text-white text-xs truncate block mt-0.5">
+                  <strong className="text-text-primary text-xs truncate block mt-0.5">
                     {dept.pageContact || 'Building MOX-2, BLR'}
                   </strong>
                 </div>

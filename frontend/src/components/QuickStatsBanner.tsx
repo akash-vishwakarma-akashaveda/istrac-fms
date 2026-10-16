@@ -139,13 +139,13 @@ export function QuickStatsBanner() {
   ]
 
   return (
-    <div className="border-b border-border-subtle/80 bg-[#060b17]/70 py-6 relative overflow-hidden">
+    <div className="border-b border-border-subtle/80 bg-page-soft/60 py-6 relative overflow-hidden">
       <div className="shell">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 lg:gap-5">
           {cards.map((card) => (
             <div
               key={card.id}
-              className={`h-[88px] sm:h-[92px] w-full flex items-center gap-3.5 rounded-xl border border-border-subtle/40 bg-[#070e1c]/50 p-3 sm:p-3.5 ${card.hoverBorder} transition-colors overflow-hidden`}
+              className={`h-[88px] sm:h-[92px] w-full flex items-center gap-3.5 rounded-xl border border-border-default bg-card shadow-sm p-3 sm:p-3.5 ${card.hoverBorder} transition-colors overflow-hidden`}
             >
               <div
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${card.iconBox}`}
@@ -154,7 +154,7 @@ export function QuickStatsBanner() {
               </div>
               <div className="min-w-0 flex-1 flex flex-col justify-center">
                 <span
-                  className={`num text-white block leading-tight break-words ${getMetricTextSize(card.val)}`}
+                  className={`num text-text-primary block leading-tight break-words ${getMetricTextSize(card.val)}`}
                 >
                   {card.val}
                 </span>

@@ -496,7 +496,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             <button
               type="button"
               onClick={() => setNotifsModalOpen(true)}
-              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-border-default bg-surface/80 text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all shadow-sm cursor-pointer"
+              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-border-default bg-surface/80 text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-colors duration-150 shadow-sm cursor-pointer group"
               title="Operational Broadcasts & Mission Notices"
               aria-label="Operational Broadcasts & Mission Notices"
             >
@@ -510,15 +510,18 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                     : ""
                 }
               />
-              {unreadCount > 0 ? (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-page">
-                  {unreadCount > 9 ? "9+" : unreadCount}
+              {(unreadCount > 0 || notificationsList.length > 0) && (
+                <span
+                  style={{ color: '#ffffff' }}
+                  className={`absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black text-white shadow-sm ring-2 ring-white dark:ring-[#020408] pointer-events-none select-none z-10 leading-none ${
+                    unreadCount > 0 ? 'bg-critical' : 'bg-accent'
+                  }`}
+                >
+                  {unreadCount > 0
+                    ? (unreadCount > 9 ? "9+" : unreadCount)
+                    : (notificationsList.length > 9 ? "9+" : notificationsList.length)}
                 </span>
-              ) : notificationsList.length > 0 ? (
-                <span className="absolute -top-1 -right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white shadow-sm ring-1 ring-page">
-                  {notificationsList.length > 9 ? "9+" : notificationsList.length}
-                </span>
-              ) : null}
+              )}
             </button>
 
             {showAuthButton && (
@@ -603,15 +606,18 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                     : ""
                 }
               />
-              {unreadCount > 0 ? (
-                <span className="absolute top-1.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[10px] font-bold text-white shadow-sm ring-1 ring-page">
-                  {unreadCount > 9 ? "9+" : unreadCount}
+              {(unreadCount > 0 || notificationsList.length > 0) && (
+                <span
+                  style={{ color: '#ffffff' }}
+                  className={`absolute top-1.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black text-white shadow-sm ring-1 ring-white dark:ring-[#020408] pointer-events-none select-none z-10 leading-none ${
+                    unreadCount > 0 ? 'bg-critical' : 'bg-accent'
+                  }`}
+                >
+                  {unreadCount > 0
+                    ? (unreadCount > 9 ? "9+" : unreadCount)
+                    : (notificationsList.length > 9 ? "9+" : notificationsList.length)}
                 </span>
-              ) : notificationsList.length > 0 ? (
-                <span className="absolute top-1.5 right-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-0.5 text-[10px] font-bold text-white shadow-sm ring-1 ring-page">
-                  {notificationsList.length > 9 ? "9+" : notificationsList.length}
-                </span>
-              ) : null}
+              )}
             </button>
 
             {user && (

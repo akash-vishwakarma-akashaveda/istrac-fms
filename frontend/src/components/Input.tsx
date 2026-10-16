@@ -41,12 +41,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           type={actualType}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
-          className={`w-full rounded-lg border bg-[#09101f] px-3.5 py-2.5 text-base sm:text-sm text-text-primary outline-none transition-colors duration-150 placeholder:text-text-dim hover:border-border-bright focus:border-accent focus:bg-[#0c162b] disabled:cursor-not-allowed disabled:bg-card disabled:text-text-muted ${
+          className={`w-full rounded-lg border bg-surface px-3.5 py-2.5 text-base sm:text-sm text-text-primary outline-none focus:outline-none focus:ring-0 transition-colors duration-150 placeholder:text-text-dim hover:border-border-bright disabled:cursor-not-allowed disabled:bg-card disabled:text-text-muted ${
             isPassword ? 'pr-10' : ''
           } ${
             error
               ? 'border-critical focus:border-critical'
-              : 'border-border-default focus:border-accent'
+              : 'border-border-default focus:border-secondary'
           } ${className}`}
           {...props}
         />

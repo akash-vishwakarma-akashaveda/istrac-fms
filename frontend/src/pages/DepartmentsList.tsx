@@ -50,10 +50,22 @@ export function DepartmentsList() {
       <main className="pb-24">
         {/* Header */}
         <section className="relative border-b border-border-subtle bg-page-soft py-14 lg:py-18 overflow-hidden">
-          <div className="graticule absolute inset-0 opacity-30 pointer-events-none" />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+            <div className="graticule absolute inset-0 opacity-25 [mask-image:radial-gradient(ellipse_at_50%_30%,black,transparent_80%)]" />
+            <div className="absolute top-1/4 left-1/3 h-[420px] w-[580px] rounded-full bg-[#0284c7]/10 dark:bg-[#0284c7]/12 blur-3xl" />
+            <div className="absolute -top-10 right-1/4 h-80 w-80 rounded-full bg-[#2563eb]/8 dark:bg-[#38bdf8]/6 blur-3xl" />
+            {/* High-tech orbital range rings */}
+            <svg className="absolute -right-20 -top-20 h-[500px] w-[500px] text-secondary/15 dark:text-sky-500/10 pointer-events-none" viewBox="0 0 500 500" fill="none" stroke="currentColor">
+              <circle cx="250" cy="250" r="120" strokeWidth="1" strokeDasharray="4 4" />
+              <circle cx="250" cy="250" r="190" strokeWidth="1" />
+              <circle cx="250" cy="250" r="240" strokeWidth="1" strokeDasharray="8 6" />
+              <line x1="250" y1="10" x2="250" y2="490" strokeWidth="0.75" strokeDasharray="3 3" />
+              <line x1="10" y1="250" x2="490" y2="250" strokeWidth="0.75" strokeDasharray="3 3" />
+            </svg>
+          </div>
           <div className="shell relative z-10">
-            <p className="eyebrow flex items-center gap-2.5 text-accent-light">
-              <span aria-hidden="true" className="h-2.5 w-px bg-accent-light" />
+            <p className="eyebrow flex items-center gap-2.5 text-secondary dark:text-sky-400">
+              <span aria-hidden="true" className="h-2.5 w-px bg-secondary dark:bg-sky-400" />
               ISTRAC Ground Network
             </p>
 
@@ -70,7 +82,7 @@ export function DepartmentsList() {
 
         {/* Directory Controls (STICKY ON SCROLL) */}
         <div className="shell mt-6 sticky top-16 z-20">
-          <div className="p-3.5 rounded-xl border border-border-default bg-[#070d18]/95 backdrop-blur-md shadow-lg shadow-black/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all">
+          <div className="p-3.5 rounded-xl border border-border-default bg-card/95 backdrop-blur-md shadow-lg shadow-black/10 dark:shadow-black/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all">
             <div className="relative flex-1 max-w-md">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
               <input
@@ -79,13 +91,13 @@ export function DepartmentsList() {
                 placeholder="Search division name, code (e.g. FDD, TTC)..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-[#060c18] pl-9 pr-8 py-2 text-xs text-white placeholder:text-text-dim outline-none focus:border-accent"
+                className="w-full rounded-lg border border-border-default bg-surface pl-9 pr-8 py-2 text-xs text-text-primary placeholder:text-text-dim outline-none focus:outline-none focus:ring-0 focus:border-secondary transition-colors"
               />
               {query && (
                 <button
                   type="button"
                   onClick={() => setQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-dim hover:text-white cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-primary cursor-pointer"
                   title="Clear search"
                 >
                   <X size={13} />
@@ -95,7 +107,7 @@ export function DepartmentsList() {
 
             <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
               <span className="text-xs text-text-dim whitespace-nowrap">
-                Showing <strong className="text-white num">{filtered.length}</strong> divisions
+                Showing <strong className="text-text-primary num">{filtered.length}</strong> divisions
               </span>
               {query && (
                 <button

@@ -202,6 +202,15 @@ body {
   line-height: 1.15;
 }
 
+:root[data-theme="light"] :is(.display, h1.display, h2.display, h3.display, h1:is([class*="display"]), h2:is([class*="display"])) {
+  color: #082d52 !important;
+  -webkit-text-fill-color: #082d52 !important;
+  background: none !important;
+  background-image: none !important;
+  letter-spacing: -0.025em;
+  text-shadow: none !important;
+}
+
 .eyebrow {
   font-family: var(--font-sans);
   font-size: 11px;
@@ -576,8 +585,9 @@ body {
   box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
 }
 :root[data-theme="light"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):focus:not([data-theme="dark"] *) {
-  border-color: var(--color-accent) !important;
-  box-shadow: 0 0 0 3px rgba(242, 103, 22, 0.16) !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.16) !important;
+  outline: none !important;
 }
 :root[data-theme="light"] option {
   background-color: #ffffff;
@@ -757,23 +767,30 @@ body {
 
 /* Translucent hover buttons (outline, ghost, tags, tabs) illuminate in their brand color — NEVER white! */
 :root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-accent/"]):not([class~="bg-accent"], [class~="bg-critical"]):hover,
-:root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-accent/"]):not([class~="bg-accent"], [class~="bg-critical"]):hover :is(span, svg) {
+:root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-accent/"]):not([class~="bg-accent"], [class~="bg-critical"]):hover :is(span:not([class*="rounded-full"]):not([class*="bg-critical"]):not([class*="bg-accent"]):not(.num), svg) {
   color: var(--color-accent) !important;
 }
 :root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-secondary/"]):not([class~="bg-secondary"]):hover,
-:root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-secondary/"]):not([class~="bg-secondary"]):hover :is(span, svg) {
+:root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-secondary/"]):not([class~="bg-secondary"]):hover :is(span:not([class*="rounded-full"]):not([class*="bg-critical"]):not([class*="bg-accent"]):not(.num), svg) {
   color: var(--color-secondary) !important;
 }
 :root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-nominal/"]):not([class~="bg-nominal"]):hover,
-:root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-nominal/"]):not([class~="bg-nominal"]):hover :is(span, svg) {
+:root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-nominal/"]):not([class~="bg-nominal"]):hover :is(span:not([class*="rounded-full"]):not([class*="bg-critical"]):not([class*="bg-accent"]):not(.num), svg) {
   color: #15803d !important;
 }
 :root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-critical/"]):not([class~="bg-critical"]):hover,
-:root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-critical/"]):not([class~="bg-critical"]):hover :is(span, svg) {
+:root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-critical/"]):not([class~="bg-critical"]):hover :is(span:not([class*="rounded-full"]):not([class*="bg-critical"]):not([class*="bg-accent"]):not(.num), svg) {
   color: #b91c1c !important;
 }
 :root[data-theme="light"] :is(button, a, [role="button"]):is([class*="hover:bg-card-hover"], [class*="hover:bg-surface"], [class*="hover:bg-slate-"]):not([class~="bg-accent"], [class~="bg-critical"]):hover {
   color: var(--color-text-primary) !important;
+}
+
+/* Badge counters, pill tags, and unread numbers inside buttons must ALWAYS remain crisp white with zero blur or text distortion */
+:root[data-theme="light"] :is(button, a, [role="button"]):hover :is(.rounded-full, [class*="bg-critical"], [class*="bg-accent"]):is(span, div) {
+  color: #ffffff !important;
+  text-shadow: none !important;
+  filter: none !important;
 }
 
 /* Prevent hover:text-white from turning text invisible on light surfaces */
@@ -840,14 +857,31 @@ body {
 :is(input, select, textarea)[class*="border-border-subtle"] {
   border-color: var(--color-border-bright);
 }
+:is(input, select, textarea),
+:is(input, select, textarea):focus,
+:is(input, select, textarea):focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+}
 :is(input, select, textarea)[class*="border-border-default"]:focus,
 :is(input, select, textarea)[class*="border-border-subtle"]:focus {
-  border-color: var(--color-accent);
+  border-color: var(--color-secondary) !important;
 }
-:is(button, a, input, select, textarea, [tabindex]):focus-visible {
+:is(button, a, [role="button"]):focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 :is(button, input, select, textarea):disabled {
   cursor: not-allowed;
+}
+
+/* Ensure notification badges and pill counters stay razor sharp and never blur on hover */
+:is(button, a, [role="button"]):hover :is(span, div):is([class*="bg-critical"], [class*="bg-accent"], [class*="bg-nominal"], [class*="rounded-full"][class*="text-white"], .num) {
+  color: #ffffff !important;
+  text-shadow: none !important;
+  filter: none !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }

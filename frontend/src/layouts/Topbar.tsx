@@ -145,7 +145,7 @@ export function Topbar() {
               <Bell size={16} strokeWidth={1.8} />
 
               {unreadCount > 0 && (
-                <span className="num absolute top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[10px] leading-none text-white">
+                <span className="num absolute top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[10px] leading-none text-white pointer-events-none select-none transform-gpu">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
