@@ -1085,35 +1085,9 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
 
     const totalStorageBytes = Number(storageAgg._sum.sizeBytes || 0n)
 
-    // Palette & dynamic colors for satellites / spacecraft
-    const satPalette = [
-      '#FF6B00', '#00A3FF', '#8B5CF6', '#10B981', '#F59E0B',
-      '#EC4899', '#3B82F6', '#EF4444', '#06B6D4', '#14B8A6',
-      '#84CC16', '#F43F5E', '#A855F7', '#6366F1', '#D946EF',
-      '#0EA5E9', '#22C55E', '#EAB308', '#F97316', '#64748B',
-    ]
-
-    const knownSatColors: Record<string, string> = {
-      'Aditya-L1': '#FF6B00',
-      'Chandrayaan-3': '#00A3FF',
-      'Gaganyaan-1': '#8B5CF6',
-      'Gaganyaan': '#8B5CF6',
-      'Cartosat-3': '#10B981',
-      'NISAR': '#F59E0B',
-      'XPoSat': '#EC4899',
-      'PSLV-C59': '#3B82F6',
-      'EOS-08': '#00D8B6',
-      'General': '#64748B',
-    }
-
-    const getSatColor = (name: string, index: number): string => {
-      if (knownSatColors[name]) return knownSatColors[name]
-      const foundKey = Object.keys(knownSatColors).find(
-        (k) => k.toUpperCase() === name.toUpperCase() || name.toUpperCase().includes(k.toUpperCase())
-      )
-      if (foundKey) return knownSatColors[foundKey]
-      return satPalette[index % satPalette.length]
-    }
+    // Chart colours: the brand palette (ISRO blue and saffron at alternating lightness), assigned by position.
+    const CHART_PALETTE = ['#0d88d3', '#f47115', '#5fb2f5', '#c05400', '#0367a2', '#ff9a5c']
+    const getSatColor = (_name: string, index: number): string => CHART_PALETTE[index % CHART_PALETTE.length]
 
     // Resolve spacecraft for each file against report metadata, filename, and DB active satellites ONLY
     const resolveFileSpacecraft = (f: any): string | null => {
@@ -1178,29 +1152,13 @@ router.get('/user/mission-overview', authMiddleware, async (req, res, next) => {
       }))
 
     // Dynamic Category breakdown & Pie chart colors
-    const catPalette = [
-      '#0066FF', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444',
-      '#EC4899', '#06B6D4', '#14B8A6', '#84CC16', '#F43F5E',
-      '#A855F7', '#EAB308', '#3B82F6', '#F97316', '#6366F1',
-    ]
-
-    const knownCatColors: Record<string, string> = {
-      DAILYOPS: '#10B981',
-      DAILY_REPORT: '#10B981',
-      STUDY: '#8B5CF6',
-      PAYLOADOPS: '#F59E0B',
-      ANOMALY: '#EF4444',
-      SPECOPS: '#EC4899',
-      SPECIAL_OPERATIONS: '#EC4899',
-      GENERAL: '#0066FF',
-      OTHER: '#0066FF',
-    }
+    const catPalette = CHART_PALETTE
 
     const presetNames = new Map<string, string>()
     const presetColors = new Map<string, string>()
     presets.forEach((p: any, idx: number) => {
       presetNames.set(p.code, p.name)
-      const color = knownCatColors[p.code] || catPalette[idx % catPalette.length]
+      const color = catPalette[idx % catPalette.length]
       presetColors.set(p.code, color)
     })
     const presetCodes = new Set<string>(presets.map((p: any) => String(p.code)))

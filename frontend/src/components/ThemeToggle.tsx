@@ -11,7 +11,7 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
       onClick={toggleTheme}
       aria-label={`Switch to ${next} theme`}
       title={`Switch to ${next} theme`}
-      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-default text-text-secondary transition-colors hover:bg-card-hover hover:text-text-primary ${className}`}
+      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-page-soft text-text-primary transition-colors hover:bg-border-subtle ${className}`}
     >
       {theme === 'dark' ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
     </button>

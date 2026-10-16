@@ -13,6 +13,8 @@ export interface SpaceBackgroundConfig {
 
 interface SpaceParallaxBackgroundProps {
   config?: SpaceBackgroundConfig
+  /** Fill the nearest positioned parent (the landing hero) instead of the whole viewport. */
+  contained?: boolean
 }
 
 function getResolvedMediaUrl(url?: string): string {
@@ -35,7 +37,7 @@ function getResolvedMediaUrl(url?: string): string {
   return trimmed
 }
 
-export function SpaceParallaxBackground({ config }: SpaceParallaxBackgroundProps) {
+export function SpaceParallaxBackground({ config, contained = false }: SpaceParallaxBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wallpaperRef = useRef<HTMLDivElement | null>(null)
 
@@ -225,7 +227,7 @@ export function SpaceParallaxBackground({ config }: SpaceParallaxBackgroundProps
     <div
       aria-hidden="true"
       data-theme="dark"
-      className="pointer-events-none fixed inset-0 z-0 overflow-hidden select-none bg-[#0d0d0d]"
+      className={`pointer-events-none ${contained ? 'absolute' : 'fixed'} inset-0 z-0 overflow-hidden select-none bg-[#0d0d0d]`}
     >
       {/* 1. Optional Custom Background Image with Parallax or Fixed Cinema Mode */}
       {resolvedWallpaper && (mode === 'custom_image' || mode === 'deep_space_hybrid') && (

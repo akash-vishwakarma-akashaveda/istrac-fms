@@ -4,7 +4,7 @@ import { authMiddleware } from '../middleware/auth.middleware.js'
 import { AppError } from '../lib/errors.js'
 import { adminMiddleware } from '../middleware/admin.middleware.js'
 import { auditService } from '../services/audit.service.js'
-import { normalizeCategoryCode, categoryCodeOf, categoryEnumFor } from '../lib/reportCategory.js'
+import { normalizeCategoryCode, categoryCodeOf, categoryEnumFor, CODE_TO_ENUM } from '../lib/reportCategory.js'
 
 const router = Router()
 
@@ -49,7 +49,9 @@ const DEFAULT_NAMING_PRESETS = [
 // Helper: find all active files associated with a category
 function buildCategoryFileWhere(category: { code: string; name?: string }): any {
   const clean = normalizeCategoryCode(category.code)
-  const legacy = categoryEnumFor(clean)
+  // Only codes that really map to a legacy enum match old rows; categoryEnumFor() falls back to OTHER for
+  // every custom code, which made each new category "own" all legacy OTHER files.
+  const legacy = CODE_TO_ENUM[clean]
   const isGeneral = clean === 'GENERAL' || clean === 'OTHER'
   const orList: any[] = [
     { customCategory: clean },
@@ -239,6 +241,10 @@ router.delete('/report-presets/categories/:id', authMiddleware, adminMiddleware,
 
     if (!category) {
       throw new AppError('not_found', 'Report category not found', 404)
+    }
+
+    if (category.isSystem) {
+      throw new AppError('cannot_delete_system', 'Default system categories cannot be deleted', 400)
     }
 
     const fileWhere = buildCategoryFileWhere(category)

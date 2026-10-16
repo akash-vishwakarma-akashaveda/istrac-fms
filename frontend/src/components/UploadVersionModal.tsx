@@ -827,7 +827,7 @@ export function UploadVersionModal({
                         type="checkbox"
                         checked={enforceNaming}
                         onChange={(e) => setEnforceNaming(e.target.checked)}
-                        className="h-4 w-4 rounded border-border-default bg-card text-accent focus:ring-accent"
+                        className="h-4 w-4 rounded border-border-default bg-card text-accent-light focus:ring-accent"
                       />
                       <span>Automatically enforce this naming pattern on storage array</span>
                     </label>
@@ -904,7 +904,7 @@ export function UploadVersionModal({
                           type="checkbox"
                           checked={isVisible}
                           onChange={(e) => setIsVisible(e.target.checked)}
-                          className="h-4 w-4 rounded border-border-default bg-card text-accent focus:ring-accent accent-accent mt-0.5 cursor-pointer"
+                          className="h-4 w-4 rounded border-border-default bg-card text-accent-light focus:ring-accent accent-accent mt-0.5 cursor-pointer"
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 text-xs font-bold text-white">

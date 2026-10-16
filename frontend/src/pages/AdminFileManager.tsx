@@ -985,7 +985,7 @@ export function AdminFileManager() {
                           <button
                             type="button"
                             onClick={() => setPreviewFile(file as unknown as FileNode)}
-                            className="p-1.5 rounded-md border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
+                            className="p-1.5 rounded-md border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent-light hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
                             title="Preview File"
                           >
                             <Eye size={13} />
@@ -1004,7 +1004,7 @@ export function AdminFileManager() {
                           <button
                             type="button"
                             onClick={() => setUploadVersionFile(file)}
-                            className="p-1.5 rounded-md border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
+                            className="p-1.5 rounded-md border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent-light hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
                             title="Upload New Version for this file"
                           >
                             <Upload size={13} />
@@ -1014,7 +1014,7 @@ export function AdminFileManager() {
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(file)}
-                            className="p-1.5 rounded-md border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
+                            className="p-1.5 rounded-md border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent-light hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
                             title="Edit Metadata & Broadcast"
                           >
                             <Edit2 size={13} />
@@ -1030,7 +1030,7 @@ export function AdminFileManager() {
                                 `[NOTICE] Spacecraft telemetry archive ${file.name} updated in ${file.department?.code || file.department?.name || 'the archive'}.`
                               )
                             }}
-                            className="p-1.5 rounded-md border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
+                            className="p-1.5 rounded-md border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent-light hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
                             title="Broadcast Alert to Mission Control"
                           >
                             <Megaphone size={13} />
@@ -1132,7 +1132,7 @@ export function AdminFileManager() {
                 type="checkbox"
                 checked={editForm.broadcastAlert}
                 onChange={(e) => setEditForm({ ...editForm, broadcastAlert: e.target.checked })}
-                className="h-4 w-4 rounded border-border-default bg-card text-accent focus:ring-accent"
+                className="h-4 w-4 rounded border-border-default bg-card text-accent-light focus:ring-accent"
               />
               <span className="flex items-center gap-1.5">
                 <Megaphone size={13} className="text-accent-light" />

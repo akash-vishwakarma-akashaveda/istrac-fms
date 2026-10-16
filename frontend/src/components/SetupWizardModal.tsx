@@ -393,7 +393,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                     type="checkbox"
                     checked={enableRedundancy}
                     onChange={(e) => setEnableRedundancy(e.target.checked)}
-                    className="h-4 w-4 rounded border-border-default bg-card text-accent focus:ring-accent"
+                    className="h-4 w-4 rounded border-border-default bg-card text-accent-light focus:ring-accent"
                   />
                   <span className="flex items-center gap-1.5">
                     <Layers size={14} className="text-accent-light" />
@@ -729,7 +729,7 @@ export function SetupWizardModal({ isOpen, onClose, onComplete }: SetupWizardMod
                 variant="primary"
                 size="md"
                 onClick={handleFinish}
-                className="bg-nominal hover:bg-nominal-light text-white shadow-lg shadow-nominal/25"
+                className="bg-nominal-fill hover:bg-nominal-light text-white shadow-lg shadow-nominal/25"
               >
                 <CheckCircle2 size={15} />
                 <span className="hidden sm:inline">Launch Ground Command Center</span>

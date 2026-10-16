@@ -1,6 +1,7 @@
 import { ArrowUpRight, Mail, Phone, MapPin, Headphones } from "lucide-react"
 import { useCms, DEFAULT_CMS_BLOCKS } from "../context/cmsContext"
 import { safeHref } from "../lib/sanitize"
+import { SectionHeader } from "./SectionHeader"
 
 interface ContactBlockContent {
   sectionEyebrow?: string
@@ -45,96 +46,63 @@ export function ContactSection() {
   const deskBadge = contactInfo?.deskBadge || "● 24/7 MISSION DESK"
   const facilityName = contactInfo?.facilityName || "Ground Facility Headquarters"
 
+  const cardClass =
+    "group flex items-start gap-4 rounded-2xl border border-border-subtle bg-card p-6 shadow-card transition-shadow hover:shadow-card-hover"
+
   return (
-    <section id="contact" className="border-b border-border-subtle/80 bg-[#060a15]/70 py-20 sm:py-24" aria-labelledby="contact-title">
-      <div className="shell grid items-stretch gap-10 lg:grid-cols-12 lg:gap-14">
-        {/* Left Side: Information */}
-        <div className="flex flex-col justify-between lg:col-span-6">
-          <div>
-            <p className="eyebrow flex items-center gap-2.5 text-accent-light">
-              <span aria-hidden="true" className="h-2.5 w-px bg-accent-light" />
-              {sectionEyebrow}
-            </p>
+    <section id="contact" className="relative overflow-hidden bg-band-saffron py-24" aria-labelledby="contact-title">
+      <div aria-hidden="true" className="section-grid" />
+      <div className="shell relative space-y-10">
+        <SectionHeader
+          id="contact-title"
+          eyebrow={sectionEyebrow}
+          title={sectionTitle}
+          subtitle={sectionSubtitle}
+          actions={
+            deskBadge && (
+              <span className="inline-flex min-h-8 items-center gap-2 rounded-full bg-nominal-bg px-3.5 text-sm font-semibold text-nominal">
+                <Headphones size={13} />
+                {deskBadge.replace(/^●\s*/, "")}
+              </span>
+            )
+          }
+        />
 
-            <h2
-              id="contact-title"
-              className="display mt-4 text-3xl font-bold tracking-tight text-text-primary sm:text-4xl"
-            >
-              {sectionTitle}
-            </h2>
+        <div className="grid gap-5 md:grid-cols-3">
+          {email && (
+            <a href={safeHref(`mailto:${email.trim().replace(/[\x00-\x1f\x7f]/g, '')}`, '#')} className={cardClass}>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
+                <Mail size={18} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-medium text-text-muted">Email</span>
+                <span className="mt-1 block break-all text-sm font-semibold text-text-primary text-accent-light group-hover:underline">{email}</span>
+              </span>
+              <ArrowUpRight size={16} className="shrink-0 text-text-muted group-hover:text-accent-light" />
+            </a>
+          )}
 
-            <p className="mt-4 text-base leading-relaxed text-text-secondary">
-              {sectionSubtitle}
-            </p>
-          </div>
+          {phone && (
+            <a href={safeHref(`tel:${phone.trim().replace(/[\x00-\x1f\x7f]/g, '')}`, '#')} className={cardClass}>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
+                <Phone size={18} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-medium text-text-muted">Phone</span>
+                <span className="num mt-1 block text-sm font-semibold text-accent-light group-hover:underline">{phone}</span>
+              </span>
+              <ArrowUpRight size={16} className="shrink-0 text-text-muted group-hover:text-accent-light" />
+            </a>
+          )}
 
-          <div className="mt-8 flex items-start gap-3.5 rounded-2xl border border-border-default bg-card p-5 shadow-card">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/25">
-              <MapPin size={20} />
-            </div>
-            <div>
-              <h4 className="text-xs font-semibold text-text-primary">{facilityName}</h4>
-              <p className="num mt-1 text-xs leading-relaxed text-text-muted">{address}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Side: Direct Support Channels */}
-        <div className="flex flex-col overflow-hidden rounded-2xl border border-border-default bg-card shadow-2xl lg:col-span-6">
-          <div className="flex items-center justify-between border-b border-border-subtle bg-surface px-6 py-4">
-            <div className="flex items-center gap-2">
-              <Headphones size={16} className="text-accent-light" />
-              <span className="eyebrow text-text-muted">Direct Support Channels</span>
-            </div>
-            <span className="num text-[11px] text-nominal font-medium">{deskBadge}</span>
-          </div>
-
-          <div className="divide-y divide-border-subtle flex-1 flex flex-col justify-around">
-            {email && (
-              <a
-                href={safeHref(`mailto:${email.trim().replace(/[\x00-\x1f\x7f]/g, '')}`, '#')}
-                className="group flex items-center gap-4 px-6 py-6 transition-colors duration-150 hover:bg-card-hover"
-              >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface border border-border-subtle text-accent-light shadow-inner">
-                  <Mail size={20} strokeWidth={1.8} />
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <span className="eyebrow block text-[10px] text-text-dim">CAMPUS SMTP DESK</span>
-                  <span className="num mt-1 block truncate text-sm font-semibold text-text-primary group-hover:text-accent-light">
-                    {email}
-                  </span>
-                </div>
-
-                <ArrowUpRight
-                  size={18}
-                  className="shrink-0 text-text-dim transition-colors duration-150 group-hover:text-accent-light"
-                />
-              </a>
-            )}
-
-            {phone && (
-              <a
-                href={safeHref(`tel:${phone.trim().replace(/[\x00-\x1f\x7f]/g, '')}`, '#')}
-                className="group flex items-center gap-4 px-6 py-6 transition-colors duration-150 hover:bg-card-hover"
-              >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface border border-border-subtle text-nominal shadow-inner">
-                  <Phone size={20} strokeWidth={1.8} />
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <span className="eyebrow block text-[10px] text-text-dim">OPERATIONS EPABX LINE</span>
-                  <span className="num mt-1 block truncate text-sm font-semibold text-text-primary group-hover:text-accent-light">
-                    {phone}
-                  </span>
-                </div>
-
-                <ArrowUpRight
-                  size={18}
-                  className="shrink-0 text-text-dim transition-colors duration-150 group-hover:text-accent-light"
-                />
-              </a>
-            )}
+          <div className="flex items-start gap-4 rounded-2xl border border-border-subtle bg-card p-6 shadow-card">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
+              <MapPin size={18} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-xs font-medium text-text-muted">{facilityName}</span>
+              <span className="mt-1 block text-sm leading-relaxed text-text-primary">{address}</span>
+            </span>
           </div>
         </div>
       </div>

@@ -7,7 +7,18 @@ Each patch includes all compiled code, installation scripts (`.sh`), service man
 
 ## 📦 Available Patch Releases
 
-### Latest: `patch-2026-10-09-bugfix-security-ui.zip` (Size: ~2.6 MB)
+### Latest: `patch-2026-10-16-brand-ui-security.zip` (Size: ~2.6 MB)
+* **Date**: 2026-10-16
+* **Contents**:
+  * Security: public notification leak closed, system categories protected again, department access isolation, immediate session revocation.
+  * Data correctness: no invented placeholder values.
+  * New ISRO-brand theme (light + dark), landing page redesign, restyled dashboards.
+  * Team updates: scoped notifications, satellite hard-delete, reworked admin pages.
+* **Cumulative**: includes everything in 2026-10-09 and earlier, so it can be applied directly.
+* **No database migration, no dependency or environment changes.** Installer check 5 probes `GET /api/admin/files/extensions`. Automatic rollback is unchanged.
+* **Instructions**: [`patch-2026-10-16-brand-ui-security/README.md`](patch-2026-10-16-brand-ui-security/README.md) · full change list in `CHANGES.md`.
+
+### Previous: `patch-2026-10-09-bugfix-security-ui.zip` (Size: ~2.6 MB)
 * **Date**: 2026-10-09
 * **Contents**: BUG-01…17 fixes, security hardening (rate limits, login lockout, OTP cap), light/dark theme, UI consistency, Prisma 7 schema fix, `/api/health` no longer fails without Redis.
 * **Includes the earlier 2026-09-24 patches** (built from current source), so it can be applied directly on top of either.

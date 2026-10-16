@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { publicFileIds, notificationFileId } from '../lib/publicFiles.js'
 import { prisma } from '../config/db.js'
 import { authMiddleware } from '../middleware/auth.middleware.js'
 import { adminMiddleware } from '../middleware/admin.middleware.js'
@@ -42,12 +43,14 @@ router.get('/notifications/public', async (req, res, next) => {
       distinct: ['message'],
     })
 
-    // Public notifications:
-    // Files related notifications can be read when no user is logged in only on the landing page
+    // Public notifications: station-wide items, plus uploads of featured (public) files on the landing page.
+    // Uploads of any other file stay private: their text names the uploader, the file and the division.
+    const isFileNote = (n: any) => n.type === 'FILE_UPLOAD' || n.category === 'file' || n.resourceType === 'file'
+    const publicFiles = isLanding ? await publicFileIds(broadcasts.filter(isFileNote).map(notificationFileId)) : new Set<string>()
     const publicItems = broadcasts.filter((n: any) => {
-      const isFile = n.type === 'FILE_UPLOAD' || n.category === 'file' || n.resourceType === 'file'
-      if (isFile) {
-        return Boolean(isLanding)
+      if (isFileNote(n)) {
+        const fileId = notificationFileId(n)
+        return Boolean(isLanding && fileId && publicFiles.has(fileId))
       }
 
       if (!n.metadata) return true

@@ -86,7 +86,7 @@ export const DEFAULT_CATEGORY_METAS: Record<string, CategoryMeta> = {
     label: "Telemetry Anomaly Review",
     dotClass: "bg-red-500 shadow-sm shadow-red-500/40",
     textClass: "text-red-400",
-    badgeClass: "bg-red-500/20 text-red-400 border border-red-500/30",
+    badgeClass: "bg-critical/15 text-critical border border-critical/30",
     borderClass: "border-red-500",
     calendarDateClass: "rounded-full bg-red-600 text-white font-bold shadow-md shadow-red-600/30",
     priority: 6,
@@ -111,7 +111,7 @@ export const CUSTOM_PALETTES = [
   {
     dotClass: "bg-amber-400 shadow-sm shadow-amber-400/50",
     textClass: "text-amber-300",
-    badgeClass: "bg-amber-500/20 text-amber-400 border border-amber-500/30",
+    badgeClass: "bg-warning/15 text-warning border border-warning/30",
     borderClass: "border-amber-400",
     calendarDateClass: "rounded-full bg-amber-400 text-black font-bold shadow-md shadow-amber-400/40",
   },
@@ -438,17 +438,23 @@ export function MissionCalendar({
   const todayEvents = useMemo(() => eventsByDate[todayStr] || [], [eventsByDate, todayStr])
 
   const calendarContent = (
-    <div className={`rounded-2xl border border-border-default bg-[#0b1220]/95 p-4 sm:p-6 shadow-2xl backdrop-blur-md ${className}`}>
+    <div className={`${isEmbedded ? "rounded-2xl border border-border-subtle bg-card p-5 sm:p-6 shadow-card" : "space-y-10"} ${className}`}>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border-subtle/70 pb-4 gap-2">
-        <div className="flex items-center gap-2.5 text-text-primary">
-          <CalendarIcon size={18} className="text-accent-light" />
-          <div>
-            <h2 id="calendar-title" className="text-base font-bold tracking-wide text-white">
-              {sectionTitle}
-            </h2>
-            <p className="text-xs text-text-muted mt-0.5">{sectionSubtitle}</p>
-          </div>
+      <div className={`flex flex-col gap-5 md:flex-row md:items-end md:justify-between ${isEmbedded ? "border-b border-border-subtle/70 pb-4" : ""}`}>
+        <div className="max-w-[660px] space-y-3">
+          {!isEmbedded && (
+            <p className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-[0.08em] text-saffron-text">
+              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-isro-saffron" />
+              Mission calendar
+            </p>
+          )}
+          <h2
+            id="calendar-title"
+            className={isEmbedded ? "display text-xl font-bold tracking-tight text-text-primary sm:text-2xl" : "display text-[28px] font-bold leading-tight tracking-tight text-text-primary sm:text-4xl sm:leading-[44px]"}
+          >
+            {sectionTitle}
+          </h2>
+          <p className={isEmbedded ? "mt-1 text-sm text-text-secondary" : "text-base leading-relaxed text-text-secondary sm:text-[17px]"}>{sectionSubtitle}</p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
@@ -456,7 +462,7 @@ export function MissionCalendar({
             <button
               type="button"
               onClick={() => setSelectedDateEvents({ date: todayStr, events: todayEvents })}
-              className="num inline-flex items-center gap-1.5 rounded-full bg-nominal/15 border border-nominal/40 px-2.5 py-1 text-[11px] font-bold text-nominal hover:bg-nominal/25 transition-colors cursor-pointer shadow-xs animate-pulse"
+              className="num inline-flex items-center gap-1.5 rounded-full bg-nominal/15 border border-nominal/40 px-2.5 py-1 text-[11px] font-bold text-nominal hover:bg-nominal/25 transition-colors cursor-pointer"
               title="View Today's Scheduled Events"
             >
               <span className="h-1.5 w-1.5 rounded-full bg-nominal" />
@@ -472,7 +478,7 @@ export function MissionCalendar({
                 setSelectedDateEvents({ date: todayStr, events: todayEvents })
               }
             }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface/80 hover:bg-card-hover px-2.5 py-1 text-xs font-semibold text-text-primary hover:text-white transition-all cursor-pointer shadow-xs"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] bg-page-soft px-4 text-sm font-semibold text-text-primary transition-colors hover:bg-border-subtle cursor-pointer"
             title="Jump to Current Date (IST)"
           >
             <Clock size={12} className="text-accent-light" />
@@ -489,7 +495,7 @@ export function MissionCalendar({
           {!hideViewAll && (
             <Link
               to="/admin/events"
-              className="text-xs font-semibold text-accent-light hover:underline flex items-center gap-1 shrink-0"
+              className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-[10px] bg-saffron-soft px-4 text-sm font-semibold text-saffron-text transition-colors hover:bg-saffron-soft-hover"
             >
               <span>Manage Events</span>
               <ArrowRight size={13} />
@@ -551,7 +557,7 @@ export function MissionCalendar({
                   <div
                     key={ev.id}
                     onClick={() => setSelectedDateEvents({ date: ev.date, events: [ev] })}
-                    className="p-3 rounded-xl border border-border-subtle bg-[#0d1629] hover:border-accent/40 hover:bg-[#111c34] cursor-pointer transition-all space-y-1.5 shadow-sm"
+                    className="p-4 rounded-2xl border border-border-subtle bg-card shadow-card hover:shadow-card-hover cursor-pointer transition-shadow space-y-1.5"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -561,17 +567,17 @@ export function MissionCalendar({
                           {ev.meta?.label || ev.categoryLabel || ev.category}
                         </span>
                         {ev.satelliteName && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-                            🛰️ {ev.satelliteName}
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-card text-text-secondary border border-border-subtle">
+                            {ev.satelliteName}
                           </span>
                         )}
                         {ev.urgency === "CRITICAL" && (
-                          <span className="text-[10px] font-bold uppercase px-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                          <span className="text-[10px] font-bold uppercase px-1 rounded bg-critical/15 text-critical border border-critical/30">
                             CRITICAL
                           </span>
                         )}
                         {ev.status === "CANCELLED" && (
-                          <span className="text-[10px] font-bold uppercase px-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                          <span className="text-[10px] font-bold uppercase px-1 rounded bg-critical/15 text-critical border border-critical/30">
                             CANCELLED
                           </span>
                         )}
@@ -579,10 +585,10 @@ export function MissionCalendar({
                       <span className="num text-[10px] text-text-dim">{ev.date} · {ev.time}</span>
                     </div>
                     <div className={`text-xs font-semibold truncate ${
-                      ev.status === "CANCELLED" ? "text-text-muted line-through" : "text-white"
+                      ev.status === "CANCELLED" ? "text-text-muted line-through" : "text-text-primary"
                     }`}>{ev.title}</div>
                     <div className="flex items-center gap-2 text-[10px] text-text-dim num flex-wrap">
-                      <span>📍 {ev.station || "ISTRAC Bengaluru"}</span>
+                      <span>{ev.station || "ISTRAC Bengaluru"}</span>
                       <span>·</span>
                       <span className="text-accent-light font-semibold">{ev.department}</span>
                     </div>
@@ -607,7 +613,7 @@ export function MissionCalendar({
                 <div
                   key={ev.id}
                   onClick={() => setSelectedDateEvents({ date: ev.date, events: [ev] })}
-                  className="p-4 rounded-xl border border-border-default bg-[#0d1629] hover:border-accent/50 hover:bg-[#101c36] cursor-pointer transition-all flex flex-col justify-between space-y-3 shadow-md"
+                  className="p-5 rounded-2xl border border-border-subtle bg-card shadow-card hover:shadow-card-hover cursor-pointer transition-shadow flex flex-col justify-between space-y-3"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between border-b border-border-subtle pb-2">
@@ -618,17 +624,17 @@ export function MissionCalendar({
                           {ev.meta?.label || ev.categoryLabel || ev.category}
                         </span>
                         {ev.satelliteName && (
-                          <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-                            🛰️ {ev.satelliteName}
+                          <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold bg-card text-text-secondary border border-border-subtle">
+                            {ev.satelliteName}
                           </span>
                         )}
                         {ev.urgency === "CRITICAL" && (
-                          <span className="text-[10px] font-bold uppercase px-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                          <span className="text-[10px] font-bold uppercase px-1 rounded bg-critical/15 text-critical border border-critical/30">
                             CRITICAL
                           </span>
                         )}
                         {ev.status === "CANCELLED" && (
-                          <span className="text-[10px] font-bold uppercase px-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                          <span className="text-[10px] font-bold uppercase px-1 rounded bg-critical/15 text-critical border border-critical/30">
                             CANCELLED
                           </span>
                         )}
@@ -636,7 +642,7 @@ export function MissionCalendar({
                       <span className="num text-[11px] text-text-dim font-semibold">{ev.date}</span>
                     </div>
                     <h3 className={`text-xs font-bold leading-snug line-clamp-2 ${
-                      ev.status === "CANCELLED" ? "text-text-muted line-through" : "text-white"
+                      ev.status === "CANCELLED" ? "text-text-muted line-through" : "text-text-primary"
                     }`}>{ev.title}</h3>
                     {ev.description && (
                       <p className="text-[11px] text-text-secondary line-clamp-2 leading-relaxed">{ev.description}</p>
@@ -644,8 +650,8 @@ export function MissionCalendar({
                   </div>
 
                   <div className="flex items-center justify-between text-[10px] text-text-dim pt-2 border-t border-border-subtle/60 num flex-wrap gap-1">
-                    <span>🕒 {ev.time}</span>
-                    <span>📍 {ev.station || "ISTRAC Bengaluru"}</span>
+                    <span>{ev.time}</span>
+                    <span>{ev.station || "ISTRAC Bengaluru"}</span>
                     <span className="text-accent-light font-semibold">{ev.department}</span>
                   </div>
                 </div>
@@ -657,7 +663,7 @@ export function MissionCalendar({
 
       {/* Bottom Legend: Shows all dropdown items of the category event type */}
       {showLegend && (
-        <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-border-subtle/70 pt-5 text-xs text-text-muted">
+        <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border-subtle pt-4 text-xs text-text-secondary">
           {legendCategories.map((cat) => (
             <span key={cat.id} className="flex items-center gap-2">
               <span className={`h-2.5 w-2.5 rounded-full ${cat.dotClass}`} />
@@ -671,15 +677,15 @@ export function MissionCalendar({
 
   const cancelConfirmationModal = cancellingEvent && (
     <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in-50 duration-150">
-      <div className="w-full max-w-sm rounded-2xl border border-red-500/40 bg-[#0d1629] p-5 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+      <div className="w-full max-w-sm rounded-xl border border-critical/40 bg-card p-5 shadow-card-lg space-y-4 animate-in zoom-in-95 duration-150">
         <div className="flex items-start gap-3">
           <div className="p-2 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 shrink-0">
             <AlertTriangle size={18} />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-bold text-white">Cancel Mission Event</h3>
+            <h3 className="text-sm font-bold text-text-primary">Cancel Mission Event</h3>
             <p className="text-xs text-text-muted mt-1 leading-relaxed">
-              Are you sure you want to cancel <strong className="text-white">"{cancellingEvent.title}"</strong>?
+              Are you sure you want to cancel <strong className="text-text-primary">"{cancellingEvent.title}"</strong>?
             </p>
             <p className="text-[11px] text-red-400/90 mt-1 font-mono">
               Action: Status → CANCELLED (Admin Only)
@@ -728,8 +734,9 @@ export function MissionCalendar({
   }
 
   return (
-    <section id="calendar" className="border-b border-border-subtle/80 bg-page/65 py-12 sm:py-16" aria-labelledby="calendar-title">
-      <div className="shell">
+    <section id="calendar" className="relative overflow-hidden bg-page py-24" aria-labelledby="calendar-title">
+      <div aria-hidden="true" className="section-grid" />
+      <div className="shell relative">
         {calendarContent}
       </div>
 
@@ -765,19 +772,19 @@ function MonthBlock({
   onSelectDate: (date: string, evs: MissionEvent[]) => void
 }) {
   return (
-    <div className="rounded-xl border border-border-subtle/80 bg-[#0d1629] p-4">
+    <div className="rounded-2xl border border-border-subtle bg-card p-5 shadow-card">
       {/* Month Title & Nav */}
       <div className="flex items-center justify-between pb-3">
         <button
           type="button"
           onClick={onPrev}
           aria-label="Previous month"
-          className="rounded-lg border border-border-subtle bg-surface p-1 text-text-muted hover:text-text-primary transition-colors"
+          className="rounded-full p-1.5 text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors"
         >
           <ChevronLeft size={16} />
         </button>
 
-        <h3 className="text-sm font-bold text-text-primary tracking-wider">
+        <h3 className="text-sm font-semibold text-text-primary">
           {MONTH_NAMES[month]} {year}
         </h3>
 
@@ -785,14 +792,14 @@ function MonthBlock({
           type="button"
           onClick={onNext}
           aria-label="Next month"
-          className="rounded-lg border border-border-subtle bg-surface p-1 text-text-muted hover:text-text-primary transition-colors"
+          className="rounded-full p-1.5 text-text-muted hover:bg-card-hover hover:text-text-primary transition-colors"
         >
           <ChevronRight size={16} />
         </button>
       </div>
 
       {/* Weekday Row */}
-      <div className="grid grid-cols-7 text-center text-[10px] font-bold text-text-dim py-2">
+      <div className="grid grid-cols-7 text-center text-[11px] font-medium text-text-muted py-2">
         {DAYS_OF_WEEK.map((d) => (
           <div key={d}>{d}</div>
         ))}
@@ -822,9 +829,9 @@ function MonthBlock({
                 <span
                   className={`num flex h-7 w-7 items-center justify-center text-xs font-semibold transition-all relative ${
                     !cd.isCurrentMonth
-                      ? "text-text-dim/40"
+                      ? "text-text-dim/60"
                       : isToday
-                      ? "rounded-full bg-accent text-white font-bold ring-2 ring-accent-light ring-offset-2 ring-offset-[#0d1629] shadow-md shadow-accent/40"
+                      ? "rounded-full bg-accent text-white font-bold"
                       : topEvent?.meta?.calendarDateClass
                       ? topEvent.meta.calendarDateClass
                       : hasEvents
@@ -834,14 +841,11 @@ function MonthBlock({
                   title={isToday ? "Today (Current Date)" : undefined}
                 >
                   {cd.dayNumber}
-                  {isToday && (
-                    <span className="absolute -bottom-1 h-1.5 w-1.5 rounded-full bg-accent-light animate-ping" />
-                  )}
                 </span>
 
                 {/* Multiple Event Count Badge on Date (e.g. +3) */}
                 {cd.isCurrentMonth && dayEvents.length > 1 && (
-                  <span className="absolute -top-1 -right-2 h-4 min-w-4 px-1 rounded-full bg-accent text-white text-[10px] font-extrabold flex items-center justify-center border border-[#0d1629] shadow-sm">
+                  <span className="absolute -top-1 -right-2 h-4 min-w-4 px-1 rounded-full bg-accent text-white text-[10px] font-extrabold flex items-center justify-center border-2 border-surface">
                     {dayEvents.length}
                   </span>
                 )}
@@ -861,7 +865,7 @@ function MonthBlock({
 
               {/* Hover Tooltip Preview — Shows ALL events for that day */}
               {hasEvents && (
-                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden w-56 rounded-xl border border-border-default bg-[#0c1426] p-3 text-left text-xs shadow-2xl z-30 group-hover:block animate-rise">
+                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden w-56 rounded-lg border border-border-default bg-card p-3 text-left text-xs shadow-card-lg z-30 group-hover:block">
                   <div className="flex items-center justify-between border-b border-border-subtle pb-1.5 mb-2">
                     <span className="text-[10px] uppercase font-bold text-accent-light">{cd.dateString}</span>
                     <span className="num text-[10px] text-text-dim">{dayEvents.length} event{dayEvents.length > 1 ? "s" : ""}</span>
@@ -872,7 +876,7 @@ function MonthBlock({
                         key={i}
                         className={`space-y-0.5 border-l-2 pl-1.5 ${ev.meta?.borderClass || "border-accent"}`}
                       >
-                        <p className={`font-bold text-[11px] truncate ${ev.status === "CANCELLED" ? "text-text-muted line-through" : "text-white"}`}>
+                        <p className={`font-bold text-[11px] truncate ${ev.status === "CANCELLED" ? "text-text-muted line-through" : "text-text-primary"}`}>
                           {ev.title}
                         </p>
                         <p className="num text-[10px] text-text-dim">{ev.time} · {ev.meta?.label || ev.categoryLabel || ev.station || ev.department}</p>
@@ -906,21 +910,21 @@ function MultiEventModal({
   onCancelEvent?: (ev: MissionEvent) => void
 }) {
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-3 sm:p-4 bg-page/85 backdrop-blur-sm animate-rise">
+    <div className="fixed inset-0 z-[500] flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-sm">
       <div
-        className="relative w-full max-w-xl max-h-[88dvh] sm:max-h-[85vh] flex flex-col overflow-hidden rounded-2xl border border-border-default bg-[#0d1629] shadow-2xl my-auto"
+        className="relative w-full max-w-xl max-h-[88dvh] sm:max-h-[85vh] flex flex-col overflow-hidden rounded-2xl border border-border-default bg-card shadow-card-lg my-auto"
         role="dialog"
         aria-modal="true"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border-subtle bg-[#111c34] px-4 sm:px-6 py-3.5 sm:py-4 shrink-0 gap-2">
+        <div className="flex items-center justify-between border-b border-border-subtle bg-surface px-4 sm:px-6 py-3.5 sm:py-4 shrink-0 gap-2">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-accent/15 border border-accent/30 text-accent-light shrink-0">
               <CalendarIcon size={18} />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm font-bold text-white leading-snug">
+                <h3 className="text-base font-semibold text-text-primary leading-snug">
                   Mission Events on {date}
                 </h3>
                 <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent-light shrink-0">
@@ -948,7 +952,7 @@ function MultiEventModal({
           {events.map((ev, index) => (
             <div
               key={ev.id || index}
-              className="rounded-xl border border-border-subtle bg-[#060c18] p-4 space-y-3 hover:border-accent/40 transition-colors"
+              className="rounded-lg border border-border-subtle bg-surface p-4 space-y-3"
             >
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border-subtle pb-2.5 gap-2">
                 <div className="space-y-1 min-w-0">
@@ -960,33 +964,33 @@ function MultiEventModal({
                     </span>
 
                     {ev.satelliteName && (
-                      <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                      <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold bg-card text-text-secondary border border-border-subtle">
                         <Satellite size={11} className="text-cyan-400" />
                         <span>{ev.satelliteName}</span>
                       </span>
                     )}
 
                     {ev.urgency === "CRITICAL" && (
-                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse">
+                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase bg-critical/15 text-critical border border-critical/30">
                         CRITICAL
                       </span>
                     )}
 
                     {ev.urgency === "IMPORTANT" && (
-                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase bg-warning/15 text-warning border border-warning/30">
                         PRIORITY
                       </span>
                     )}
 
                     {ev.status === "CANCELLED" && (
-                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase bg-red-500/20 text-red-400 border border-red-500/30">
+                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase bg-critical/15 text-critical border border-critical/30">
                         CANCELLED
                       </span>
                     )}
                   </div>
 
                   <h4 className={`text-base font-bold leading-snug pt-0.5 ${
-                    ev.status === "CANCELLED" ? "text-text-muted line-through" : "text-white"
+                    ev.status === "CANCELLED" ? "text-text-muted line-through" : "text-text-primary"
                   }`}>
                     {ev.title}
                   </h4>
@@ -1011,12 +1015,12 @@ function MultiEventModal({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-[#0b1426] p-3 rounded-lg border border-border-subtle/70">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-card p-3 rounded-lg border border-border-subtle">
                 <div className="flex items-center gap-2 text-text-secondary min-w-0">
                   <MapPin size={14} className="text-accent-light shrink-0" />
                   <div className="truncate">
                     <span className="text-[10px] uppercase text-text-dim block leading-tight">Ground Station / Location</span>
-                    <span className="font-semibold text-white">{ev.station || "ISTRAC Bengaluru"}</span>
+                    <span className="font-semibold text-text-primary">{ev.station || "ISTRAC Bengaluru"}</span>
                   </div>
                 </div>
 
@@ -1024,7 +1028,7 @@ function MultiEventModal({
                   <Layers size={14} className="text-accent-light shrink-0" />
                   <div className="truncate">
                     <span className="text-[10px] uppercase text-text-dim block leading-tight">Operational Division</span>
-                    <span className="font-semibold text-white">
+                    <span className="font-semibold text-text-primary">
                       {ev.departmentName ? `${ev.departmentName} (${ev.departmentCode || ev.department})` : ev.department || "Operations"}
                     </span>
                   </div>
@@ -1032,7 +1036,7 @@ function MultiEventModal({
               </div>
 
               {ev.description && (
-                <div className="bg-[#0b1220] p-3 rounded-lg border border-border-subtle/50 space-y-1">
+                <div className="bg-card p-3 rounded-lg border border-border-subtle space-y-1">
                   <span className="text-[10px] uppercase font-bold tracking-wider text-text-dim block">Operation Details & Notes</span>
                   <p className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap">
                     {ev.description}
@@ -1044,12 +1048,12 @@ function MultiEventModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-3 border-t border-border-subtle bg-[#111c34] shrink-0 text-xs text-text-dim">
+        <div className="flex items-center justify-between px-6 py-3 border-t border-border-subtle bg-surface shrink-0 text-xs text-text-muted">
           <span>Tracking Network: <strong>ISTRAC Global Telemetry Network</strong></span>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 rounded-lg border border-border-default bg-surface text-xs font-semibold text-white hover:bg-card-hover cursor-pointer"
+            className="px-4 py-1.5 rounded-lg border border-border-default bg-card text-xs font-semibold text-text-primary hover:bg-card-hover cursor-pointer"
           >
             Close
           </button>

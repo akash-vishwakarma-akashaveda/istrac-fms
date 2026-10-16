@@ -640,7 +640,7 @@ export function DepartmentHub() {
                       <button
                         type="button"
                         onClick={() => setSatelliteStatusFilter('ACTIVE')}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-nominal/40 bg-nominal/15 text-nominal text-xs font-bold hover:bg-nominal hover:text-white transition-all cursor-pointer mt-1"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-nominal/40 bg-nominal/15 text-nominal text-xs font-bold hover:bg-nominal-fill hover:text-white transition-all cursor-pointer mt-1"
                       >
                         <span>View Active Satellites</span>
                       </button>
@@ -648,7 +648,7 @@ export function DepartmentHub() {
                       <button
                         type="button"
                         onClick={() => setSatelliteStatusFilter('DEACTIVATED')}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-critical/40 bg-critical/15 text-critical text-xs font-bold hover:bg-critical hover:text-white transition-all cursor-pointer mt-1"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-critical/40 bg-critical/15 text-critical text-xs font-bold hover:bg-critical-fill hover:text-white transition-all cursor-pointer mt-1"
                       >
                         <span>View Deactivated Satellites ({deactivatedCount})</span>
                       </button>

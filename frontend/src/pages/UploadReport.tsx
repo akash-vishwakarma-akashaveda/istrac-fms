@@ -589,7 +589,7 @@ export function UploadReport() {
                     type="checkbox"
                     checked={enforceNaming}
                     onChange={(e) => setEnforceNaming(e.target.checked)}
-                    className="h-4 w-4 rounded border-border-default bg-card text-accent focus:ring-accent"
+                    className="h-4 w-4 rounded border-border-default bg-card text-accent-light focus:ring-accent"
                   />
                   <span>Automatically enforce this naming pattern on storage array</span>
                 </label>

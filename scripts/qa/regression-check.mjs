@@ -275,6 +275,14 @@ await check('ADMIN audit log has readable entries for these actions', async () =
   assert.ok(logs.some((l) => l.action === 'FILE:UPLOAD' && /uploaded “QA_RG_/.test(l.summary)), 'upload not audited')
   assert.ok(logs.every((l) => l.summary && !/passwordHash|refreshToken/.test(JSON.stringify(l))))
 })
+await check('ANON public notification feeds never name private (non-featured) uploads', async () => {
+  const pub = (await call('GET', '/notifications/public')).data.data
+  const banner = (await call('GET', '/events/active-banner')).data.data?.broadcasts || []
+  const text = [...pub, ...banner].map((n) => n.message || '').join(' | ')
+  for (const priv of [`QA_RG_A_${stamp}`, `QA_RG_C_${stamp}`, `QA_RG_MRW_${stamp}`]) {
+    assert.ok(!text.includes(priv), `anonymous feed leaks ${priv}`)
+  }
+})
 await check('PUBLIC endpoints respond', async () => {
   for (const p of ['/health', '/departments/public', '/public/stats', '/events', '/notifications/public', '/files/featured-list', '/cms/blocks', '/satellites']) {
     assert.equal((await call('GET', p)).status, 200, p)

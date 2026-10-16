@@ -553,7 +553,7 @@ export function SystemConfigPanel() {
                   type="checkbox"
                   checked={virusScanEnabled}
                   onChange={(e) => setVirusScanEnabled(e.target.checked)}
-                  className="h-4 w-4 rounded border-border-default bg-card text-accent focus:ring-accent"
+                  className="h-4 w-4 rounded border-border-default bg-card text-accent-light focus:ring-accent"
                 />
                 <span className="text-xs font-semibold text-white">Cryptographic Virus Scanning</span>
               </label>
@@ -1061,7 +1061,7 @@ export function SystemConfigPanel() {
               type="checkbox"
               checked={failoverEnabled}
               onChange={(e) => setFailoverEnabled(e.target.checked)}
-              className="mt-0.5 rounded border-border-default text-accent focus:ring-accent"
+              className="mt-0.5 rounded border-border-default text-accent-light focus:ring-accent"
             />
             <div className="space-y-1">
               <span className="text-xs font-bold text-white block">Auto-Failover to Secondary</span>
@@ -1252,7 +1252,7 @@ export function SystemConfigPanel() {
                 type="checkbox"
                 checked={copyExistingData}
                 onChange={(e) => setCopyExistingData(e.target.checked)}
-                className="mt-0.5 rounded border-border-default text-accent focus:ring-accent"
+                className="mt-0.5 rounded border-border-default text-accent-light focus:ring-accent"
               />
               <div className="space-y-0.5">
                 <span className="text-xs font-bold text-white block">Copy Existing Files & Telemetry Datasets</span>

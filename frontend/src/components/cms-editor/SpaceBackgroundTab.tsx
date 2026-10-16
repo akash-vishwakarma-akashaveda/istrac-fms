@@ -273,7 +273,7 @@ export function SpaceBackgroundTab() {
                 type="checkbox"
                 checked={enableParallax}
                 onChange={(e) => setEnableParallax(e.target.checked)}
-                className="h-4 w-4 rounded border-border-default bg-surface text-accent focus:ring-accent"
+                className="h-4 w-4 rounded border-border-default bg-surface text-accent-light focus:ring-accent"
               />
               <span className="text-text-primary font-medium">Enable Parallax Scroll Depth</span>
             </label>
@@ -283,7 +283,7 @@ export function SpaceBackgroundTab() {
                 type="checkbox"
                 checked={showOrbitalRings}
                 onChange={(e) => setShowOrbitalRings(e.target.checked)}
-                className="h-4 w-4 rounded border-border-default bg-surface text-accent focus:ring-accent"
+                className="h-4 w-4 rounded border-border-default bg-surface text-accent-light focus:ring-accent"
               />
               <span className="text-text-primary font-medium">Show Orbital Trajectory Curves</span>
             </label>
@@ -293,7 +293,7 @@ export function SpaceBackgroundTab() {
                 type="checkbox"
                 checked={showConstellations}
                 onChange={(e) => setShowConstellations(e.target.checked)}
-                className="h-4 w-4 rounded border-border-default bg-surface text-accent focus:ring-accent"
+                className="h-4 w-4 rounded border-border-default bg-surface text-accent-light focus:ring-accent"
               />
               <span className="text-text-primary font-medium">Show Telemetry Constellation Lines</span>
             </label>

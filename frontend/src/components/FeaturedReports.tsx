@@ -1,15 +1,11 @@
-import { useState, useRef, useEffect } from "react"
+import { useState, useEffect } from "react"
 import {
   FileText,
   Eye,
   Download,
   FileCode,
   FileSpreadsheet,
-  Filter,
-  ChevronLeft,
-  ChevronRight,
   Star,
-  Sparkles,
 } from "lucide-react"
 import { useAuthStore } from "../store/authStore"
 import { useCms } from "../context/cmsContext"
@@ -18,21 +14,19 @@ import { FilePreviewModal } from "./FilePreviewModal"
 import { ConfirmFeatureModal } from "./ConfirmFeatureModal"
 import type { FileNode } from "../types/file"
 import { useFeaturedReports, type FeaturedReportItem } from "../hooks/useFeaturedReports"
+import { SectionHeader } from "./SectionHeader"
 
 export type { FeaturedReportItem }
 
-const EXT_CONFIG: Record<
-  string,
-  { label: string; badge: string; icon: typeof FileText }
-> = {
-  BIN: { label: "BIN", badge: "bg-accent/15 text-accent-light border-accent/30", icon: FileCode },
-  DAT: { label: "DAT", badge: "bg-nominal/15 text-nominal border-nominal/30", icon: FileCode },
-  PDF: { label: "PDF", badge: "bg-critical/15 text-critical border-critical/30", icon: FileText },
-  CSV: { label: "CSV", badge: "bg-warning/15 text-warning border-warning/30", icon: FileSpreadsheet },
-  DOCX: { label: "DOCX", badge: "bg-blue-400/15 text-blue-400 border-blue-400/30", icon: FileText },
-  XLSX: { label: "XLSX", badge: "bg-emerald-400/15 text-emerald-400 border-emerald-400/30", icon: FileSpreadsheet },
-  ZIP: { label: "ZIP", badge: "bg-amber-400/15 text-amber-400 border-amber-400/30", icon: FileText },
-  LOG: { label: "LOG", badge: "bg-purple-400/15 text-purple-400 border-purple-400/30", icon: FileText },
+const EXT_CONFIG: Record<string, { icon: typeof FileText }> = {
+  BIN: { icon: FileCode },
+  DAT: { icon: FileCode },
+  PDF: { icon: FileText },
+  CSV: { icon: FileSpreadsheet },
+  DOCX: { icon: FileText },
+  XLSX: { icon: FileSpreadsheet },
+  ZIP: { icon: FileText },
+  LOG: { icon: FileText },
 }
 
 function isViewableFormat(ext: string, mime?: string | null): boolean {
@@ -57,7 +51,6 @@ export function FeaturedReports({ department, hideDepartmentFilter }: FeaturedRe
   const [previewFile, setPreviewFile] = useState<FileNode | null>(null)
   const [featureConfirmFile, setFeatureConfirmFile] = useState<{ id: string; name: string; isFeatured?: boolean } | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
-  const carouselRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const handleRefresh = () => {
@@ -164,237 +157,128 @@ export function FeaturedReports({ department, hideDepartmentFilter }: FeaturedRe
     )
   }
 
-  const scrollLeft = () => {
-    if (carouselRef.current) {
-      carouselRef.current.scrollBy({ left: -360, behavior: "smooth" })
-    }
-  }
-
-  const scrollRight = () => {
-    if (carouselRef.current) {
-      carouselRef.current.scrollBy({ left: 360, behavior: "smooth" })
-    }
-  }
+  const featuredCms = cmsBlocks["featured_reports"] as { title?: string; subtitle?: string } | undefined
+  const tonal =
+    "inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-saffron-soft px-4 text-sm font-semibold text-saffron-text transition-colors hover:bg-saffron-soft-hover disabled:opacity-50"
 
   return (
     <>
       <section
         id="featured-files"
-        className="border-b border-border-subtle/80 bg-page-soft/60 backdrop-blur-sm py-14 sm:py-16"
+        className="relative overflow-hidden bg-band-blue py-24"
         aria-labelledby="featured-files-title"
       >
-        <div className="shell">
-          {/* Header & Filter / Navigation Row */}
-          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[11px] font-semibold text-accent-light shadow-sm mb-2">
-                <Sparkles size={12} className="text-accent-light" />
-                <span>Public Telemetry Showcase · Viewable Without Login</span>
-              </div>
+        <div aria-hidden="true" className="section-grid" />
+        <div className="shell relative space-y-10">
+          <SectionHeader
+            id="featured-files-title"
+            eyebrow="Public reports · no sign-in needed"
+            title={featuredCms?.title || "Featured Mission Reports & Datasets"}
+            subtitle={featuredCms?.subtitle || "Public mission telemetry archive and observation reports. Viewable directly in-browser without login; raw telemetry streams and datasets can be downloaded instantly."}
+          />
 
-              <h2
-                id="featured-files-title"
-                className="display text-2xl font-bold text-text-primary sm:text-3xl"
-              >
-                {(cmsBlocks["featured_reports"] as any)?.title || "Featured Mission Reports & Datasets"}
-              </h2>
-
-              <p className="mt-2 max-w-xl text-xs leading-relaxed text-text-muted">
-                {(cmsBlocks["featured_reports"] as any)?.subtitle || "Public mission telemetry archive and observation reports. Viewable directly in-browser without login; raw telemetry streams and datasets can be downloaded instantly."}
-              </p>
+          {!hideDepartmentFilter && !department && departments.length > 2 && (
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by division">
+              {departments.map((dept) => (
+                <button
+                  key={dept}
+                  type="button"
+                  onClick={() => setSelectedDept(dept)}
+                  aria-pressed={selectedDept === dept}
+                  className={`min-h-9 cursor-pointer rounded-full px-4 text-sm font-semibold transition-colors ${
+                    selectedDept === dept
+                      ? "bg-text-primary text-page"
+                      : "border border-border-default bg-card text-text-primary hover:border-text-muted"
+                  }`}
+                >
+                  {dept === "ALL" ? "All" : dept}
+                </button>
+              ))}
             </div>
+          )}
 
-            {/* Right Controls: Department Filter Chips & Navigation Arrows */}
-            {rawReports.length > 0 && (
-              <div className="flex flex-wrap items-center gap-3">
-                {!hideDepartmentFilter && !department && departments.length > 2 && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="eyebrow mr-1 text-text-dim flex items-center gap-1 text-[11px]">
-                      <Filter size={11} /> Dept:
-                    </span>
-                    {departments.map((dept) => (
-                      <button
-                        key={dept}
-                        type="button"
-                        onClick={() => setSelectedDept(dept)}
-                        className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors ${
-                          selectedDept === dept
-                            ? "bg-accent text-white shadow-sm shadow-accent/30"
-                            : "border border-border-subtle bg-surface text-text-muted hover:border-border-default hover:text-text-primary"
-                        }`}
-                      >
-                        {dept}
-                      </button>
-                    ))}
-                  </div>
-                )}
+          <div className="space-y-4">
+            {filtered.map((item) => {
+              const ext = (item.extension || "").toUpperCase()
+              const Icon = (EXT_CONFIG[ext] || EXT_CONFIG.PDF).icon
+              const viewable = isViewableFormat(ext, item.mimeType)
+              const canManage = canUserManageFeature(item)
 
-                <div className="flex items-center gap-1.5 pl-2 border-l border-border-subtle">
-                  <button
-                    type="button"
-                    onClick={scrollLeft}
-                    aria-label="Previous reports"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent hover:bg-accent/10 transition-colors shadow-sm cursor-pointer"
-                  >
-                    <ChevronLeft size={15} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={scrollRight}
-                    aria-label="Next reports"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent hover:bg-accent/10 transition-colors shadow-sm cursor-pointer"
-                  >
-                    <ChevronRight size={15} />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+              return (
+                <article
+                  key={item.id}
+                  className="flex flex-wrap items-center gap-6 rounded-2xl border border-border-subtle bg-card p-6 shadow-card transition-shadow hover:shadow-card-hover"
+                >
+                  <span className="flex h-[76px] w-16 shrink-0 flex-col items-center justify-center gap-1 rounded-[10px] bg-blue-soft text-accent-light" aria-hidden="true">
+                    <Icon size={24} strokeWidth={1.5} />
+                    <span className="text-[11px] font-bold">{ext || "FILE"}</span>
+                  </span>
 
-          {/* Carousel / List */}
-          <div className="relative mt-8">
-              <div
-                ref={carouselRef}
-                className="flex items-stretch gap-4 overflow-x-auto pb-4 scrollbar-none snap-x"
-              >
-                {filtered.map((item) => {
-                  const ext = (item.extension || "DAT").toUpperCase()
-                  const meta = EXT_CONFIG[ext] || EXT_CONFIG.DAT
-                  const Icon = meta.icon
-                  const viewable = isViewableFormat(ext, item.mimeType)
-                  const canManage = canUserManageFeature(item)
-
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => handleOpenPreview(item)}
-                      className="group relative flex w-[82vw] max-w-[350px] sm:w-[350px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-2xl border border-border-default bg-card p-5 shadow-card transition-all duration-300 hover:border-accent/50 hover:bg-card-hover hover:shadow-card-hover cursor-pointer"
-                    >
-                      <div>
-                        {/* Top Row: Extension badge, Satellite tag, and Star action */}
-                        <div className="flex items-center justify-between border-b border-border-subtle/70 pb-3">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${meta.badge}`}
-                            >
-                              <Icon size={12} />
-                              {meta.label}
-                            </span>
-
-                            {item.satellite && !item.satellite.toUpperCase().includes('GENERAL') && (
-                              <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary border border-border-subtle">
-                                {item.satellite}
-                              </span>
-                            )}
-
-                            {item.versionLabel && (
-                              <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] font-mono font-bold text-accent-light border border-border-subtle">
-                                {item.versionLabel}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                            {/* Star Action Button for R/W users */}
-                            {canManage && (
-                              <button
-                                type="button"
-                                onClick={() => setFeatureConfirmFile({ id: item.id, name: item.filename, isFeatured: true })}
-                                className="p-1 rounded-md border border-amber-500/40 bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
-                                title="Manage Featured status (R/W clearance)"
-                              >
-                                <Star size={13} className="fill-amber-400" />
-                              </button>
-                            )}
-
-                            <span className="num text-[11px] font-medium text-text-dim">
-                              {item.date}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Title & Filename */}
-                        <div className="mt-4">
-                          <h3 className="text-sm font-bold leading-snug text-text-primary group-hover:text-accent-light transition-colors line-clamp-1">
-                            {item.title}
-                          </h3>
-
-                          <p className="mt-1 font-mono text-[11px] text-text-dim truncate">
-                            {item.filename}
-                          </p>
-                        </div>
-
-                        {/* Description */}
-                        {item.description && (
-                          <p className="mt-3 text-xs leading-relaxed text-text-secondary line-clamp-2">
-                            {item.description}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Footer: Size, Dept, Action Buttons */}
-                      <div className="mt-5 flex items-center justify-between border-t border-border-subtle/70 pt-3">
-                        <div className="flex items-center gap-2">
-                          <span className="num text-xs font-bold text-text-primary">
-                            {item.fileSize}
-                          </span>
-                          <span className="text-[10px] text-text-dim">·</span>
-                          <span className="rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-mono font-bold text-accent-light">
-                            {item.department}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                          {viewable ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenPreview(item)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-accent/50 bg-accent/15 px-2.5 py-1.5 text-xs font-semibold text-accent hover:bg-accent hover:text-white transition-all shadow-sm cursor-pointer"
-                                title="View in-browser without login"
-                              >
-                                <Eye size={12} />
-                                <span>View</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => handleDownload(e, item)}
-                                disabled={downloadingId === item.id}
-                                className="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border-default bg-surface text-text-muted hover:border-nominal hover:text-nominal hover:bg-nominal/10 transition-colors cursor-pointer shadow-sm"
-                                title="Download Report"
-                              >
-                                <Download size={12} />
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={(e) => handleDownload(e, item)}
-                              disabled={downloadingId === item.id}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface px-3 py-1.5 text-xs font-semibold text-text-primary hover:border-nominal hover:text-nominal hover:bg-nominal/10 transition-all shadow-sm cursor-pointer"
-                              title="Download Raw Dataset (No login required)"
-                            >
-                              <Download size={12} className="text-nominal" />
-                              <span>{downloadingId === item.id ? "Streaming…" : "Download"}</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                  <div className="min-w-0 flex-[1_1_360px] space-y-1.5">
+                    <h3 className="text-lg font-bold leading-snug text-text-primary">{item.title}</h3>
+                    <p className="truncate font-mono text-[13px] text-text-muted" title={item.filename}>{item.filename}</p>
+                    {item.description && (
+                      <p className="line-clamp-2 text-sm leading-relaxed text-text-secondary">{item.description}</p>
+                    )}
+                    <div className="flex flex-wrap gap-1.5 pt-1.5 text-xs text-text-secondary">
+                      {item.satellite && !item.satellite.toUpperCase().includes("GENERAL") && (
+                        <span className="inline-flex h-[26px] items-center rounded-full border border-border-subtle bg-card px-2.5">{item.satellite}</span>
+                      )}
+                      {item.department && (
+                        <span className="inline-flex h-[26px] items-center rounded-full border border-border-subtle bg-card px-2.5 font-mono">{item.department}</span>
+                      )}
+                      {item.date && (
+                        <span className="num inline-flex h-[26px] items-center rounded-full border border-border-subtle bg-card px-2.5">{item.date}</span>
+                      )}
+                      {item.fileSize && (
+                        <span className="num inline-flex h-[26px] items-center rounded-full border border-border-subtle bg-card px-2.5">{item.fileSize}</span>
+                      )}
+                      {item.versionLabel && (
+                        <span className="inline-flex h-[26px] items-center rounded-full border border-border-subtle bg-card px-2.5 font-mono">{item.versionLabel}</span>
+                      )}
                     </div>
-                  )
-                })}
-            </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    {canManage && (
+                      <button
+                        type="button"
+                        onClick={() => setFeatureConfirmFile({ id: item.id, name: item.filename, isFeatured: true })}
+                        className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-[10px] text-amber-500 transition-colors hover:bg-amber-500/10"
+                        title="Manage featured status"
+                        aria-label="Manage featured status"
+                      >
+                        <Star size={16} className="fill-amber-500" />
+                      </button>
+                    )}
+                    {viewable && (
+                      <button type="button" onClick={() => handleOpenPreview(item)} className={tonal}>
+                        <Eye size={16} />
+                        View
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => handleDownload(e, item)}
+                      disabled={downloadingId === item.id}
+                      className={viewable ? `${tonal} w-10 px-0` : tonal}
+                      aria-label={`Download ${item.title}`}
+                      title="Download"
+                    >
+                      <Download size={16} />
+                      {!viewable && <span>{downloadingId === item.id ? "Downloading…" : "Download"}</span>}
+                    </button>
+                  </div>
+                </article>
+              )
+            })}
           </div>
         </div>
       </section>
 
-      {/* In-Browser Preview Modal (Works without login for featured files) */}
-      <FilePreviewModal
-        file={previewFile}
-        onClose={() => setPreviewFile(null)}
-      />
+      {/* In-browser preview (works without login for featured files) */}
+      <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />
 
-      {/* Confirmation Modal to Add / Remove Featured status */}
       <ConfirmFeatureModal
         isOpen={featureConfirmFile !== null}
         file={featureConfirmFile}

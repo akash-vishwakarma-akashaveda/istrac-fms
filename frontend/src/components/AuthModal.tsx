@@ -498,7 +498,7 @@ export function AuthModal() {
             onClick={() => handleSwitchMode('login')}
             className={`pb-3.5 sm:pb-4 pt-3 sm:pt-3.5 mr-6 sm:mr-8 flex items-center gap-2 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
               mode === 'login'
-                ? 'border-accent text-accent font-bold'
+                ? 'border-accent text-accent-light font-bold'
                 : 'border-transparent text-text-muted hover:text-text-primary'
             }`}
           >
@@ -513,7 +513,7 @@ export function AuthModal() {
               mode === 'reset' ? 'mr-6 sm:mr-8' : ''
             } flex items-center gap-2 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${
               mode === 'register'
-                ? 'border-accent text-accent font-bold'
+                ? 'border-accent text-accent-light font-bold'
                 : 'border-transparent text-text-muted hover:text-text-primary'
             }`}
           >
@@ -524,7 +524,7 @@ export function AuthModal() {
           {mode === 'reset' && (
             <button
               type="button"
-              className="pb-3.5 sm:pb-4 pt-3 sm:pt-3.5 flex items-center gap-2 text-sm font-semibold transition-colors border-b-2 border-accent text-accent font-bold"
+              className="pb-3.5 sm:pb-4 pt-3 sm:pt-3.5 flex items-center gap-2 text-sm font-semibold transition-colors border-b-2 border-accent text-accent-light font-bold"
             >
               <KeyRound size={15} />
               <span>Reset Password</span>

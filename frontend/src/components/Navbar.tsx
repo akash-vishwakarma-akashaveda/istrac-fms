@@ -318,7 +318,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
     <>
       <header
         id={id}
-        className={`sticky top-0 z-[100] w-full border-b border-border-subtle bg-surface/95 dark:bg-[#020408]/98 backdrop-blur-2xl transition-all shadow-md dark:shadow-xl dark:shadow-black/60 ${className}`.trim()}
+        className={`sticky top-0 z-[100] w-full border-b border-border-subtle bg-surface/95 backdrop-blur-md transition-colors shadow-sm ${className}`.trim()}
       >
         <nav
           className="shell flex h-16 items-center justify-between gap-3 px-4 sm:px-6"
@@ -339,9 +339,9 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             <div className="flex flex-col">
               <span className="text-sm font-bold tracking-wider uppercase leading-tight sm:text-base text-text-primary">
                 {brandTitle}
-                <span className="text-accent">{brandHighlight}</span>
+                <span className="text-saffron-text">{brandHighlight}</span>
               </span>
-              <span className="text-[10px] sm:text-[10px] text-text-muted font-medium uppercase tracking-widest truncate max-w-[140px] sm:max-w-none">
+              <span className="text-xs text-text-muted font-medium truncate max-w-[140px] sm:max-w-none">
                 {brandSubtitle}
               </span>
             </div>
@@ -352,13 +352,13 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             <a
               href="/#hero"
               onClick={(e) => handleSectionClick(e, "hero", "home")}
-              className={`group relative flex h-full items-center px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none ${
-                isHomeActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"
+              className={`group relative flex h-full items-center px-3 lg:px-3.5 text-sm font-semibold transition-colors select-none ${
+                isHomeActive ? "text-text-primary" : "text-text-secondary hover:text-text-primary"
               }`}
             >
               <span>{homeLabel}</span>
               <span
-                className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent transition-all duration-200 pointer-events-none ${
+                className={`absolute bottom-0 inset-x-2 h-[2px] bg-accent-light transition-all duration-200 pointer-events-none ${
                   isHomeActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
                 }`}
               />
@@ -375,19 +375,19 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 aria-expanded={deptOpen}
                 onClick={() => setDeptOpen((prev) => !prev)}
                 onMouseEnter={() => setDeptOpen(true)}
-                className={`group relative flex h-full items-center gap-1 px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none cursor-pointer ${
-                  isDeptActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"
+                className={`group relative flex h-full items-center gap-1 px-3 lg:px-3.5 text-sm font-semibold transition-colors select-none cursor-pointer ${
+                  isDeptActive ? "text-text-primary" : "text-text-secondary hover:text-text-primary"
                 }`}
               >
                 <span>{departmentsLabel}</span>
                 <ChevronDown
                   size={13}
                   className={`transition-transform duration-150 ${
-                    deptOpen ? "rotate-180 text-accent" : isDeptActive ? "text-accent" : "text-text-muted"
+                    deptOpen ? "rotate-180 text-text-primary" : isDeptActive ? "text-text-primary" : "text-text-muted"
                   }`}
                 />
                 <span
-                  className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent transition-all duration-200 pointer-events-none ${
+                  className={`absolute bottom-0 inset-x-2 h-[2px] bg-accent-light transition-all duration-200 pointer-events-none ${
                     isDeptActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
                   }`}
                 />
@@ -397,7 +397,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 <div className="absolute top-full left-0 w-72 rounded-xl border border-border-default bg-card shadow-2xl p-2 z-50 animate-rise backdrop-blur-2xl">
                   <div className="px-3 py-2 border-b border-border-subtle text-[10px] uppercase font-bold text-text-muted flex items-center justify-between">
                     <span>ISTRAC Divisions</span>
-                    <span className="text-accent num font-mono font-semibold">{departments.length} Units</span>
+                    <span className="text-accent-light num font-mono font-semibold">{departments.length} Units</span>
                   </div>
                   <div className="py-1 max-h-64 overflow-y-auto space-y-0.5">
                     {departments.map((dept) => (
@@ -411,7 +411,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                           {dept.name}
                         </span>
                         {dept.code && (
-                          <span className="num text-[10px] text-accent rounded bg-page-soft px-1.5 py-0.5 border border-border-subtle shrink-0 font-mono font-semibold">
+                          <span className="num text-[10px] text-accent-light rounded bg-page-soft px-1.5 py-0.5 border border-border-subtle shrink-0 font-mono font-semibold">
                             {dept.code}
                           </span>
                         )}
@@ -427,7 +427,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                     <Link
                       to="/departments"
                       onClick={() => setDeptOpen(false)}
-                      className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold text-accent hover:bg-accent/10 transition-colors"
+                      className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold text-accent-light hover:bg-accent/10 transition-colors"
                     >
                       <span className="flex items-center gap-1.5">
                         <Layers size={13} />
@@ -443,13 +443,13 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             <a
               href="/#calendar"
               onClick={(e) => handleSectionClick(e, "calendar", "calendar")}
-              className={`group relative flex h-full items-center px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none ${
-                isCalendarActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"
+              className={`group relative flex h-full items-center px-3 lg:px-3.5 text-sm font-semibold transition-colors select-none ${
+                isCalendarActive ? "text-text-primary" : "text-text-secondary hover:text-text-primary"
               }`}
             >
               <span>{calendarLabel}</span>
               <span
-                className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent transition-all duration-200 pointer-events-none ${
+                className={`absolute bottom-0 inset-x-2 h-[2px] bg-accent-light transition-all duration-200 pointer-events-none ${
                   isCalendarActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
                 }`}
               />
@@ -458,13 +458,13 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             <a
               href="/#about"
               onClick={(e) => handleSectionClick(e, "about", "about")}
-              className={`group relative flex h-full items-center px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none ${
-                isAboutActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"
+              className={`group relative flex h-full items-center px-3 lg:px-3.5 text-sm font-semibold transition-colors select-none ${
+                isAboutActive ? "text-text-primary" : "text-text-secondary hover:text-text-primary"
               }`}
             >
               <span>{aboutLabel}</span>
               <span
-                className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent transition-all duration-200 pointer-events-none ${
+                className={`absolute bottom-0 inset-x-2 h-[2px] bg-accent-light transition-all duration-200 pointer-events-none ${
                   isAboutActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
                 }`}
               />
@@ -473,13 +473,13 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             <a
               href="/#contact"
               onClick={(e) => handleSectionClick(e, "contact", "contact")}
-              className={`group relative flex h-full items-center px-3 lg:px-3.5 text-xs lg:text-[13px] font-semibold tracking-wider uppercase transition-colors select-none ${
-                isContactActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"
+              className={`group relative flex h-full items-center px-3 lg:px-3.5 text-sm font-semibold transition-colors select-none ${
+                isContactActive ? "text-text-primary" : "text-text-secondary hover:text-text-primary"
               }`}
             >
               <span>{contactLabel}</span>
               <span
-                className={`absolute bottom-0 inset-x-2 h-[2px] rounded-full bg-accent transition-all duration-200 pointer-events-none ${
+                className={`absolute bottom-0 inset-x-2 h-[2px] bg-accent-light transition-all duration-200 pointer-events-none ${
                   isContactActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
                 }`}
               />
@@ -493,9 +493,9 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
               <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
-                className="flex items-center gap-1.5 lg:gap-2 rounded-xl border border-border-default bg-surface/80 px-2.5 lg:px-3 py-1.5 text-xs text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
+                className="flex min-h-10 items-center gap-1.5 lg:gap-2 rounded-[10px] bg-page-soft px-3 text-sm text-text-secondary hover:bg-border-subtle hover:text-text-primary transition-colors cursor-pointer"
               >
-                <Search size={13} className="text-accent" />
+                <Search size={15} />
                 <span className="hidden lg:inline font-medium">Search Repository</span>
                 <span className="lg:hidden font-medium">Search</span>
                 <kbd className="num hidden xl:inline-block rounded bg-page-soft px-1.5 py-0.5 text-[10px] text-text-muted border border-border-subtle font-mono font-medium">
@@ -508,7 +508,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             <button
               type="button"
               onClick={() => setNotifsModalOpen(true)}
-              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-border-default bg-surface/80 text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-colors duration-150 shadow-sm cursor-pointer group"
+              className="relative flex h-8 w-8 items-center justify-center rounded-[10px] border border-transparent bg-page-soft text-text-primary hover:bg-border-subtle transition-colors duration-150 shadow-sm cursor-pointer group"
               title="Operational Broadcasts & Mission Notices"
               aria-label="Operational Broadcasts & Mission Notices"
             >
@@ -516,17 +516,17 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 size={14}
                 className={
                   unreadCount > 0
-                    ? "text-critical animate-pulse"
+                    ? "text-critical"
                     : notificationsList.length > 0
-                    ? "text-accent"
+                    ? "text-accent-light"
                     : ""
                 }
               />
               {(unreadCount > 0 || notificationsList.length > 0) && (
                 <span
                   style={{ color: '#ffffff' }}
-                  className={`absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black text-white shadow-sm ring-2 ring-white dark:ring-[#020408] pointer-events-none select-none z-10 leading-none ${
-                    unreadCount > 0 ? 'bg-critical' : 'bg-accent'
+                  className={`absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black text-white shadow-sm ring-2 ring-surface pointer-events-none select-none z-10 leading-none ${
+                    unreadCount > 0 ? 'bg-critical-fill' : 'bg-accent'
                   }`}
                 >
                   {unreadCount > 0
@@ -543,10 +543,10 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                     <Button
                       variant="primary"
                       size="sm"
-                      className="gap-1.5 shadow-sm shadow-accent/20 font-semibold"
+                      className="gap-1.5  font-semibold"
                     >
                       <UserCheck size={14} />
-                      <span>Mission Console</span>
+                      <span>Dashboard</span>
                     </Button>
                   </Link>
 
@@ -567,16 +567,16 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                     variant="outline"
                     size="sm"
                     onClick={openRegister}
-                    className="gap-1.5 font-semibold text-text-secondary hover:text-accent hover:border-accent hover:bg-accent/10 border-border-default bg-surface cursor-pointer shadow-sm"
+                    className="gap-1.5 cursor-pointer"
                   >
-                    <UserPlus size={14} className="text-accent" />
+                    <UserPlus size={14} />
                     <span>Request Access</span>
                   </Button>
                   <Button
                     variant="primary"
                     size="sm"
                     onClick={openLogin}
-                    className="gap-1.5 shadow-sm shadow-accent/20 font-semibold cursor-pointer"
+                    className="gap-1.5  font-semibold cursor-pointer"
                   >
                     <LogIn size={14} />
                     <span>Portal Sign In</span>
@@ -593,7 +593,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
               <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-border-default bg-surface/80 text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-colors cursor-pointer shadow-sm"
+                className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-transparent bg-page-soft text-text-primary hover:bg-border-subtle transition-colors cursor-pointer"
                 aria-label="Search"
               >
                 <Search size={18} />
@@ -604,7 +604,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             <button
               type="button"
               onClick={() => setNotifsModalOpen(true)}
-              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-border-default bg-surface/80 text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-colors cursor-pointer shadow-sm"
+              className="relative flex h-10 w-10 items-center justify-center rounded-[10px] border border-transparent bg-page-soft text-text-primary hover:bg-border-subtle transition-colors cursor-pointer"
               title="Operational Broadcasts & Mission Notices"
               aria-label="Operational Broadcasts & Mission Notices"
             >
@@ -612,17 +612,17 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 size={18}
                 className={
                   unreadCount > 0
-                    ? "text-critical animate-pulse"
+                    ? "text-critical"
                     : notificationsList.length > 0
-                    ? "text-accent"
+                    ? "text-accent-light"
                     : ""
                 }
               />
               {(unreadCount > 0 || notificationsList.length > 0) && (
                 <span
                   style={{ color: '#ffffff' }}
-                  className={`absolute top-1.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black text-white shadow-sm ring-1 ring-white dark:ring-[#020408] pointer-events-none select-none z-10 leading-none ${
-                    unreadCount > 0 ? 'bg-critical' : 'bg-accent'
+                  className={`absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black text-white shadow-sm ring-1 ring-surface pointer-events-none select-none z-10 leading-none ${
+                    unreadCount > 0 ? 'bg-critical-fill' : 'bg-accent'
                   }`}
                 >
                   {unreadCount > 0
@@ -636,7 +636,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-border-default bg-surface/80 text-text-secondary hover:border-critical hover:text-critical hover:bg-critical/10 transition-colors cursor-pointer shadow-sm"
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-border-default bg-surface text-text-secondary hover:border-critical hover:text-critical hover:bg-critical/10 transition-colors cursor-pointer shadow-sm"
                 title="Logout"
                 aria-label="Logout"
               >
@@ -647,10 +647,10 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
             <button
               type="button"
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border-default bg-surface/80 text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-colors cursor-pointer shadow-sm"
+              className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-transparent bg-page-soft text-text-primary hover:bg-border-subtle transition-colors cursor-pointer"
               aria-label="Toggle navigation menu"
             >
-              {mobileOpen ? <X size={20} className="text-accent" /> : <Menu size={20} />}
+              {mobileOpen ? <X size={20} className="text-accent-light" /> : <Menu size={20} />}
             </button>
           </div>
         </nav>
@@ -668,10 +668,10 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                   setMobileOpen(false)
                   setSearchOpen(true)
                 }}
-                className="flex w-full items-center justify-between rounded-xl border border-border-default bg-card p-3.5 text-xs text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all shadow-sm cursor-pointer"
+                className="flex w-full items-center justify-between rounded-xl border border-border-default bg-card p-3.5 text-xs text-text-secondary hover:border-accent hover:text-accent-light hover:bg-accent/10 transition-all shadow-sm cursor-pointer"
               >
                 <span className="flex items-center gap-2.5">
-                  <Search size={16} className="text-accent" />
+                  <Search size={16} className="text-accent-light" />
                   <span>Search telemetry records & files…</span>
                 </span>
                 <span className="num text-[10px] text-text-muted bg-page-soft px-2 py-0.5 rounded border border-border-subtle font-mono">
@@ -690,8 +690,8 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 }}
                 className="flex items-center gap-3 py-2.5 px-1 text-sm font-semibold transition-colors"
               >
-                <Home size={16} className={isHomeActive ? "text-accent" : "text-text-muted"} />
-                <span className={`relative pb-1 ${isHomeActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"}`}>
+                <Home size={16} className={isHomeActive ? "text-accent-light" : "text-text-muted"} />
+                <span className={`relative pb-1 ${isHomeActive ? "text-text-primary" : "text-text-secondary hover:text-text-primary"}`}>
                   {homeLabel}
                   <span
                     className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent transition-all duration-200 ${
@@ -709,8 +709,8 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                   className="flex w-full items-center justify-between py-2.5 px-1 text-sm font-semibold transition-colors cursor-pointer"
                 >
                   <span className="flex items-center gap-3">
-                    <Layers size={16} className={isDeptActive ? "text-accent" : "text-text-muted"} />
-                    <span className={`relative pb-1 ${isDeptActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"}`}>
+                    <Layers size={16} className={isDeptActive ? "text-accent-light" : "text-text-muted"} />
+                    <span className={`relative pb-1 ${isDeptActive ? "text-text-primary" : "text-text-secondary hover:text-text-primary"}`}>
                       {departmentsLabel}
                       <span
                         className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent transition-all duration-200 ${
@@ -722,7 +722,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                   <ChevronDown
                     size={14}
                     className={`transition-transform duration-200 ${
-                      mobileDeptOpen ? "rotate-180 text-accent" : "text-text-muted"
+                      mobileDeptOpen ? "rotate-180 text-accent-light" : "text-text-muted"
                     }`}
                   />
                 </button>
@@ -738,7 +738,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                       >
                         <span className="truncate">{dept.name}</span>
                         {dept.code && (
-                          <span className="num text-[10px] text-accent bg-page-soft px-1.5 py-0.5 rounded border border-border-subtle font-mono font-medium">
+                          <span className="num text-[10px] text-accent-light bg-page-soft px-1.5 py-0.5 rounded border border-border-subtle font-mono font-medium">
                             {dept.code}
                           </span>
                         )}
@@ -747,7 +747,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                     <Link
                       to="/departments"
                       onClick={() => setMobileOpen(false)}
-                      className="flex items-center justify-between rounded-lg px-3 py-2 text-xs font-bold text-accent hover:bg-accent/10 transition-colors pt-2 border-t border-border-subtle"
+                      className="flex items-center justify-between rounded-lg px-3 py-2 text-xs font-bold text-accent-light hover:bg-accent/10 transition-colors pt-2 border-t border-border-subtle"
                     >
                       <span>View All Divisions Directory</span>
                       <span>→</span>
@@ -764,8 +764,8 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 }}
                 className="flex items-center gap-3 py-2.5 px-1 text-sm font-semibold transition-colors"
               >
-                <Calendar size={16} className={isCalendarActive ? "text-accent" : "text-text-muted"} />
-                <span className={`relative pb-1 ${isCalendarActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"}`}>
+                <Calendar size={16} className={isCalendarActive ? "text-accent-light" : "text-text-muted"} />
+                <span className={`relative pb-1 ${isCalendarActive ? "text-text-primary" : "text-text-secondary hover:text-text-primary"}`}>
                   {calendarLabel}
                   <span
                     className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent transition-all duration-200 ${
@@ -783,8 +783,8 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 }}
                 className="flex items-center gap-3 py-2.5 px-1 text-sm font-semibold transition-colors"
               >
-                <Info size={16} className={isAboutActive ? "text-accent" : "text-text-muted"} />
-                <span className={`relative pb-1 ${isAboutActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"}`}>
+                <Info size={16} className={isAboutActive ? "text-accent-light" : "text-text-muted"} />
+                <span className={`relative pb-1 ${isAboutActive ? "text-text-primary" : "text-text-secondary hover:text-text-primary"}`}>
                   {aboutLabel}
                   <span
                     className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent transition-all duration-200 ${
@@ -802,8 +802,8 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                 }}
                 className="flex items-center gap-3 py-2.5 px-1 text-sm font-semibold transition-colors"
               >
-                <Headphones size={16} className={isContactActive ? "text-accent" : "text-text-muted"} />
-                <span className={`relative pb-1 ${isContactActive ? "text-accent font-bold" : "text-text-secondary hover:text-text-primary"}`}>
+                <Headphones size={16} className={isContactActive ? "text-accent-light" : "text-text-muted"} />
+                <span className={`relative pb-1 ${isContactActive ? "text-text-primary" : "text-text-secondary hover:text-text-primary"}`}>
                   {contactLabel}
                   <span
                     className={`absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-accent transition-all duration-200 ${
@@ -826,7 +826,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                         <div className="font-bold text-text-primary truncate">{user.name}</div>
                         <div className="num text-[10px] text-text-muted font-mono truncate">{user.email}</div>
                       </div>
-                      <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold uppercase num text-accent shrink-0">
+                      <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold uppercase num text-accent-light shrink-0">
                         {user.role}
                       </span>
                     </div>
@@ -834,7 +834,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                     <Link to="/app" onClick={() => setMobileOpen(false)}>
                       <Button variant="primary" size="lg" className="w-full justify-center gap-2 shadow-sm shadow-accent/20">
                         <UserCheck size={16} />
-                        <span>Launch Mission Console</span>
+                        <span>Go to dashboard</span>
                       </Button>
                     </Link>
 
@@ -860,7 +860,7 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                         setMobileOpen(false)
                         openLogin()
                       }}
-                      className="w-full justify-center gap-2 shadow-sm shadow-accent/20 cursor-pointer"
+                      className="w-full justify-center gap-2  cursor-pointer"
                     >
                       <LogIn size={16} />
                       <span>Sign In to Mission Portal</span>
@@ -872,9 +872,9 @@ export function Navbar({ id, className = "" }: NavbarProps = {}) {
                         setMobileOpen(false)
                         openRegister()
                       }}
-                      className="w-full justify-center gap-2 border-border-default bg-surface text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 cursor-pointer shadow-sm transition-colors"
+                      className="w-full justify-center gap-2 border-border-default bg-surface text-text-secondary hover:border-accent hover:text-accent-light hover:bg-accent/10 cursor-pointer shadow-sm transition-colors"
                     >
-                      <UserPlus size={16} className="text-accent" />
+                      <UserPlus size={16} className="text-accent-light" />
                       <span>Request Operational Access</span>
                     </Button>
                   </div>

@@ -46,24 +46,9 @@ function getStatIcon(iconName: string | undefined, fallback: React.ComponentType
 function getMetricTextSize(value: string): string {
   const len = value.trim().length
   if (len > 18) {
-    return 'text-sm sm:text-base font-extrabold tracking-tight'
+    return 'text-[15px] sm:text-base'
   }
-  if (len > 12) {
-    return 'text-base sm:text-lg lg:text-xl font-black tracking-tight'
-  }
-  return 'text-lg sm:text-xl lg:text-2xl font-black'
-}
-
-/**
- * Automatically scales description label font size and line height so it cleanly
- * fits up to 2 lines without dots while keeping card height strictly fixed.
- */
-function getDescriptionClass(label: string): string {
-  const len = label.trim().length
-  if (len > 35) {
-    return 'text-[10px] sm:text-[10px] leading-[13px] tracking-normal sm:tracking-wide font-semibold'
-  }
-  return 'text-[10.5px] sm:text-[11px] leading-[14px] sm:leading-[15px] tracking-wider font-bold'
+  return 'text-[17px]'
 }
 
 export function QuickStatsBanner() {
@@ -105,68 +90,52 @@ export function QuickStatsBanner() {
       val: stat1Val,
       label: stats?.stat1Label || 'Global Ground Network',
       Icon: Icon1,
-      hoverBorder: 'hover:border-accent/40',
-      iconBox: 'bg-accent/15 border-accent/30 text-accent-light',
-      iconClass: undefined,
     },
     {
       id: 'stat2',
       val: stat2Val,
       label: stats?.stat2Label || 'Deep Space & LEO',
       Icon: Icon2,
-      hoverBorder: 'hover:border-nominal/40',
-      iconBox: 'bg-nominal/15 border-nominal/30 text-nominal',
-      iconClass: stats?.stat2Icon ? undefined : 'animate-pulse',
     },
     {
       id: 'stat3',
       val: stat3Val,
       label: stats?.stat3Label || 'Continuous Telemetry',
       Icon: Icon3,
-      hoverBorder: 'hover:border-purple-500/40',
-      iconBox: 'bg-purple-500/15 border-purple-500/30 text-purple-400',
-      iconClass: undefined,
     },
     {
       id: 'stat4',
       val: stat4Val,
       label: stats?.stat4Label || 'Cryptographic Integrity',
       Icon: Icon4,
-      hoverBorder: 'hover:border-yellow-500/40',
-      iconBox: 'bg-yellow-500/15 border-yellow-500/30 text-yellow-400',
-      iconClass: undefined,
     },
   ]
 
   return (
-    <div className="border-b border-border-subtle/80 bg-page-soft/60 py-6 relative overflow-hidden">
+    <div className="relative z-10 -mt-14">
       <div className="shell">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 lg:gap-5">
-          {cards.map((card) => (
-            <div
+        <ul className="grid grid-cols-2 overflow-hidden rounded-2xl border border-border-subtle bg-card shadow-[0_12px_32px_-12px_rgba(24,24,27,0.18)] lg:grid-cols-4">
+          {cards.map((card, i) => (
+            <li
               key={card.id}
-              className={`h-[88px] sm:h-[92px] w-full flex items-center gap-3.5 rounded-xl border border-border-default bg-card shadow-sm p-3 sm:p-3.5 ${card.hoverBorder} transition-colors overflow-hidden`}
+              className={[
+                'flex flex-col items-start gap-3 border-border-subtle p-4 sm:flex-row sm:items-center sm:gap-3.5 sm:p-6',
+                i >= 2 ? 'border-t' : '', // 2 columns: rule above the second row
+                i % 2 === 1 ? 'border-l' : '',
+                'lg:border-t-0', // 4 columns: vertical rules only
+                i > 0 ? 'lg:border-l' : 'lg:border-l-0',
+              ].join(' ')}
             >
-              <div
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${card.iconBox}`}
-              >
-                <card.Icon size={20} className={card.iconClass} />
-              </div>
-              <div className="min-w-0 flex-1 flex flex-col justify-center">
-                <span
-                  className={`num text-text-primary block leading-tight break-words ${getMetricTextSize(card.val)}`}
-                >
-                  {card.val}
-                </span>
-                <span
-                  className={`block uppercase text-text-dim line-clamp-2 break-words mt-0.5 ${getDescriptionClass(card.label)}`}
-                >
-                  {card.label}
-                </span>
-              </div>
-            </div>
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light" aria-hidden="true">
+                <card.Icon size={20} />
+              </span>
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className={`block leading-tight font-bold text-text-primary break-words ${getMetricTextSize(card.val)}`}>{card.val}</span>
+                <span className="block text-sm text-text-muted line-clamp-2 break-words">{card.label}</span>
+              </span>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     </div>
   )

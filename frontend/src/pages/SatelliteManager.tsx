@@ -995,7 +995,7 @@ export function SatelliteManager() {
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => toggleDepartment(dept.id)}
-                        className="mt-0.5 h-3.5 w-3.5 rounded border-border-default bg-card text-accent focus:ring-accent"
+                        className="mt-0.5 h-3.5 w-3.5 rounded border-border-default bg-card text-accent-light focus:ring-accent"
                       />
                       <div className="min-w-0 flex-1 text-xs">
                         <div className="font-semibold truncate">{dept.name}</div>

@@ -64,50 +64,54 @@
   --font-weight-bold: 700;
   --font-weight-extrabold: 800;
 
-  /* -- Color Palette: Deep Obsidian Cosmic Canvas (Dark ASE: #0D0D0D base) - 80% Dominant -- */
-  --color-page: #080c14;
-  --color-page-soft: #0d1420;
-  --color-surface: #10192a;
-  --color-card: #152236;
-  --color-card-hover: #1b2c46;
-
-  /* -- Hairline Borders: Crisp High-Contrast Perimeter --------------------- */
-  --color-border-subtle: #1e2e46;
-  --color-border-default: #2e4466;
-  --color-border-bright: #446594;
-  --color-border: #2e4466;
-
-  /* -- Ink & Typography ---------------------------------------------------- */
-  --color-text-primary: #f8fafc;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-text-dim: #4b5563;
-
-  /* -- 10% Primary Accent: Intense Launch Saffron (Dark ASE: #F27127) -------- */
-  --color-accent: #f27127;
-  --color-accent-hover: #d95e19;
-  --color-accent-light: #f2ac57; /* Dark ASE: #F2AC57 Golden Amber */
-  --color-accent-dark: #b84d12;
-
-  /* -- 20% Secondary / Structure: Aerospace Mission Blue (Dark ASE: #0B8CBF) - */
-  --color-secondary: #0b8cbf;
-  --color-secondary-hover: #08739e;
-  --color-secondary-light: #2cb3e8;
-  --color-secondary-dark: #065474;
-
-  /* -- Additional Swatches from Dark ASE Palette --------------------------- */
-  --color-amber-accent: #f2ac57; /* Dark ASE: #F2AC57 */
-  --color-saffron-warm: #f28322; /* Dark ASE: #F28322 */
-
-  /* -- Telemetry Status Colors --------------------------------------------- */
-  --color-nominal: #10b981;
-  --color-nominal-bg: #064e3b;
-  --color-warning: #f59e0b;
-  --color-warning-bg: #451a03;
-  --color-critical: #ef4444;
-  --color-critical-bg: #450a0a;
-  --color-special: #a855f7;
-  --color-special-bg: #3b0764;
+  /* ISTRAC Portal theme v2 (dark): approved landing design, do not edit by hand */
+  --color-page: #0c0e12;
+  --color-page-soft: #121519;
+  --color-surface: #16191e;
+  --color-card: #16191e;
+  --color-card-hover: #1f2329;
+  --color-border-subtle: #2a2f36;
+  --color-border-default: #3a4049;
+  --color-border-bright: #71717a;
+  --color-border: #2a2f36;
+  --color-text-primary: #f4f4f5;
+  --color-text-secondary: #d4d4d8;
+  --color-text-muted: #a1a1aa;
+  --color-text-dim: #a1a1aa;
+  --color-accent: #0367a2;
+  --color-accent-hover: #005080;
+  --color-accent-light: #8ecbfe;
+  --color-accent-dark: #023b60;
+  --color-secondary: #0367a2;
+  --color-secondary-hover: #005080;
+  --color-secondary-light: #8ecbfe;
+  --color-secondary-dark: #023b60;
+  --color-nominal: #6ee7a8;
+  --color-nominal-bg: #0f2a1d;
+  --color-nominal-fill: #047857;
+  --color-warning: #edb159;
+  --color-warning-bg: #362200;
+  --color-warning-fill: #855904;
+  --color-critical: #ffa196;
+  --color-critical-bg: #46120f;
+  --color-critical-fill: #b32322;
+  --color-saffron: #f47115;
+  --color-saffron-hover: #e0620a;
+  --color-saffron-text: #ffa366;
+  --color-saffron-soft: #2b1b10;
+  --color-saffron-soft-hover: #3a2312;
+  --color-isro-blue: #0d88d3;
+  --color-isro-saffron: #f47115;
+  --color-brand-ink: #002641;
+  --color-brand-ink-deep: #001a2e;
+  --color-blue-soft: #0f2638;
+  --color-band-blue: #0d1b28;
+  --color-band-saffron: #1a130d;
+  --color-grid-line: rgba(142, 203, 254, 0.075);
+  --color-focus-ring: #8ecbfe;
+  --color-primary-soft: #0f2638;
+  --color-special: #c4a7ff;
+  --color-special-bg: #2e1a52;
 
   /* -- Corner Radii -------------------------------------------------------- */
   --radius-xs: 3px;
@@ -118,23 +122,14 @@
   --radius-2xl: 20px;
   --radius-3xl: 24px;
 
-  /* -- High-Precision Elevation Shadows: Tactile Depth & Bevels ----------- */
-  --shadow-card:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
-    0 4px 20px -2px rgba(0, 0, 0, 0.70),
-    0 2px 6px -1px rgba(0, 0, 0, 0.45);
-  --shadow-card-hover:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.20),
-    0 16px 36px -6px rgba(0, 0, 0, 0.85),
-    0 0 24px -2px rgba(11, 140, 191, 0.25);
-  --shadow-card-lg:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.15),
-    0 28px 56px -12px rgba(0, 0, 0, 0.90),
-    0 8px 24px -4px rgba(0, 0, 0, 0.60);
-  --shadow-button: 0 1px 3px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 24px rgba(242, 113, 39, 0.40);
-  --shadow-glow-secondary: 0 0 24px rgba(11, 140, 191, 0.35);
-  --shadow-glow-nominal: 0 0 20px rgba(16, 185, 129, 0.25);
+  /* Elevation (brand) */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.6);
+  --shadow-card-lg: 0 20px 48px rgba(0, 0, 0, 0.7);
+  --shadow-button: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-glow: none;
+  --shadow-glow-secondary: none;
+  --shadow-glow-nominal: none;
 
   /* -- Motion Transitions & Keyframes --------------------------------------- */
   --animate-pulse-slow: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -370,7 +365,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #0b8cbf;
+  background: var(--color-accent);
 }
 
 /* ============================================================================
@@ -384,64 +379,62 @@ body {
 
 :root[data-theme="light"] {
   color-scheme: light;
-  /* -- 80% Canvas & Neutral Surfaces (Clean Architectural Slate Canvas) -------- */
-  --color-page: #e6edf5;
-  --color-page-soft: #dbe4ef;
+  /* ISTRAC Portal theme v2 (light): approved landing design, do not edit by hand */
+  --color-page: #ffffff;
+  --color-page-soft: #f6f6f7;
   --color-surface: #ffffff;
   --color-card: #ffffff;
-  --color-card-hover: #f8fafc;
-
-  /* -- Clean Architectural Hairlines & Visible Boundaries (WCAG 1.4.11 >=3:1) -- */
-  --color-border-subtle: #cbd5e1;
-  --color-border-default: #94a3b8;
-  --color-border-bright: #64748b;
-  --color-border: #94a3b8;
-
-  /* -- Slate Ink Typography (WCAG 1.4.3 AAA/AA Compliance) ----------------- */
-  --color-text-primary: #0a0f1d;
-  --color-text-secondary: #1e293b;
-  --color-text-muted: #334155;
-  --color-text-dim: #475569;
-
-  /* -- 10% Primary Accent: High-Contrast Aerospace Saffron (Light Mode WCAG AA) */
-  --color-accent: #c2410c;
-  --color-accent-hover: #9a3412;
-  --color-accent-light: #c2410c;
-  --color-accent-dark: #7c2d12;
-
-  /* -- 20% Secondary / Structure: Deep Mission Blue ----------------------- */
-  --color-secondary: #0284c7;
-  --color-secondary-hover: #0369a1;
-  --color-secondary-light: #0369a1;
-  --color-secondary-dark: #075985;
-
-  /* -- Additional Swatches from Light ASE Palette -------------------------- */
-  --color-terracotta: #b45309;
-
+  --color-card-hover: #fafafa;
+  --color-border-subtle: #e4e4e7;
+  --color-border-default: #d4d4d8;
+  --color-border-bright: #71717a;
+  --color-border: #e4e4e7;
+  --color-text-primary: #18181b;
+  --color-text-secondary: #3f3f46;
+  --color-text-muted: #52525b;
+  --color-text-dim: #5f5f69;
+  --color-accent: #0367a2;
+  --color-accent-hover: #005080;
+  --color-accent-light: #0367a2;
+  --color-accent-dark: #023b60;
+  --color-secondary: #0367a2;
+  --color-secondary-hover: #005080;
+  --color-secondary-light: #0367a2;
+  --color-secondary-dark: #023b60;
   --color-nominal: #047857;
-  --color-nominal-bg: #ecfdf5;
-  --color-warning: #b45309;
-  --color-warning-bg: #fffbeb;
-  --color-critical: #b91c1c;
-  --color-critical-bg: #fef2f2;
+  --color-nominal-bg: #e7f6ee;
+  --color-nominal-fill: #047857;
+  --color-warning: #855904;
+  --color-warning-bg: #fff1e0;
+  --color-warning-fill: #855904;
+  --color-critical: #b32322;
+  --color-critical-bg: #ffefed;
+  --color-critical-fill: #b32322;
+  --color-saffron: #f47115;
+  --color-saffron-hover: #e0620a;
+  --color-saffron-text: #a74900;
+  --color-saffron-soft: #fff1e6;
+  --color-saffron-soft-hover: #ffe2cc;
+  --color-isro-blue: #0d88d3;
+  --color-isro-saffron: #f47115;
+  --color-brand-ink: #002641;
+  --color-brand-ink-deep: #001a2e;
+  --color-blue-soft: #e3f0fa;
+  --color-band-blue: #eef6fc;
+  --color-band-saffron: #fff4ea;
+  --color-grid-line: rgba(3, 103, 162, 0.075);
+  --color-focus-ring: #0367a2;
+  --color-primary-soft: #e3f0fa;
+  --color-terracotta: #9d4400;
   --color-special: #6b21a8;
   --color-special-bg: #faf5ff;
 
-  --shadow-card:
-    0 1px 3px 0 rgba(15, 23, 42, 0.08),
-    0 4px 14px -2px rgba(15, 23, 42, 0.06),
-    0 0 0 1px rgba(15, 23, 42, 0.08);
-  --shadow-card-hover:
-    0 12px 28px -4px rgba(15, 23, 42, 0.12),
-    0 4px 10px -2px rgba(15, 23, 42, 0.06),
-    0 0 0 1px rgba(2, 132, 199, 0.35);
-  --shadow-card-lg:
-    0 20px 40px -6px rgba(15, 23, 42, 0.14),
-    0 8px 16px -3px rgba(15, 23, 42, 0.08),
-    0 0 0 1px rgba(15, 23, 42, 0.10);
-  --shadow-button: 0 1px 2px 0 rgba(15, 23, 42, 0.10), 0 0 0 1px rgba(15, 23, 42, 0.06);
-  --shadow-glow: 0 2px 10px 0 rgba(194, 65, 12, 0.25);
-  --shadow-glow-nominal: 0 2px 10px 0 rgba(4, 120, 87, 0.25);
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
+  --shadow-card-hover: 0 4px 12px rgba(16, 24, 40, 0.10);
+  --shadow-card-lg: 0 20px 48px rgba(16, 24, 40, 0.18);
+  --shadow-button: 0 1px 2px rgba(16, 24, 40, 0.08);
+  --shadow-glow: none;
+  --shadow-glow-nominal: none;
 
   /* Light accent shades used as text on dark backgrounds become their high-contrast equivalents */
   --color-amber-300: #b45309; --color-amber-400: #b45309;
@@ -456,7 +449,7 @@ body {
   --color-pink-300: #be185d; --color-pink-400: #be185d;
   --color-lime-300: #4d7c0f; --color-lime-400: #4d7c0f;
   --color-blue-300: #118cd9; --color-blue-400: #118cd9;
-  --color-orange-400: #c2410c;
+  --color-orange-400: var(--color-saffron-text);
   --color-sky-300: #118cd9; --color-sky-400: #0e74b3;
   --color-teal-400: #0f766e;
   --color-fuchsia-300: #a21caf; --color-fuchsia-400: #a21caf;
@@ -488,7 +481,7 @@ body {
 
 :root[data-theme="light"] .bg-card,
 :root[data-theme="light"] [class~="bg-card"] {
-  background-color: #ffffff;
+  background-color: var(--color-card);
   background-image: none !important;
   border-color: var(--color-border-default);
   box-shadow: var(--shadow-card);
@@ -496,12 +489,12 @@ body {
 
 :root[data-theme="light"] .bg-surface,
 :root[data-theme="light"] [class~="bg-surface"] {
-  background-color: #ffffff;
+  background-color: var(--color-card);
   background-image: none !important;
 }
 
 :root[data-theme="light"] :is(.bg-card, [class~="bg-card"]):hover {
-  background-color: #ffffff;
+  background-color: var(--color-card);
   background-image: none !important;
   border-color: var(--color-border-bright);
   box-shadow: var(--shadow-card-hover);
@@ -509,8 +502,7 @@ body {
 
 /* Light mode card header shelf: distinct visual grounding */
 :root[data-theme="light"] .bg-card > div:first-child:is([class*="border-b"]) {
-  background-color: #f4f7fb;
-  border-bottom-color: var(--color-border-default) !important;
+  border-bottom-color: var(--color-border-subtle) !important;
 }
 
 /* Light mode sticky toolbars & headers: crisp frosted white elevation */
@@ -535,7 +527,7 @@ body {
   border-radius: 3px;
 }
 :root[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
-  background: #0284c7;
+  background: var(--color-accent);
 }
 
 /* Graticule technical grid overlay for light mode */
@@ -553,28 +545,53 @@ body {
 /* Dark island inside light mode (preserves space hero and explicit dark subtrees) */
 :root[data-theme="light"] [data-theme="dark"] {
   color-scheme: dark;
-  --color-page: #0d0d0d;
-  --color-page-soft: #121418;
-  --color-surface: #171b22;
-  --color-card: #1c222c;
-  --color-card-hover: #242c38;
-  --color-border-subtle: #212936;
-  --color-border-default: #2e3a4d;
-  --color-border-bright: #445672;
-  --color-border: #2e3a4d;
-  --color-text-primary: #f8fafc;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-text-dim: #4b5563;
-  --color-accent: #f27127;
-  --color-accent-hover: #d95e19;
-  --color-accent-light: #f2ac57;
-  --color-accent-dark: #b84d12;
-  --color-secondary: #0b8cbf;
-  --color-nominal: #10b981;
-  --color-warning: #f59e0b;
-  --color-critical: #ef4444;
-  --color-special: #a855f7;
+  /* ISTRAC Portal theme v2 (dark): approved landing design, do not edit by hand */
+  --color-page: #0c0e12;
+  --color-page-soft: #121519;
+  --color-surface: #16191e;
+  --color-card: #16191e;
+  --color-card-hover: #1f2329;
+  --color-border-subtle: #2a2f36;
+  --color-border-default: #3a4049;
+  --color-border-bright: #71717a;
+  --color-border: #2a2f36;
+  --color-text-primary: #f4f4f5;
+  --color-text-secondary: #d4d4d8;
+  --color-text-muted: #a1a1aa;
+  --color-text-dim: #a1a1aa;
+  --color-accent: #0367a2;
+  --color-accent-hover: #005080;
+  --color-accent-light: #8ecbfe;
+  --color-accent-dark: #023b60;
+  --color-secondary: #0367a2;
+  --color-secondary-hover: #005080;
+  --color-secondary-light: #8ecbfe;
+  --color-secondary-dark: #023b60;
+  --color-nominal: #6ee7a8;
+  --color-nominal-bg: #0f2a1d;
+  --color-nominal-fill: #047857;
+  --color-warning: #edb159;
+  --color-warning-bg: #362200;
+  --color-warning-fill: #855904;
+  --color-critical: #ffa196;
+  --color-critical-bg: #46120f;
+  --color-critical-fill: #b32322;
+  --color-saffron: #f47115;
+  --color-saffron-hover: #e0620a;
+  --color-saffron-text: #ffa366;
+  --color-saffron-soft: #2b1b10;
+  --color-saffron-soft-hover: #3a2312;
+  --color-isro-blue: #0d88d3;
+  --color-isro-saffron: #f47115;
+  --color-brand-ink: #002641;
+  --color-brand-ink-deep: #001a2e;
+  --color-blue-soft: #0f2638;
+  --color-band-blue: #0d1b28;
+  --color-band-saffron: #1a130d;
+  --color-grid-line: rgba(142, 203, 254, 0.075);
+  --color-focus-ring: #8ecbfe;
+  --color-primary-soft: #0f2638;
+  --color-special: #c4a7ff;
 }
 
 /* Fixed modal backdrops in light mode: rich dimming dark scrim instead of milky white fog */
@@ -614,13 +631,13 @@ body {
 /* Sidebar active navigation link in light mode */
 :root[data-theme="light"] aside a.active,
 :root[data-theme="light"] aside [class*="border-l-accent"]:is([class*="bg-accent/"]) {
-  background-color: #ffedd5 !important;
-  color: var(--color-accent) !important;
+  background-color: var(--color-blue-soft) !important;
+  color: var(--color-accent-light) !important;
   font-weight: 700 !important;
 }
 :root[data-theme="light"] aside a.active svg,
 :root[data-theme="light"] aside [class*="border-l-accent"]:is([class*="bg-accent/"]) svg {
-  color: var(--color-accent) !important;
+  color: var(--color-accent-light) !important;
 }
 
 /* Form controls in light mode: crisp white with defined boundaries */
@@ -740,7 +757,7 @@ body {
 
 /* White text -> ink, unless on solid dark/colored fills */
 :root[data-theme="light"] .text-white:not(
-  [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-secondary"],
+  [class~="bg-saffron"], [class~="bg-saffron-hover"], [class~="bg-critical-fill"], [class~="bg-nominal-fill"], [class~="bg-warning-fill"], [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-secondary"],
   [class~="bg-nominal"], [class~="bg-critical"], [class~="bg-[#dc2626]"], [class~="bg-[#b91c1c]"],
   [class~="bg-blue-500"], [class~="bg-blue-600"], [class~="bg-blue-700"],
   [class~="bg-rose-500"], [class~="bg-rose-600"],
@@ -751,7 +768,7 @@ body {
   color: var(--color-text-primary);
 }
 :root[data-theme="light"] [class*="text-white/"]:not(
-  [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-secondary"],
+  [class~="bg-saffron"], [class~="bg-saffron-hover"], [class~="bg-critical-fill"], [class~="bg-nominal-fill"], [class~="bg-warning-fill"], [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-secondary"],
   [class~="bg-nominal"], [class~="bg-critical"], [class~="bg-[#dc2626]"], [class~="bg-[#b91c1c]"],
   [class~="bg-blue-500"], [class~="bg-blue-600"], [class~="bg-blue-700"],
   [class~="bg-rose-500"], [class~="bg-rose-600"],
@@ -762,7 +779,7 @@ body {
   color: var(--color-text-secondary);
 }
 :root[data-theme="light"] :is(
-    [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-accent-dark"],
+    [class~="bg-saffron"], [class~="bg-saffron-hover"], [class~="bg-critical-fill"], [class~="bg-nominal-fill"], [class~="bg-warning-fill"], [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-accent-dark"],
     [class~="bg-critical"], [class~="bg-nominal"], [class~="bg-warning"], [class~="bg-special"],
     [class~="bg-blue-500"], [class~="bg-blue-600"], [class~="bg-blue-700"],
     [class~="bg-indigo-600"], [class~="bg-indigo-700"],
@@ -774,7 +791,7 @@ body {
     [class*="bg-black/8"], [class~="bg-black"]
   ):is(.text-white, [class*="text-white/"]),
 :root[data-theme="light"] :is(
-    [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-accent-dark"],
+    [class~="bg-saffron"], [class~="bg-saffron-hover"], [class~="bg-critical-fill"], [class~="bg-nominal-fill"], [class~="bg-warning-fill"], [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-accent-dark"],
     [class~="bg-critical"], [class~="bg-nominal"], [class~="bg-warning"], [class~="bg-special"],
     [class~="bg-blue-500"], [class~="bg-blue-600"], [class~="bg-blue-700"],
     [class~="bg-indigo-600"], [class~="bg-indigo-700"],
@@ -789,32 +806,32 @@ body {
 
 /* Ensure filled button text and icons stay white both normally and on hover */
 :root[data-theme="light"] :is(button, a, [role="button"], input[type="submit"]):is(
-  [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-secondary"], [class~="bg-secondary-hover"],
+  [class~="bg-saffron"], [class~="bg-saffron-hover"], [class~="bg-critical-fill"], [class~="bg-nominal-fill"], [class~="bg-warning-fill"], [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-secondary"], [class~="bg-secondary-hover"],
   [class~="bg-nominal"], [class~="bg-critical"], [class~="bg-[#dc2626]"], [class~="bg-[#b91c1c]"],
   [class~="bg-blue-600"], [class~="bg-blue-700"], [class~="bg-rose-600"]
 ),
 :root[data-theme="light"] :is(button, a, [role="button"], input[type="submit"]):is(
-  [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-secondary"], [class~="bg-secondary-hover"],
+  [class~="bg-saffron"], [class~="bg-saffron-hover"], [class~="bg-critical-fill"], [class~="bg-nominal-fill"], [class~="bg-warning-fill"], [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-secondary"], [class~="bg-secondary-hover"],
   [class~="bg-nominal"], [class~="bg-critical"], [class~="bg-[#dc2626]"], [class~="bg-[#b91c1c]"],
   [class~="bg-blue-600"], [class~="bg-blue-700"], [class~="bg-rose-600"]
 ) :is(span, svg, div, p, strong),
 :root[data-theme="light"] :is(button, a, [role="button"], input[type="submit"]):is(
-  [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-secondary"], [class~="bg-secondary-hover"],
+  [class~="bg-saffron"], [class~="bg-saffron-hover"], [class~="bg-critical-fill"], [class~="bg-nominal-fill"], [class~="bg-warning-fill"], [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-secondary"], [class~="bg-secondary-hover"],
   [class~="bg-nominal"], [class~="bg-critical"], [class~="bg-[#dc2626]"], [class~="bg-[#b91c1c]"],
   [class~="bg-blue-600"], [class~="bg-blue-700"], [class~="bg-rose-600"],
   [class~="hover:bg-accent"], [class~="hover:bg-accent-hover"],
   [class~="hover:bg-secondary"], [class~="hover:bg-secondary-hover"],
-  [class~="hover:bg-nominal"], [class~="hover:bg-critical"],
+  [class~="hover:bg-critical-fill"], [class~="hover:bg-nominal-fill"], [class~="hover:bg-warning-fill"], [class~="hover:bg-saffron"], [class~="hover:bg-saffron-hover"], [class~="hover:bg-nominal"], [class~="hover:bg-critical"],
   [class~="hover:bg-[#dc2626]"], [class~="hover:bg-[#b91c1c]"],
   [class~="hover:bg-blue-600"], [class~="hover:bg-blue-700"]
 ):hover,
 :root[data-theme="light"] :is(button, a, [role="button"], input[type="submit"]):is(
-  [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-secondary"], [class~="bg-secondary-hover"],
+  [class~="bg-saffron"], [class~="bg-saffron-hover"], [class~="bg-critical-fill"], [class~="bg-nominal-fill"], [class~="bg-warning-fill"], [class~="bg-accent"], [class~="bg-accent-hover"], [class~="bg-secondary"], [class~="bg-secondary-hover"],
   [class~="bg-nominal"], [class~="bg-critical"], [class~="bg-[#dc2626]"], [class~="bg-[#b91c1c]"],
   [class~="bg-blue-600"], [class~="bg-blue-700"], [class~="bg-rose-600"],
   [class~="hover:bg-accent"], [class~="hover:bg-accent-hover"],
   [class~="hover:bg-secondary"], [class~="hover:bg-secondary-hover"],
-  [class~="hover:bg-nominal"], [class~="hover:bg-critical"],
+  [class~="hover:bg-critical-fill"], [class~="hover:bg-nominal-fill"], [class~="hover:bg-warning-fill"], [class~="hover:bg-saffron"], [class~="hover:bg-saffron-hover"], [class~="hover:bg-nominal"], [class~="hover:bg-critical"],
   [class~="hover:bg-[#dc2626]"], [class~="hover:bg-[#b91c1c]"],
   [class~="hover:bg-blue-600"], [class~="hover:bg-blue-700"]
 ):hover :is(span, svg, div, p, strong) {
@@ -842,8 +859,9 @@ body {
   color: var(--color-text-primary) !important;
 }
 
-/* Badge counters, pill tags, and unread numbers inside buttons must ALWAYS remain crisp white with zero blur or text distortion */
-:root[data-theme="light"] :is(button, a, [role="button"]):hover :is(.rounded-full, [class*="bg-critical"], [class*="bg-accent"]):is(span, div) {
+/* Counters on a coloured fill (unread badges) stay white while their parent is hovered.
+   Only white-text-on-fill elements: a plain round avatar or a number must keep its own colour. */
+:root[data-theme="light"] :is(button, a, [role="button"]):hover :is(span, div)[class*="text-white"]:is([class*="bg-critical"], [class*="bg-accent"], [class*="bg-saffron"], [class*="bg-nominal"], [class*="bg-warning"], [class*="bg-red-"], [class*="bg-blue-6"], [class*="bg-blue-7"]) {
   color: #ffffff !important;
   text-shadow: none !important;
   filter: none !important;
@@ -853,11 +871,11 @@ body {
 :root[data-theme="light"] [class*="hover:text-white"]:not(
   [class~="hover:bg-accent"], [class~="hover:bg-accent-hover"],
   [class~="hover:bg-secondary"], [class~="hover:bg-secondary-hover"],
-  [class~="hover:bg-nominal"], [class~="hover:bg-critical"],
+  [class~="hover:bg-critical-fill"], [class~="hover:bg-nominal-fill"], [class~="hover:bg-warning-fill"], [class~="hover:bg-saffron"], [class~="hover:bg-saffron-hover"], [class~="hover:bg-nominal"], [class~="hover:bg-critical"],
   [class~="hover:bg-[#dc2626]"], [class~="hover:bg-[#b91c1c]"],
   [class~="hover:bg-blue-600"], [class~="hover:bg-blue-700"],
   [class~="hover:bg-red-600"], [class~="hover:bg-red-700"],
-  [class~="bg-accent"], [class~="bg-accent-hover"],
+  [class~="bg-saffron"], [class~="bg-saffron-hover"], [class~="bg-critical-fill"], [class~="bg-nominal-fill"], [class~="bg-warning-fill"], [class~="bg-accent"], [class~="bg-accent-hover"],
   [class~="bg-secondary"], [class~="bg-secondary-hover"],
   [class~="bg-nominal"], [class~="bg-critical"],
   [class~="bg-[#dc2626]"], [class~="bg-[#b91c1c]"],
@@ -866,11 +884,11 @@ body {
 :root[data-theme="light"] [class*="hover:text-white"]:not(
   [class~="hover:bg-accent"], [class~="hover:bg-accent-hover"],
   [class~="hover:bg-secondary"], [class~="hover:bg-secondary-hover"],
-  [class~="hover:bg-nominal"], [class~="hover:bg-critical"],
+  [class~="hover:bg-critical-fill"], [class~="hover:bg-nominal-fill"], [class~="hover:bg-warning-fill"], [class~="hover:bg-saffron"], [class~="hover:bg-saffron-hover"], [class~="hover:bg-nominal"], [class~="hover:bg-critical"],
   [class~="hover:bg-[#dc2626]"], [class~="hover:bg-[#b91c1c]"],
   [class~="hover:bg-blue-600"], [class~="hover:bg-blue-700"],
   [class~="hover:bg-red-600"], [class~="hover:bg-red-700"],
-  [class~="bg-accent"], [class~="bg-accent-hover"],
+  [class~="bg-saffron"], [class~="bg-saffron-hover"], [class~="bg-critical-fill"], [class~="bg-nominal-fill"], [class~="bg-warning-fill"], [class~="bg-accent"], [class~="bg-accent-hover"],
   [class~="bg-secondary"], [class~="bg-secondary-hover"],
   [class~="bg-nominal"], [class~="bg-critical"],
   [class~="bg-[#dc2626]"], [class~="bg-[#b91c1c]"],
@@ -897,17 +915,11 @@ body {
 }
 
 /* Orange brand accent & blue structure text contrast */
-:root[data-theme="light"] :is([class*="text-[#FF8533]"], [class*="text-[#FF6B00]"], [class*="text-[#F27127]"], [class*="text-[#F26716]"]):not([data-theme="dark"] *) {
-  color: #c2410c;
+:root[data-theme="light"] :is([class~="text-[#FF8533]"], [class~="text-[#FF6B00]"], [class~="text-[#F27127]"], [class~="text-[#F26716]"]):not([data-theme="dark"] *) {
+  color: var(--color-saffron-text);
 }
-:root[data-theme="light"] [class*="text-[#38BDF8]"]:not([data-theme="dark"] *) {
-  color: #0369a1;
-}
-:root[data-theme="light"] [class*="text-accent-light"]:not([class*="bg-accent"], [class*="bg-critical"], [data-theme="dark"] *) {
-  color: #c2410c !important;
-}
-:root[data-theme="light"] [class*="text-secondary-light"]:not([data-theme="dark"] *) {
-  color: #0369a1 !important;
+:root[data-theme="light"] [class~="text-[#38BDF8]"]:not([data-theme="dark"] *) {
+  color: var(--color-accent-light);
 }
 
 /* ============================================================================
@@ -943,7 +955,7 @@ body {
 }
 
 /* Ensure notification badges and pill counters stay razor sharp and never blur on hover */
-:is(button, a, [role="button"]):hover :is(span, div):is([class*="bg-critical"], [class*="bg-accent"], [class*="bg-nominal"], [class*="rounded-full"][class*="text-white"], .num) {
+:is(button, a, [role="button"]):hover :is(span, div)[class*="text-white"]:is([class*="bg-critical"], [class*="bg-accent"], [class*="bg-saffron"], [class*="bg-nominal"], [class*="bg-warning"], [class*="bg-red-"], [class*="bg-blue-6"], [class*="bg-blue-7"]) {
   color: #ffffff !important;
   text-shadow: none !important;
   filter: none !important;
@@ -951,4 +963,20 @@ body {
   -moz-osx-font-smoothing: grayscale;
   transform: translateZ(0);
   backface-visibility: hidden;
+}
+
+/* ============================================================================
+   Landing v2: faint graph-paper grid behind sections (edges only, centre clear).
+   Override --color-grid-line on a parent to recolour it (e.g. white on brand-ink).
+   ========================================================================== */
+.section-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--color-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid-line) 1px, transparent 1px);
+  background-size: 40px 40px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 65% at 50% 50%, transparent 30%, #000 100%);
+  mask-image: radial-gradient(ellipse 70% 65% at 50% 50%, transparent 30%, #000 100%);
 }

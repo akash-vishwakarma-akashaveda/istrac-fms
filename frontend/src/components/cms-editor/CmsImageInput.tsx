@@ -170,10 +170,10 @@ export function CmsImageInput({
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
           title="Upload image from your computer"
-          className="shrink-0 flex items-center gap-1.5 rounded-md border border-border-default bg-surface px-3 py-2 text-[11px] text-text-secondary hover:border-accent hover:text-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          className="shrink-0 flex items-center gap-1.5 rounded-md border border-border-default bg-surface px-3 py-2 text-[11px] text-text-secondary hover:border-accent hover:text-accent-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           {uploading ? (
-            <Loader2 size={13} className="animate-spin text-accent" />
+            <Loader2 size={13} className="animate-spin text-accent-light" />
           ) : (
             <Upload size={13} />
           )}

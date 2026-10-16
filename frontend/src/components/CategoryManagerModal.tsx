@@ -386,7 +386,7 @@ export function CategoryManagerModal({
         <div className="space-y-4">
           {checkingFiles ? (
             <div className="py-8 flex flex-col items-center justify-center space-y-3 text-center">
-              <RefreshCw className="h-7 w-7 text-accent animate-spin" />
+              <RefreshCw className="h-7 w-7 text-accent-light animate-spin" />
               <p className="text-xs font-semibold text-text-primary">
                 Checking for active files associated with "{deletingCategory?.name}"…
               </p>

@@ -10,18 +10,16 @@ import { MissionCalendar } from "../components/MissionCalendar"
 import { AboutSection } from "../components/AboutSection"
 import { ContactSection } from "../components/ContactSection"
 import { Footer } from "../components/Footer"
-import { SpaceParallaxBackground, type SpaceBackgroundConfig } from "../components/SpaceParallaxBackground"
 import { useCms } from "../context/cmsContext"
 import { useFeaturedReports } from "../hooks/useFeaturedReports"
 
 export function Landing() {
   const location = useLocation()
   const queryClient = useQueryClient()
-  const { cmsBlocks, refetch } = useCms()
+  const { refetch } = useCms()
   const { data: featuredData } = useFeaturedReports()
   const hasFeaturedReports = Boolean(featuredData && featuredData.some((f) => f.isFeatured))
 
-  const bgConfig = cmsBlocks["space_background"] as SpaceBackgroundConfig | undefined
 
   // Always ensure fresh CMS blocks whenever navigating to the landing page
   useEffect(() => {
@@ -83,8 +81,6 @@ export function Landing() {
 
   return (
     <div className="min-h-screen overflow-x-clip bg-page text-text-primary antialiased relative transition-colors duration-200">
-      {/* Universal Fixed Parallax Space Canvas */}
-      <SpaceParallaxBackground config={bgConfig} />
 
       {/* Keyboard accessibility skip link */}
       <a
@@ -98,6 +94,8 @@ export function Landing() {
         <Navbar id="cms-section-nav" />
         <main id="main" className="flex-1">
           <div id="cms-section-hero"><Hero /></div>
+          {/* Opaque from here down: the space backdrop frames the hero only, so content sections stay readable in both themes */}
+          <div className="relative bg-page">
           <div id="cms-section-quick_stats"><QuickStatsBanner /></div>
           <div id="cms-section-department_pages"><OperationalDivisions /></div>
           {hasFeaturedReports && (
@@ -106,6 +104,7 @@ export function Landing() {
           <div id="cms-section-calendar_events"><MissionCalendar /></div>
           <div id="cms-section-about"><AboutSection /></div>
           <div id="cms-section-contact_info"><ContactSection /></div>
+          </div>
         </main>
         <div id="cms-section-footer"><Footer /></div>
       </div>

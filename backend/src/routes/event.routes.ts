@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { publicFileIds, notificationFileId } from '../lib/publicFiles.js'
 import { prisma } from '../config/db.js'
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.middleware.js'
 import { adminMiddleware } from '../middleware/admin.middleware.js'
@@ -206,10 +207,15 @@ router.get('/events/active-banner', optionalAuthMiddleware, async (req, res, nex
         category: true,
         createdAt: true,
         metadata: true,
+        resourceId: true,
       },
     })
 
     let allowedBroadcasts = recentBroadcasts
+    // Signed-out visitors only hear about uploads of featured (public) files.
+    const publicFiles = user
+      ? new Set<string>()
+      : await publicFileIds(recentBroadcasts.filter((b) => b.type === 'FILE_UPLOAD' || b.category === 'file').map(notificationFileId))
 
     if (!isAdmin) {
       allowedBroadcasts = recentBroadcasts.filter((b) => {
@@ -227,7 +233,10 @@ router.get('/events/active-banner', optionalAuthMiddleware, async (req, res, nex
         // File upload notifications: can be read when no user is logged in (public landing page banner)
         // For authenticated non-admin users, enforce strict department clearance
         if (b.type === 'FILE_UPLOAD' || b.category === 'file') {
-          if (!user) return true
+          if (!user) {
+            const fileId = notificationFileId(b)
+            return Boolean(fileId && publicFiles.has(fileId))
+          }
           const targetDept = meta.departmentId || (Array.isArray(meta.departmentIds) ? meta.departmentIds[0] : null)
           if (targetDept) {
             return userDeptIds ? userDeptIds.has(targetDept) : false

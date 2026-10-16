@@ -57,13 +57,12 @@ const usage = (await j('GET', '/report-presets/categories', null, token)).data.d
 assert.equal(usage.usageCount, 1)
 out.push('PASS  BUG-06 usageCount = 1 for the category in use')
 
+// Since 2026-10-15 a category that still has files cannot be deleted (files are never moved silently).
 const del = await j('DELETE', `/report-presets/categories/${cat.data.data.id}`, null, token)
-assert.equal(del.status, 200); assert.equal(del.data.data.filesMovedToGeneral, 1)
-const gen = (await j('GET', `/admin/files?category=GENERAL`, null, token)).data.data
-assert.ok(gen.some((f) => f.id === fileId), 'file now under General')
+assert.equal(del.status, 400); assert.equal(del.data.error.code, 'category_has_files'); assert.equal(del.data.error.details.fileCount, 1)
 const still = await j('GET', `/files/${fileId}/versions`, null, token)
 assert.equal(still.status, 200, 'file still accessible')
-out.push(`PASS  BUG-06 delete in-use category: "${del.data.data.message}"`)
+out.push(`PASS  BUG-06 in-use category is protected: "${del.data.error.message}"`)
 
 const audit = (await j('GET', '/admin/audit-logs?pageSize=20', null, token)).data.data.find((e) => e.action === 'FILE:UPLOAD' && e.resourceId === fileId)
 assert.ok(audit, 'upload audited'); assert.match(audit.summary, new RegExp(`uploaded “${fname}”`))

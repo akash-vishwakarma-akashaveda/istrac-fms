@@ -97,19 +97,19 @@ export function Topbar() {
           <button
             type="button"
             onClick={toggleMobileSidebar}
-            className="md:hidden flex h-8 w-8 items-center justify-center rounded-lg border border-border-default bg-card text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-colors cursor-pointer shrink-0 shadow-sm"
+            className="md:hidden flex h-9 w-9 items-center justify-center rounded-[10px] bg-page-soft text-text-primary hover:bg-border-subtle transition-colors cursor-pointer"
             aria-label="Open navigation menu"
           >
             <Menu size={16} />
           </button>
 
-          <span className="readout text-text-secondary">
+          <span className="flex items-center gap-2 text-sm text-text-muted">
             <span
               aria-hidden="true"
-              className="h-1.5 w-1.5 shrink-0 rounded-full bg-nominal animate-tick"
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-nominal"
             />
             <span className="hidden sm:inline truncate">{utcTime}</span>
-            <span className="sm:hidden font-mono text-xs truncate">{utcTime.slice(11)}</span>
+            <span className="sm:hidden text-xs truncate">{utcTime.slice(11)}</span>
             <span className="hidden sm:inline text-text-dim">UTC</span>
           </span>
         </div>
@@ -119,10 +119,10 @@ export function Topbar() {
           {/* Back to Home / Public Portal Button */}
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-card px-3 py-1.5 text-xs font-semibold text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all shadow-sm group cursor-pointer"
+            className="group inline-flex min-h-9 items-center gap-1.5 rounded-[10px] bg-page-soft px-3 text-sm font-semibold text-text-primary transition-colors hover:bg-border-subtle"
             title={`Return to ${brandTitle}${brandHighlight} Public Portal Homepage`}
           >
-            <Home size={14} className="text-accent group-hover:scale-110 transition-transform" />
+            <Home size={15} />
             <span className="hidden sm:inline">Back to Home</span>
           </Link>
 
@@ -145,7 +145,7 @@ export function Topbar() {
               <Bell size={16} strokeWidth={1.8} />
 
               {unreadCount > 0 && (
-                <span className="num absolute top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical px-1 text-[10px] leading-none text-white pointer-events-none select-none transform-gpu">
+                <span className="num absolute top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-critical-fill px-1 text-[10px] leading-none text-white pointer-events-none select-none transform-gpu">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}

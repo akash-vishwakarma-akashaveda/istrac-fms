@@ -270,7 +270,7 @@ export function CreateDeptModal({
                     setSelectedSatIds([])
                   }
                 }}
-                className="h-4 w-4 rounded border-border-default bg-surface text-accent focus:ring-accent"
+                className="h-4 w-4 rounded border-border-default bg-surface text-accent-light focus:ring-accent"
               />
               <span className="text-xs font-bold text-text-primary flex items-center gap-1.5">
                 <Radio size={14} className="text-accent-light" />
@@ -343,7 +343,7 @@ export function CreateDeptModal({
                               setSelectedSatIds((prev) => prev.filter((id) => id !== sat.id))
                             }
                           }}
-                          className="mt-0.5 h-3.5 w-3.5 rounded border-border-default bg-card text-accent focus:ring-accent"
+                          className="mt-0.5 h-3.5 w-3.5 rounded border-border-default bg-card text-accent-light focus:ring-accent"
                         />
                         <div className="min-w-0 flex-1 text-xs">
                           <div className="flex items-center justify-between gap-1">

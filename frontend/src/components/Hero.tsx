@@ -1,8 +1,6 @@
 import {
-  LogIn,
   UserPlus,
   Search,
-  Compass,
   LayoutDashboard,
   ArrowRight,
   ChevronLeft,
@@ -26,10 +24,10 @@ import { useToastStore } from '../store/toastStore'
 import { type HeroContent, type HeroSlide } from '../types/cms'
 import { Button, Modal, Input, Textarea } from '.'
 import { SearchModal } from './SearchModal'
-import { ImageWithFallback } from './ImageWithFallback'
 import { ImageLightboxModal } from './ImageLightboxModal'
 import { isSafeUrl } from '../lib/sanitize'
-import { CmsImageInput } from './cms-editor/CmsImageInput'
+import { CmsImageInput, getResolvedMediaUrl } from './cms-editor/CmsImageInput'
+import { SpaceParallaxBackground, type SpaceBackgroundConfig } from './SpaceParallaxBackground'
 
 interface ExtendedHeroContent extends HeroContent {
   badgeText?: string
@@ -102,6 +100,8 @@ export function Hero() {
     (DEFAULT_CMS_BLOCKS['hero'] as unknown as ExtendedHeroContent)
 
   const [searchOpen, setSearchOpen] = useState(false)
+  const [failedPhotos, setFailedPhotos] = useState<string[]>([])
+  const spaceConfig = cmsBlocks['space_background'] as SpaceBackgroundConfig | undefined
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
   const { openLogin, openRegister } = useAuthModalStore()
@@ -292,255 +292,182 @@ export function Hero() {
   }
 
   const activeSlide = slides[currentSlideIndex] || slides[0]
+  const photoUrl = getResolvedMediaUrl(activeSlide?.url)
 
   return (
     <>
       <section
         id="hero"
         data-theme="dark"
-        className="relative isolate overflow-hidden border-b border-border-subtle/80 bg-transparent py-14 sm:py-20"
+        className="relative isolate overflow-hidden bg-brand-ink text-white"
         aria-labelledby="hero-title"
       >
-        {/* Graticule Background & Ambient Glow */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-          <div className="graticule absolute inset-0 opacity-20 [mask-image:radial-gradient(ellipse_at_50%_30%,black,transparent_80%)]" />
-          <div className="absolute top-1/3 left-1/4 h-[450px] w-[600px] rounded-full bg-accent/[0.08] blur-3xl" />
-          <div className="absolute top-1/4 right-1/4 h-72 w-72 rounded-full bg-nominal/[0.06] blur-3xl" />
-        </div>
+        {/* Base layer: the CMS space theme, visible whenever a hero photo is missing or cannot load */}
+        <SpaceParallaxBackground config={spaceConfig} contained />
+        {photoUrl && !failedPhotos.includes(photoUrl) && (
+          <img
+            key={photoUrl}
+            src={photoUrl}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full object-cover"
+            onError={() => setFailedPhotos((prev) => [...prev, photoUrl])}
+          />
+        )}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(90deg, rgba(5,12,20,0.9) 0%, rgba(5,12,20,0.72) 45%, rgba(5,12,20,0.22) 100%)' }}
+        />
 
-        <div className="shell grid items-center gap-10 lg:grid-cols-12 lg:gap-14">
-        <div className="lg:col-span-7">
-            {/* Status Pill */}
+        <div className="shell relative pt-16 pb-36 sm:pt-28 sm:pb-44">
+          <div className="flex max-w-[640px] flex-col gap-6">
             {(hero?.showBadge ?? true) && (
-              <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3.5 py-1 text-xs font-semibold text-accent-light shadow-sm shadow-accent/20">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-nominal" />
-                <span>{hero?.badgeText ?? 'Telemetry & Tracking Network Active · 24/7 MOX Ops'}</span>
-              </div>
+              <span className="inline-flex min-h-[30px] items-center gap-2 self-start rounded-2xl bg-white/10 px-3 py-1 text-[13px] font-bold text-white">
+                <span className="h-2 w-2 rounded-full bg-[#6ee7a8]" />
+                {hero?.badgeText ?? 'Telemetry & Tracking Network Active · 24/7 MOX Ops'}
+              </span>
             )}
 
-            {/* Main Headline */}
             <h1
               id="hero-title"
-              className="display mt-5 text-3xl font-bold tracking-tight text-text-primary sm:text-5xl lg:text-[3.25rem] leading-[1.15]"
+              className="display text-[38px] font-bold leading-[44px] tracking-tight text-white sm:text-[56px] sm:leading-[62px]"
             >
               {hero?.title ?? 'ISRO Telemetry, Tracking & Command Network'}
             </h1>
 
-            {/* Subtitle */}
-            <p className="mt-4 max-w-xl text-sm leading-relaxed text-text-secondary sm:text-base">
+            <p className="text-lg leading-[30px] text-white/90 sm:text-[19px]">
               {hero?.subtitle ??
                 'The nerve centre for spacecraft operations, deep space tracking, launch vehicle telemetry, and orbit determination across all Indian space missions.'}
             </p>
 
-            {/* Direct Action Buttons */}
-            <div className="mt-8 flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3 pt-1">
               {user ? (
                 <>
                   {(hero?.showDashboardBtn ?? true) && (
                     <Link to={user.role === 'ADMIN' ? '/admin' : '/dashboard'}>
-                      <Button variant="primary" size="md" className="shadow-lg shadow-accent/25 px-5 flex items-center gap-2">
-                        <LayoutDashboard size={15} strokeWidth={2.2} />
-                        <span>Go To Dashboard</span>
-                        <ArrowRight size={14} />
+                      <Button variant="primary" size="lg">
+                        <LayoutDashboard size={17} strokeWidth={2.2} />
+                        <span>Go to dashboard</span>
+                        <ArrowRight size={17} />
                       </Button>
                     </Link>
                   )}
                   {(hero?.showFileRepoBtn ?? true) && (
-                    <Link to="/dashboard/files">
-                      <Button variant="outline" size="md" className="px-5">
-                        <span>File Repositories</span>
-                      </Button>
+                    <Link
+                      to="/dashboard/files"
+                      className="inline-flex min-h-12 items-center rounded-[10px] border border-white/60 px-6 text-[15px] font-bold text-white transition-colors hover:border-white hover:bg-white/10"
+                    >
+                      File repositories
                     </Link>
                   )}
                 </>
               ) : (
                 <>
                   {(hero?.showLoginBtn ?? true) && (
-                    <Button
-                      variant="primary"
-                      size="md"
-                      onClick={openLogin}
-                      className="shadow-lg shadow-accent/25 px-5 cursor-pointer"
-                    >
-                      <LogIn size={15} strokeWidth={2.2} />
-                      <span>{hero?.ctaText || 'Log In'}</span>
+                    <Button variant="primary" size="lg" onClick={openLogin}>
+                      <span>{hero?.ctaText || 'Sign in to portal'}</span>
+                      <ArrowRight size={17} />
                     </Button>
                   )}
                   {(hero?.showRegisterBtn ?? true) && (
-                    <Button
-                      variant="outline"
-                      size="md"
+                    <button
+                      type="button"
                       onClick={openRegister}
-                      className="px-5 cursor-pointer"
+                      className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-[10px] border border-white/60 px-6 text-[15px] font-bold text-white transition-colors hover:border-white hover:bg-white/10"
                     >
-                      <UserPlus size={15} strokeWidth={1.8} />
-                      <span>Request Access</span>
-                    </Button>
+                      <UserPlus size={17} />
+                      Request access
+                    </button>
                   )}
                 </>
               )}
-
               {(hero?.showSearchBtn ?? true) && (
                 <button
                   type="button"
                   onClick={() => setSearchOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-surface/80 px-4 py-2.5 text-xs font-semibold text-text-muted hover:border-border-bright hover:text-text-primary transition-colors shadow-sm"
+                  className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-[10px] px-4 text-[15px] font-semibold text-white/90 transition-colors hover:bg-white/10 hover:text-white"
                 >
-                  <Search size={14} className="text-accent-light" />
-                  <span>Search Files</span>
-                  <kbd className="num ml-1 rounded bg-card px-1.5 py-0.5 text-[10px] text-text-dim border border-border-subtle">
-                    Ctrl K
-                  </kbd>
+                  <Search size={17} />
+                  Search files
+                  <kbd className="hidden rounded border border-white/30 px-1.5 py-0.5 font-mono text-[11px] text-white/80 sm:inline">Ctrl K</kbd>
                 </button>
               )}
-
               {isAdmin && (
-                <Button
+                <button
                   type="button"
-                  variant="outline"
-                  size="md"
                   onClick={handleOpenEditModal}
-                  className="border-accent/40 text-accent-light hover:bg-accent/10 px-4 flex items-center gap-1.5 shadow-sm"
+                  className="inline-flex min-h-12 cursor-pointer items-center gap-1.5 rounded-[10px] px-3 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10 hover:text-white"
                 >
-                  <Edit2 size={13} />
-                  <span>Edit Hero CMS</span>
-                </Button>
+                  <Edit2 size={14} />
+                  Edit hero
+                </button>
               )}
             </div>
           </div>
+        </div>
 
-          {/* Right Column: Interactive Multi-Image Telemetry Carousel (5 cols) */}
-          <div className="lg:col-span-5">
-            <div
-              className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-border-default bg-[#070c17] shadow-2xl transition-all duration-300 hover:border-accent/40 group"
-              onMouseEnter={() => { isHoveredRef.current = true }}
-              onMouseLeave={() => { isHoveredRef.current = false }}
-            >
-              {/* Telemetry HUD Top Header */}
-              <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between border-b border-border-subtle/80 bg-[#0b1220]/80 px-3 sm:px-4 py-2.5 backdrop-blur-md text-[11px] gap-2">
-                <span className="eyebrow flex items-center gap-1.5 text-text-secondary min-w-0">
-                  <Compass size={13} className="text-accent-light shrink-0" />
-                  <span className="truncate max-w-[160px] sm:max-w-none">
-                    {activeSlide?.nodeHeadline || hero?.cardHeadline || 'IDSN BYALALU DEEP SPACE NODE'}
-                  </span>
-                </span>
-
-                <div className="flex items-center gap-2 text-[10px] font-mono text-accent-light">
-                  <span className="rounded bg-accent/20 px-1.5 py-0.5 font-bold">
-                    SLIDE {currentSlideIndex + 1}/{slides.length}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsPlaying((p) => !p)}
-                    className="p-1 rounded text-text-dim hover:text-white transition-colors"
-                    title={isPlaying ? 'Pause auto-rotation' : 'Start auto-rotation'}
-                  >
-                    {isPlaying ? <Pause size={11} /> : <Play size={11} />}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsLightboxOpen(true)}
-                    className="p-1 rounded text-text-dim hover:text-white hover:bg-white/10 transition-colors"
-                    title="Enlarge telemetry image"
-                    aria-label="Enlarge image in fullscreen preview"
-                  >
-                    <Maximize2 size={12} />
-                  </button>
-                  <span className="h-2 w-2 rounded-full bg-nominal animate-pulse ml-0.5" />
-                </div>
-              </div>
-
-              {/* Main Carousel Image with Fallback (Clickable to Enlarge) */}
-              <div
-                className="relative h-full w-full cursor-pointer group/img"
-                onClick={() => setIsLightboxOpen(true)}
-                role="button"
-                tabIndex={0}
-                aria-label="Click to enlarge image"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    setIsLightboxOpen(true)
-                  }
-                }}
+        {/* Photo caption and carousel controls */}
+        <div
+          className="shell absolute inset-x-0 bottom-20 flex items-center justify-end gap-4 sm:bottom-24"
+          onMouseEnter={() => { isHoveredRef.current = true }}
+          onMouseLeave={() => { isHoveredRef.current = false }}
+        >
+          <span className="hidden text-right text-sm text-white/90 md:block">
+            {activeSlide?.caption || 'Indian Deep Space Network (IDSN) 32-Meter Antenna Dish at Byalalu'}
+          </span>
+          <div className="flex items-center gap-2">
+            {slides.length > 1 && (
+              <button
+                type="button"
+                onClick={handlePrevSlide}
+                aria-label="Previous photo"
+                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-white/50 text-white transition-colors hover:bg-white/10"
               >
-                <ImageWithFallback
-                  src={activeSlide?.url}
-                  alt={activeSlide?.caption || 'Indian Deep Space Network'}
-                  className="h-full w-full object-cover transition-transform duration-700"
-                  aspectRatio="4/3"
-                  fallbackIcon="satellite"
-                  fallbackTitle={activeSlide?.fallbackTitle || activeSlide?.caption || 'ISTRAC Deep Space Node'}
-                  fallbackSubtitle={activeSlide?.fallbackSubtitle || 'Primary Ground Station Antenna Node'}
+                <ChevronLeft size={16} />
+              </button>
+            )}
+            {slides.length > 1 &&
+              slides.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setCurrentSlideIndex(idx)}
+                  aria-label={`Show photo ${idx + 1}`}
+                  aria-current={idx === currentSlideIndex}
+                  className={`h-2 cursor-pointer rounded-full transition-all ${idx === currentSlideIndex ? 'w-6 bg-white' : 'w-2 bg-white/50 hover:bg-white/80'}`}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#060b16] via-transparent to-transparent" />
-
-                {/* Hover Click to Enlarge Icon */}
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity duration-200 bg-black/25 pointer-events-none">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black/80 border border-white/25 text-white shadow-2xl backdrop-blur-md">
-                    <Maximize2 size={18} className="text-accent-light" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Slide Navigation Arrows (Revealed on Hover) */}
-              {slides.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handlePrevSlide}
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full bg-card/85 border border-border-default text-text-muted hover:text-white hover:bg-accent flex items-center justify-center transition-all opacity-80 sm:opacity-0 sm:group-hover:opacity-100 shadow-lg cursor-pointer"
-                    aria-label="Previous slide"
-                  >
-                    <ChevronLeft size={15} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleNextSlide}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full bg-card/85 border border-border-default text-text-muted hover:text-white hover:bg-accent flex items-center justify-center transition-all opacity-80 sm:opacity-0 sm:group-hover:opacity-100 shadow-lg cursor-pointer"
-                    aria-label="Next slide"
-                  >
-                    <ChevronRight size={15} />
-                  </button>
-                </>
-              )}
-
-              {/* Telemetry Station Caption & Progress Dots at Bottom */}
-              <div className="absolute bottom-0 inset-x-0 z-20 p-3.5 bg-gradient-to-t from-[#0b1220] via-[#0b1220]/90 to-transparent space-y-2">
-                <div className="flex items-center justify-between text-[10px] text-text-dim border-b border-white/10 pb-1.5">
-                  <span className="num font-semibold text-text-primary">
-                    {activeSlide?.stationText || hero?.stationText || 'STATION: ISTRAC BENGALURU MOX COMPLEX'}
-                  </span>
-                  <span className="num text-accent-light font-semibold">
-                    {activeSlide?.carrierText || hero?.carrierText || 'CARRIER: NOMINAL LOCK'}
-                  </span>
-                </div>
-
-                <p className="text-xs font-semibold text-white truncate drop-shadow-sm">
-                  {activeSlide?.caption || 'Indian Deep Space Network (IDSN) 32-Meter Antenna Dish at Byalalu'}
-                </p>
-
-                {/* Indicator Dots */}
-                {slides.length > 1 && (
-                  <div className="flex items-center gap-1.5 pt-0.5">
-                    {slides.map((_, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setCurrentSlideIndex(idx)}
-                        className={`h-1 rounded-full transition-all ${
-                          idx === currentSlideIndex
-                            ? 'w-6 bg-accent-light'
-                            : 'w-2 bg-white/30 hover:bg-white/60'
-                        }`}
-                        aria-label={`Jump to slide ${idx + 1}`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+              ))}
+            {slides.length > 1 && (
+              <button
+                type="button"
+                onClick={handleNextSlide}
+                aria-label="Next photo"
+                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-white/50 text-white transition-colors hover:bg-white/10"
+              >
+                <ChevronRight size={16} />
+              </button>
+            )}
+            {slides.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setIsPlaying((p) => !p)}
+                aria-label={isPlaying ? 'Pause photos' : 'Play photos'}
+                title={isPlaying ? 'Pause photos' : 'Play photos'}
+                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsLightboxOpen(true)}
+              aria-label="Enlarge photo"
+              title="Enlarge photo"
+              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <Maximize2 size={14} />
+            </button>
           </div>
         </div>
       </section>

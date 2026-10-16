@@ -1080,7 +1080,7 @@ export function DepartmentDetail() {
                     <button
                       type="button"
                       onClick={() => setSatelliteStatusFilter('ACTIVE')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-nominal/40 bg-nominal/15 text-nominal text-xs font-bold hover:bg-nominal hover:text-white transition-all cursor-pointer mt-1"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-nominal/40 bg-nominal/15 text-nominal text-xs font-bold hover:bg-nominal-fill hover:text-white transition-all cursor-pointer mt-1"
                     >
                       <RotateCcw size={12} />
                       <span>View Active Satellites</span>
@@ -1089,7 +1089,7 @@ export function DepartmentDetail() {
                     <button
                       type="button"
                       onClick={() => setSatelliteStatusFilter('DEACTIVATED')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-critical/40 bg-critical/15 text-critical text-xs font-bold hover:bg-critical hover:text-white transition-all cursor-pointer mt-1"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-critical/40 bg-critical/15 text-critical text-xs font-bold hover:bg-critical-fill hover:text-white transition-all cursor-pointer mt-1"
                     >
                       <span>View Deactivated Satellites ({deactivatedCount})</span>
                     </button>
@@ -1956,7 +1956,7 @@ export function DepartmentDetail() {
                             <button
                               type="button"
                               onClick={() => setPreviewFile(file as unknown as FileNode)}
-                              className="flex-1 py-1.5 px-3 rounded-lg border border-accent/50 bg-accent/15 text-accent hover:bg-accent hover:text-white transition-all text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                              className="flex-1 py-1.5 px-3 rounded-lg border border-accent/50 bg-accent/15 text-accent-light hover:bg-accent hover:text-white transition-all text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                               title="View in-browser without login"
                             >
                               <Eye size={13} />
@@ -1976,7 +1976,7 @@ export function DepartmentDetail() {
                           <button
                             type="button"
                             onClick={openLogin}
-                            className="w-full py-2 px-3 rounded-lg border border-accent/50 bg-accent/15 text-accent hover:bg-accent hover:text-white transition-all text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                            className="w-full py-2 px-3 rounded-lg border border-accent/50 bg-accent/15 text-accent-light hover:bg-accent hover:text-white transition-all text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                           >
                             <Lock size={13} />
                             <span>Sign In to Access File</span>
@@ -1987,7 +1987,7 @@ export function DepartmentDetail() {
                           <button
                             type="button"
                             onClick={() => setPreviewFile(file as unknown as FileNode)}
-                            className="px-3 py-1.5 rounded-lg border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent hover:bg-accent/10 transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
+                            className="px-3 py-1.5 rounded-lg border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent-light hover:bg-accent/10 transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
                           >
                             <Eye size={13} />
                             <span>Preview</span>
@@ -2174,7 +2174,7 @@ export function DepartmentDetail() {
                                     <button
                                       type="button"
                                       onClick={() => setPreviewFile(file as unknown as FileNode)}
-                                      className="px-2.5 py-1 rounded border border-accent/50 bg-accent/15 text-accent hover:bg-accent hover:text-white transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-sm"
+                                      className="px-2.5 py-1 rounded border border-accent/50 bg-accent/15 text-accent-light hover:bg-accent hover:text-white transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-sm"
                                       title="View in-browser without login"
                                     >
                                       <Eye size={12} />
@@ -2194,7 +2194,7 @@ export function DepartmentDetail() {
                                   <button
                                     type="button"
                                     onClick={openLogin}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-accent/50 bg-accent/10 text-accent hover:bg-accent hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-accent/50 bg-accent/10 text-accent-light hover:bg-accent hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
                                   >
                                     <Lock size={12} />
                                     <span>Sign In to Access</span>
@@ -2205,7 +2205,7 @@ export function DepartmentDetail() {
                                   <button
                                     type="button"
                                     onClick={() => setPreviewFile(file as unknown as FileNode)}
-                                    className="px-2.5 py-1 rounded border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent hover:bg-accent/10 transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-sm"
+                                    className="px-2.5 py-1 rounded border border-border-default bg-surface text-text-muted hover:border-accent hover:text-accent-light hover:bg-accent/10 transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-sm"
                                   >
                                     <Eye size={12} />
                                     <span>Preview</span>
@@ -2373,7 +2373,7 @@ export function DepartmentDetail() {
                       isCarouselVisible: e.target.checked,
                     }))
                   }
-                  className="h-4 w-4 rounded border-border-default bg-surface text-accent focus:ring-accent"
+                  className="h-4 w-4 rounded border-border-default bg-surface text-accent-light focus:ring-accent"
                 />
                 <span className="text-xs font-bold text-white flex items-center gap-1.5">
                   <ImageIcon size={14} className="text-accent-light" />
@@ -2494,7 +2494,7 @@ export function DepartmentDetail() {
                       satelliteIds: checked ? prev.satelliteIds : [],
                     }))
                   }}
-                  className="h-4 w-4 rounded border-border-default bg-surface text-accent focus:ring-accent"
+                  className="h-4 w-4 rounded border-border-default bg-surface text-accent-light focus:ring-accent"
                 />
                 <span className="text-xs font-bold text-white flex items-center gap-1.5">
                   <Radio size={14} className="text-accent-light" />
@@ -2579,7 +2579,7 @@ export function DepartmentDetail() {
                                 }))
                               }
                             }}
-                            className="mt-0.5 h-3.5 w-3.5 rounded border-border-default bg-card text-accent focus:ring-accent"
+                            className="mt-0.5 h-3.5 w-3.5 rounded border-border-default bg-card text-accent-light focus:ring-accent"
                           />
                           <div className="min-w-0 flex-1 text-xs">
                             <div className="flex items-center justify-between gap-1">

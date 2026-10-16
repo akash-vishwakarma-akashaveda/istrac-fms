@@ -214,9 +214,9 @@ export function Footer() {
   }
 
   return (
-    <footer id="footer" className="border-t border-border-subtle bg-page-soft/90 backdrop-blur-md transition-colors duration-200">
-      <div className="shell py-10 sm:py-12">
-        <div className="flex flex-col justify-between gap-8 pb-8 border-b border-border-subtle sm:flex-row sm:items-center">
+    <footer id="footer" className="border-t-[3px] border-isro-saffron bg-brand-ink-deep">
+      <div data-theme="dark" className="shell py-14 sm:py-16">
+        <div className="flex flex-col justify-between gap-8 border-b border-white/15 pb-8 sm:flex-row sm:items-center">
           {/* Brand & Mandate */}
           <div>
             <Link
@@ -227,19 +227,19 @@ export function Footer() {
               <img
                 src="/logo/isro_logo.svg"
                 alt="ISRO Logo"
-                className="h-9 sm:h-10 w-auto object-contain shrink-0"
+                className="h-10 w-auto shrink-0 rounded-md bg-white object-contain p-1.5"
               />
 
-              <span className="text-xs font-bold tracking-wider uppercase">
-                {brandTitle} <span className="text-accent-light">{brandHighlight}</span>
+              <span className="text-sm font-bold tracking-wider uppercase text-white">
+                {brandTitle} <span className="text-isro-saffron">{brandHighlight}</span>
               </span>
             </Link>
 
-            <p className="mt-2 text-xs text-text-muted max-w-md">
+            <p className="mt-3 max-w-md text-sm text-text-secondary">
               {brandDescription}
             </p>
 
-            <div className="mt-3 flex items-center gap-4 text-[11px] text-text-dim">
+            <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-text-secondary">
               <span className="flex items-center gap-1.5 text-nominal">
                 <Radio size={12} /> {statusText}
               </span>
@@ -250,7 +250,7 @@ export function Footer() {
           </div>
 
           {/* Clean Functional Links */}
-          <nav aria-label="Footer quick links" className="flex flex-wrap items-center gap-x-6 gap-y-2.5 text-xs text-text-muted">
+          <nav aria-label="Footer quick links" className="flex flex-wrap items-center gap-x-6 gap-y-2.5 text-sm text-text-secondary">
             {parsedLinks.map((item, idx) => {
               if (item.isExternal) {
                 return (
@@ -288,19 +288,19 @@ export function Footer() {
                 </Link>
               )
             })}
-            <span className="text-border-default select-none">|</span>
-            <Link to="/login" className="font-semibold text-accent hover:text-accent-hover transition-colors">
+            <span className="select-none text-white/30">|</span>
+            <Link to="/login" className="font-semibold text-white hover:text-isro-saffron transition-colors">
               Log In →
             </Link>
           </nav>
         </div>
 
         {/* Bottom Colophon & Station Network */}
-        <div className="flex flex-col justify-between gap-4 pt-6 sm:flex-row sm:items-center text-[11px] text-text-dim">
+        <div className="flex flex-col justify-between gap-4 pt-6 text-xs text-text-muted sm:flex-row sm:items-center">
           <p>{copyrightText}</p>
 
           <div className="flex items-center gap-4">
-            <span className="num text-[10px]">
+            <span className="num text-xs">
               {groundStations}
             </span>
 
@@ -308,7 +308,7 @@ export function Footer() {
               type="button"
               onClick={scrollToTop}
               aria-label="Back to top"
-              className="group inline-flex items-center gap-1 rounded-md border border-border-subtle bg-surface px-2.5 py-1 text-[11px] text-text-secondary hover:text-text-primary hover:border-border-default transition-colors cursor-pointer"
+              className="group inline-flex items-center gap-1 rounded-md border border-white/20 px-2.5 py-1 text-xs text-text-secondary hover:border-white/40 hover:text-white transition-colors cursor-pointer"
             >
               <span>Top</span>
               <ArrowUp size={11} className="transition-transform group-hover:-translate-y-0.5" />
@@ -323,14 +323,14 @@ export function Footer() {
         onClick={scrollToTop}
         aria-label="Scroll back to top"
         title="Back to Top"
-        className={`group fixed bottom-6 right-6 z-[90] flex items-center gap-2 rounded-full border border-border-default bg-surface/95 p-3 sm:px-3.5 sm:py-2.5 text-text-primary shadow-xl backdrop-blur-xl hover:border-accent hover:text-accent hover:bg-accent/10 hover:shadow-accent/25 transition-all duration-300 cursor-pointer ${
+        className={`group fixed bottom-6 right-6 z-[90] flex items-center gap-2 rounded-full border border-border-default bg-surface p-3 sm:px-3.5 sm:py-2.5 text-text-primary shadow-lg hover:border-accent hover:text-accent-light transition-all duration-200 cursor-pointer ${
           showFloatingTop
             ? "opacity-100 translate-y-0 pointer-events-auto"
             : "opacity-0 translate-y-4 pointer-events-none"
         }`}
       >
-        <ArrowUp size={16} className="text-accent transition-transform group-hover:-translate-y-0.5" />
-        <span className="hidden sm:inline text-xs font-semibold tracking-wider uppercase">Top</span>
+        <ArrowUp size={16} className="text-accent-light transition-transform group-hover:-translate-y-0.5" />
+        <span className="hidden sm:inline text-xs font-semibold">Top</span>
       </button>
     </footer>
   )

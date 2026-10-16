@@ -775,7 +775,7 @@ export function UserManagement() {
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => handleToggleDept(dept.id)}
-                          className="h-4 w-4 rounded border-border-default bg-surface text-accent focus:ring-accent"
+                          className="h-4 w-4 rounded border-border-default bg-surface text-accent-light focus:ring-accent"
                         />
                         <div className="min-w-0">
                           <span className="text-xs font-bold text-white truncate block">

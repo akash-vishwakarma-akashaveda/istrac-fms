@@ -21,7 +21,7 @@ const URGENCY_STYLES: Record<string, string> = {
 }
 
 const URGENCY_BADGE: Record<string, string> = {
-  CRITICAL: "bg-critical text-white shadow-critical/50",
+  CRITICAL: "bg-critical-fill text-white shadow-critical/50",
   IMPORTANT: "bg-warning text-black shadow-warning/40",
   NORMAL: "bg-accent text-white shadow-accent/50",
 }

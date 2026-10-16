@@ -181,7 +181,7 @@ function PdfPageItem({ doc, pageNumber, scale, rotation, onVisible }: PdfPageIte
         {/* Loading Spinner for unrendered or rendering pages */}
         {(!isRendered || isRendering) && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 text-slate-700">
-            <RefreshCw size={22} className="animate-spin text-accent mb-2" />
+            <RefreshCw size={22} className="animate-spin text-accent-light mb-2" />
             <span className="text-xs font-mono font-semibold">Rendering Page {pageNumber}…</span>
           </div>
         )}
@@ -390,7 +390,7 @@ export function PdfPreview({ fileUrl, fileName = 'telemetry_document.pdf', onDow
             </button>
 
             <span className="px-2.5 text-xs font-mono font-semibold text-text-primary min-w-[4rem] text-center select-none">
-              <span className="text-accent font-bold">{activePage}</span>
+              <span className="text-accent-light font-bold">{activePage}</span>
               <span className="text-text-dim mx-1">/</span>
               <span>{numPages}</span>
             </span>
@@ -451,7 +451,7 @@ export function PdfPreview({ fileUrl, fileName = 'telemetry_document.pdf', onDow
             <button
               type="button"
               onClick={resetZoom}
-              className="px-2 text-xs font-mono font-bold text-accent hover:text-accent-hover transition-colors cursor-pointer min-w-[3.5rem] text-center"
+              className="px-2 text-xs font-mono font-bold text-accent-light hover:text-accent-hover transition-colors cursor-pointer min-w-[3.5rem] text-center"
               title="Reset to 100%"
             >
               {Math.round(scale * 100)}%

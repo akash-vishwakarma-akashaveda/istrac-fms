@@ -82,12 +82,12 @@ export function Sidebar() {
               <StationMark className="h-8" />
 
               <div className="flex flex-col min-w-0">
-                <span className="truncate text-[13px] font-extrabold tracking-[0.06em] text-white leading-tight">
+                <span className="truncate text-sm font-bold text-text-primary leading-tight">
                   {brandTitle}
-                  <span className="text-accent-light font-black">{brandHighlight}</span>
+                  <span className="text-saffron-text">{brandHighlight}</span>
                 </span>
                 {brandSubtitle && (
-                  <span className="truncate text-[10px] text-text-dim uppercase tracking-wider font-mono">
+                  <span className="truncate text-xs text-text-muted">
                     {brandSubtitle}
                   </span>
                 )}
@@ -180,7 +180,7 @@ function RailGroup({ label, items, collapsed, onItemClick, className = '' }: Rai
                   collapsed ? 'justify-start px-3 md:justify-center md:px-0' : 'px-3'
                 } ${
                   isActive
-                    ? 'border-l-accent bg-accent/10 text-white font-semibold'
+                    ? 'border-l-accent-light bg-blue-soft text-accent-light font-semibold'
                     : 'border-l-transparent text-text-muted hover:bg-card-hover hover:text-text-primary'
                 }`
               }

@@ -469,7 +469,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
               <button
                 type="button"
                 onClick={resetAllFilters}
-                className="inline-flex items-center gap-1 text-[10px] text-text-muted hover:text-accent hover:border-accent/60 hover:bg-accent/10 px-2 py-0.5 rounded border border-border-subtle bg-surface cursor-pointer ml-2 transition-colors shadow-sm"
+                className="inline-flex items-center gap-1 text-[10px] text-text-muted hover:text-accent-light hover:border-accent/60 hover:bg-accent/10 px-2 py-0.5 rounded border border-border-subtle bg-surface cursor-pointer ml-2 transition-colors shadow-sm"
               >
                 <RotateCcw size={10} />
                 <span>Reset Filters</span>
@@ -619,7 +619,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                     <button
                       type="button"
                       onClick={(e) => handleFileNameClick(e, file)}
-                      className="p-1 rounded-md border border-border-subtle bg-surface text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
+                      className="p-1 rounded-md border border-border-subtle bg-surface text-text-secondary hover:border-accent hover:text-accent-light hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
                       title="Preview Dataset"
                     >
                       <Eye size={13} />
@@ -639,7 +639,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                         <button
                           type="button"
                           onClick={(e) => handleVersionClick(e, file)}
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-border-default bg-surface text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all font-mono text-[10px] font-bold cursor-pointer shadow-sm"
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-border-default bg-surface text-text-secondary hover:border-accent hover:text-accent-light hover:bg-accent/10 transition-all font-mono text-[10px] font-bold cursor-pointer shadow-sm"
                           title={`Version history (${file.versionLabel || `v${file.versionCount ?? 1}`})`}
                         >
                           <Layers size={11} />
@@ -656,7 +656,7 @@ export function FileBrowser({ deptId, parentId = null }: FileBrowserProps) {
                               e.stopPropagation()
                               setUploadVersionFile(file)
                             }}
-                            className="p-1 rounded-md border border-border-subtle bg-surface text-text-secondary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
+                            className="p-1 rounded-md border border-border-subtle bg-surface text-text-secondary hover:border-accent hover:text-accent-light hover:bg-accent/10 transition-all cursor-pointer shadow-sm"
                             title="Upload New Version"
                           >
                             <Upload size={12} />

@@ -298,10 +298,10 @@ fi
 
 # Audit Test 5: Web Server (Apache2) Proxy Verification
 echo -n " • [Check 5/6] Confirming the patched backend code is live... "
-# POST /api/files/tags only exists in this release: 401 (sign-in required) = new code, 404 = old code.
+# GET /api/admin/files/extensions only exists in this release: 401 (sign-in required) = new code, 404 = old code.
 NEWCODE_CODE="000"
 for base in "http://127.0.0.1:${DETECTED_PORT}" "http://127.0.0.1:3000" "http://127.0.0.1"; do
-    NEWCODE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H 'Content-Type: application/json' -d '{}' "${base}/api/files/tags" 2>/dev/null || echo "000")
+    NEWCODE_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${base}/api/admin/files/extensions" 2>/dev/null || echo "000")
     [[ "${NEWCODE_CODE}" == "401" ]] && break
 done
 if [[ "${NEWCODE_CODE}" == "401" ]]; then

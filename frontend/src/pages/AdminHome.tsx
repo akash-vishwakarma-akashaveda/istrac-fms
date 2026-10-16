@@ -128,15 +128,15 @@ export function AdminHome() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border-subtle pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-nominal animate-pulse" />
-            <span className="eyebrow text-xs font-bold text-accent-light tracking-widest uppercase">
+            <span className="h-1.5 w-1.5 rounded-full bg-isro-saffron" />
+            <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-saffron-text">
               {brandTitle}{brandHighlight} · {brandSubtitle || 'Ground Station Command & Control'}
             </span>
           </div>
-          <h1 className="display mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-white">
+          <h1 className="display mt-2 text-[28px] font-bold leading-tight tracking-tight text-text-primary sm:text-[32px]">
             Administrative Command Center
           </h1>
-          <p className="mt-1 text-xs text-text-secondary">
+          <p className="mt-1.5 text-[15px] text-text-secondary">
             System overview, access authorizations, telemetry repositories, and storage health.
           </p>
         </div>
@@ -147,7 +147,7 @@ export function AdminHome() {
             <button
               type="button"
               onClick={() => setIsWizardOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-warning/40 bg-warning/15 px-3 py-1.5 text-xs font-bold text-warning hover:bg-warning hover:text-white shadow-sm transition-all"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] bg-warning-bg px-4 text-sm font-semibold text-warning transition-colors hover:brightness-95"
             >
               <span>⚡ Mount Storage Required</span>
             </button>
@@ -155,7 +155,7 @@ export function AdminHome() {
 
           <Link
             to="/admin/upload"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-1.5 text-xs font-bold text-white hover:bg-accent-light shadow-md shadow-accent/25 transition-all"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] bg-saffron px-4 text-sm font-bold text-white transition-colors hover:bg-saffron-hover"
           >
             <Upload size={14} />
             <span>Upload Report</span>
@@ -163,7 +163,7 @@ export function AdminHome() {
 
           <Link
             to="/admin/broadcast"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-accent/50 bg-accent/15 px-3 py-1.5 text-xs font-bold text-accent hover:bg-accent hover:text-white shadow-sm transition-all cursor-pointer"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] bg-saffron-soft px-4 text-sm font-semibold text-saffron-text transition-colors hover:bg-saffron-soft-hover cursor-pointer"
           >
             <Megaphone size={14} />
             <span>Broadcast Alert</span>
@@ -171,7 +171,7 @@ export function AdminHome() {
 
           <Link
             to="/admin/users"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-card px-3 py-1.5 text-xs font-semibold text-text-primary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all shadow-sm cursor-pointer"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] bg-saffron-soft px-4 text-sm font-semibold text-saffron-text transition-colors hover:bg-saffron-soft-hover cursor-pointer"
           >
             <Users size={14} />
             <span>Manage Users</span>
@@ -184,7 +184,7 @@ export function AdminHome() {
               refetchPending()
               fetchStorageStatus()
             }}
-            className="p-1.5 rounded-lg border border-border-default bg-card text-text-dim hover:text-text-primary hover:border-border-bright transition-all"
+            className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-page-soft text-text-primary transition-colors hover:bg-border-subtle"
             title="Refresh Telemetry"
           >
             <RefreshCw size={15} className={isLoading || loadingPending ? 'animate-spin' : ''} />
@@ -194,13 +194,13 @@ export function AdminHome() {
 
       {/* Warning Banner if Storage Unmounted */}
       {!storageStatus.mounted && (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-warning/40 bg-gradient-to-r from-warning/15 via-[#1c1409] to-warning/10 p-4 shadow-md">
+        <div className="flex flex-col gap-3 rounded-2xl border border-warning/30 bg-warning-bg p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-warning/20 text-warning border border-warning/30">
               <AlertTriangle size={18} />
             </div>
             <div>
-              <h4 className="text-xs font-semibold text-white">
+              <h4 className="text-sm font-semibold text-text-primary">
                 Physical Storage Mount Required
               </h4>
               <p className="text-xs text-text-secondary">
@@ -212,7 +212,7 @@ export function AdminHome() {
           <button
             type="button"
             onClick={() => setIsWizardOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-warning px-4 py-2 text-xs font-bold text-black shadow-lg hover:bg-warning-light transition-all shrink-0"
+            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-[10px] bg-warning-fill px-4 text-sm font-bold text-white transition-colors hover:brightness-110"
           >
             <span>⚡ Launch Storage Mount Wizard</span>
             <ArrowRight size={14} />
@@ -222,31 +222,31 @@ export function AdminHome() {
 
       {/* System Telemetry Badges Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-        <div className="group relative overflow-hidden flex items-center gap-2.5 rounded-xl border border-border-default bg-card shadow-card p-2.5 sm:p-3 hover:border-nominal/40 hover:shadow-card-hover transition-all">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-nominal/15 border border-nominal/30 text-nominal shadow-sm transition-transform duration-300 group-hover:scale-105">
-            <Radio size={16} className="animate-pulse" />
+        <div className="flex items-center gap-3 rounded-2xl border border-border-subtle bg-card shadow-card p-3.5 transition-shadow hover:shadow-card-hover">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
+            <Radio size={18} />
           </div>
           <div className="min-w-0">
-            <dt className="eyebrow text-[10px] text-text-dim">MySQL Database</dt>
-            <dd className="num text-xs font-bold text-nominal truncate">Connected (3306)</dd>
+            <dt className="text-xs font-semibold text-text-muted">MySQL Database</dt>
+            <dd className="text-sm font-bold text-nominal truncate">Connected (3306)</dd>
           </div>
         </div>
 
         <Link
           to="/admin/settings"
-          className="group relative overflow-hidden flex items-center gap-2.5 rounded-xl border border-border-default bg-card shadow-card p-2.5 sm:p-3 transition-all hover:border-accent/40 hover:shadow-card-hover"
+          className="flex items-center gap-3 rounded-2xl border border-border-subtle bg-card shadow-card p-3.5 transition-shadow hover:shadow-card-hover"
         >
           <div
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg shadow-sm transition-transform duration-300 group-hover:scale-105 ${
-              storageStatus.mounted ? 'bg-accent/15 border border-accent/30 text-accent-light' : 'bg-critical/15 border border-critical/30 text-critical'
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] ${
+              storageStatus.mounted ? 'bg-blue-soft text-accent-light' : 'bg-critical-bg text-critical'
             }`}
           >
             <HardDrive size={16} />
           </div>
           <div className="min-w-0">
-            <dt className="eyebrow text-[10px] text-text-dim group-hover:text-accent-light">Storage Mount</dt>
+            <dt className="text-xs font-semibold text-text-muted">Storage Mount</dt>
             <dd
-              className={`num text-xs font-bold truncate ${
+              className={`text-sm font-bold truncate ${
                 storageStatus.mounted ? 'text-nominal' : 'text-critical'
               }`}
             >
@@ -255,23 +255,23 @@ export function AdminHome() {
           </div>
         </Link>
 
-        <div className="group relative overflow-hidden flex items-center gap-2.5 rounded-xl border border-border-default bg-card shadow-card p-2.5 sm:p-3 hover:border-purple-400/40 hover:shadow-card-hover transition-all">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-400/15 border border-purple-400/30 text-purple-400 shadow-sm transition-transform duration-300 group-hover:scale-105">
+        <div className="flex items-center gap-3 rounded-2xl border border-border-subtle bg-card shadow-card p-3.5 transition-shadow hover:shadow-card-hover">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
             <Shield size={16} />
           </div>
           <div className="min-w-0">
-            <dt className="eyebrow text-[10px] text-text-dim">Security Protocol</dt>
-            <dd className="num text-xs font-bold text-text-primary truncate">Multi-RBAC Level 4</dd>
+            <dt className="text-xs font-semibold text-text-muted">Security Protocol</dt>
+            <dd className="text-sm font-bold text-text-primary truncate">Multi-RBAC Level 4</dd>
           </div>
         </div>
 
-        <div className="group relative overflow-hidden flex items-center gap-2.5 rounded-xl border border-border-default bg-card shadow-card p-2.5 sm:p-3 hover:border-warning/40 hover:shadow-card-hover transition-all">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-warning/15 border border-warning/30 text-warning shadow-sm transition-transform duration-300 group-hover:scale-105">
+        <div className="flex items-center gap-3 rounded-2xl border border-border-subtle bg-card shadow-card p-3.5 transition-shadow hover:shadow-card-hover">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
             <Clock size={16} />
           </div>
           <div className="min-w-0">
-            <dt className="eyebrow text-[10px] text-text-dim">Tracking Hub</dt>
-            <dd className="num text-xs font-bold text-warning truncate">BLR MOX Active</dd>
+            <dt className="text-xs font-semibold text-text-muted">Tracking Hub</dt>
+            <dd className="text-sm font-bold text-text-primary truncate">BLR MOX Active</dd>
           </div>
         </div>
       </div>
@@ -316,7 +316,7 @@ export function AdminHome() {
 
       {/* Recent Datasets Quick View (Live from MySQL) */}
       {stats?.recentFiles && stats.recentFiles.length > 0 && (
-        <div className="rounded-xl border border-border-default bg-card shadow-card overflow-hidden">
+        <div className="rounded-2xl border border-border-subtle bg-card shadow-card overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-border-default bg-surface/50 gap-2">
             <div className="flex items-center gap-2">
               <FileText size={15} className="text-accent-light" />
@@ -364,7 +364,7 @@ export function AdminHome() {
                       <span className="font-bold text-text-primary block truncate max-w-xs">{file.name}</span>
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent-light uppercase">
+                      <span className="rounded-md bg-blue-soft px-2 py-0.5 text-[11px] font-semibold text-accent-light">
                         {categoryLabel(file.report?.customCategory || file.report?.category) || 'GENERAL'}
                       </span>
                     </td>
@@ -398,8 +398,8 @@ export function AdminHome() {
 
       {/* Pending Access Requests Banner (Live Queue) */}
       {pendingUsers.length > 0 && (
-        <div className="rounded-xl border border-warning/30 bg-warning/[0.04] p-4 sm:p-5 shadow-lg shadow-warning/5">
-          <div className="flex items-center justify-between border-b border-warning/20 pb-3">
+        <div className="rounded-2xl border border-border-subtle bg-card shadow-card p-5">
+          <div className="flex items-center justify-between border-b border-border-subtle pb-3">
             <div className="flex items-center gap-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-warning/20 text-warning">
                 <AlertTriangle size={14} />
@@ -419,7 +419,7 @@ export function AdminHome() {
 
             <Link
               to="/admin/approvals"
-              className="text-xs font-bold text-warning hover:underline flex items-center gap-1 shrink-0"
+              className="flex shrink-0 items-center gap-1 text-sm font-semibold text-accent-light hover:underline"
             >
               <span>Full Queue</span>
               <ArrowRight size={13} />
@@ -450,7 +450,7 @@ export function AdminHome() {
                     type="button"
                     disabled={processingId === u.id}
                     onClick={() => handleApprove(u.id, u.name)}
-                    className="inline-flex items-center gap-1 rounded-lg bg-nominal/20 border border-nominal/40 px-3 py-1 text-xs font-bold text-nominal hover:bg-nominal hover:text-white transition-all disabled:opacity-50"
+                    className="inline-flex min-h-9 items-center gap-1 rounded-[10px] bg-nominal-bg px-3.5 text-sm font-semibold text-nominal transition-colors hover:bg-nominal-fill hover:text-white disabled:opacity-50"
                   >
                     <CheckCircle2 size={13} />
                     <span>Approve</span>
@@ -460,7 +460,7 @@ export function AdminHome() {
                     type="button"
                     disabled={processingId === u.id}
                     onClick={() => handleReject(u.id, u.name)}
-                    className="inline-flex items-center gap-1 rounded-lg bg-critical/15 border border-critical/30 px-3 py-1 text-xs font-bold text-critical hover:bg-critical hover:text-white transition-all disabled:opacity-50"
+                    className="inline-flex min-h-9 items-center gap-1 rounded-[10px] bg-critical-bg px-3.5 text-sm font-semibold text-critical transition-colors hover:bg-critical-fill hover:text-white disabled:opacity-50"
                   >
                     <XCircle size={13} />
                     <span>Reject</span>
@@ -475,20 +475,20 @@ export function AdminHome() {
       {/* Control Matrix: Administration Command Shortcuts (6 Cards) */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="eyebrow text-sm font-semibold text-text-secondary">
+          <h3 className="text-lg font-bold text-text-primary">
             Operational Management Suite
           </h3>
-          <span className="text-[11px] text-text-dim">6 Core Modules</span>
+          <span className="text-[13px] text-text-muted">6 modules</span>
         </div>
 
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
           {/* Card 1: Satellites & Missions */}
           <Link
             to="/admin/satellites"
-            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-card-hover shadow-card hover:shadow-card-hover"
+            className="group relative flex flex-col justify-between rounded-2xl border border-border-subtle bg-card shadow-card p-5 transition-shadow hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/25">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
                 <Radio size={20} />
               </div>
               <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
@@ -509,10 +509,10 @@ export function AdminHome() {
           {/* Card 2: Approval Queue */}
           <Link
             to="/admin/approvals"
-            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-card-hover shadow-card hover:shadow-card-hover"
+            className="group relative flex flex-col justify-between rounded-2xl border border-border-subtle bg-card shadow-card p-5 transition-shadow hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/15 text-warning border border-warning/25">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
                 <UserCheck size={20} />
               </div>
               <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
@@ -533,10 +533,10 @@ export function AdminHome() {
           {/* Card 2: User Accounts & RBAC */}
           <Link
             to="/admin/users"
-            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-card-hover shadow-card hover:shadow-card-hover"
+            className="group relative flex flex-col justify-between rounded-2xl border border-border-subtle bg-card shadow-card p-5 transition-shadow hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/25">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
                 <Users size={20} />
               </div>
               <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
@@ -557,10 +557,10 @@ export function AdminHome() {
           {/* Card: Password Reset OTPs & Verification */}
           <Link
             to="/admin/password-resets"
-            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-card-hover shadow-card hover:shadow-card-hover"
+            className="group relative flex flex-col justify-between rounded-2xl border border-border-subtle bg-card shadow-card p-5 transition-shadow hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent-light border border-accent/25">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
                 <KeyRound size={20} />
               </div>
               <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light font-mono">
@@ -581,10 +581,10 @@ export function AdminHome() {
           {/* Card 3: Department Management */}
           <Link
             to="/admin/departments"
-            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-card-hover shadow-card hover:shadow-card-hover"
+            className="group relative flex flex-col justify-between rounded-2xl border border-border-subtle bg-card shadow-card p-5 transition-shadow hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-nominal/15 text-nominal border border-nominal/25">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
                 <Building2 size={20} />
               </div>
               <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
@@ -605,10 +605,10 @@ export function AdminHome() {
           {/* Card 4: Broadcast Alert */}
           <Link
             to="/admin/broadcast"
-            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-card-hover shadow-card hover:shadow-card-hover"
+            className="group relative flex flex-col justify-between rounded-2xl border border-border-subtle bg-card shadow-card p-5 transition-shadow hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-400/15 text-purple-400 border border-purple-400/25">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
                 <Megaphone size={20} />
               </div>
               <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
@@ -629,10 +629,10 @@ export function AdminHome() {
           {/* Card 5: Portal CMS */}
           <Link
             to="/admin/cms"
-            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-card-hover shadow-card hover:shadow-card-hover"
+            className="group relative flex flex-col justify-between rounded-2xl border border-border-subtle bg-card shadow-card p-5 transition-shadow hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400/15 text-cyan-400 border border-cyan-400/25">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
                 <Layout size={20} />
               </div>
               <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">
@@ -653,10 +653,10 @@ export function AdminHome() {
           {/* Card 6: System Settings */}
           <Link
             to="/admin/settings"
-            className="group relative flex flex-col justify-between rounded-xl border border-border-default bg-card p-4 transition-all duration-200 hover:border-accent/50 hover:bg-card-hover shadow-card hover:shadow-card-hover"
+            className="group relative flex flex-col justify-between rounded-2xl border border-border-subtle bg-card shadow-card p-5 transition-shadow hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-400/15 text-indigo-400 border border-indigo-400/25">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
                 <Settings size={20} />
               </div>
               <span className="rounded bg-surface px-2 py-0.5 text-[10px] font-bold text-text-dim border border-border-subtle group-hover:border-accent/30 group-hover:text-accent-light">

@@ -398,7 +398,7 @@ export function DepartmentManager() {
                         <span className="text-text-dim">·</span>
                         <Link
                           to={`/departments/${dept.id}`}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:text-accent-hover transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent-light hover:text-accent-hover transition-colors cursor-pointer"
                         >
                           <span>Portal Page</span>
                           <ExternalLink size={11} />

@@ -226,13 +226,13 @@ export function UserHome() {
     <div className="w-full space-y-6 pb-20 text-text-primary">
       {/* 1. ADMIN FAST-SWITCH NOTIFICATION BANNER */}
       {isAdmin && (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-accent/40 bg-gradient-to-r from-accent/15 via-[#0b1730] to-accent/15 p-4 shadow-md">
+        <div className="flex flex-col gap-3 rounded-2xl border border-saffron/25 bg-saffron-soft p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/20 text-accent-light border border-accent/30">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-card text-saffron-text">
               <Shield size={18} />
             </div>
             <div>
-              <h4 className="text-xs font-semibold text-white">
+              <h4 className="text-sm font-bold text-text-primary">
                 Administrator Mode Active
               </h4>
               <p className="text-xs text-text-secondary">
@@ -243,7 +243,7 @@ export function UserHome() {
 
           <Link
             to="/admin"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-xs font-bold text-white shadow-lg shadow-accent/25 hover:bg-accent-light transition-all shrink-0"
+            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-[10px] bg-saffron px-4 text-sm font-bold text-white transition-colors hover:bg-saffron-hover"
           >
             <span>Open Admin Center</span>
             <ArrowRight size={14} />
@@ -254,17 +254,14 @@ export function UserHome() {
       {/* 2. DASHBOARD TOP HEADER & ACTIVE SPACECRAFT SELECTOR */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-border-subtle pb-5">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl border border-accent/40 bg-accent/10 text-accent-light shadow-inner mt-0.5">
-            <Radio size={20} className="animate-pulse" />
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light mt-0.5">
+            <Radio size={20} />
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-white leading-tight">
+              <h1 className="display text-2xl font-bold leading-tight tracking-tight text-text-primary sm:text-[28px]">
                 Mission Reports Repository
               </h1>
-              <span className="rounded-full bg-nominal/15 border border-nominal/30 px-2.5 py-0.5 text-[10px] font-bold text-nominal uppercase shrink-0">
-                Live Station Telemetry
-              </span>
             </div>
             <p className="text-xs text-text-secondary mt-0.5 truncate">
               {brandTitle}{brandHighlight} • {brandSubtitle || 'Secure Mission Data Portal'}
@@ -273,20 +270,20 @@ export function UserHome() {
         </div>
 
         <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
-          <div className="flex items-center justify-between sm:justify-start gap-2 rounded-xl border border-border-default bg-card px-3 py-1.5 shadow-sm">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim shrink-0">
+          <div className="flex min-h-10 items-center justify-between gap-2 rounded-[10px] bg-page-soft px-3 sm:justify-start">
+            <span className="shrink-0 text-[13px] font-semibold text-text-muted">
               Filter Spacecraft:
             </span>
             <select
               value={selectedSpacecraft}
               onChange={(e) => setSelectedSpacecraft(e.target.value)}
-              className="bg-transparent text-xs font-bold text-accent-light outline-none cursor-pointer border-0 pr-2 truncate max-w-[180px] sm:max-w-none"
+              className="bg-transparent text-sm font-semibold text-text-primary outline-none cursor-pointer border-0 pr-2 truncate max-w-[180px] sm:max-w-none"
             >
-              <option value="ALL" className="bg-[#060c18] text-white">
+              <option value="ALL" className="bg-card text-text-primary">
                 All Spacecraft ({overview?.metrics.totalReports ?? 0})
               </option>
               {availableSpacecraftList.map((sat) => (
-                <option key={sat} value={sat} className="bg-[#060c18] text-white">
+                <option key={sat} value={sat} className="bg-card text-text-primary">
                   {sat}
                 </option>
               ))}
@@ -296,17 +293,17 @@ export function UserHome() {
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Link
               to="/dashboard/events"
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-default bg-surface px-3.5 py-2 text-xs font-bold text-text-primary hover:border-accent hover:text-accent hover:bg-accent/10 transition-all shadow-sm cursor-pointer"
+              className="flex-1 sm:flex-initial inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[10px] bg-saffron-soft px-4 text-sm font-semibold text-saffron-text transition-colors hover:bg-saffron-soft-hover"
             >
-              <Calendar size={14} className="text-accent" />
+              <Calendar size={15} />
               <span>Passes & Events</span>
             </Link>
 
             <Link
               to="/dashboard/files"
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-default bg-surface px-3.5 py-2 text-xs font-bold text-text-primary hover:border-nominal hover:text-nominal hover:bg-nominal/10 transition-all shadow-sm cursor-pointer"
+              className="flex-1 sm:flex-initial inline-flex min-h-10 items-center justify-center gap-1.5 rounded-[10px] bg-saffron-soft px-4 text-sm font-semibold text-saffron-text transition-colors hover:bg-saffron-soft-hover"
             >
-              <HardDrive size={14} className="text-nominal" />
+              <HardDrive size={15} />
               <span>Division Files</span>
             </Link>
           </div>
@@ -315,81 +312,73 @@ export function UserHome() {
 
       {/* 3. TOP 4 EXECUTIVE METRIC CARDS (REAL DATABASE DATA) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="group relative overflow-hidden rounded-xl border border-border-default bg-card p-4 shadow-card hover:shadow-card-hover hover:border-accent/50 transition-all flex items-center justify-between">
-          <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-accent/10 blur-xl transition-all group-hover:bg-accent/20 group-hover:scale-125" />
-          <div className="space-y-1 relative z-10">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim block">
+        <div className="rounded-2xl border border-border-subtle bg-card shadow-card flex items-center justify-between p-5">
+          <div className="space-y-1">
+            <span className="block text-[13px] font-semibold text-text-muted">
               Total Telemetry Files
             </span>
-            <p className="num text-2xl font-black text-text-primary tracking-tight">
+            <p className="num text-[28px] font-bold leading-tight tracking-tight text-text-primary">
               {isLoading ? '—' : overview?.metrics.totalReports.toLocaleString() ?? '0'}
             </p>
-            <span className="text-[11px] text-text-secondary block">Active in Repositories</span>
+            <span className="block text-[13px] text-text-secondary">Active in Repositories</span>
           </div>
-          <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent/15 border border-accent/35 text-accent-light shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:shadow-glow">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
             <FileText size={22} strokeWidth={2.2} />
           </div>
-          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-accent/0 via-accent/60 to-accent/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
 
-        <div className="group relative overflow-hidden rounded-xl border border-border-default bg-card p-4 shadow-card hover:shadow-card-hover hover:border-nominal/50 transition-all flex items-center justify-between">
-          <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-nominal/10 blur-xl transition-all group-hover:bg-nominal/20 group-hover:scale-125" />
-          <div className="space-y-1 relative z-10">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim block">
+        <div className="rounded-2xl border border-border-subtle bg-card shadow-card flex items-center justify-between p-5">
+          <div className="space-y-1">
+            <span className="block text-[13px] font-semibold text-text-muted">
               Today's Uploads
             </span>
-            <p className="num text-2xl font-black text-nominal tracking-tight">
+            <p className="num text-[28px] font-bold leading-tight tracking-tight text-text-primary">
               {isLoading ? '—' : overview?.metrics.todaysUploads.toLocaleString() ?? '0'}
             </p>
-            <span className="text-[11px] text-text-secondary block">
+            <span className="block text-[13px] text-text-secondary">
               {new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
             </span>
           </div>
-          <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-nominal/15 border border-nominal/35 text-nominal shadow-sm transition-transform duration-300 group-hover:scale-110">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
             <CloudUpload size={22} strokeWidth={2.2} />
           </div>
-          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-nominal/0 via-nominal/60 to-nominal/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
 
-        <div className="group relative overflow-hidden rounded-xl border border-border-default bg-card p-4 shadow-card hover:shadow-card-hover hover:border-purple-500/50 transition-all flex items-center justify-between">
-          <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-purple-500/10 blur-xl transition-all group-hover:bg-purple-500/20 group-hover:scale-125" />
-          <div className="space-y-1 relative z-10">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim block">
+        <div className="rounded-2xl border border-border-subtle bg-card shadow-card flex items-center justify-between p-5">
+          <div className="space-y-1">
+            <span className="block text-[13px] font-semibold text-text-muted">
               Storage Volume
             </span>
-            <p className="num text-2xl font-black text-purple-400 tracking-tight">
+            <p className="num text-[28px] font-bold leading-tight tracking-tight text-text-primary">
               {isLoading ? '—' : formatFileSize(overview?.metrics.totalStorageBytes || 0)}
             </p>
-            <span className="text-[11px] text-text-secondary block">Physical Disk Storage</span>
+            <span className="block text-[13px] text-text-secondary">Physical Disk Storage</span>
           </div>
-          <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-purple-500/15 border border-purple-500/35 text-purple-400 shadow-sm transition-transform duration-300 group-hover:scale-110">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
             <Database size={22} strokeWidth={2.2} />
           </div>
-          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-purple-500/0 via-purple-500/60 to-purple-500/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
 
-        <div className="group relative overflow-hidden rounded-xl border border-border-default bg-card p-4 shadow-card hover:shadow-card-hover hover:border-secondary/50 transition-all flex items-center justify-between">
-          <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-secondary/10 blur-xl transition-all group-hover:bg-secondary/20 group-hover:scale-125" />
-          <div className="space-y-1 relative z-10">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-text-dim block">
+        <div className="rounded-2xl border border-border-subtle bg-card shadow-card flex items-center justify-between p-5">
+          <div className="space-y-1">
+            <span className="block text-[13px] font-semibold text-text-muted">
               Authorized Divisions
             </span>
-            <p className="num text-2xl font-black text-text-primary tracking-tight">
+            <p className="num text-[28px] font-bold leading-tight tracking-tight text-text-primary">
               {isLoading ? '—' : `${accessibleDepartments.length} Cleared`}
             </p>
-            <span className="text-[11px] text-text-secondary block">Access Clearance Active</span>
+            <span className="block text-[13px] text-text-secondary">Access Clearance Active</span>
           </div>
-          <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-secondary/15 border border-secondary/35 text-secondary shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:shadow-glow-secondary">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft text-accent-light">
             <Building2 size={22} strokeWidth={2.2} />
           </div>
-          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-secondary/0 via-secondary/60 to-secondary/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
       </div>
 
       {/* 4. VISUAL METRICS CHARTS ROW (REAL DATABASE DISTRIBUTIONS) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Spacecraft Distribution */}
-        <div className="rounded-xl border border-border-default bg-card p-4 sm:p-5 shadow-card space-y-4">
+        <div className="rounded-2xl border border-border-subtle bg-card shadow-card p-5 space-y-4">
           <div className="flex items-center justify-between border-b border-border-subtle pb-3 gap-2">
             <div className="min-w-0">
               <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2 truncate">
@@ -400,7 +389,7 @@ export function UserHome() {
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <span className="sm:hidden text-[10px] text-text-dim font-mono">Scroll →</span>
-              <span className="text-xs font-mono text-accent-light font-bold">
+              <span className="text-[13px] font-semibold text-text-muted">
                 {selectedSpacecraft === 'ALL' ? 'All Missions' : selectedSpacecraft}
               </span>
             </div>
@@ -456,16 +445,16 @@ export function UserHome() {
         </div>
 
         {/* Category Breakdown */}
-        <div className="rounded-xl border border-border-default bg-card p-4 sm:p-5 shadow-card space-y-4">
+        <div className="rounded-2xl border border-border-subtle bg-card shadow-card p-5 space-y-4">
           <div className="flex items-center justify-between border-b border-border-subtle pb-3">
             <div>
               <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-                <Layers size={15} className="text-nominal" />
+                <Layers size={15} className="text-accent-light" />
                 <span>Reports by Category</span>
               </h3>
               <p className="text-[11px] text-text-dim">Operational report classification distribution</p>
             </div>
-            <span className="num text-xs text-nominal font-bold">100% Ingested</span>
+            <span className="num text-[13px] text-text-muted">100% ingested</span>
           </div>
 
           {overview?.categoryBreakdown && overview.categoryBreakdown.filter((c) => c.count > 0).length > 0 ? (
@@ -533,10 +522,10 @@ export function UserHome() {
       </div>
 
       {/* 5. NOTICE BOARD & MISSION BULLETINS (REAL DATABASE NOTIFICATIONS) */}
-      <div className="rounded-xl border border-border-default bg-card shadow-card overflow-hidden">
+      <div className="rounded-2xl border border-border-subtle bg-card shadow-card overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-border-default bg-surface/50 gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <BellRing size={16} className="text-accent-light animate-bounce shrink-0" />
+            <BellRing size={16} className="text-accent-light shrink-0" />
             <h3 className="text-sm font-semibold text-text-primary truncate">
               Mission Notice Board & Broadcasts
             </h3>
@@ -567,7 +556,8 @@ export function UserHome() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-border-subtle">
           {(overview?.notices?.slice(0, 4) || []).map((notice) => {
-            const isCritical = notice.category === 'CRITICAL' || notice.type === 'EMERGENCY'
+            const kind = String(notice.type || '').toUpperCase()
+            const isCritical = notice.category === 'CRITICAL' || kind === 'EMERGENCY' || kind === 'CRITICAL'
             const isMaint = notice.category === 'MAINTENANCE' || notice.type === 'MAINTENANCE'
             const isPass = notice.type === 'PASS'
 
@@ -575,14 +565,14 @@ export function UserHome() {
               <div key={notice.id} className="p-3.5 sm:p-4 space-y-2 hover:bg-card-hover transition-colors">
                 <div className="flex items-center justify-between">
                   <span
-                    className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                    className={`rounded-md px-2 py-0.5 text-[11px] font-bold uppercase ${
                       isCritical
-                        ? 'bg-red-500/15 text-red-400 border border-red-500/30'
+                        ? 'bg-critical-bg text-critical'
                         : isMaint
-                        ? 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30'
+                        ? 'bg-warning-bg text-warning'
                         : isPass
-                        ? 'bg-accent/15 text-accent-light border border-accent/30'
-                        : 'bg-nominal/15 text-nominal border border-nominal/30'
+                        ? 'bg-blue-soft text-accent-light'
+                        : 'bg-page-soft text-text-secondary'
                     }`}
                   >
                     {String(notice.type || 'NOTICE').replace(/_/g, ' ')}
@@ -602,7 +592,7 @@ export function UserHome() {
       </div>
 
       {/* 6. INTERACTIVE DEPARTMENT ACCORDION (FILTERED STRICTLY BY USER ACCESS) */}
-      <div className="rounded-xl border border-border-default bg-card shadow-card overflow-hidden space-y-0">
+      <div className="rounded-2xl border border-border-subtle bg-card shadow-card overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-border-default bg-surface/50 gap-2">
           <div>
             <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
@@ -645,7 +635,7 @@ export function UserHome() {
                     }`}
                   >
                     <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
-                      <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-accent/10 text-accent-light font-bold text-xs num">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-blue-soft font-mono text-xs font-bold text-accent-light">
                         {dept.code || 'DIV'}
                       </div>
 
@@ -654,11 +644,11 @@ export function UserHome() {
                           <span className="text-xs sm:text-sm font-bold text-text-primary truncate max-w-[170px] sm:max-w-none">
                             {dept.name}
                           </span>
-                          <span className="rounded bg-nominal/15 border border-nominal/30 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold text-nominal uppercase flex items-center gap-1 shrink-0">
+                          <span className="flex shrink-0 items-center gap-1 rounded-md bg-nominal-bg px-1.5 py-0.5 text-[11px] font-bold text-nominal">
                             <Check size={10} />
                             <span>Cleared</span>
                           </span>
-                          <span className="rounded bg-surface border border-border-subtle px-1.5 py-0.5 text-[9px] sm:text-[10px] text-text-dim shrink-0">
+                          <span className="shrink-0 rounded-md bg-page-soft px-1.5 py-0.5 text-[11px] font-semibold text-text-secondary">
                             {dept.accessLevel === 'READ_WRITE' ? 'READ & WRITE' : 'READ ONLY'}
                           </span>
                         </div>
@@ -674,8 +664,8 @@ export function UserHome() {
                         <span className="text-[10px] text-text-dim">{dept.leadRole}</span>
                       </div>
 
-                      <span className="num font-bold text-[11px] sm:text-xs text-accent-light rounded-full bg-accent/15 border border-accent/30 px-2 sm:px-2.5 py-0.5 sm:py-1 shrink-0">
-                        {dept.fileCount} Files
+                      <span className="num shrink-0 rounded-full bg-page-soft px-2.5 py-1 text-xs font-semibold text-text-secondary">
+                        {dept.fileCount} {dept.fileCount === 1 ? 'file' : 'files'}
                       </span>
 
                       <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-lg border border-border-default bg-surface flex items-center justify-center text-text-secondary shrink-0">
@@ -698,7 +688,7 @@ export function UserHome() {
 
                         <Link
                           to={`/dashboard/files/${dept.id}`}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-accent-hover transition-all shrink-0"
+                          className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-[10px] bg-saffron px-4 text-sm font-bold text-white transition-colors hover:bg-saffron-hover"
                         >
                           <FolderOpen size={13} />
                           <span>Open Full Division Repository</span>
@@ -733,7 +723,7 @@ export function UserHome() {
                                     </span>
                                   </td>
                                   <td className="px-4 py-2.5">
-                                    <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent-light uppercase">
+                                    <span className="rounded-md bg-blue-soft px-2 py-0.5 text-[11px] font-semibold text-accent-light">
                                       {categoryLabel(f.category) || 'GENERAL'}
                                     </span>
                                   </td>
@@ -755,7 +745,7 @@ export function UserHome() {
                                             sizeBytes: Number(f.sizeBytes),
                                           })
                                         }
-                                        className="inline-flex items-center gap-1 rounded border border-border-default bg-surface px-2 py-1 text-[11px] font-bold text-accent-light hover:border-accent cursor-pointer"
+                                        className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-lg bg-saffron-soft px-2.5 text-xs font-semibold text-saffron-text transition-colors hover:bg-saffron-soft-hover"
                                       >
                                         <Eye size={12} />
                                         <span>Preview</span>
@@ -764,7 +754,7 @@ export function UserHome() {
                                       <button
                                         type="button"
                                         onClick={() => handleDownload(f.id, f.name)}
-                                        className="inline-flex items-center gap-1 rounded border border-border-default bg-surface px-2 py-1 text-[11px] font-bold text-nominal hover:border-nominal cursor-pointer"
+                                        className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-lg bg-saffron-soft px-2.5 text-xs font-semibold text-saffron-text transition-colors hover:bg-saffron-soft-hover"
                                       >
                                         <Download size={12} />
                                         <span>Download</span>
@@ -791,7 +781,7 @@ export function UserHome() {
       </div>
 
       {/* 7. QUICK SEARCH & FILTER CONTROL PANEL */}
-      <div className="rounded-xl border border-border-default bg-card p-5 shadow-card space-y-4">
+      <div className="rounded-2xl border border-border-subtle bg-card shadow-card p-5 space-y-4">
         <div className="flex items-center justify-between border-b border-border-subtle pb-3">
           <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
             <Search size={14} className="text-accent-light" />
@@ -810,7 +800,7 @@ export function UserHome() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           <div>
-            <label className="block text-[11px] font-bold text-text-dim uppercase mb-1">Spacecraft</label>
+            <label className="mb-1.5 block text-[13px] font-semibold text-text-muted">Spacecraft</label>
             <select
               value={selectedSpacecraft}
               onChange={(e) => setSelectedSpacecraft(e.target.value)}
@@ -826,7 +816,7 @@ export function UserHome() {
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-text-dim uppercase mb-1">Date From</label>
+            <label className="mb-1.5 block text-[13px] font-semibold text-text-muted">Date From</label>
             <input
               type="date"
               value={filterDateFrom}
@@ -836,7 +826,7 @@ export function UserHome() {
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-text-dim uppercase mb-1">Date To</label>
+            <label className="mb-1.5 block text-[13px] font-semibold text-text-muted">Date To</label>
             <input
               type="date"
               value={filterDateTo}
@@ -846,7 +836,7 @@ export function UserHome() {
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-text-dim uppercase mb-1">Category</label>
+            <label className="mb-1.5 block text-[13px] font-semibold text-text-muted">Category</label>
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
@@ -872,15 +862,15 @@ export function UserHome() {
       </div>
 
       {/* 8. RECENT TELEMETRY REPORTS TABLE (FULL WIDTH HIGH-DENSITY) */}
-      <div className="rounded-xl border border-border-default bg-card shadow-card overflow-hidden">
+      <div className="rounded-2xl border border-border-subtle bg-card shadow-card overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 sm:py-3.5 border-b border-border-default bg-surface/50 gap-2">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             <FileText size={15} className="text-accent-light shrink-0" />
             <h3 className="text-sm font-semibold text-text-primary truncate">
               Active Telemetry Reports ({selectedSpacecraft === 'ALL' ? 'All Missions' : selectedSpacecraft})
             </h3>
-            <span className="num font-bold text-xs text-accent-light rounded-full bg-accent/15 border border-accent/30 px-2 py-0.5 shrink-0">
-              {filteredRecentReports.length} Files
+            <span className="num shrink-0 rounded-full bg-page-soft px-2.5 py-0.5 text-xs font-semibold text-text-secondary">
+              {filteredRecentReports.length} {filteredRecentReports.length === 1 ? 'file' : 'files'}
             </span>
           </div>
 
@@ -948,7 +938,7 @@ export function UserHome() {
                       </span>
                     </td>
                     <td className="px-3 sm:px-4 py-2.5 sm:py-3">
-                      <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent-light uppercase">
+                      <span className="rounded-md bg-blue-soft px-2 py-0.5 text-[11px] font-semibold text-accent-light">
                         {categoryLabel(file.category) || 'GENERAL'}
                       </span>
                     </td>
@@ -1011,7 +1001,7 @@ export function UserHome() {
             <select
               value={selectedNoticeType}
               onChange={(e) => setSelectedNoticeType(e.target.value)}
-              className="rounded-lg border border-border-default bg-[#060c18] px-2.5 py-1 text-xs text-white outline-none focus:border-accent cursor-pointer"
+              className="rounded-lg border border-border-default bg-card px-2.5 py-1 text-xs text-text-primary outline-none focus:border-accent cursor-pointer"
             >
               <option value="ALL">All Types ({overview?.notices?.length || 0})</option>
               {availableNoticeTypes.map((type) => {
@@ -1030,7 +1020,7 @@ export function UserHome() {
             {filteredNotices.map((notice) => (
               <div key={notice.id} className="p-3.5 rounded-xl border border-border-default bg-surface/50 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="rounded bg-accent/15 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent-light uppercase">
+                  <span className="rounded-md bg-blue-soft px-2 py-0.5 text-[11px] font-semibold text-accent-light">
                     {String(notice.type || 'NOTICE').replace(/_/g, ' ')}
                   </span>
                   <span className="num text-[11px] text-text-dim">

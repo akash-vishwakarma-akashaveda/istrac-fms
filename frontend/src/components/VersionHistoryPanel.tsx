@@ -462,7 +462,7 @@ export function VersionHistoryPanel({
                               version.versionLabel || `v${version.versionNum}`
                             )
                           }
-                          className="h-3 w-3 rounded border-border-default text-accent focus:ring-accent accent-accent cursor-pointer"
+                          className="h-3 w-3 rounded border-border-default text-accent-light focus:ring-accent accent-accent cursor-pointer"
                         />
                         <span>{version.isVisible ? 'Show to regular members' : 'Hidden from regular members'}</span>
                       </label>
